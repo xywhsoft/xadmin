@@ -1,0 +1,157 @@
+<style>
+	.home_container {
+		max-width: 1200px;
+		margin: 0 auto;
+	}
+
+	.home_features {
+		background: white;
+		border-radius: 12px;
+		padding: 40px;
+		box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+		margin-bottom: 40px;
+		margin-top: 40px;
+	}
+
+	.home_features h2 {
+		font-size: 28px;
+		color: #333;
+		margin-bottom: 30px;
+		text-align: center;
+	}
+
+	.home_feature_list {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 20px;
+	}
+
+	.home_feature_item {
+		display: flex;
+		align-items: flex-start;
+		padding: 20px;
+		background: #f8f9fa;
+		border-radius: 8px;
+		border-left: 4px solid #667eea;
+	}
+
+	.home_feature_item .icon {
+		font-size: 28px;
+		margin-right: 15px;
+		color: #667eea;
+		flex-shrink: 0;
+	}
+
+	.home_feature_item h4 {
+		font-size: 16px;
+		color: #333;
+		margin-bottom: 8px;
+		font-weight: 600;
+	}
+
+	.home_feature_item p {
+		font-size: 14px;
+		color: #666;
+		line-height: 1.6;
+	}
+
+	.home_footer {
+		text-align: center;
+		color: #333;
+		margin-top: 60px;
+		padding-top: 20px;
+		border-top: 1px solid rgba(0, 0, 0, 0.2);
+	}
+
+	.home_footer p {
+		color: #555;
+	}
+
+	.home_footer p:last-child {
+		font-size: 12px;
+		margin-top: 10px;
+		color: #777;
+	}
+
+	.home_info_box {
+		background: rgba(255, 255, 255, 0.15);
+		color: #333;
+		padding: 20px;
+		border-radius: 8px;
+		margin-top: 20px;
+		border-left: 4px solid #333;
+	}
+
+	.home_info_box p {
+		color: #555;
+	}
+</style>
+
+
+
+<div class="home_container">
+	
+	<!-- 功能特性 -->
+	<div class="home_features">
+		<h2>✨ 核心功能</h2>
+		<div class="home_feature_list">
+			<div class="home_feature_item">
+				<div class="icon">🔌</div>
+				<div>
+					<h4>API 接口</h4>
+					<p>提供 RESTful API，推送日志简单、方便、高效</p>
+				</div>
+			</div>
+			<div class="home_feature_item">
+				<div class="icon">🎯</div>
+				<div>
+					<h4>服务隔离</h4>
+					<p>每个服务拥有独立数据库，完全隔离不同客户的数据</p>
+				</div>
+			</div>
+			<div class="home_feature_item">
+				<div class="icon">📊</div>
+				<div>
+					<h4>实时监控</h4>
+					<p>支持自动刷新和实时查看日志，及时发现问题</p>
+				</div>
+			</div>
+			<div class="home_feature_item">
+				<div class="icon">🎨</div>
+				<div>
+					<h4>日志分类</h4>
+					<p>支持多种日志类型，智能着色显示不同的日志级别</p>
+				</div>
+			</div>
+			<div class="home_feature_item">
+				<div class="icon">🛡️</div>
+				<div>
+					<h4>安全可靠</h4>
+					<p>使用预编译语句防止 SQL 注入，保障数据安全</p>
+				</div>
+			</div>
+			<div class="home_feature_item">
+				<div class="icon">⚡</div>
+				<div>
+					<h4>高效查询</h4>
+					<p>优化数据库结构，支持快速查询和日志搜索</p>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	<!-- 快速开始 -->
+	<div class="home_info_box">
+		<h3 style="margin-bottom: 15px;">快速开始</h3>
+		<p>1. 创建服务并获取服务 ID</p>
+		<p>2. 创建任务并获取任务 ID</p>
+		<p>3. 通过 API 推送日志</p>
+		<p>4. 在线查看和管理日志</p>
+	</div>
+	
+	<!-- 底部 -->
+	<div class="home_footer">
+		<p>xAdmin v1.0 © 2025 - 2026</p>
+		<p style="font-size: 12px; margin-top: 10px;">使用 C 语言开发的网站后台管理系统</p>
+	</div>
+</div>
