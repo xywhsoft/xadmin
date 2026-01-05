@@ -8,7 +8,6 @@ int ScanOptionFileProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iPat
 	if ( bDir == 0 ) {
 		// 只处理 .json 文件
 		str sExt = xrtPathGetExt(sPath, 0);
-		printf("option file : %s\n", sPath);
 		if ( (sExt != NULL) && (xrtStrComp(sExt, "json", 4, FALSE) == 0) ) {
 			// 解析 JSON 文件
 			xvalue tblConfig = xrtParseJSON_File(sPath);

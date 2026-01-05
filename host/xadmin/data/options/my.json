@@ -5,7 +5,7 @@
 			"style":	"",
 			"options":	[
 				{
-					"value":	"C",
+					"value":	"CC",
 					"title":	"后台入口地址",
 					"type":	"text",
 					"desc":	"为空则不使用",
@@ -17,7 +17,7 @@
 			"style":	"",
 			"options":	[
 				{
-					"value":	"D",
+					"value":	"DD",
 					"title":	"网站后台标题",
 					"type":	"text",
 					"desc":	"",
@@ -29,14 +29,14 @@
 			"style":	"",
 			"options":	[
 				{
-					"value":	"哈哈",
+					"value":	"哈哈哈哈",
 					"title":	"文本输入框",
 					"type":	"text",
 					"desc":	"",
 					"name":	"input_text"
 				}, {
 					"height":	"240px",
-					"value":	"黑黑",
+					"value":	"黑黑嘿嘿",
 					"title":	"文本域",
 					"type":	"textarea",
 					"desc":	"可以设置 height 属性决定表单高度",
