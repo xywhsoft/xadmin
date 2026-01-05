@@ -159,11 +159,12 @@
 }
 
 .pear-nav-tree .layui-nav-child dd a span {
-	margin-left: 26px !important;
+	margin-left: 4px !important;
 }
 
 .pear-nav-tree .layui-nav-child dd a i {
-	display: none;
+	display: inline-block;
+	margin-left: 32px;
 }
 
 .pear-nav-tree .layui-nav-hover dd a span {
