@@ -1,21 +1,203 @@
-<!-- 配置页面容器 -->
-<div id="optionContainer" style="padding: 16px;">
-	<div class="layui-card">
-		<div class="layui-card-header" id="optionTitle">配置管理</div>
-		<div class="layui-card-body">
-			<form class="layui-form" lay-filter="optionForm" id="optionForm">
-				<!-- 动态渲染的表单内容 -->
-			</form>
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>配置管理</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+	<style>
+	.option-page {
+		padding: 20px;
+		background: #f5f5f5;
+		height: 100vh;
+		box-sizing: border-box;
+	}
+	.option-panel {
+		display: flex;
+		flex-direction: column;
+		height: 100%;
+		background: #fff;
+		border-radius: 4px;
+		box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+		overflow: hidden;
+	}
+	.option-header {
+		flex-shrink: 0;
+		padding: 20px 24px;
+		border-bottom: 1px solid #f0f0f0;
+	}
+	.option-header h1 {
+		margin: 0;
+		font-size: 20px;
+		font-weight: 600;
+		color: #333;
+	}
+	.option-header p {
+		margin: 8px 0 0;
+		color: #666;
+		font-size: 14px;
+	}
+	.option-group {
+		margin-bottom: 20px;
+		background: #fff;
+		border-radius: 4px;
+		box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+		overflow: hidden;
+	}
+	.option-group-header {
+		padding: 16px 24px;
+		background: #fafafa;
+		border-bottom: 1px solid #f0f0f0;
+		font-size: 15px;
+		font-weight: 600;
+		color: #333;
+	}
+	.option-group-header i {
+		margin-right: 8px;
+		color: #333;
+	}
+	.option-group-body {
+		padding: 20px 24px;
+	}
+	.option-item {
+		display: flex;
+		align-items: flex-start;
+		padding: 16px 0;
+		border-bottom: 1px solid #f5f5f5;
+	}
+	.option-item:last-child {
+		border-bottom: none;
+		padding-bottom: 0;
+	}
+	.option-item:first-child {
+		padding-top: 0;
+	}
+	.option-item-label {
+		width: 160px;
+		flex-shrink: 0;
+		padding-right: 20px;
+	}
+	.option-item-label .title {
+		font-size: 14px;
+		color: #333;
+		line-height: 38px;
+	}
+	.option-item-label .desc {
+		font-size: 12px;
+		color: #999;
+		line-height: 1.5;
+		margin-top: 4px;
+	}
+	.option-item-control {
+		flex: 1;
+	}
+	.option-item-control .layui-input,
+	.option-item-control .layui-textarea {
+		width: 100%;
+	}
+	.option-item-control .layui-form-select {
+		width: 100%;
+	}
+	.option-range {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+	.option-range .layui-input {
+		flex: 1;
+	}
+	.option-range .range-sep {
+		color: #999;
+	}
+	.option-checklist {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 16px;
+	}
+	.option-checklist .layui-form-checkbox {
+		margin: 0 !important;
+	}
+	.option-combobox {
+		position: relative;
+		display: flex;
+	}
+	.option-combobox .layui-input {
+		flex: 1;
+		border-right: none;
+		border-radius: 2px 0 0 2px;
+	}
+	.option-combobox .combobox-btn {
+		width: 36px;
+		height: 36px;
+		line-height: 36px;
+		text-align: center;
+		border: 1px solid #e6e6e6;
+		background: #fff;
+		border-radius: 0 2px 2px 0;
+		cursor: pointer;
+		color: #999;
+	}
+	.option-combobox .combobox-btn:hover {
+		color: #1E9FFF;
+	}
+	.option-combobox .layui-dropdown {
+		width: 100%;
+	}
+	.option-combobox .layui-menu {
+		max-height: 300px;
+		overflow-y: auto;
+	}
+	.option-content {
+		flex: 1;
+		overflow-y: auto;
+		padding: 20px 24px;
+		background: #fafafa;
+	}
+	.option-content .option-group:last-child {
+		margin-bottom: 0;
+	}
+	.option-footer {
+		flex-shrink: 0;
+		padding: 15px 24px;
+		background: #fff;
+		border-top: 1px solid #f0f0f0;
+		text-align: right;
+	}
+	</style>
+</head>
+<body>
+	<div class="option-page">
+		<div class="option-panel layui-form" id="optionContainer">
+			<!-- 页面标题 -->
+			<div class="option-header" id="optionHeader">
+				<h1 id="optionTitle">配置管理</h1>
+				<p id="optionDesc"></p>
+			</div>
+			<!-- 配置分组容器 -->
+			<div class="option-content">
+				<div id="optionGroups"></div>
+			</div>
+			<!-- 保存按钮 -->
+			<div class="option-footer">
+				<button type="button" class="layui-btn layui-btn-normal" id="btnSave"><i class="layui-icon layui-icon-ok"></i> 保存配置</button>
+				<button type="button" class="layui-btn layui-btn-primary" id="btnReset"><i class="layui-icon layui-icon-refresh"></i> 重新加载</button>
+			</div>
 		</div>
 	</div>
-</div>
 
-<!-- 页面逻辑处理 -->
-<script>
-	layui.use(['form', 'layer'], function(){
+	<script src="/layui/layui.js"></script>
+	<script>
+	layui.use(['form', 'layer', 'laydate', 'dropdown'], function(){
 		var form = layui.form;
 		var layer = layui.layer;
+		var laydate = layui.laydate;
+		var dropdown = layui.dropdown;
 		var $ = layui.$;
+		
+		// 日期时间选择器实例缓存
+		var tblDateInstances = {};
 		
 		// 从 URL 获取文件名参数
 		var urlParams = new URLSearchParams(window.location.search);
@@ -36,36 +218,123 @@
 			var sTitle = option.title || sName;
 			var sType = option.type || 'text';
 			var sDesc = option.desc || '';
-			var sValue = option.value || '';
+			var sValue = option.value;
+			if ( sValue === undefined || sValue === null ) sValue = '';
 			
-			var sHTML = '<div class="layui-form-item">';
-			sHTML += '<label class="layui-form-label">' + sTitle + '</label>';
-			sHTML += '<div class="layui-input-block">';
+			var sHTML = '<div class="option-item">';
+			sHTML += '<div class="option-item-label">';
+			sHTML += '<div class="title">' + sTitle + '</div>';
+			if ( sDesc ) {
+				sHTML += '<div class="desc">' + sDesc + '</div>';
+			}
+			sHTML += '</div>';
+			sHTML += '<div class="option-item-control">';
 			
 			// 根据类型渲染不同控件
 			switch ( sType ) {
 				case 'textarea':
-					sHTML += '<textarea name="' + sName + '" class="layui-textarea">' + sValue + '</textarea>';
+					var sHeight = option.height || '';
+					var sStyle = sHeight ? ' style="height:' + sHeight + '"' : '';
+					sHTML += '<textarea name="' + sName + '" class="layui-textarea"' + sStyle + '>' + sValue + '</textarea>';
 					break;
+				
 				case 'switch':
-					var sChecked = (sValue === true || sValue === 'true' || sValue === '1') ? ' checked' : '';
+					var sChecked = (sValue === true || sValue === 'true' || sValue === '1' || sValue === 1) ? ' checked' : '';
 					sHTML += '<input type="checkbox" name="' + sName + '" lay-skin="switch" lay-text="开|关"' + sChecked + '>';
 					break;
+				
+				case 'int':
+					var iStep = option.step !== undefined ? option.step : 1;
+					var sMin = option.min !== undefined ? ' min="' + option.min + '"' : '';
+					var sMax = option.max !== undefined ? ' max="' + option.max + '"' : '';
+					sHTML += '<input type="number" name="' + sName + '" value="' + sValue + '" step="' + iStep + '"' + sMin + sMax + ' class="layui-input">';
+					break;
+				
+				case 'num':
+					var fStep = option.step !== undefined ? option.step : 0.01;
+					var sMin = option.min !== undefined ? ' min="' + option.min + '"' : '';
+					var sMax = option.max !== undefined ? ' max="' + option.max + '"' : '';
+					sHTML += '<input type="number" name="' + sName + '" value="' + sValue + '" step="' + fStep + '"' + sMin + sMax + ' class="layui-input">';
+					break;
+				
+				case 'intrange':
+				case 'numrange':
+					var arrVal = Array.isArray(sValue) ? sValue : [0, 0];
+					var fStep = (sType === 'intrange') ? 1 : 0.01;
+					sHTML += '<div class="option-range">';
+					sHTML += '<input type="number" name="' + sName + '_start" value="' + arrVal[0] + '" step="' + fStep + '" class="layui-input">';
+					sHTML += '<span class="range-sep">至</span>';
+					sHTML += '<input type="number" name="' + sName + '_end" value="' + arrVal[1] + '" step="' + fStep + '" class="layui-input">';
+					sHTML += '</div>';
+					break;
+				
+				case 'password':
+					sHTML += '<input type="password" name="' + sName + '" value="' + sValue + '" class="layui-input" autocomplete="new-password">';
+					break;
+				
+				case 'time':
+					sHTML += '<input type="text" name="' + sName + '" id="date_' + sName + '" value="' + sValue + '" class="layui-input" readonly>';
+					break;
+				
+				case 'date':
+					sHTML += '<input type="text" name="' + sName + '" id="date_' + sName + '" value="' + sValue + '" class="layui-input" readonly>';
+					break;
+				
+				case 'datetime':
+					sHTML += '<input type="text" name="' + sName + '" id="date_' + sName + '" value="' + sValue + '" class="layui-input" readonly>';
+					break;
+				
+				case 'timerange':
+				case 'daterange':
+				case 'datetimerange':
+					var arrVal = Array.isArray(sValue) ? sValue : ['', ''];
+					sHTML += '<div class="option-range" id="daterange_' + sName + '">';
+					sHTML += '<input type="text" name="' + sName + '_start" value="' + arrVal[0] + '" class="layui-input" readonly>';
+					sHTML += '<span class="range-sep">至</span>';
+					sHTML += '<input type="text" name="' + sName + '_end" value="' + arrVal[1] + '" class="layui-input" readonly>';
+					sHTML += '</div>';
+					break;
+				
+				case 'select':
+					var arrList = option.list || [];
+					sHTML += '<select name="' + sName + '" lay-filter="' + sName + '">';
+					for ( var k = 0; k < arrList.length; k++ ) {
+						var item = arrList[k];
+						var sSelected = (item.value === sValue) ? ' selected' : '';
+						sHTML += '<option value="' + item.value + '"' + sSelected + '>' + item.label + '</option>';
+					}
+					sHTML += '</select>';
+					break;
+				
+				case 'combobox':
+					var arrList = option.list || [];
+					sHTML += '<div class="option-combobox" id="combobox_' + sName + '">';
+					sHTML += '<input type="text" name="' + sName + '" value="' + sValue + '" class="layui-input" autocomplete="off">';
+					sHTML += '<div class="combobox-btn"><i class="layui-icon layui-icon-down"></i></div>';
+					sHTML += '</div>';
+					break;
+				
+				case 'checklist':
+					var arrList = option.list || [];
+					var arrChecked = Array.isArray(sValue) ? sValue : [];
+					sHTML += '<div class="option-checklist">';
+					for ( var k = 0; k < arrList.length; k++ ) {
+						var item = arrList[k];
+						var bChecked = arrChecked.some(function(v) { return v === item.value; });
+						var sChecked = bChecked ? ' checked' : '';
+						sHTML += '<input type="checkbox" name="' + sName + '" value="' + item.value + '" title="' + item.label + '"' + sChecked + '>';
+					}
+					sHTML += '</div>';
+					break;
+				
 				case 'number':
 					sHTML += '<input type="number" name="' + sName + '" value="' + sValue + '" class="layui-input">';
 					break;
-				case 'password':
-					sHTML += '<input type="password" name="' + sName + '" value="' + sValue + '" class="layui-input">';
-					break;
+				
 				case 'text':
 				default:
 					sHTML += '<input type="text" name="' + sName + '" value="' + sValue + '" class="layui-input">';
 					break;
-			}
-			
-			// 如果有描述，添加蓝色叹号提示
-			if ( sDesc ) {
-				sHTML += ' <i class="layui-icon layui-icon-about" style="color: #1E9FFF; cursor: pointer; font-size: 18px; margin-left: 8px; vertical-align: middle;" title="' + sDesc + '"></i>';
 			}
 			
 			sHTML += '</div>';
@@ -74,55 +343,150 @@
 			return sHTML;
 		}
 		
+		// 初始化日期时间选择器
+		function initDatePickers(arrClassList)
+		{
+			for ( var i = 0; i < arrClassList.length; i++ ) {
+				var arrOptions = arrClassList[i].options || [];
+				for ( var j = 0; j < arrOptions.length; j++ ) {
+					var opt = arrOptions[j];
+					var sName = opt.name;
+					var sType = opt.type;
+					
+					if ( sType === 'time' ) {
+						laydate.render({
+							elem: '#date_' + sName,
+							type: 'time'
+						});
+					} else if ( sType === 'date' ) {
+						laydate.render({
+							elem: '#date_' + sName,
+							type: 'date'
+						});
+					} else if ( sType === 'datetime' ) {
+						laydate.render({
+							elem: '#date_' + sName,
+							type: 'datetime'
+						});
+					} else if ( sType === 'timerange' ) {
+						laydate.render({
+							elem: '#daterange_' + sName + ' input[name="' + sName + '_start"]',
+							type: 'time'
+						});
+						laydate.render({
+							elem: '#daterange_' + sName + ' input[name="' + sName + '_end"]',
+							type: 'time'
+						});
+					} else if ( sType === 'daterange' ) {
+						laydate.render({
+							elem: '#daterange_' + sName + ' input[name="' + sName + '_start"]',
+							type: 'date'
+						});
+						laydate.render({
+							elem: '#daterange_' + sName + ' input[name="' + sName + '_end"]',
+							type: 'date'
+						});
+					} else if ( sType === 'datetimerange' ) {
+						laydate.render({
+							elem: '#daterange_' + sName + ' input[name="' + sName + '_start"]',
+							type: 'datetime'
+						});
+						laydate.render({
+							elem: '#daterange_' + sName + ' input[name="' + sName + '_end"]',
+							type: 'datetime'
+						});
+					}
+				}
+			}
+		}
+		
+		// 初始化组合框
+		function initComboboxes(arrClassList)
+		{
+			for ( var i = 0; i < arrClassList.length; i++ ) {
+				var arrOptions = arrClassList[i].options || [];
+				for ( var j = 0; j < arrOptions.length; j++ ) {
+					var opt = arrOptions[j];
+					if ( opt.type === 'combobox' ) {
+						(function(opt) {
+							var sName = opt.name;
+							var arrList = opt.list || [];
+							var arrData = [];
+							for ( var k = 0; k < arrList.length; k++ ) {
+								arrData.push({
+									title: arrList[k].label,
+									id: arrList[k].value
+								});
+							}
+							dropdown.render({
+								elem: '#combobox_' + sName + ' .combobox-btn',
+								data: arrData,
+								align: 'right',
+								style: 'width: ' + $('#combobox_' + sName).outerWidth() + 'px; box-sizing: border-box;',
+								click: function(item) {
+									$('[name="' + sName + '"]').val(item.id);
+								}
+							});
+						})(opt);
+					}
+				}
+			}
+		}
+		
 		// 渲染配置表单
 		function renderOptionForm(data)
 		{
 			tblConfigData = data;
 			
-			// 设置标题
-			var sNamespace = data.namespace || '配置';
-			$('#optionTitle').text(sNamespace + ' 配置');
+			// 设置页面标题
+			var sTitle = data.title || data.namespace || '配置管理';
+			$('#optionTitle').text(sTitle);
+			document.title = sTitle;
 			
-			var sFormHTML = '';
+			// 设置描述
+			if ( data.desc ) {
+				$('#optionDesc').text(data.desc).show();
+			} else {
+				$('#optionDesc').hide();
+			}
+			
+			var sGroupsHTML = '';
 			var arrClassList = data.classList || [];
 			
 			// 遍历分类
 			for ( var i = 0; i < arrClassList.length; i++ ) {
 				var tblClass = arrClassList[i];
-				var sClassTitle = tblClass.title || '';
-				var sClassStyle = tblClass.style || '';
+				var sClassTitle = tblClass.title || '配置项';
+				var sClassIcon = tblClass.icon || 'layui-icon-set';
 				var arrOptions = tblClass.options || [];
 				
-				// 分类标题
-				if ( sClassTitle ) {
-					sFormHTML += '<div class="layui-form-item" style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px;' + sClassStyle + '">';
-					sFormHTML += '<div style="font-size: 16px; font-weight: bold; color: #333;">' + sClassTitle + '</div>';
-					sFormHTML += '</div>';
-				}
+				sGroupsHTML += '<div class="option-group">';
+				sGroupsHTML += '<div class="option-group-header"><i class="layui-icon ' + sClassIcon + '"></i>' + sClassTitle + '</div>';
+				sGroupsHTML += '<div class="option-group-body">';
 				
 				// 遍历配置项
 				for ( var j = 0; j < arrOptions.length; j++ ) {
-					sFormHTML += renderFormItem(arrOptions[j]);
+					sGroupsHTML += renderFormItem(arrOptions[j]);
 				}
+				
+				sGroupsHTML += '</div>';
+				sGroupsHTML += '</div>';
 			}
 			
-			// 添加提交按钮
-			sFormHTML += '<div class="layui-form-item" style="margin-top: 30px;">';
-			sFormHTML += '<div class="layui-input-block">';
-			sFormHTML += '<button type="button" class="layui-btn" lay-submit lay-filter="saveOption">保存配置</button>';
-			sFormHTML += '<button type="reset" class="layui-btn layui-btn-primary">重置</button>';
-			sFormHTML += '</div>';
-			sFormHTML += '</div>';
-			
-			$('#optionForm').html(sFormHTML);
+			$('#optionGroups').html(sGroupsHTML);
 			form.render();
+			
+			// 初始化日期时间选择器
+			initDatePickers(arrClassList);
+			
+			// 初始化组合框
+			initComboboxes(arrClassList);
 		}
 		
 		// 加载配置数据
 		function loadOptionData()
 		{
 			var loading = layer.load(2);
-			
 			fetch('/option?file=' + encodeURIComponent(sFileName))
 			.then(response => response.json())
 			.then(result => {
@@ -149,17 +513,82 @@
 			for ( var i = 0; i < arrClassList.length; i++ ) {
 				var arrOptions = arrClassList[i].options || [];
 				for ( var j = 0; j < arrOptions.length; j++ ) {
-					var sName = arrOptions[j].name;
-					var sType = arrOptions[j].type || 'text';
+					var opt = arrOptions[j];
+					var sName = opt.name;
+					var sType = opt.type || 'text';
 					
-					if ( sType === 'switch' ) {
-						// 开关类型
-						var elem = $('input[name="' + sName + '"]');
-						tblFormData[sName] = elem.prop('checked');
-					} else {
-						// 其他类型
-						var elem = $('[name="' + sName + '"]');
-						tblFormData[sName] = elem.val();
+					switch ( sType ) {
+						case 'switch':
+							tblFormData[sName] = $('input[name="' + sName + '"]').prop('checked');
+							break;
+						
+						case 'int':
+							tblFormData[sName] = parseInt($('[name="' + sName + '"]').val()) || 0;
+							break;
+						
+						case 'num':
+						case 'number':
+							tblFormData[sName] = parseFloat($('[name="' + sName + '"]').val()) || 0;
+							break;
+						
+						case 'intrange':
+							tblFormData[sName] = [
+								parseInt($('[name="' + sName + '_start"]').val()) || 0,
+								parseInt($('[name="' + sName + '_end"]').val()) || 0
+							];
+							break;
+						
+						case 'numrange':
+							tblFormData[sName] = [
+								parseFloat($('[name="' + sName + '_start"]').val()) || 0,
+								parseFloat($('[name="' + sName + '_end"]').val()) || 0
+							];
+							break;
+						
+						case 'timerange':
+						case 'daterange':
+						case 'datetimerange':
+							tblFormData[sName] = [
+								$('[name="' + sName + '_start"]').val() || '',
+								$('[name="' + sName + '_end"]').val() || ''
+							];
+							break;
+						
+						case 'select':
+							// 保持原始类型
+							var sVal = $('[name="' + sName + '"]').val();
+							var arrList = opt.list || [];
+							for ( var k = 0; k < arrList.length; k++ ) {
+								if ( String(arrList[k].value) === sVal ) {
+									tblFormData[sName] = arrList[k].value;
+									break;
+								}
+							}
+							if ( tblFormData[sName] === undefined ) {
+								tblFormData[sName] = sVal;
+							}
+							break;
+						
+						case 'checklist':
+							var arrChecked = [];
+							var arrList = opt.list || [];
+							$('input[name="' + sName + '"]:checked').each(function() {
+								var sVal = $(this).val();
+								// 尝试还原原始类型
+								for ( var k = 0; k < arrList.length; k++ ) {
+									if ( String(arrList[k].value) === sVal ) {
+										arrChecked.push(arrList[k].value);
+										return;
+									}
+								}
+								arrChecked.push(sVal);
+							});
+							tblFormData[sName] = arrChecked;
+							break;
+						
+						default:
+							tblFormData[sName] = $('[name="' + sName + '"]').val() || '';
+							break;
 					}
 				}
 			}
@@ -168,7 +597,7 @@
 		}
 		
 		// 保存配置
-		form.on('submit(saveOption)', function(data){
+		$('#btnSave').on('click', function(){
 			var tblFormData = collectFormData();
 			var loading = layer.load(2);
 			
@@ -200,7 +629,14 @@
 			return false;
 		});
 		
+		// 重新加载
+		$('#btnReset').on('click', function(){
+			loadOptionData();
+		});
+		
 		// 初始化加载
 		loadOptionData();
 	});
-</script>
+	</script>
+</body>
+</html>

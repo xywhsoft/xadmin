@@ -72,6 +72,13 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/view/auth/menu/add/category",		Request_View_Auth_Menu_Add_Category	, TRUE ,	TRUE );
 	AddStaticRouteHTTP("/view/auth/menu/edit",				Request_View_Auth_Menu_Edit			, TRUE ,	TRUE );
 	
+	// 添加 HTTP 静态路由 - Trace (调试接口)
+	AddStaticRouteHTTP("/trace",							Request_Trace_Overview				, FALSE,	TRUE );
+	AddStaticRouteHTTP("/trace/session",					Request_Trace_Session				, FALSE,	TRUE );
+	AddStaticRouteHTTP("/trace/option",						Request_Trace_Option				, FALSE,	TRUE );
+	AddStaticRouteHTTP("/trace/auth",						Request_Trace_Auth					, FALSE,	TRUE );
+	AddStaticRouteHTTP("/trace/route",						Request_Trace_Route					, FALSE,	TRUE );
+	
 }
 
 

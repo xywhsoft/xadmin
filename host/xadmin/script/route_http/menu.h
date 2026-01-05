@@ -7,7 +7,7 @@ void Request_View_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, st
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		
-		LoadPage(c, 200, HTTP_CT_HTML, "auth/menu.html");
+		LoadPage(c, 200, HTTP_CT_HTML, "option/menu.html");
 		
 	} else {
 		
@@ -23,7 +23,7 @@ void Request_View_Auth_Menu_Add_Category(XS_ServerObject objServer, XS_HostObjec
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		
-		LoadPage(c, 200, HTTP_CT_HTML, "auth/menu_add_category.html");
+		LoadPage(c, 200, HTTP_CT_HTML, "option/menu_add_category.html");
 		
 	} else {
 		
@@ -39,7 +39,7 @@ void Request_View_Auth_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		
-		LoadPage(c, 200, HTTP_CT_HTML, "auth/menu_add.html");
+		LoadPage(c, 200, HTTP_CT_HTML, "option/menu_add.html");
 		
 	} else {
 		
@@ -92,7 +92,7 @@ void Request_View_Auth_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHos
 		sqlite3_reset(stmt_menu_get);
 		
 		// 根据类型选择模板
-		str sTemplate = (iType == 0) ? "auth/menu_edit_category.html" : "auth/menu_edit.html";
+		str sTemplate = (iType == 0) ? "option/menu_edit_category.html" : "option/menu_edit.html";
 		
 		// 构建页面并返回
 		size_t iRetSize = 0;

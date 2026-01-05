@@ -139,7 +139,7 @@ bool Option_SaveFile(str sFileName, xvalue tblFormData)
 	xvoUnref(tblConfig);
 	xrtFree(sFilePath);
 	
-	return (iRet == 0);
+	return iRet;
 }
 
 

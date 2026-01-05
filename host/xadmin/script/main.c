@@ -58,6 +58,7 @@
 #include "route_http/auth.h"
 #include "route_http/option.h"
 #include "route_http/menu.h"
+#include "route_http/trace.h"
 
 
 
