@@ -1,0 +1,206 @@
+<!-- 配置页面容器 -->
+<div id="optionContainer" style="padding: 16px;">
+	<div class="layui-card">
+		<div class="layui-card-header" id="optionTitle">配置管理</div>
+		<div class="layui-card-body">
+			<form class="layui-form" lay-filter="optionForm" id="optionForm">
+				<!-- 动态渲染的表单内容 -->
+			</form>
+		</div>
+	</div>
+</div>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['form', 'layer'], function(){
+		var form = layui.form;
+		var layer = layui.layer;
+		var $ = layui.$;
+		
+		// 从 URL 获取文件名参数
+		var urlParams = new URLSearchParams(window.location.search);
+		var sFileName = urlParams.get('file');
+		
+		if ( !sFileName ) {
+			layer.msg('缺少 file 参数', {icon: 2});
+			return;
+		}
+		
+		// 存储配置数据
+		var tblConfigData = null;
+		
+		// 根据类型生成表单控件
+		function renderFormItem(option)
+		{
+			var sName = option.name || '';
+			var sTitle = option.title || sName;
+			var sType = option.type || 'text';
+			var sDesc = option.desc || '';
+			var sValue = option.value || '';
+			
+			var sHTML = '<div class="layui-form-item">';
+			sHTML += '<label class="layui-form-label">' + sTitle + '</label>';
+			sHTML += '<div class="layui-input-block">';
+			
+			// 根据类型渲染不同控件
+			switch ( sType ) {
+				case 'textarea':
+					sHTML += '<textarea name="' + sName + '" class="layui-textarea">' + sValue + '</textarea>';
+					break;
+				case 'switch':
+					var sChecked = (sValue === true || sValue === 'true' || sValue === '1') ? ' checked' : '';
+					sHTML += '<input type="checkbox" name="' + sName + '" lay-skin="switch" lay-text="开|关"' + sChecked + '>';
+					break;
+				case 'number':
+					sHTML += '<input type="number" name="' + sName + '" value="' + sValue + '" class="layui-input">';
+					break;
+				case 'password':
+					sHTML += '<input type="password" name="' + sName + '" value="' + sValue + '" class="layui-input">';
+					break;
+				case 'text':
+				default:
+					sHTML += '<input type="text" name="' + sName + '" value="' + sValue + '" class="layui-input">';
+					break;
+			}
+			
+			// 如果有描述，添加蓝色叹号提示
+			if ( sDesc ) {
+				sHTML += ' <i class="layui-icon layui-icon-about" style="color: #1E9FFF; cursor: pointer; font-size: 18px; margin-left: 8px; vertical-align: middle;" title="' + sDesc + '"></i>';
+			}
+			
+			sHTML += '</div>';
+			sHTML += '</div>';
+			
+			return sHTML;
+		}
+		
+		// 渲染配置表单
+		function renderOptionForm(data)
+		{
+			tblConfigData = data;
+			
+			// 设置标题
+			var sNamespace = data.namespace || '配置';
+			$('#optionTitle').text(sNamespace + ' 配置');
+			
+			var sFormHTML = '';
+			var arrClassList = data.classList || [];
+			
+			// 遍历分类
+			for ( var i = 0; i < arrClassList.length; i++ ) {
+				var tblClass = arrClassList[i];
+				var sClassTitle = tblClass.title || '';
+				var sClassStyle = tblClass.style || '';
+				var arrOptions = tblClass.options || [];
+				
+				// 分类标题
+				if ( sClassTitle ) {
+					sFormHTML += '<div class="layui-form-item" style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px;' + sClassStyle + '">';
+					sFormHTML += '<div style="font-size: 16px; font-weight: bold; color: #333;">' + sClassTitle + '</div>';
+					sFormHTML += '</div>';
+				}
+				
+				// 遍历配置项
+				for ( var j = 0; j < arrOptions.length; j++ ) {
+					sFormHTML += renderFormItem(arrOptions[j]);
+				}
+			}
+			
+			// 添加提交按钮
+			sFormHTML += '<div class="layui-form-item" style="margin-top: 30px;">';
+			sFormHTML += '<div class="layui-input-block">';
+			sFormHTML += '<button type="button" class="layui-btn" lay-submit lay-filter="saveOption">保存配置</button>';
+			sFormHTML += '<button type="reset" class="layui-btn layui-btn-primary">重置</button>';
+			sFormHTML += '</div>';
+			sFormHTML += '</div>';
+			
+			$('#optionForm').html(sFormHTML);
+			form.render();
+		}
+		
+		// 加载配置数据
+		function loadOptionData()
+		{
+			var loading = layer.load(2);
+			
+			fetch('/option?file=' + encodeURIComponent(sFileName))
+			.then(response => response.json())
+			.then(result => {
+				layer.close(loading);
+				if ( result.result ) {
+					renderOptionForm(result.data);
+				} else {
+					layer.msg(result.message || '加载配置失败', {icon: 2});
+				}
+			})
+			.catch(error => {
+				layer.close(loading);
+				layer.msg('请求失败', {icon: 2});
+				console.error('Error:', error);
+			});
+		}
+		
+		// 收集表单数据
+		function collectFormData()
+		{
+			var tblFormData = {};
+			var arrClassList = tblConfigData.classList || [];
+			
+			for ( var i = 0; i < arrClassList.length; i++ ) {
+				var arrOptions = arrClassList[i].options || [];
+				for ( var j = 0; j < arrOptions.length; j++ ) {
+					var sName = arrOptions[j].name;
+					var sType = arrOptions[j].type || 'text';
+					
+					if ( sType === 'switch' ) {
+						// 开关类型
+						var elem = $('input[name="' + sName + '"]');
+						tblFormData[sName] = elem.prop('checked');
+					} else {
+						// 其他类型
+						var elem = $('[name="' + sName + '"]');
+						tblFormData[sName] = elem.val();
+					}
+				}
+			}
+			
+			return tblFormData;
+		}
+		
+		// 保存配置
+		form.on('submit(saveOption)', function(data){
+			var tblFormData = collectFormData();
+			var loading = layer.load(2);
+			
+			fetch('/option', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					file: sFileName,
+					data: tblFormData
+				})
+			})
+			.then(response => response.json())
+			.then(result => {
+				layer.close(loading);
+				if ( result.result ) {
+					layer.msg(result.message || '保存成功', {icon: 1});
+				} else {
+					layer.msg(result.message || '保存失败', {icon: 2});
+				}
+			})
+			.catch(error => {
+				layer.close(loading);
+				layer.msg('请求失败', {icon: 2});
+				console.error('Error:', error);
+			});
+			
+			return false;
+		});
+		
+		// 初始化加载
+		loadOptionData();
+	});
+</script>

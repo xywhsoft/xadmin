@@ -43,6 +43,12 @@
 // 后台功能模块
 #include "module/admin.h"
 
+// 配置管理模块
+#include "module/option.h"
+
+// 菜单管理模块
+#include "module/menu.h"
+
 
 
 // 路由调用 - HTTP
@@ -50,6 +56,8 @@
 #include "route_http/login.h"
 #include "route_http/logs.h"
 #include "route_http/auth.h"
+#include "route_http/option.h"
+#include "route_http/menu.h"
 
 
 
@@ -97,6 +105,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	// 初始化日志记录模块
 	Logs_Init();
 	
+	// 初始化配置管理模块
+	Option_Init();
+	
+	// 初始化菜单管理模块
+	Menu_Init();
+	
 }
 
 
@@ -104,6 +118,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 // 服务卸载
 void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 {
+	
+	// 卸载菜单管理模块
+	Menu_Unit();
+	
+	// 卸载配置管理模块
+	Option_Unit();
 	
 	// 卸载后台功能模块
 	Admin_Unit();

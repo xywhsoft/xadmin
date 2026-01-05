@@ -1,6 +1,7 @@
 
 
 
+
 // 初始化 HTTP 路由表
 void RouteHTTP_Init()
 {
@@ -59,6 +60,16 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/auth/uris",						Request_Auth_URIs					, TRUE ,	TRUE );
 	AddStaticRouteHTTP("/view/auth/uris",					Request_View_Auth_URIs				, TRUE ,	TRUE );
 	AddStaticRouteHTTP("/view/auth/uris/edit",				Request_View_Auth_URIs_Edit			, TRUE ,	TRUE );
+	
+	// 添加 HTTP 静态路由 - Option
+	AddStaticRouteHTTP("/option",							Request_Option						, TRUE ,	TRUE );
+	AddStaticRouteHTTP("/view/option",						Request_View_Option					, TRUE ,	TRUE );
+	
+	// 添加 HTTP 静态路由 - Auth - Menu
+	AddStaticRouteHTTP("/auth/menu",						Request_Auth_Menu					, TRUE ,	TRUE );
+	AddStaticRouteHTTP("/view/auth/menu",					Request_View_Auth_Menu				, TRUE ,	TRUE );
+	AddStaticRouteHTTP("/view/auth/menu/add",				Request_View_Auth_Menu_Add			, TRUE ,	TRUE );
+	AddStaticRouteHTTP("/view/auth/menu/edit",				Request_View_Auth_Menu_Edit			, TRUE ,	TRUE );
 	
 }
 

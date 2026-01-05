@@ -1,0 +1,189 @@
+<div class="layui-fluid">
+	<div class="layui-row layui-col-space15">
+		<div class="layui-col-md12">
+			<div class="layui-card">
+				<div class="layui-card-header">
+					<button class="layui-btn layui-btn-sm" id="btnAdd">
+						<i class="layui-icon layui-icon-add-1"></i> 添加菜单
+					</button>
+					<button class="layui-btn layui-btn-sm layui-btn-primary" id="btnRefresh">
+						<i class="layui-icon layui-icon-refresh"></i> 刷新
+					</button>
+				</div>
+				<div class="layui-card-body">
+					<table id="menuTable" lay-filter="menuTable"></table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- 操作按钮模板 -->
+<script type="text/html" id="menuTableBar">
+	<a class="layui-btn layui-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i>编辑</a>
+	<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete"><i class="layui-icon layui-icon-delete"></i>删除</a>
+</script>
+
+<!-- 类型模板 -->
+<script type="text/html" id="typeTpl">
+	{{# if(d.type === 0){ }}
+		<span class="layui-badge layui-bg-blue">目录</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-green">菜单</span>
+	{{# } }}
+</script>
+
+<!-- 可见状态模板 -->
+<script type="text/html" id="visibleTpl">
+	{{# if(d.visible === 1){ }}
+		<span class="layui-badge layui-bg-green">显示</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-gray">隐藏</span>
+	{{# } }}
+</script>
+
+<!-- 状态模板 -->
+<script type="text/html" id="statusTpl">
+	{{# if(d.status === 1){ }}
+		<span class="layui-badge layui-bg-green">启用</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-red">禁用</span>
+	{{# } }}
+</script>
+
+<script>
+layui.use(['table', 'layer', 'treeTable'], function(){
+	var table = layui.table;
+	var layer = layui.layer;
+	var treeTable = layui.treeTable;
+	var $ = layui.$;
+	
+	// 菜单数据
+	var arrMenuData = [];
+	
+	// 加载菜单数据
+	function loadMenuData()
+	{
+		var loading = layer.load(2);
+		
+		fetch('/auth/menu')
+		.then(response => response.json())
+		.then(result => {
+			layer.close(loading);
+			if ( result.result ) {
+				arrMenuData = result.data || [];
+				renderMenuTable();
+			} else {
+				layer.msg(result.message || '加载失败', {icon: 2});
+			}
+		})
+		.catch(error => {
+			layer.close(loading);
+			layer.msg('请求失败', {icon: 2});
+			console.error('Error:', error);
+		});
+	}
+	
+	// 渲染菜单表格
+	function renderMenuTable()
+	{
+		// 使用 treeTable 渲染树形表格
+		treeTable.render({
+			elem: '#menuTable',
+			data: arrMenuData,
+			tree: {
+				customName: {
+					children: 'children',
+					name: 'title',
+					id: 'id',
+					pid: 'parent'
+				},
+				view: {
+					showIcon: false,
+					indent: 20
+				}
+			},
+			cols: [[
+				{field: 'title', title: '菜单标题', minWidth: 200},
+				{field: 'icon', title: '图标', width: 200, templet: function(d){
+					if ( d.icon ) {
+						return '<i class="' + d.icon + '"></i> ' + d.icon;
+					}
+					return '-';
+				}},
+				{field: 'type', title: '类型', width: 80, align: 'center', templet: '#typeTpl'},
+				{field: 'sort', title: '排序', width: 80, align: 'center'},
+				{field: 'href', title: '链接地址', minWidth: 150, templet: function(d){
+					return d.href || '-';
+				}},
+				{field: 'visible', title: '可见', width: 80, align: 'center', templet: '#visibleTpl'},
+				{field: 'status', title: '状态', width: 80, align: 'center', templet: '#statusTpl'},
+				{fixed: 'right', title: '操作', width: 150, align: 'center', toolbar: '#menuTableBar'}
+			]],
+			page: false
+		});
+	}
+	
+	// 监听工具栏
+	treeTable.on('tool(menuTable)', function(obj){
+		var data = obj.data;
+		var event = obj.event;
+		
+		if ( event === 'edit' ) {
+			// 编辑
+			layer.open({
+				type: 2,
+				title: '编辑菜单',
+				content: 'view/auth/menu/edit?id=' + data.id,
+				area: ['700px', '600px'],
+				end: function(){
+					loadMenuData();
+				}
+			});
+		} else if ( event === 'delete' ) {
+			// 删除
+			layer.confirm('确定要删除菜单【' + data.title + '】吗？', function(index){
+				layer.close(index);
+				
+				fetch('/auth/menu?id=' + data.id, {
+					method: 'DELETE'
+				})
+				.then(response => response.json())
+				.then(result => {
+					if ( result.result ) {
+						layer.msg(result.message || '删除成功', {icon: 1});
+						loadMenuData();
+					} else {
+						layer.msg(result.message || '删除失败', {icon: 2});
+					}
+				})
+				.catch(error => {
+					layer.msg('请求失败', {icon: 2});
+					console.error('Error:', error);
+				});
+			});
+		}
+	});
+	
+	// 添加按钮
+	$('#btnAdd').on('click', function(){
+		layer.open({
+			type: 2,
+			title: '添加菜单',
+			content: 'view/auth/menu/add',
+			area: ['700px', '600px'],
+			end: function(){
+				loadMenuData();
+			}
+		});
+	});
+	
+	// 刷新按钮
+	$('#btnRefresh').on('click', function(){
+		loadMenuData();
+	});
+	
+	// 初始化加载
+	loadMenuData();
+});
+</script>

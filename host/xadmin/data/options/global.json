@@ -1,0 +1,31 @@
+{
+	"namespace": "global",
+	"classList": [
+		{
+			"title": "全局配置",
+			"style": "",
+			"options": [
+				{
+					"name": "cp_url",
+					"title": "后台入口地址",
+					"type": "text",
+					"desc": "为空则不使用",
+					"value": ""
+				}
+			]
+		},
+		{
+			"title": "其他配置",
+			"style": "",
+			"options": [
+				{
+					"name": "adminTitle",
+					"title": "网站后台标题",
+					"type": "text",
+					"desc": "",
+					"value": ""
+				}
+			]
+		}
+	]
+}

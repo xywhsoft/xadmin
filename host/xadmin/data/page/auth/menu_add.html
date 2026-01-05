@@ -1,0 +1,190 @@
+<!-- 添加菜单模板 -->
+<div style="padding: 20px;">
+	<form class="layui-form" lay-filter="menuAddForm">
+		<div class="layui-form-item">
+			<label class="layui-form-label">上级菜单</label>
+			<div class="layui-input-block">
+				<select name="parent" id="parentSelect" lay-filter="parent">
+					<option value="0">顶级菜单</option>
+				</select>
+			</div>
+		</div>
+		
+		<div class="layui-form-item">
+			<label class="layui-form-label">菜单标题</label>
+			<div class="layui-input-block">
+				<input type="text" name="title" required lay-verify="required" placeholder="请输入菜单标题" class="layui-input">
+			</div>
+		</div>
+		
+		<div class="layui-form-item">
+			<label class="layui-form-label">菜单图标</label>
+			<div class="layui-input-block">
+				<input type="text" name="icon" placeholder="如：layui-icon layui-icon-home" class="layui-input">
+			</div>
+		</div>
+		
+		<div class="layui-form-item">
+			<label class="layui-form-label">菜单类型</label>
+			<div class="layui-input-block">
+				<input type="radio" name="type" value="0" title="目录">
+				<input type="radio" name="type" value="1" title="菜单" checked>
+			</div>
+		</div>
+		
+		<div class="layui-form-item" id="hrefItem">
+			<label class="layui-form-label">链接地址</label>
+			<div class="layui-input-block">
+				<input type="text" name="href" placeholder="如：view/home" class="layui-input">
+			</div>
+		</div>
+		
+		<div class="layui-form-item" id="openTypeItem">
+			<label class="layui-form-label">打开方式</label>
+			<div class="layui-input-block">
+				<select name="openType">
+					<option value="_component">组件（_component）</option>
+					<option value="_iframe">内嵌页面（_iframe）</option>
+					<option value="_blank">新窗口（_blank）</option>
+				</select>
+			</div>
+		</div>
+		
+		<div class="layui-form-item">
+			<label class="layui-form-label">排序值</label>
+			<div class="layui-input-block">
+				<input type="number" name="sort" value="0" placeholder="数值越小越靠前" class="layui-input">
+			</div>
+		</div>
+		
+		<div class="layui-form-item">
+			<label class="layui-form-label">是否可见</label>
+			<div class="layui-input-block">
+				<input type="checkbox" name="visible" lay-skin="switch" lay-text="显示|隐藏" checked>
+			</div>
+		</div>
+		
+		<div class="layui-form-item">
+			<label class="layui-form-label">菜单状态</label>
+			<div class="layui-input-block">
+				<input type="checkbox" name="status" lay-skin="switch" lay-text="启用|禁用" checked>
+			</div>
+		</div>
+		
+		<div class="layui-form-item">
+			<label class="layui-form-label">权限标识</label>
+			<div class="layui-input-block">
+				<input type="text" name="perms" placeholder="可选，权限标识" class="layui-input">
+			</div>
+		</div>
+		
+		<div class="layui-form-item layui-form-text">
+			<label class="layui-form-label">备注</label>
+			<div class="layui-input-block">
+				<textarea name="remark" placeholder="可选，备注信息" class="layui-textarea"></textarea>
+			</div>
+		</div>
+		
+		<div class="layui-form-item">
+			<div class="layui-input-block">
+				<button type="button" class="layui-btn" lay-submit lay-filter="submitMenuAdd">提交</button>
+				<button type="reset" class="layui-btn layui-btn-primary">重置</button>
+			</div>
+		</div>
+	</form>
+</div>
+
+<script>
+layui.use(['form', 'layer'], function(){
+	var form = layui.form;
+	var layer = layui.layer;
+	var $ = layui.$;
+	
+	// 加载菜单列表（用于选择上级菜单）
+	function loadParentMenus()
+	{
+		fetch('/auth/menu')
+		.then(response => response.json())
+		.then(result => {
+			if ( result.result ) {
+				var arrData = result.data || [];
+				var sOptions = '<option value="0">顶级菜单</option>';
+				
+				// 只显示目录类型的菜单作为上级
+				for ( var i = 0; i < arrData.length; i++ ) {
+					var item = arrData[i];
+					if ( item.type === 0 ) {
+						sOptions += '<option value="' + item.id + '">' + item.title + '</option>';
+					}
+				}
+				
+				$('#parentSelect').html(sOptions);
+				form.render('select');
+			}
+		})
+		.catch(error => {
+			console.error('Error:', error);
+		});
+	}
+	
+	// 监听类型变化
+	form.on('radio(type)', function(data){
+		if ( data.value === '0' ) {
+			$('#hrefItem').hide();
+			$('#openTypeItem').hide();
+		} else {
+			$('#hrefItem').show();
+			$('#openTypeItem').show();
+		}
+	});
+	
+	// 提交表单
+	form.on('submit(submitMenuAdd)', function(data){
+		var tblFormData = {
+			parent: parseInt(data.field.parent) || 0,
+			title: data.field.title,
+			icon: data.field.icon || '',
+			type: parseInt(data.field.type) || 1,
+			href: data.field.href || '',
+			openType: data.field.openType || '_component',
+			sort: parseInt(data.field.sort) || 0,
+			visible: data.field.visible === 'on' ? 1 : 0,
+			status: data.field.status === 'on' ? 1 : 0,
+			perms: data.field.perms || '',
+			remark: data.field.remark || ''
+		};
+		
+		var loading = layer.load(2);
+		
+		fetch('/auth/menu', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(tblFormData)
+		})
+		.then(response => response.json())
+		.then(result => {
+			layer.close(loading);
+			if ( result.result ) {
+				layer.msg(result.message || '添加成功', {icon: 1});
+				// 关闭弹窗
+				var index = parent.layer.getFrameIndex(window.name);
+				parent.layer.close(index);
+			} else {
+				layer.msg(result.message || '添加失败', {icon: 2});
+			}
+		})
+		.catch(error => {
+			layer.close(loading);
+			layer.msg('请求失败', {icon: 2});
+			console.error('Error:', error);
+		});
+		
+		return false;
+	});
+	
+	// 初始化
+	loadParentMenus();
+});
+</script>
