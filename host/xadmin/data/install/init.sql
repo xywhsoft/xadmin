@@ -1180,43 +1180,41 @@ CREATE TABLE menu (
     href       TEXT,
     sort       INTEGER DEFAULT (0),
     visible    INTEGER DEFAULT (1),
-    status     INTEGER DEFAULT (1),
-    perms      TEXT,
     remark     TEXT,
     createTime INTEGER,
     updateTime INTEGER,
     isDelete   INTEGER DEFAULT (0)
 );
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (1, 0, '主页', 'layui-icon layui-icon-home', 1, '_iframe', 'view/home', 0, 1, 1, NULL, '系统主页', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (1, 0, '主页', 'layui-icon layui-icon-home', 1, '_iframe', 'view/home', 0, 1, '系统主页', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (2, 0, '系统日志', 'layui-icon layui-icon-log', 1, '_component', 'view/logs', 100000, 1, 1, NULL, '查看系统日志', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (2, 0, '系统日志', 'layui-icon layui-icon-log', 1, '_component', 'view/logs', 100000, 1, '查看系统日志', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (3, 0, '权限管理', 'layui-icon layui-icon-auz', 0, NULL, NULL, 200000, 1, 1, NULL, '权限管理目录', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (3, 0, '权限管理', 'layui-icon layui-icon-auz', 0, NULL, NULL, 200000, 1, '权限管理目录', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (4, 3, '用户管理', 'layui-icon layui-icon-username', 1, '_component', 'view/auth/user', 200100, 1, 1, NULL, '管理后台用户', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (4, 3, '用户管理', 'layui-icon layui-icon-username', 1, '_component', 'view/auth/user', 200100, 1, '管理后台用户', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (5, 3, '角色管理', 'layui-icon layui-icon-user', 1, '_component', 'view/auth/role', 200200, 1, 1, NULL, '管理用户角色', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (5, 3, '角色管理', 'layui-icon layui-icon-user', 1, '_component', 'view/auth/role', 200200, 1, '管理用户角色', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (6, 3, '权限分类', 'layui-icon layui-icon-tabs', 1, '_component', 'view/auth/group', 200300, 1, 1, NULL, '管理权限分类', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (6, 3, '权限分类', 'layui-icon layui-icon-tabs', 1, '_component', 'view/auth/group', 200300, 1, '管理权限分类', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (7, 3, '权限分组', 'layui-icon layui-icon-template', 1, '_component', 'view/auth/auth', 200400, 1, 1, NULL, '管理权限分组', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (7, 3, '权限分组', 'layui-icon layui-icon-template', 1, '_component', 'view/auth/auth', 200400, 1, '管理权限分组', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (8, 3, '接口管理', 'layui-icon layui-icon-website', 1, '_component', 'view/auth/uris', 200500, 1, 1, NULL, '管理API接口', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (8, 3, '接口管理', 'layui-icon layui-icon-website', 1, '_component', 'view/auth/uris', 200500, 1, '管理API接口', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (9, 3, '菜单管理', 'layui-icon layui-icon-spread-left', 1, '_component', 'view/auth/menu', 200600, 1, 1, NULL, '管理系统菜单', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (9, 3, '菜单管理', 'layui-icon layui-icon-spread-left', 1, '_component', 'view/auth/menu', 200600, 1, '管理系统菜单', 63933640350, 63933640350, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete)
-VALUES (10, 0, '全局配置', 'layui-icon layui-icon-set', 1, '_component', 'view/option?file=global', 150000, 1, 1, NULL, '系统全局配置管理', 63933640350, 63933640350, 0);
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (10, 0, '全局配置', 'layui-icon layui-icon-set', 1, '_component', 'view/option?file=global', 150000, 1, '系统全局配置管理', 63933640350, 63933640350, 0);
 
 
 COMMIT TRANSACTION;

@@ -9,18 +9,20 @@
 		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Menu_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
 	</div>
 	<div class="layui-inline" style="float: right;">
-		<button class="layui-btn layui-btn-sm" lay-event="Menu_Add"><i class="layui-icon layui-icon-addition"></i> 添加菜单</button>
+		<button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="Menu_AddCategory"><i class="layui-icon layui-icon-addition"></i> 添加分类</button>
+		<button class="layui-btn layui-btn-sm" lay-event="Menu_AddMenu"><i class="layui-icon layui-icon-addition"></i> 添加菜单</button>
 	</div>
 </script>
 
 <!-- 操作列 -->
-<script type="text/html" id="menuTableBar">
-	{{# if(d.type === 0){ }}
-	<a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="addChild"><i class="layui-icon layui-icon-add-1"></i>添加</a>
-	{{# } else { }}
-	<a class="layui-btn layui-btn-xs" lay-event="edit"><i class="layui-icon layui-icon-edit"></i>编辑</a>
-	<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete"><i class="layui-icon layui-icon-delete"></i>删除</a>
-	{{# } }}
+<script type="text/html" id="Tool_Menu">
+	<div class="layui-clear-space">
+		{{# if(d.type === 0){ }}
+		<a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="addChild">添加</a>
+		{{# } }}
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
 </script>
 
 <!-- 类型模板 -->
@@ -32,21 +34,12 @@
 	{{# } }}
 </script>
 
-<!-- 可见状态模板 -->
-<script type="text/html" id="visibleTpl">
+<!-- 状态模板 -->
+<script type="text/html" id="statusTpl">
 	{{# if(d.visible === 1){ }}
 		<span class="layui-badge layui-bg-green">显示</span>
 	{{# } else { }}
 		<span class="layui-badge layui-bg-gray">隐藏</span>
-	{{# } }}
-</script>
-
-<!-- 状态模板 -->
-<script type="text/html" id="statusTpl">
-	{{# if(d.status === 1){ }}
-		<span class="layui-badge layui-bg-green">启用</span>
-	{{# } else { }}
-		<span class="layui-badge layui-bg-red">禁用</span>
 	{{# } }}
 </script>
 
@@ -148,63 +141,99 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 			},
 			cols: [[
 				{field: 'title', title: '菜单标题', minWidth: 200},
-				{field: 'icon', title: '图标', width: 200, templet: function(d){
-					if ( d.icon ) {
-						return '<i class="' + d.icon + '"></i> ' + d.icon;
-					}
-					return '-';
-				}},
 				{field: 'type', title: '类型', width: 80, align: 'center', templet: '#typeTpl'},
 				{field: 'sort', title: '排序', width: 80, align: 'center'},
 				{field: 'href', title: '链接地址', minWidth: 150, templet: function(d){
 					return d.href || '-';
 				}},
-				{field: 'visible', title: '可见', width: 80, align: 'center', templet: '#visibleTpl'},
-				{field: 'status', title: '状态', width: 80, align: 'center', templet: '#statusTpl'},
-				{fixed: 'right', title: '操作', width: 150, align: 'center', toolbar: '#menuTableBar'}
+				{field: 'remark', title: '备注', minWidth: 120, templet: function(d){
+					return d.remark || '-';
+				}},
+				{field: 'visible', title: '状态', width: 80, align: 'center', templet: '#statusTpl'},
+				{fixed: 'right', title: '操作', width: 170, align: 'center', toolbar: '#Tool_Menu'}
 			]],
 			page: false
 		});
 	}
 	
-	// 监听工具栏
-	treeTable.on('tool(menuTable)', function(obj){
+	// 工具栏事件
+	treeTable.on('toolbar(Table_Menu)', function(obj){
+		switch ( obj.event ) {
+			case 'Menu_Refresh':
+				// 刷新
+				loadMenuData();
+			break;
+			case 'Menu_AddCategory':
+				// 添加分类（顶级目录）
+				layer.open({
+					title: '添加分类',
+					type: 2,
+					shadeClose: true,
+					area: ['700px', '600px'],
+					content: '/view/auth/menu/add?mode=category',
+					end: function(){
+						loadMenuData();
+					}
+				});
+			break;
+			case 'Menu_AddMenu':
+				// 添加菜单（顶级菜单项）
+				layer.open({
+					title: '添加菜单',
+					type: 2,
+					shadeClose: true,
+					area: ['700px', '600px'],
+					content: '/view/auth/menu/add?mode=menu',
+					end: function(){
+						loadMenuData();
+					}
+				});
+			break;
+		};
+	});
+	
+	// 触发单元格工具事件
+	treeTable.on('tool(Table_Menu)', function(obj){
 		var data = obj.data;
-		var event = obj.event;
-		
-		if ( event === 'edit' ) {
+		if ( obj.event == 'edit' ) {
 			// 编辑
 			layer.open({
-				type: 2,
 				title: '编辑菜单',
-				content: 'view/auth/menu/edit?id=' + data.id,
+				type: 2,
+				shadeClose: true,
 				area: ['700px', '600px'],
+				content: '/view/auth/menu/edit?id=' + data.id,
 				end: function(){
 					loadMenuData();
 				}
 			});
-		} else if ( event === 'addChild' ) {
+		} else if ( obj.event == 'addChild' ) {
 			// 添加子节点
 			layer.open({
-				type: 2,
 				title: '添加子菜单 - ' + data.title,
-				content: 'view/auth/menu/add?parent=' + data.id,
+				type: 2,
+				shadeClose: true,
 				area: ['700px', '600px'],
+				content: '/view/auth/menu/add?parent=' + data.id,
 				end: function(){
 					loadMenuData();
 				}
 			});
-		} else if ( event === 'delete' ) {
+		} else if ( obj.event == 'delete' ) {
 			// 删除
-			var sConfirmMsg = '确定要删除菜单【' + data.title + '】吗？';
+			var sConfirmMsg = '确定要删除菜单 "' + data.title + '" 吗？';
 			if ( data.children && data.children.length > 0 ) {
 				sConfirmMsg = '【' + data.title + '】包含 ' + data.children.length + ' 个子菜单，确定要删除吗？';
 			}
-			layer.confirm(sConfirmMsg, function(index){
-				layer.close(index);
-				
+			layer.confirm(sConfirmMsg, {
+				icon: 3,
+				title: '删除确认'
+			}, function(index){
 				fetch('/auth/menu?id=' + data.id, {
-					method: 'DELETE'
+					method: 'DELETE',
+					headers: {
+						'Content-Type': 'application/json'
+					}
 				})
 				.then(response => response.json())
 				.then(result => {
@@ -216,29 +245,12 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 					}
 				})
 				.catch(error => {
-					layer.msg('请求失败', {icon: 2});
+					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
 					console.error('Error:', error);
 				});
+				layer.close(index);
 			});
 		}
-	});
-	
-	// 添加按钮
-	$('#btnAdd').on('click', function(){
-		layer.open({
-			type: 2,
-			title: '添加菜单',
-			content: 'view/auth/menu/add',
-			area: ['700px', '600px'],
-			end: function(){
-				loadMenuData();
-			}
-		});
-	});
-	
-	// 刷新按钮
-	$('#btnRefresh').on('click', function(){
-		loadMenuData();
 	});
 	
 	// 初始化加载

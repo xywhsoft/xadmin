@@ -16,25 +16,25 @@ sqlite3_stmt* stmt_menu_tree = NULL;
 // 预编译菜单管理 SQL 语句
 void Menu_CompileSQL()
 {
-	int iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime FROM menu WHERE isDelete = 0 ORDER BY sort ASC", -1, SQL_PREPARE_DEFAULT, &stmt_menu_all, NULL);
+	int iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime FROM menu WHERE isDelete = 0 ORDER BY sort ASC", -1, SQL_PREPARE_DEFAULT, &stmt_menu_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime FROM menu WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_get, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime FROM menu WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_get, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_get] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, status, perms, remark, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)", -1, SQL_PREPARE_DEFAULT, &stmt_menu_add, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)", -1, SQL_PREPARE_DEFAULT, &stmt_menu_add, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE menu SET parent = ?, title = ?, icon = ?, type = ?, openType = ?, href = ?, sort = ?, visible = ?, status = ?, perms = ?, remark = ?, updateTime = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_put, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE menu SET parent = ?, title = ?, icon = ?, type = ?, openType = ?, href = ?, sort = ?, visible = ?, remark = ?, updateTime = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_put, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_put] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
@@ -52,7 +52,7 @@ void Menu_CompileSQL()
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort FROM menu WHERE isDelete = 0 AND visible = 1 AND status = 1 ORDER BY sort ASC", -1, SQL_PREPARE_DEFAULT, &stmt_menu_tree, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort FROM menu WHERE isDelete = 0 AND visible = 1 ORDER BY sort ASC", -1, SQL_PREPARE_DEFAULT, &stmt_menu_tree, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_tree] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);

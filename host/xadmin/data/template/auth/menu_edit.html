@@ -60,23 +60,9 @@
 		</div>
 		
 		<div class="layui-form-item">
-			<label class="layui-form-label">是否可见</label>
+			<label class="layui-form-label">是否显示</label>
 			<div class="layui-input-block">
 				<input type="checkbox" name="visible" lay-skin="switch" lay-text="显示|隐藏" {{#if visible == 1}}checked{{/if}}>
-			</div>
-		</div>
-		
-		<div class="layui-form-item">
-			<label class="layui-form-label">菜单状态</label>
-			<div class="layui-input-block">
-				<input type="checkbox" name="status" lay-skin="switch" lay-text="启用|禁用" {{#if status == 1}}checked{{/if}}>
-			</div>
-		</div>
-		
-		<div class="layui-form-item">
-			<label class="layui-form-label">权限标识</label>
-			<div class="layui-input-block">
-				<input type="text" name="perms" value="{$perms}" placeholder="可选，权限标识" class="layui-input">
 			</div>
 		</div>
 		
@@ -157,8 +143,6 @@ layui.use(['form', 'layer'], function(){{
 			openType: data.field.openType || '_component',
 			sort: parseInt(data.field.sort) || 0,
 			visible: data.field.visible === 'on' ? 1 : 0,
-			status: data.field.status === 'on' ? 1 : 0,
-			perms: data.field.perms || '',
 			remark: data.field.remark || ''
 		};
 		

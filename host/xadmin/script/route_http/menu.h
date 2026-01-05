@@ -69,9 +69,7 @@ void Request_View_Auth_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHos
 		xvoTableSetText(tblMenu, "href", 4, (char*)sqlite3_column_text(stmt_menu_get, 6), 0, FALSE);
 		xvoTableSetInt(tblMenu, "sort", 4, sqlite3_column_int(stmt_menu_get, 7));
 		xvoTableSetInt(tblMenu, "visible", 7, sqlite3_column_int(stmt_menu_get, 8));
-		xvoTableSetInt(tblMenu, "status", 6, sqlite3_column_int(stmt_menu_get, 9));
-		xvoTableSetText(tblMenu, "perms", 5, (char*)sqlite3_column_text(stmt_menu_get, 10), 0, FALSE);
-		xvoTableSetText(tblMenu, "remark", 6, (char*)sqlite3_column_text(stmt_menu_get, 11), 0, FALSE);
+		xvoTableSetText(tblMenu, "remark", 6, (char*)sqlite3_column_text(stmt_menu_get, 9), 0, FALSE);
 		sqlite3_reset(stmt_menu_get);
 		
 		// 构建页面并返回
@@ -109,9 +107,7 @@ void Request_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct 
 			xvoTableSetText(tblRow, "href", 4, (char*)sqlite3_column_text(stmt_menu_all, 6), 0, FALSE);
 			xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int(stmt_menu_all, 7));
 			xvoTableSetInt(tblRow, "visible", 7, sqlite3_column_int(stmt_menu_all, 8));
-			xvoTableSetInt(tblRow, "status", 6, sqlite3_column_int(stmt_menu_all, 9));
-			xvoTableSetText(tblRow, "perms", 5, (char*)sqlite3_column_text(stmt_menu_all, 10), 0, FALSE);
-			xvoTableSetText(tblRow, "remark", 6, (char*)sqlite3_column_text(stmt_menu_all, 11), 0, FALSE);
+			xvoTableSetText(tblRow, "remark", 6, (char*)sqlite3_column_text(stmt_menu_all, 9), 0, FALSE);
 			xvoArrayAppendValue(arrData, tblRow, TRUE);
 		}
 		sqlite3_reset(stmt_menu_all);
@@ -146,8 +142,6 @@ void Request_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		str sHref = xvoTableGetText(tblBody, "href", 4);
 		int iSort = xvoTableGetInt(tblBody, "sort", 4);
 		int iVisible = xvoTableGetInt(tblBody, "visible", 7);
-		int iStatus = xvoTableGetInt(tblBody, "status", 6);
-		str sPerms = xvoTableGetText(tblBody, "perms", 5);
 		str sRemark = xvoTableGetText(tblBody, "remark", 6);
 		
 		// 验证必填参数
@@ -167,11 +161,9 @@ void Request_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		sqlite3_bind_text(stmt_menu_add, 6, sHref ? (ptr)sHref : "", -1, SQLITE_STATIC);
 		sqlite3_bind_int(stmt_menu_add, 7, iSort);
 		sqlite3_bind_int(stmt_menu_add, 8, iVisible);
-		sqlite3_bind_int(stmt_menu_add, 9, iStatus);
-		sqlite3_bind_text(stmt_menu_add, 10, sPerms ? (ptr)sPerms : "", -1, SQLITE_STATIC);
-		sqlite3_bind_text(stmt_menu_add, 11, sRemark ? (ptr)sRemark : "", -1, SQLITE_STATIC);
-		sqlite3_bind_int64(stmt_menu_add, 12, now);
-		sqlite3_bind_int64(stmt_menu_add, 13, now);
+		sqlite3_bind_text(stmt_menu_add, 9, sRemark ? (ptr)sRemark : "", -1, SQLITE_STATIC);
+		sqlite3_bind_int64(stmt_menu_add, 10, now);
+		sqlite3_bind_int64(stmt_menu_add, 11, now);
 		
 		int iRet = sqlite3_step(stmt_menu_add);
 		sqlite3_reset(stmt_menu_add);
@@ -202,8 +194,6 @@ void Request_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		str sHref = xvoTableGetText(tblBody, "href", 4);
 		int iSort = xvoTableGetInt(tblBody, "sort", 4);
 		int iVisible = xvoTableGetInt(tblBody, "visible", 7);
-		int iStatus = xvoTableGetInt(tblBody, "status", 6);
-		str sPerms = xvoTableGetText(tblBody, "perms", 5);
 		str sRemark = xvoTableGetText(tblBody, "remark", 6);
 		
 		// 验证参数
@@ -236,11 +226,9 @@ void Request_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		sqlite3_bind_text(stmt_menu_put, 6, sHref ? (ptr)sHref : "", -1, SQLITE_STATIC);
 		sqlite3_bind_int(stmt_menu_put, 7, iSort);
 		sqlite3_bind_int(stmt_menu_put, 8, iVisible);
-		sqlite3_bind_int(stmt_menu_put, 9, iStatus);
-		sqlite3_bind_text(stmt_menu_put, 10, sPerms ? (ptr)sPerms : "", -1, SQLITE_STATIC);
-		sqlite3_bind_text(stmt_menu_put, 11, sRemark ? (ptr)sRemark : "", -1, SQLITE_STATIC);
-		sqlite3_bind_int64(stmt_menu_put, 12, now);
-		sqlite3_bind_int(stmt_menu_put, 13, iID);
+		sqlite3_bind_text(stmt_menu_put, 9, sRemark ? (ptr)sRemark : "", -1, SQLITE_STATIC);
+		sqlite3_bind_int64(stmt_menu_put, 10, now);
+		sqlite3_bind_int(stmt_menu_put, 11, iID);
 		
 		int iRet = sqlite3_step(stmt_menu_put);
 		sqlite3_reset(stmt_menu_put);
