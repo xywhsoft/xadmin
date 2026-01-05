@@ -2,29 +2,20 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>编辑菜单</title>
+	<title>编辑分类</title>
 	<meta name="renderer" content="webkit">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link href="/layui/css/layui.css" rel="stylesheet">
 </head>
 <body>
-	<form class="layui-form" style="padding: 20px; min-height: calc(100vh - 40px); display: flex; flex-direction: column;" lay-filter="menuEditForm">
+	<form class="layui-form" style="padding: 20px; min-height: calc(100vh - 40px); display: flex; flex-direction: column;" lay-filter="categoryEditForm">
 		<input type="hidden" name="id" value="{$id}}">
 		
 		<div class="layui-form-item">
-			<label class="layui-form-label">上级分类</label>
+			<label class="layui-form-label">分类名称</label>
 			<div class="layui-input-block">
-				<select name="parent" id="parentSelect" lay-filter="parent">
-					<option value="0">无（顶级菜单）</option>
-				</select>
-			</div>
-		</div>
-		
-		<div class="layui-form-item">
-			<label class="layui-form-label">菜单标题</label>
-			<div class="layui-input-block">
-				<input type="text" name="title" value="{$title}" required lay-verify="required" placeholder="请输入菜单标题" autocomplete="off" class="layui-input">
+				<input type="text" name="title" value="{$title}" required lay-verify="required" placeholder="请输入分类名称" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		
@@ -32,24 +23,6 @@
 			<label class="layui-form-label">图标</label>
 			<div class="layui-input-block">
 				<input type="text" name="icon" value="{$icon}" placeholder="如：layui-icon layui-icon-home" autocomplete="off" class="layui-input">
-			</div>
-		</div>
-		
-		<div class="layui-form-item">
-			<label class="layui-form-label">链接地址</label>
-			<div class="layui-input-block">
-				<input type="text" name="href" value="{$href}" placeholder="如：view/home" autocomplete="off" class="layui-input">
-			</div>
-		</div>
-		
-		<div class="layui-form-item">
-			<label class="layui-form-label">打开方式</label>
-			<div class="layui-input-block">
-				<select name="openType" id="openTypeSelect">
-					<option value="_component" {{#if openType == "_component"}}selected{{/if}}>组件（_component）</option>
-					<option value="_iframe" {{#if openType == "_iframe"}}selected{{/if}}>内嵌页面（_iframe）</option>
-					<option value="_blank" {{#if openType == "_blank"}}selected{{/if}}>新窗口（_blank）</option>
-				</select>
 			</div>
 		</div>
 		
@@ -76,7 +49,7 @@
 		
 		<div style="flex: 1;"></div>
 		<div class="layui-form-item" style="text-align: right; margin-bottom: 0;">
-			<button class="layui-btn" lay-submit lay-filter="submitMenuEdit">保存</button>
+			<button class="layui-btn" lay-submit lay-filter="submitCategoryEdit">保存</button>
 			<button type="button" class="layui-btn layui-btn-primary" id="btnCancel">取消</button>
 		</div>
 	</form>
@@ -85,42 +58,9 @@
 		layui.use('form', function(){{
 			var form = layui.form;
 			var layer = layui.layer;
-			var $ = layui.$;
-			
-			// 当前菜单ID和父级ID
-			var iCurrentID = {$id};
-			var iCurrentParent = {$parent};
-			
-			// 加载分类列表
-			function loadParentCategories()
-			{{
-				fetch('/auth/menu')
-				.then(response => response.json())
-				.then(result => {{
-					if ( result.result ) {{
-						var arrData = result.data || [];
-						var sOptions = '<option value="0"' + (iCurrentParent === 0 ? ' selected' : '') + '>无（顶级菜单）</option>';
-						
-						for ( var i = 0; i < arrData.length; i++ ) {{
-							var item = arrData[i];
-							if ( item.type === 0 ) {{
-								var sSelected = (item.id === iCurrentParent) ? ' selected' : '';
-								sOptions += '<option value="' + item.id + '"' + sSelected + '>' + item.title + '</option>';
-							}
-						}
-						
-						$('#parentSelect').html(sOptions);
-						form.render('select');
-					}
-				})
-				.catch(error => {{
-					console.error('Error:', error);
-				});
-			}
 			
 			// 渲染表单
 			form.render();
-			loadParentCategories();
 			
 			// 取消按钮
 			document.getElementById('btnCancel').onclick = function(){{
@@ -129,17 +69,17 @@
 			};
 			
 			// 提交事件
-			form.on('submit(submitMenuEdit)', function(data){{
+			form.on('submit(submitCategoryEdit)', function(data){{
 				var field = data.field;
 				
 				var tblFormData = {{
 					id: parseInt(field.id),
-					parent: parseInt(field.parent) || 0,
+					parent: 0,
 					title: field.title,
 					icon: field.icon || '',
-					type: 1,
-					href: field.href || '',
-					openType: field.openType || '_component',
+					type: 0,
+					href: '',
+					openType: '',
 					sort: parseInt(field.sort) || 0,
 					visible: field.visible === 'on' ? 1 : 0,
 					remark: field.remark || ''

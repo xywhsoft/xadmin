@@ -169,21 +169,21 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 					title: '添加分类',
 					type: 2,
 					shadeClose: true,
-					area: ['700px', '600px'],
-					content: '/view/auth/menu/add?mode=category',
+					area: ['600px', '500px'],
+					content: '/view/auth/menu/add/category',
 					end: function(){
 						loadMenuData();
 					}
 				});
 			break;
 			case 'Menu_AddMenu':
-				// 添加菜单（顶级菜单项）
+				// 添加菜单
 				layer.open({
 					title: '添加菜单',
 					type: 2,
 					shadeClose: true,
-					area: ['700px', '600px'],
-					content: '/view/auth/menu/add?mode=menu',
+					area: ['600px', '640px'],
+					content: '/view/auth/menu/add',
 					end: function(){
 						loadMenuData();
 					}
@@ -197,23 +197,25 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 		var data = obj.data;
 		if ( obj.event == 'edit' ) {
 			// 编辑
+			var sTitle = (data.type === 0) ? '编辑分类' : '编辑菜单';
+			var sArea = (data.type === 0) ? ['600px', '500px'] : ['600px', '640px'];
 			layer.open({
-				title: '编辑菜单',
+				title: sTitle,
 				type: 2,
 				shadeClose: true,
-				area: ['700px', '600px'],
+				area: sArea,
 				content: '/view/auth/menu/edit?id=' + data.id,
 				end: function(){
 					loadMenuData();
 				}
 			});
 		} else if ( obj.event == 'addChild' ) {
-			// 添加子节点
+			// 添加子菜单
 			layer.open({
 				title: '添加子菜单 - ' + data.title,
 				type: 2,
 				shadeClose: true,
-				area: ['700px', '600px'],
+				area: ['600px', '640px'],
 				content: '/view/auth/menu/add?parent=' + data.id,
 				end: function(){
 					loadMenuData();

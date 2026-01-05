@@ -69,6 +69,7 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/auth/menu",						Request_Auth_Menu					, TRUE ,	TRUE );
 	AddStaticRouteHTTP("/view/auth/menu",					Request_View_Auth_Menu				, TRUE ,	TRUE );
 	AddStaticRouteHTTP("/view/auth/menu/add",				Request_View_Auth_Menu_Add			, TRUE ,	TRUE );
+	AddStaticRouteHTTP("/view/auth/menu/add/category",		Request_View_Auth_Menu_Add_Category	, TRUE ,	TRUE );
 	AddStaticRouteHTTP("/view/auth/menu/edit",				Request_View_Auth_Menu_Edit			, TRUE ,	TRUE );
 	
 }

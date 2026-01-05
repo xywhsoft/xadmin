@@ -18,6 +18,22 @@ void Request_View_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, st
 
 
 
+// 添加分类页面视图
+void Request_View_Auth_Menu_Add_Category(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	if ( hm->methodCode == HTTP_GET ) {
+		
+		LoadPage(c, 200, HTTP_CT_HTML, "auth/menu_add_category.html");
+		
+	} else {
+		
+		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		
+	}
+}
+
+
+
 // 添加菜单页面视图
 void Request_View_Auth_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
@@ -34,7 +50,7 @@ void Request_View_Auth_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost
 
 
 
-// 编辑菜单页面视图
+// 编辑菜单/分类页面视图
 void Request_View_Auth_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
 	if ( hm->methodCode == HTTP_GET ) {
@@ -58,13 +74,16 @@ void Request_View_Auth_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			return;
 		}
 		
+		// 获取类型
+		int iType = sqlite3_column_int(stmt_menu_get, 4);
+		
 		// 构建数据表
 		xvalue tblMenu = xvoCreateTable();
 		xvoTableSetInt(tblMenu, "id", 2, sqlite3_column_int(stmt_menu_get, 0));
 		xvoTableSetInt(tblMenu, "parent", 6, sqlite3_column_int(stmt_menu_get, 1));
 		xvoTableSetText(tblMenu, "title", 5, (char*)sqlite3_column_text(stmt_menu_get, 2), 0, FALSE);
 		xvoTableSetText(tblMenu, "icon", 4, (char*)sqlite3_column_text(stmt_menu_get, 3), 0, FALSE);
-		xvoTableSetInt(tblMenu, "type", 4, sqlite3_column_int(stmt_menu_get, 4));
+		xvoTableSetInt(tblMenu, "type", 4, iType);
 		xvoTableSetText(tblMenu, "openType", 8, (char*)sqlite3_column_text(stmt_menu_get, 5), 0, FALSE);
 		xvoTableSetText(tblMenu, "href", 4, (char*)sqlite3_column_text(stmt_menu_get, 6), 0, FALSE);
 		xvoTableSetInt(tblMenu, "sort", 4, sqlite3_column_int(stmt_menu_get, 7));
@@ -72,9 +91,12 @@ void Request_View_Auth_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHos
 		xvoTableSetText(tblMenu, "remark", 6, (char*)sqlite3_column_text(stmt_menu_get, 9), 0, FALSE);
 		sqlite3_reset(stmt_menu_get);
 		
+		// 根据类型选择模板
+		str sTemplate = (iType == 0) ? "auth/menu_edit_category.html" : "auth/menu_edit.html";
+		
 		// 构建页面并返回
 		size_t iRetSize = 0;
-		str sPage = MakePageWithTemplate("auth/menu_edit.html", tblMenu, &iRetSize);
+		str sPage = MakePageWithTemplate(sTemplate, tblMenu, &iRetSize);
 		xvoUnref(tblMenu);
 		http_reply(c, 200, HTTP_CT_HTML, sPage, iRetSize);
 		xrtFree(sPage);
