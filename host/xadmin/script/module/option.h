@@ -8,6 +8,7 @@ int ScanOptionFileProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iPat
 	if ( bDir == 0 ) {
 		// 只处理 .json 文件
 		str sExt = xrtPathGetExt(sPath, 0);
+		printf("option file : %s\n", sPath);
 		if ( (sExt != NULL) && (xrtStrComp(sExt, "json", 4, FALSE) == 0) ) {
 			// 解析 JSON 文件
 			xvalue tblConfig = xrtParseJSON_File(sPath);
@@ -17,7 +18,7 @@ int ScanOptionFileProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iPat
 				if ( sNamespace != NULL ) {
 					// 创建 namespace 子表
 					xvalue tblNamespace = xvoTableGetValue(G_Option, sNamespace, 0);
-					if ( tblNamespace == NULL ) {
+					if ( tblNamespace->Type != XVO_DT_TABLE ) {
 						tblNamespace = xvoCreateTable();
 						xvoTableSetValue(G_Option, sNamespace, 0, tblNamespace, TRUE);
 					}
