@@ -10,7 +10,7 @@
 </head>
 <body>
 	<form class="layui-form" style="padding: 20px; min-height: calc(100vh - 40px); display: flex; flex-direction: column;" lay-filter="categoryEditForm">
-		<input type="hidden" name="id" value="{$id}}">
+		<input type="hidden" name="id" value="{$id}">
 		
 		<div class="layui-form-item">
 			<label class="layui-form-label">分类名称</label>
@@ -23,7 +23,7 @@
 			<label class="layui-form-label">图标</label>
 			<div class="layui-input-block">
 				<div style="display: flex; width: 100%;">
-					<span id="iconPreview" style="flex-shrink: 0; width: 38px; height: 36px; line-height: 36px; text-align: center; border: 1px solid #e6e6e6; border-radius: 4px 0 0 4px; font-size: 18px; border-right: none; background: #fff;">{{#if icon}}<i class="{$icon}"></i>{{/if}}</span>
+					<span id="iconPreview" style="flex-shrink: 0; width: 38px; height: 36px; line-height: 36px; text-align: center; border: 1px solid #e6e6e6; border-radius: 4px 0 0 4px; font-size: 18px; border-right: none; background: #fff;"><i class="{$icon}"></i></span>
 					<input type="text" name="icon" id="iconInput" value="{$icon}" placeholder="请选择图标" autocomplete="off" class="layui-input" style="flex: 1; border-radius: 0;" readonly>
 					<button type="button" class="layui-btn layui-btn-primary" id="btnSelectIcon" style="flex-shrink: 0; border-radius: 0 4px 4px 0; margin-left: -1px;">选择</button>
 				</div>
@@ -40,7 +40,7 @@
 		<div class="layui-form-item">
 			<label class="layui-form-label">是否显示</label>
 			<div class="layui-input-block">
-				<input type="checkbox" name="visible" lay-skin="switch" lay-text="显示|隐藏" {{#if visible == 1}}checked{{/if}}>
+				<input type="checkbox" name="visible" id="visibleCheckbox" lay-skin="switch" lay-text="显示|隐藏">
 			</div>
 		</div>
 		
@@ -65,6 +65,14 @@
 			var layer = layui.layer;
 			var $ = layui.$;
 			
+			// 当前分类的显示状态
+			var iVisible = {$visible};
+			
+			// 设置显示状态开关
+			if ( iVisible === 1 ) {{
+				$('#visibleCheckbox').prop('checked', true);
+			}
+			
 			// 渲染表单
 			form.render();
 			
@@ -74,11 +82,11 @@
 					$('#iconInput').val(sIcon);
 					if ( sIcon ) {{
 						$('#iconPreview').html('<i class="' + sIcon + '"></i>');
-					}} else {{
+					} else {{
 						$('#iconPreview').html('');
-					}}
-				}});
-			}});
+					}
+				});
+			});
 			
 			// 取消按钮
 			document.getElementById('btnCancel').onclick = function(){{

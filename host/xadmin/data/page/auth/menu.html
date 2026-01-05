@@ -17,9 +17,6 @@
 <!-- 操作列 -->
 <script type="text/html" id="Tool_Menu">
 	<div class="layui-clear-space">
-		{{# if(d.type === 0){ }}
-		<a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="addChild">添加</a>
-		{{# } }}
 		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
 		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
 	</div>
@@ -205,18 +202,6 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 				shadeClose: true,
 				area: sArea,
 				content: '/view/auth/menu/edit?id=' + data.id,
-				end: function(){
-					loadMenuData();
-				}
-			});
-		} else if ( obj.event == 'addChild' ) {
-			// 添加子菜单
-			layer.open({
-				title: '添加子菜单 - ' + data.title,
-				type: 2,
-				shadeClose: true,
-				area: ['600px', '640px'],
-				content: '/view/auth/menu/add?parent=' + data.id,
 				end: function(){
 					loadMenuData();
 				}
