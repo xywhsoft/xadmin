@@ -83,27 +83,39 @@ typedef struct {
 	// 对应 URI 的处理函数
 	void (*Proc)(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm);
 	
-	// 是否记录访问日志
-	bool bPutLog;
-	
 	// 是否必须鉴权才能访问
 	bool bAuth;
 	
+	// 是否是后台 URI（TRUE为后台、FALSE为前台）
+	bool bAdmin;
+	
+	// 是否记录访问日志（后台选项）
+	bool bPutLog;
+	
+	// 是否保持活跃（访问了保持活跃的链接，会自动延长 session 寿命）
+	bool bActive;
+	
 	// 所属权限组ID
 	uint32 AuthID;
+	
+	// 权限级别（0为不限制，否则必须用户组具备大于等于这个数字的权限级别才能访问）
+	uint32 AuthLevel;
 	
 } RouteInfo;
 xdict G_StaticRouteTableHTTP;
 
 // 添加全局静态路由表项 - HTTP
-void AddStaticRouteHTTP(str uri, void* proc, bool bPutLog, bool bAuth)
+void AddStaticRouteHTTP(str uri, void* proc, bool bAuth, bool bAdmin, bool bPutLog, bool bActive)
 {
 	RouteInfo* pInfo = xrtDictSet(G_StaticRouteTableHTTP, uri, strlen(uri), NULL);
 	if ( pInfo ) {
 		pInfo->Proc = proc;
-		pInfo->bPutLog = bPutLog;
 		pInfo->bAuth = bAuth;
+		pInfo->bAdmin = bAdmin;
+		pInfo->bPutLog = bPutLog;
+		pInfo->bActive = bActive;
 		pInfo->AuthID = 0;
+		pInfo->AuthLevel = 0;
 	} else {
 		printf("add static http route failed : %s.\n", uri);
 	}
