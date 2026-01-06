@@ -16,16 +16,16 @@
 			background-color: #f8f8f8;
 			border-left: 3px solid #1E9FFF;
 			font-size: 14px;
-		}}
+		}
 		.auth-group-header:first-child {{
 			margin-top: 0;
-		}}
+		}
 		.auth-checkbox-container {{
 			padding: 0 10px 5px 10px;
-		}}
+		}
 		.auth-checkbox-container .layui-form-checkbox {{
 			margin: 0 15px 5px 0;
-		}}
+		}
 	</style>
 </head>
 <body>
@@ -44,9 +44,15 @@
 			</div>
 		</div>
 		<div class="layui-form-item">
-			<label class="layui-form-label">分配权限</label>
+			<label class="layui-form-label">分配权限 <i class="layui-icon layui-icon-tips" lay-tips="基于 URI 的权限管控，可以指定角色是否有权限访问对应 URI，无权限返回 403 页面" style="color: #1E9FFF; cursor: help;"></i></label>
 			<div class="layui-input-block" id="authListContainer" style="height: 320px; overflow-y: auto;">
 				{*AuthGroupItem:authGroups}
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">权限级别 <i class="layui-icon layui-icon-tips" lay-tips="基于内容的权限管控，当内容要求的权限级别不超过角色的权限级别时可以访问内容" style="color: #1E9FFF; cursor: help;"></i></label>
+			<div class="layui-input-block">
+				<input type="number" name="authLevel" value="{$authLevel}" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div style="flex: 1;"></div>
@@ -60,9 +66,24 @@
 		layui.use('form', function(){{
 			var form = layui.form;
 			var layer = layui.layer;
+			var $ = layui.jquery;
 			
 			// 渲染表单
 			form.render();
+			
+			// 启用提示功能
+			$(document).on('mouseenter', '[lay-tips]', function(){{
+				var tips = $(this).attr('lay-tips');
+				if(tips){{
+					layer.tips(tips, this, {{
+						tips: [1, '#333'],
+						time: 3000
+					});
+				}
+			}).on('mouseleave', '[lay-tips]', function(){{
+				// 补充：鼠标离开时关闭气泡，避免多个气泡残留
+				layer.closeAll('tips');
+			});
 			
 			// 取消按钮
 			document.getElementById('btnCancel').onclick = function(){{
@@ -86,7 +107,8 @@
 					id: parseInt(field.id),
 					name: field.name,
 					desc: field.desc,
-					authList: JSON.stringify(authIds)
+					authList: JSON.stringify(authIds),
+					authLevel: parseInt(field.authLevel) || 0
 				};
 				
 				// 提交请求

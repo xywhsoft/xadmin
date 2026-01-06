@@ -135,12 +135,12 @@ void Auth_CompileSQL()
 		printf("!!! ERROR !!! Auth_Init [stmt_role_get] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO role (name, desc, authList, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, 0);", -1, SQL_PREPARE_DEFAULT, &stmt_role_add, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO role (name, desc, authList, authLevel, createTime, updateTime, isDelete) VALUES (?, ?, ?, 0, ?, ?, 0);", -1, SQL_PREPARE_DEFAULT, &stmt_role_add, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_role_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE role SET name = ?, desc = ?, authList = ?, updateTime = ? WHERE id = ?;", -1, SQL_PREPARE_DEFAULT, &stmt_role_put, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE role SET name = ?, desc = ?, authList = ?, authLevel = ?, updateTime = ? WHERE id = ?;", -1, SQL_PREPARE_DEFAULT, &stmt_role_put, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_role_put] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
@@ -216,7 +216,7 @@ void Auth_CompileSQL()
 		printf("!!! ERROR !!! Auth_Init [stmt_cache_group] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, name, authList FROM role WHERE isDelete = 0;", -1, SQL_PREPARE_DEFAULT, &stmt_cache_role, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, name, authList, authLevel FROM role WHERE isDelete = 0;", -1, SQL_PREPARE_DEFAULT, &stmt_cache_role, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_cache_role] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
@@ -355,8 +355,10 @@ void Auth_ReloadCache()
 		xvalue tblRow = xvoCreateTable();
 		int64 id = sqlite3_column_int64(stmt_cache_role, 0);
 		str name = (str)sqlite3_column_text(stmt_cache_role, 1);
+		int64 authLevel = sqlite3_column_int64(stmt_cache_role, 3);
 		xvoTableSetInt(tblRow, "id", 2, id);
 		xvoTableSetText(tblRow, "name", 4, name, 0, FALSE);
+		xvoTableSetInt(tblRow, "authLevel", 9, authLevel);
 		xvoArrayAppendValue(arrRet, tblRow, TRUE);
 		// 解析权限分组列表 - 转换为 list 方便按ID索引
 		xvalue listAuth = xvoCreateList();

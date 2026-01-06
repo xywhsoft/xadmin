@@ -52,6 +52,7 @@
 				{field:'id', width:80, title: 'ID'},
 				{width:200, title: '角色名称', templet: '<code>{{= d.name }}</code>'},
 				{field:'desc', title: '描述'},
+				{width:100, title: '权限级别', field:'authLevel', templet: '<span class="layui-badge layui-bg-orange">{{= d.authLevel }}</span>'},
 				{width:100, title: '权限数量', field:'authCount', templet: '<span class="layui-badge layui-bg-blue">{{= d.authCount }} 个</span>'},
 				{width:100, title: '用户数量', field:'userCount', templet: '<span class="layui-badge layui-bg-green">{{= d.userCount }} 人</span>'},
 				{field:'createTime', width:180, title: '创建时间'},
@@ -86,7 +87,7 @@
 						title: '添加角色',
 						type: 2,
 						shadeClose: true,
-						area: ['680px', '648px'],
+						area: ['680px', '688px'],
 						content: '/view/auth/role/add',
 					});
 				break;
@@ -102,7 +103,7 @@
 					title: '编辑角色',
 					type: 2,
 					shadeClose: true,
-					area: ['680px', '648px'],
+					area: ['680px', '688px'],
 					content: '/view/auth/role/edit?id=' + data.id,
 				});
 			} else if ( obj.event == 'delete' ) {

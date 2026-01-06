@@ -408,6 +408,7 @@ void Request_View_Auth_Role_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			xvoTableSetInt(tblInfo, "id", 2, id);
 			xvoTableSetText(tblInfo, "name", 4, (str)sqlite3_column_text(stmt_role_get, 1), 0, FALSE);
 			xvoTableSetText(tblInfo, "desc", 4, (str)sqlite3_column_text(stmt_role_get, 2), 0, FALSE);
+			xvoTableSetInt(tblInfo, "authLevel", 9, sqlite3_column_int64(stmt_role_get, 4));
 			// 解析权限分组列表 - 转换为 list 方便按ID索引
 			str sAuthList = (str)sqlite3_column_text(stmt_role_get, 3);
 			if ( sAuthList && (strlen(sAuthList) > 2) ) {
@@ -489,14 +490,15 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, struct 
 				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_role_all, 1), 0, FALSE);
 				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_role_all, 2), 0, FALSE);
 				xvoTableSetText(tblRow, "authList", 8, (str)sqlite3_column_text(stmt_role_all, 3), 0, FALSE);
-				xtime iTime = sqlite3_column_int64(stmt_role_all, 4);
+				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_role_all, 4));
+				xtime iTime = sqlite3_column_int64(stmt_role_all, 5);
 				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				iTime = sqlite3_column_int64(stmt_role_all, 5);
+				iTime = sqlite3_column_int64(stmt_role_all, 6);
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_role_all, 7));
-				xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_role_all, 8));
+				xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_role_all, 8));
+				xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_role_all, 9));
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_role_all, 9);
+					iCount = sqlite3_column_int64(stmt_role_all, 10);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -513,14 +515,15 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, struct 
 				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_role_sel, 1), 0, FALSE);
 				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_role_sel, 2), 0, FALSE);
 				xvoTableSetText(tblRow, "authList", 8, (str)sqlite3_column_text(stmt_role_sel, 3), 0, FALSE);
-				xtime iTime = sqlite3_column_int64(stmt_role_sel, 4);
+				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_role_sel, 4));
+				xtime iTime = sqlite3_column_int64(stmt_role_sel, 5);
 				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				iTime = sqlite3_column_int64(stmt_role_sel, 5);
+				iTime = sqlite3_column_int64(stmt_role_sel, 6);
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_role_sel, 7));
-				xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_role_sel, 8));
+				xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_role_sel, 8));
+				xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_role_sel, 9));
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_role_sel, 9);
+					iCount = sqlite3_column_int64(stmt_role_sel, 10);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -554,6 +557,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		str name = xvoTableGetText(tblForm, "name", 4);
 		str desc = xvoTableGetText(tblForm, "desc", 4);
 		str authList = xvoTableGetText(tblForm, "authList", 8);
+		int64 authLevel = xvoTableGetInt(tblForm, "authLevel", 9);
 		if ( !authList || (strlen(authList) == 0) ) {
 			authList = "[]";
 		}
@@ -563,8 +567,9 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		sqlite3_bind_text(stmt_role_add, 1, name, strlen(name), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_add, 2, desc, strlen(desc), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_add, 3, authList, strlen(authList), SQLITE_STATIC);
-		sqlite3_bind_int64(stmt_role_add, 4, now);
+		sqlite3_bind_int64(stmt_role_add, 4, authLevel);
 		sqlite3_bind_int64(stmt_role_add, 5, now);
+		sqlite3_bind_int64(stmt_role_add, 6, now);
 		sqlite3_step(stmt_role_add);
 		int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
 		sqlite3_reset(stmt_role_add);
@@ -589,6 +594,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		str name = xvoTableGetText(tblForm, "name", 4);
 		str desc = xvoTableGetText(tblForm, "desc", 4);
 		str authList = xvoTableGetText(tblForm, "authList", 8);
+		int64 authLevel = xvoTableGetInt(tblForm, "authLevel", 9);
 		if ( !authList || (strlen(authList) == 0) ) {
 			authList = "[]";
 		}
@@ -598,8 +604,9 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		sqlite3_bind_text(stmt_role_put, 1, name, strlen(name), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_put, 2, desc, strlen(desc), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_put, 3, authList, strlen(authList), SQLITE_STATIC);
-		sqlite3_bind_int64(stmt_role_put, 4, now);
-		sqlite3_bind_int64(stmt_role_put, 5, id);
+		sqlite3_bind_int64(stmt_role_put, 4, authLevel);
+		sqlite3_bind_int64(stmt_role_put, 5, now);
+		sqlite3_bind_int64(stmt_role_put, 6, id);
 		sqlite3_step(stmt_role_put);
 		sqlite3_reset(stmt_role_put);
 		xvoUnref(tblForm);
