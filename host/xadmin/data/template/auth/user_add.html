@@ -34,7 +34,7 @@
 		<div class="layui-form-item">
 			<label class="layui-form-label">权限级别 <i class="layui-icon layui-icon-tips" lay-tips="该字段与角色管理中的字段用途相同，使用其中更高的作为最终权限级别" style="color: #1E9FFF; cursor: help;"></i></label>
 			<div class="layui-input-block">
-				<input type="number" name="roleLevel" value="0" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
+				<input type="number" name="authLevel" value="0" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div style="flex: 1;"></div>
@@ -93,7 +93,7 @@
 					username: field.username,
 					password: pwdHash,
 					role: parseInt(field.role),
-					roleLevel: parseInt(field.roleLevel) || 0
+					authLevel: parseInt(field.authLevel) || 0
 				};
 				
 				// 提交请求

@@ -57,8 +57,9 @@ void Request_View_Auth_User_Edit(XS_ServerObject objServer, XS_HostObject objHos
 		sqlite3_bind_int64(stmt_user_get, 1, id);
 		while ( sqlite3_step(stmt_user_get) == SQLITE_ROW ) {
 			xvoTableSetInt(tblInfo, "id", 2, id);
-			xvoTableSetInt(tblInfo, "role", 4, sqlite3_column_int64(stmt_user_get, 1));
-			xvoTableSetText(tblInfo, "user", 4, (str)sqlite3_column_text(stmt_user_get, 2), 0, FALSE);
+			xvoTableSetInt(tblInfo, "role", 4, sqlite3_column_int64(stmt_user_get, 4));
+			xvoTableSetInt(tblInfo, "authLevel", 9, sqlite3_column_int64(stmt_user_get, 5));
+			xvoTableSetText(tblInfo, "user", 4, (str)sqlite3_column_text(stmt_user_get, 1), 0, FALSE);
 			bRow = TRUE;
 		}
 		sqlite3_reset(stmt_user_get);
@@ -109,16 +110,17 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, struct 
 			while ( sqlite3_step(stmt_user_all) == SQLITE_ROW ) {
 				xvalue tblRow = xvoCreateTable();
 				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_user_all, 0));
-				xvoTableSetInt(tblRow, "role", 4, sqlite3_column_int64(stmt_user_all, 1));
-				xvoTableSetText(tblRow, "user", 4, (str)sqlite3_column_text(stmt_user_all, 2), 0, FALSE);
+				xvoTableSetInt(tblRow, "role", 4, sqlite3_column_int64(stmt_user_all, 4));
+				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_user_all, 5));
+				xvoTableSetText(tblRow, "user", 4, (str)sqlite3_column_text(stmt_user_all, 1), 0, FALSE);
 				// 不返回密码字段
-				xtime iTime = sqlite3_column_int64(stmt_user_all, 5);
+				xtime iTime = sqlite3_column_int64(stmt_user_all, 6);
 				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				iTime = sqlite3_column_int64(stmt_user_all, 6);
+				iTime = sqlite3_column_int64(stmt_user_all, 7);
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "roleName", 8, (str)sqlite3_column_text(stmt_user_all, 8), 0, FALSE);
+				xvoTableSetText(tblRow, "roleName", 8, (str)sqlite3_column_text(stmt_user_all, 9), 0, FALSE);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_user_all, 9);
+					iCount = sqlite3_column_int64(stmt_user_all, 10);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -131,14 +133,15 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, struct 
 			while ( sqlite3_step(stmt_user_sel) == SQLITE_ROW ) {
 				xvalue tblRow = xvoCreateTable();
 				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_user_sel, 0));
-				xvoTableSetInt(tblRow, "role", 4, sqlite3_column_int64(stmt_user_sel, 1));
-				xvoTableSetText(tblRow, "user", 4, (str)sqlite3_column_text(stmt_user_sel, 2), 0, FALSE);
+				xvoTableSetInt(tblRow, "role", 4, sqlite3_column_int64(stmt_user_sel, 4));
+				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_user_sel, 5));
+				xvoTableSetText(tblRow, "user", 4, (str)sqlite3_column_text(stmt_user_sel, 1), 0, FALSE);
 				// 不返回密码字段
-				xtime iTime = sqlite3_column_int64(stmt_user_sel, 5);
+				xtime iTime = sqlite3_column_int64(stmt_user_sel, 6);
 				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				iTime = sqlite3_column_int64(stmt_user_sel, 6);
+				iTime = sqlite3_column_int64(stmt_user_sel, 7);
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "roleName", 8, (str)sqlite3_column_text(stmt_user_sel, 8), 0, FALSE);
+				xvoTableSetText(tblRow, "roleName", 8, (str)sqlite3_column_text(stmt_user_sel, 9), 0, FALSE);
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_user_sel, 9);
 				}
@@ -209,12 +212,13 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		
 		// 写入数据库
 		xtime now = xrtNow();
-		sqlite3_bind_int64(stmt_user_add, 1, role);
-		sqlite3_bind_text(stmt_user_add, 2, user, strlen(user), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_user_add, 3, sSalt, strlen(sSalt), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_user_add, 4, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
-		sqlite3_bind_int64(stmt_user_add, 5, now);
+		sqlite3_bind_text(stmt_user_add, 1, user, strlen(user), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_user_add, 2, sSalt, strlen(sSalt), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_user_add, 3, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
+		sqlite3_bind_int64(stmt_user_add, 4, role);
+		sqlite3_bind_int64(stmt_user_add, 5, 0); // authLevel 默认为 0
 		sqlite3_bind_int64(stmt_user_add, 6, now);
+		sqlite3_bind_int64(stmt_user_add, 7, now);
 		sqlite3_step(stmt_user_add);
 		int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
 		sqlite3_reset(stmt_user_add);
@@ -246,15 +250,17 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		}
 		int64 id = xvoTableGetInt(tblForm, "id", 2);
 		int64 role = xvoTableGetInt(tblForm, "role", 4);
+		int64 authLevel = xvoTableGetInt(tblForm, "authLevel", 9);
 		if ( role < 1 ) {
 			role = 1;
 		}
-		
+								
 		// 写入数据库
 		xtime now = xrtNow();
 		sqlite3_bind_int64(stmt_user_put, 1, role);
-		sqlite3_bind_int64(stmt_user_put, 2, now);
-		sqlite3_bind_int64(stmt_user_put, 3, id);
+		sqlite3_bind_int64(stmt_user_put, 2, authLevel);
+		sqlite3_bind_int64(stmt_user_put, 3, now);
+		sqlite3_bind_int64(stmt_user_put, 4, id);
 		sqlite3_step(stmt_user_put);
 		sqlite3_reset(stmt_user_put);
 		xvoUnref(tblForm);
