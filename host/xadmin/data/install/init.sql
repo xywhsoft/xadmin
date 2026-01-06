@@ -36,6 +36,7 @@ CREATE TABLE user (
 INSERT INTO user (
                      id,
                      role,
+                     authLevel,
                      user,
                      salt,
                      pwd,
@@ -46,6 +47,7 @@ INSERT INTO user (
                  VALUES (
                      1,
                      1,
+                     0,
                      'admin',
                      'yT30uWu00001a1EiofyV4b9-_aHNO0aS',
                      '4FD681049123E6D9E48D534D7AA7DACEDE38C8860B14069647FF1E4446573521',

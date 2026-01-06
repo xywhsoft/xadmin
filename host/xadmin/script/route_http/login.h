@@ -53,8 +53,8 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 		sqlite3_bind_text(stmt_login_get, 1, sUser, -1, NULL);
 		while ( sqlite3_step(stmt_login_get) == SQLITE_ROW ) {
 			// 获取用户的 salt 和 pwd
-			str sSalt = (str)sqlite3_column_text(stmt_login_get, 3);
-			str sStoredPwd = (str)sqlite3_column_text(stmt_login_get, 4);
+			str sSalt = (str)sqlite3_column_text(stmt_login_get, 2);
+			str sStoredPwd = (str)sqlite3_column_text(stmt_login_get, 3);
 			
 			// 服务端二次 SHA-256 哈希
 			str sPwdHash = ServerHashPassword(sUser, sSalt, sClientHash);
@@ -63,7 +63,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 			if ( strcmp(sPwdHash, sStoredPwd) == 0 ) {
 				
 				// step 4 : 检查是否有对应的 role 权限表
-				int64 iRoleID = sqlite3_column_int64(stmt_login_get, 1);
+				int64 iRoleID = sqlite3_column_int64(stmt_login_get, 4);
 				xvalue tblRole = xvoListGetValue(G_CACHE_RoleAuth, iRoleID);
 				if ( tblRole && (tblRole->Type == XVO_DT_TABLE) ) {
 					bOK = TRUE;

@@ -143,7 +143,7 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, struct 
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 				xvoTableSetText(tblRow, "roleName", 8, (str)sqlite3_column_text(stmt_user_sel, 9), 0, FALSE);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_user_sel, 9);
+					iCount = sqlite3_column_int64(stmt_user_sel, 10);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
