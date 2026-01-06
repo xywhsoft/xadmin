@@ -31,6 +31,12 @@
 				</select>
 			</div>
 		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">权限级别 <i class="layui-icon layui-icon-tips" lay-tips="该字段与角色管理中的字段用途相同，使用其中更高的作为最终权限级别" style="color: #1E9FFF; cursor: help;"></i></label>
+			<div class="layui-input-block">
+				<input type="number" name="roleLevel" value="0" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
+			</div>
+		</div>
 		<div style="flex: 1;"></div>
 		<div class="layui-form-item" style="text-align: right; margin-bottom: 0;">
 			<button class="layui-btn" lay-submit lay-filter="submit">保存</button>
@@ -55,6 +61,20 @@
 			// 渲染表单
 			form.render();
 			
+			// 启用提示功能
+			$(document).on('mouseenter', '[lay-tips]', function(){{
+				var tips = $(this).attr('lay-tips');
+				if(tips){{
+					layer.tips(tips, this, {{
+						tips: [1, '#333'],
+						time: 3000
+					});
+				}
+			}).on('mouseleave', '[lay-tips]', function(){{
+				// 补充：鼠标离开时关闭气泡，避免多个气泡残留
+				layer.closeAll('tips');
+			});
+			
 			// 取消按钮
 			document.getElementById('btnCancel').onclick = function(){{
 				var index = parent.layer.getFrameIndex(window.name);
@@ -72,7 +92,8 @@
 				var submitData = {{
 					username: field.username,
 					password: pwdHash,
-					role: parseInt(field.role)
+					role: parseInt(field.role),
+					roleLevel: parseInt(field.roleLevel) || 0
 				};
 				
 				// 提交请求

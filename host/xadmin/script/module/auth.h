@@ -172,12 +172,12 @@ void Auth_CompileSQL()
 		printf("!!! ERROR !!! Auth_Init [stmt_user_get] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO user (role, user, salt, pwd, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, 0);", -1, SQL_PREPARE_DEFAULT, &stmt_user_add, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO user (user, salt, pwd, role, roleLevel, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, 0);", -1, SQL_PREPARE_DEFAULT, &stmt_user_add, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_user_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE user SET role = ?, updateTime = ? WHERE id = ?;", -1, SQL_PREPARE_DEFAULT, &stmt_user_put, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE user SET role = ?, roleLevel = ?, updateTime = ? WHERE id = ?;", -1, SQL_PREPARE_DEFAULT, &stmt_user_put, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_user_put] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);

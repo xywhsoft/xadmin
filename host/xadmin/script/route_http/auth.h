@@ -190,7 +190,7 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		
 		// 检查用户名是否已存在
 		bool bExists = FALSE;
-		sqlite3_bind_text(stmt_user_add, 1, user, strlen(user), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_user_chk, 1, user, strlen(user), SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_user_chk, 2, 0);
 		while ( sqlite3_step(stmt_user_chk) == SQLITE_ROW ) {
 			bExists = TRUE;

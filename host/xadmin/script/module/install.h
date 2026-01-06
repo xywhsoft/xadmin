@@ -56,12 +56,13 @@ void Request_Install(XS_ServerObject objServer, XS_HostObject objHost, struct mg
 		
 		// 写入数据库
 		xtime now = xrtNow();
-		sqlite3_bind_int64(stmt_user_add, 1, 1);
-		sqlite3_bind_text(stmt_user_add, 2, sUser, strlen(sUser), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_user_add, 3, sSalt, strlen(sSalt), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_user_add, 4, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
-		sqlite3_bind_int64(stmt_user_add, 5, now);
+		sqlite3_bind_text(stmt_user_add, 1, sUser, strlen(sUser), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_user_add, 2, sSalt, strlen(sSalt), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_user_add, 3, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
+		sqlite3_bind_int64(stmt_user_add, 4, 1);
+		sqlite3_bind_int64(stmt_user_add, 5, 0);
 		sqlite3_bind_int64(stmt_user_add, 6, now);
+		sqlite3_bind_int64(stmt_user_add, 7, now);
 		sqlite3_step(stmt_user_add);
 		int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
 		sqlite3_reset(stmt_user_add);

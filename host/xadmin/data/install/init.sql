@@ -24,6 +24,7 @@ CREATE TABLE logs (
 CREATE TABLE user (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     role       INTEGER,
+    roleLevel  INTEGER DEFAULT (0),
     user       TEXT,
     salt       TEXT,
     pwd        TEXT,
