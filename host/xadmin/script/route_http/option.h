@@ -48,6 +48,23 @@ void Request_Option(XS_ServerObject objServer, XS_HostObject objHost, struct mg_
 			return;
 		}
 		
+		// 检查权限级别
+		int64 iAuthLevelRequired = xvoTableGetInt(tblConfig, "authLevel", 9);
+		if ( iAuthLevelRequired > 0 ) {
+			// 获取当前用户的权限级别
+			int64 iAuthLevelUser = 0;
+			if ( hm->session && (hm->session->Type == XVO_DT_TABLE) ) {
+				iAuthLevelUser = xvoTableGetInt(hm->session, "authLevel", 9);
+			}
+			
+			// 如果用户权限级别低于要求，返回403
+			if ( iAuthLevelUser < iAuthLevelRequired ) {
+				xvoUnref(tblConfig);
+				http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限不足\"}", 0);
+				return;
+			}
+		}
+		
 		// 构建返回值
 		xvalue tblRet = xvoCreateTable();
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
@@ -83,6 +100,32 @@ void Request_Option(XS_ServerObject objServer, XS_HostObject objHost, struct mg_
 			xvoUnref(tblBody);
 			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"非法的文件名\"}", 0);
 			return;
+		}
+		
+		// 加载配置文件以检查权限级别
+		xvalue tblConfig = Option_LoadFile(sFileName);
+		if ( tblConfig == NULL ) {
+			xvoUnref(tblBody);
+			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"配置文件不存在或解析失败\"}", 0);
+			return;
+		}
+		
+		// 检查权限级别
+		int64 iAuthLevelRequired = xvoTableGetInt(tblConfig, "authLevel", 9);
+		xvoUnref(tblConfig);
+		if ( iAuthLevelRequired > 0 ) {
+			// 获取当前用户的权限级别
+			int64 iAuthLevelUser = 0;
+			if ( hm->session && (hm->session->Type == XVO_DT_TABLE) ) {
+				iAuthLevelUser = xvoTableGetInt(hm->session, "authLevel", 9);
+			}
+			
+			// 如果用户权限级别低于要求，返回403
+			if ( iAuthLevelUser < iAuthLevelRequired ) {
+				xvoUnref(tblBody);
+				http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限不足\"}", 0);
+				return;
+			}
 		}
 		
 		// 获取表单数据

@@ -1,5 +1,6 @@
 {
 	"namespace":	"global",
+	"authLevel":	999,
 	"classList":	[
 		{
 			"style":	"",

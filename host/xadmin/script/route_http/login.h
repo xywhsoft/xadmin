@@ -73,10 +73,18 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 					tblSession = xvoCreateTable();
 					xvoTableSetValue(G_Session, XID, 32, tblSession, TRUE);
 					
+					// 获取 authLevel
+					int64 iLvUser = sqlite3_column_int64(stmt_login_get, 5);
+					int64 iLvRole = xvoTableGetInt(tblRole, "__authLevel__", 13);
+					int64 iAuthLevel = iLvUser > iLvRole ? iLvUser : iLvRole;
+					printf("iLvUser : %d\n", iLvUser);
+					xvoPrintValue(tblRole, 0, 0, 0, NULL);
+					
 					// step 6 : 将用户信息填入用户 Session 表
 					xvoTableSetText(tblSession, "xid", 3, XID, 0, TRUE);
 					xvoTableSetInt(tblSession, "id", 2, sqlite3_column_int64(stmt_login_get, 0));
 					xvoTableSetInt(tblSession, "roleID", 6, iRoleID);
+					xvoTableSetInt(tblSession, "authLevel", 9, iAuthLevel);
 					xvoTableSetText(tblSession, "user", 4, sUser, 0, FALSE);
 					
 				} else {

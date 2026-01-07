@@ -383,6 +383,10 @@ void Auth_ReloadCache()
 		} dictWalkInfo = { listAuth, tblURI };
 		xrtDictWalk(G_StaticRouteTableHTTP, (ptr)AuthRouteCategorize, &dictWalkInfo);
 		xvoUnref(listAuth);
+		// 权限字典添加元数据
+		xvoTableSetInt(tblURI, "__id__", 6, id);
+		xvoTableSetText(tblURI, "__name__", 8, name, 0, FALSE);
+		xvoTableSetInt(tblURI, "__authLevel__", 13, authLevel);
 		// 将整理好的权限字典添加到缓存表
 		xvoListSetValue(lstRet, id, tblURI, TRUE);
 	}
