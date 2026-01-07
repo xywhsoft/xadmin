@@ -136,6 +136,17 @@ xvalue Menu_BuildTree()
 	
 	// 构建树形结构
 	xvalue arrResult = xvoCreateArray();
+	
+	// 添加主页菜单（与 pear.config.json 中的默认页面关联，避免重复标签页）
+	xvalue tblHome = xvoCreateTable();
+	xvoTableSetText(tblHome, "id", 2, "home", 0, FALSE);
+	xvoTableSetText(tblHome, "title", 5, "主页", 0, FALSE);
+	xvoTableSetText(tblHome, "icon", 4, "layui-icon layui-icon-home", 0, FALSE);
+	xvoTableSetInt(tblHome, "type", 4, 1);
+	xvoTableSetText(tblHome, "openType", 8, "_iframe", 0, FALSE);
+	xvoTableSetText(tblHome, "href", 4, "/admin/view/home", 0, FALSE);
+	xvoArrayAppendValue(arrResult, tblHome, TRUE);
+	
 	Menu_BuildTree_Recursive(arrResult, arrAll, 0);
 	
 	xvoUnref(arrAll);

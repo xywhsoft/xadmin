@@ -1,5 +1,5 @@
 --
--- SQLiteStudio v3.4.17 生成的文件，周二 1月 6 20:21:12 2026
+-- SQLiteStudio v3.4.17 生成的文件，周三 1月 7 15:53:28 2026
 --
 -- 所用的文本编码：UTF-8
 --
@@ -55,37 +55,6 @@ INSERT INTO menu (
                  VALUES (
                      1,
                      0,
-                     '主页',
-                     'layui-icon layui-icon-home',
-                     1,
-                     '_iframe',
-                     '/admin/view/home',
-                     0,
-                     1,
-                     '系统主页',
-                     63933640350,
-                     63933640350,
-                     0
-                 );
-
-INSERT INTO menu (
-                     id,
-                     parent,
-                     title,
-                     icon,
-                     type,
-                     openType,
-                     href,
-                     sort,
-                     visible,
-                     remark,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     2,
-                     0,
                      '系统日志',
                      'layui-icon layui-icon-log',
                      1,
@@ -115,7 +84,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     3,
+                     2,
                      0,
                      '后台权限管理',
                      'layui-icon layui-icon-auz',
@@ -146,7 +115,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     4,
+                     3,
                      3,
                      '用户管理',
                      'layui-icon layui-icon-username',
@@ -177,7 +146,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     5,
+                     4,
                      3,
                      '角色管理',
                      'layui-icon layui-icon-user',
@@ -208,7 +177,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     6,
+                     5,
                      3,
                      '权限分类',
                      'layui-icon layui-icon-tabs',
@@ -239,7 +208,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     7,
+                     6,
                      3,
                      '权限分组',
                      'layui-icon layui-icon-template',
@@ -270,7 +239,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     8,
+                     7,
                      3,
                      '接口管理',
                      'layui-icon layui-icon-website',
@@ -301,7 +270,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     9,
+                     8,
                      11,
                      '菜单管理',
                      'layui-icon layui-icon-spread-left',
@@ -332,7 +301,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     10,
+                     9,
                      11,
                      '全局配置',
                      'layui-icon layui-icon-set',
@@ -363,7 +332,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     11,
+                     10,
                      0,
                      '设置',
                      'layui-icon layui-icon-set',
@@ -394,7 +363,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     13,
+                     11,
                      11,
                      '自定义设置',
                      'layui-icon layui-icon-face-smile',
@@ -425,7 +394,7 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     14,
+                     12,
                      0,
                      '前台权限管理',
                      'layui-icon layui-icon-user',
@@ -436,7 +405,69 @@ INSERT INTO menu (
                      1,
                      '',
                      63934948636,
-                     63934949797,
+                     63935018692,
+                     1
+                 );
+
+INSERT INTO menu (
+                     id,
+                     parent,
+                     title,
+                     icon,
+                     type,
+                     openType,
+                     href,
+                     sort,
+                     visible,
+                     remark,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     13,
+                     14,
+                     '用户管理',
+                     'layui-icon layui-icon-username',
+                     1,
+                     '_component',
+                     '',
+                     301000,
+                     1,
+                     '',
+                     63934949844,
+                     63935018689,
+                     1
+                 );
+
+INSERT INTO menu (
+                     id,
+                     parent,
+                     title,
+                     icon,
+                     type,
+                     openType,
+                     href,
+                     sort,
+                     visible,
+                     remark,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     14,
+                     0,
+                     '前台用户管理',
+                     'layui-icon layui-icon-friends',
+                     0,
+                     '',
+                     '',
+                     300000,
+                     1,
+                     '前台用户管理目录',
+                     63934949844,
+                     63934949844,
                      0
                  );
 
@@ -457,37 +488,516 @@ INSERT INTO menu (
                  )
                  VALUES (
                      15,
-                     14,
+                     16,
                      '用户管理',
                      'layui-icon layui-icon-username',
                      1,
                      '_component',
-                     '',
-                     301000,
+                     '/admin/view/member/user',
+                     300100,
                      1,
-                     '',
+                     '管理前台用户',
                      63934949844,
-                     63934949856,
+                     63934949844,
                      0
                  );
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
-                VALUES (16, 0, '前台用户管理', 'layui-icon layui-icon-friends', 0, '', '', 300000, 1, '前台用户管理目录', 63934949844, 63934949844, 0);
+INSERT INTO menu (
+                     id,
+                     parent,
+                     title,
+                     icon,
+                     type,
+                     openType,
+                     href,
+                     sort,
+                     visible,
+                     remark,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     16,
+                     16,
+                     '用户组管理',
+                     'layui-icon layui-icon-group',
+                     1,
+                     '_component',
+                     '/admin/view/member/group',
+                     300200,
+                     1,
+                     '管理前台用户组',
+                     63934949844,
+                     63934949844,
+                     0
+                 );
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
-                VALUES (17, 16, '用户管理', 'layui-icon layui-icon-username', 1, '_component', '/admin/view/member/user', 300100, 1, '管理前台用户', 63934949844, 63934949844, 0);
+INSERT INTO menu (
+                     id,
+                     parent,
+                     title,
+                     icon,
+                     type,
+                     openType,
+                     href,
+                     sort,
+                     visible,
+                     remark,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     17,
+                     16,
+                     '权限分类',
+                     'layui-icon layui-icon-tabs',
+                     1,
+                     '_component',
+                     '/admin/view/member/authgroup',
+                     300300,
+                     1,
+                     '管理前台权限分类',
+                     63934949844,
+                     63934949844,
+                     0
+                 );
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
-                VALUES (18, 16, '用户组管理', 'layui-icon layui-icon-group', 1, '_component', '/admin/view/member/group', 300200, 1, '管理前台用户组', 63934949844, 63934949844, 0);
+INSERT INTO menu (
+                     id,
+                     parent,
+                     title,
+                     icon,
+                     type,
+                     openType,
+                     href,
+                     sort,
+                     visible,
+                     remark,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     18,
+                     16,
+                     '权限分组',
+                     'layui-icon layui-icon-vercode',
+                     1,
+                     '_component',
+                     '/admin/view/member/auth',
+                     300400,
+                     1,
+                     '管理前台权限分组',
+                     63934949844,
+                     63934949844,
+                     0
+                 );
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
-                VALUES (19, 16, '权限分类', 'layui-icon layui-icon-tabs', 1, '_component', '/admin/view/member/authgroup', 300300, 1, '管理前台权限分类', 63934949844, 63934949844, 0);
+INSERT INTO menu (
+                     id,
+                     parent,
+                     title,
+                     icon,
+                     type,
+                     openType,
+                     href,
+                     sort,
+                     visible,
+                     remark,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     19,
+                     16,
+                     'URI权限',
+                     'layui-icon layui-icon-link',
+                     1,
+                     '_component',
+                     '/admin/view/member/uris',
+                     300500,
+                     1,
+                     '管理前台URI权限',
+                     63934949844,
+                     63934949844,
+                     0
+                 );
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
-                VALUES (20, 16, '权限分组', 'layui-icon layui-icon-vercode', 1, '_component', '/admin/view/member/auth', 300400, 1, '管理前台权限分组', 63934949844, 63934949844, 0);
 
-INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
-                VALUES (21, 16, 'URI权限', 'layui-icon layui-icon-link', 1, '_component', '/admin/view/member/uris', 300500, 1, '管理前台URI权限', 63934949844, 63934949844, 0);
+-- 表：member
+CREATE TABLE member (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    username   TEXT    UNIQUE,
+    salt       TEXT,
+    pwd        TEXT,
+    groupId    INTEGER DEFAULT (1),
+    authLevel  INTEGER DEFAULT (0),
+    balance    INTEGER DEFAULT (0),
+    nickname   TEXT,
+    email      TEXT,
+    phone      TEXT,
+    avatar     TEXT,
+    status     INTEGER DEFAULT (1),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO member (
+                       id,
+                       username,
+                       salt,
+                       pwd,
+                       groupId,
+                       authLevel,
+                       balance,
+                       nickname,
+                       email,
+                       phone,
+                       avatar,
+                       status,
+                       createTime,
+                       updateTime,
+                       isDelete
+                   )
+                   VALUES (
+                       1,
+                       'demo',
+                       'dM30uWu00001a1EiofyV4b9-_aHNO0aS',
+                       'C9D3D3A8E5B8F9C7D6A5B4C3D2E1F0A9B8C7D6E5F4A3B2C1D0E9F8A7B6C5D4E3',
+                       1,
+                       0,
+                       0,
+                       '演示用户',
+                       'demo@example.com',
+                       '',
+                       '',
+                       1,
+                       63935000000,
+                       63935000000,
+                       0
+                   );
+
+
+-- 表：memberGroup
+CREATE TABLE memberGroup (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT,
+    desc       TEXT,
+    authList   TEXT    DEFAULT '[]',
+    authLevel  INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO memberGroup (
+                            id,
+                            name,
+                            desc,
+                            authList,
+                            authLevel,
+                            createTime,
+                            updateTime,
+                            isDelete
+                        )
+                        VALUES (
+                            1,
+                            '普通用户',
+                            '默认用户组，拥有基础访问权限',
+                            '[1]',
+                            0,
+                            63935000000,
+                            63935000000,
+                            0
+                        );
+
+INSERT INTO memberGroup (
+                            id,
+                            name,
+                            desc,
+                            authList,
+                            authLevel,
+                            createTime,
+                            updateTime,
+                            isDelete
+                        )
+                        VALUES (
+                            2,
+                            'VIP用户',
+                            'VIP用户组，拥有更多访问权限',
+                            '[1,2]',
+                            100,
+                            63935000000,
+                            63935000000,
+                            0
+                        );
+
+
+-- 表：memberAuthGroup
+CREATE TABLE memberAuthGroup (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT,
+    desc       TEXT,
+    sort       INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO memberAuthGroup (
+                                id,
+                                name,
+                                desc,
+                                sort,
+                                createTime,
+                                updateTime,
+                                isDelete
+                            )
+                            VALUES (
+                                1,
+                                '未分类',
+                                '未分类的权限',
+-                               1,
+                                63935000000,
+                                63935000000,
+                                0
+                            );
+
+INSERT INTO memberAuthGroup (
+                                id,
+                                name,
+                                desc,
+                                sort,
+                                createTime,
+                                updateTime,
+                                isDelete
+                            )
+                            VALUES (
+                                2,
+                                '基础功能',
+                                '基础访问权限',
+                                0,
+                                63935000000,
+                                63935000000,
+                                0
+                            );
+
+
+-- 表：memberAuth
+CREATE TABLE memberAuth (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    groupID    INTEGER DEFAULT (1),
+    name       TEXT,
+    desc       TEXT,
+    sort       INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO memberAuth (
+                           id,
+                           groupID,
+                           name,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime,
+                           isDelete
+                       )
+                       VALUES (
+                           1,
+                           2,
+                           '基础接口',
+                           '登录、注册、个人中心等基础接口',
+                           0,
+                           63935000000,
+                           63935000000,
+                           0
+                       );
+
+INSERT INTO memberAuth (
+                           id,
+                           groupID,
+                           name,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime,
+                           isDelete
+                       )
+                       VALUES (
+                           2,
+                           2,
+                           'VIP功能',
+                           'VIP专属功能接口',
+                           100,
+                           63935000000,
+                           63935000000,
+                           0
+                       );
+
+
+-- 表：memberUris
+CREATE TABLE memberUris (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    authID     INTEGER DEFAULT (1),
+    uri        TEXT    UNIQUE,
+    desc       TEXT,
+    sort       INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER
+);
+
+INSERT INTO memberUris (
+                           id,
+                           authID,
+                           uri,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime
+                       )
+                       VALUES (
+                           1,
+                           1,
+                           '/api/v1/login',
+                           '前台登录接口',
+                           0,
+                           63935000000,
+                           63935000000
+                       );
+
+INSERT INTO memberUris (
+                           id,
+                           authID,
+                           uri,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime
+                       )
+                       VALUES (
+                           2,
+                           1,
+                           '/api/v1/register',
+                           '前台注册接口',
+                           10,
+                           63935000000,
+                           63935000000
+                       );
+
+INSERT INTO memberUris (
+                           id,
+                           authID,
+                           uri,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime
+                       )
+                       VALUES (
+                           3,
+                           1,
+                           '/api/v1/logout',
+                           '前台登出接口',
+                           20,
+                           63935000000,
+                           63935000000
+                       );
+
+INSERT INTO memberUris (
+                           id,
+                           authID,
+                           uri,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime
+                       )
+                       VALUES (
+                           4,
+                           1,
+                           '/api/v1/profile',
+                           '个人中心接口',
+                           30,
+                           63935000000,
+                           63935000000
+                       );
+
+INSERT INTO memberUris (
+                           id,
+                           authID,
+                           uri,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime
+                       )
+                       VALUES (
+                           5,
+                           1,
+                           '/api/v1/profile/password',
+                           '修改密码接口',
+                           40,
+                           63935000000,
+                           63935000000
+                       );
+
+INSERT INTO memberUris (
+                           id,
+                           authID,
+                           uri,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime
+                       )
+                       VALUES (
+                           6,
+                           1,
+                           '/api/v1/balance',
+                           '余额查询接口',
+                           50,
+                           63935000000,
+                           63935000000
+                       );
+
+INSERT INTO memberUris (
+                           id,
+                           authID,
+                           uri,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime
+                       )
+                       VALUES (
+                           7,
+                           1,
+                           '/api/v1/balance/log',
+                           '余额变动日志接口',
+                           60,
+                           63935000000,
+                           63935000000
+                       );
+
+
+-- 表：memberBalanceLog
+CREATE TABLE memberBalanceLog (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    memberId   INTEGER,
+    type       INTEGER DEFAULT (0),
+    amount     INTEGER DEFAULT (0),
+    balance    INTEGER DEFAULT (0),
+    remark     TEXT,
+    operator   TEXT,
+    createTime INTEGER
+);
 
 
 -- 表：user
@@ -1092,14 +1602,68 @@ INSERT INTO auth (
                      0
                  );
 
-INSERT INTO auth (id, groupID, name, desc, sort, createTime, updateTime, isDelete)
-                VALUES (16, 8, '权限分类管理', '[前台用户管理] - [权限分类] 页面和接口', 302000, 63934949844, 63934949844, 0);
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     16,
+                     8,
+                     '权限分类管理',
+                     '[前台用户管理] - [权限分类] 页面和接口',
+                     302000,
+                     63934949844,
+                     63934949844,
+                     0
+                 );
 
-INSERT INTO auth (id, groupID, name, desc, sort, createTime, updateTime, isDelete)
-                VALUES (17, 8, '权限分组管理', '[前台用户管理] - [权限分组] 页面和接口', 303000, 63934949844, 63934949844, 0);
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     17,
+                     8,
+                     '权限分组管理',
+                     '[前台用户管理] - [权限分组] 页面和接口',
+                     303000,
+                     63934949844,
+                     63934949844,
+                     0
+                 );
 
-INSERT INTO auth (id, groupID, name, desc, sort, createTime, updateTime, isDelete)
-                VALUES (18, 8, 'URI权限管理', '[前台用户管理] - [URI权限] 页面和接口', 304000, 63934949844, 63934949844, 0);
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     18,
+                     8,
+                     'URI权限管理',
+                     '[前台用户管理] - [URI权限] 页面和接口',
+                     304000,
+                     63934949844,
+                     63934949844,
+                     0
+                 );
 
 
 -- 表：uris
@@ -1855,385 +2419,499 @@ INSERT INTO uris (
                      63934949671
                  );
 
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     50,
+                     1,
+                     '/admin/view/member/user',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
--- ==================== 前台用户系统表 ====================
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     51,
+                     1,
+                     '/admin/view/member/uris/edit',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
--- 表：member (前台用户表)
-CREATE TABLE member (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    username   TEXT    UNIQUE,
-    salt       TEXT,
-    pwd        TEXT,
-    groupId    INTEGER DEFAULT (1),
-    authLevel  INTEGER DEFAULT (0),
-    balance    INTEGER DEFAULT (0),
-    nickname   TEXT,
-    email      TEXT,
-    phone      TEXT,
-    avatar     TEXT,
-    status     INTEGER DEFAULT (1),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0)
-);
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     52,
+                     1,
+                     '/admin/view/member/authgroup/add',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
--- 插入默认前台用户 (demo/demo123)
-INSERT INTO member (
-                       id,
-                       username,
-                       salt,
-                       pwd,
-                       groupId,
-                       authLevel,
-                       balance,
-                       nickname,
-                       email,
-                       phone,
-                       avatar,
-                       status,
-                       createTime,
-                       updateTime,
-                       isDelete
-                   )
-                   VALUES (
-                       1,
-                       'demo',
-                       'dM30uWu00001a1EiofyV4b9-_aHNO0aS',
-                       'C9D3D3A8E5B8F9C7D6A5B4C3D2E1F0A9B8C7D6E5F4A3B2C1D0E9F8A7B6C5D4E3',
-                       1,
-                       0,
-                       0,
-                       '演示用户',
-                       'demo@example.com',
-                       '',
-                       '',
-                       1,
-                       63935000000,
-                       63935000000,
-                       0
-                   );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     53,
+                     1,
+                     '/admin/view/member/uris',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     54,
+                     1,
+                     '/admin/view/member/auth/add',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
--- 表：memberGroup (前台用户组表)
-CREATE TABLE memberGroup (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT,
-    desc       TEXT,
-    authList   TEXT    DEFAULT '[]',
-    authLevel  INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0)
-);
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     55,
+                     1,
+                     '/api/v1/balance/log',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
--- 插入默认用户组
-INSERT INTO memberGroup (
-                            id,
-                            name,
-                            desc,
-                            authList,
-                            authLevel,
-                            createTime,
-                            updateTime,
-                            isDelete
-                        )
-                        VALUES (
-                            1,
-                            '普通用户',
-                            '默认用户组，拥有基础访问权限',
-                            '[1]',
-                            0,
-                            63935000000,
-                            63935000000,
-                            0
-                        );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     56,
+                     1,
+                     '/admin/view/member/auth',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
-INSERT INTO memberGroup (
-                            id,
-                            name,
-                            desc,
-                            authList,
-                            authLevel,
-                            createTime,
-                            updateTime,
-                            isDelete
-                        )
-                        VALUES (
-                            2,
-                            'VIP用户',
-                            'VIP用户组，拥有更多访问权限',
-                            '[1,2]',
-                            100,
-                            63935000000,
-                            63935000000,
-                            0
-                        );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     57,
+                     1,
+                     '/api/v1/profile/password',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     58,
+                     1,
+                     '/admin/view/member/user/add',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
--- 表：memberAuthGroup (前台权限分类表)
-CREATE TABLE memberAuthGroup (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT,
-    desc       TEXT,
-    sort       INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0)
-);
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     59,
+                     1,
+                     '/admin/view/member/auth/edit',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
--- 插入默认权限分类
-INSERT INTO memberAuthGroup (
-                                id,
-                                name,
-                                desc,
-                                sort,
-                                createTime,
-                                updateTime,
-                                isDelete
-                            )
-                            VALUES (
-                                1,
-                                '未分类',
-                                '未分类的权限',
-                                -1,
-                                63935000000,
-                                63935000000,
-                                0
-                            );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     60,
+                     1,
+                     '/admin/view/member/group',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
-INSERT INTO memberAuthGroup (
-                                id,
-                                name,
-                                desc,
-                                sort,
-                                createTime,
-                                updateTime,
-                                isDelete
-                            )
-                            VALUES (
-                                2,
-                                '基础功能',
-                                '基础访问权限',
-                                0,
-                                63935000000,
-                                63935000000,
-                                0
-                            );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     61,
+                     1,
+                     '/api/v1/logout',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     62,
+                     1,
+                     '/admin/view/member/user/edit',
+                     '',
+                     0,
+                     63935017487,
+                     63935017487
+                 );
 
--- 表：memberAuth (前台权限分组表)
-CREATE TABLE memberAuth (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    groupID    INTEGER DEFAULT (1),
-    name       TEXT,
-    desc       TEXT,
-    sort       INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0)
-);
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     63,
+                     1,
+                     '/admin/view/member/group/add',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
--- 插入默认权限分组
-INSERT INTO memberAuth (
-                           id,
-                           groupID,
-                           name,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime,
-                           isDelete
-                       )
-                       VALUES (
-                           1,
-                           2,
-                           '基础接口',
-                           '登录、注册、个人中心等基础接口',
-                           0,
-                           63935000000,
-                           63935000000,
-                           0
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     64,
+                     1,
+                     '/admin/view/member/group/edit',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
-INSERT INTO memberAuth (
-                           id,
-                           groupID,
-                           name,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime,
-                           isDelete
-                       )
-                       VALUES (
-                           2,
-                           2,
-                           'VIP功能',
-                           'VIP专属功能接口',
-                           100,
-                           63935000000,
-                           63935000000,
-                           0
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     65,
+                     1,
+                     '/admin/view/member/authgroup',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     66,
+                     1,
+                     '/admin/member/uris',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
--- 表：memberUris (前台URI权限表)
-CREATE TABLE memberUris (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    authID     INTEGER DEFAULT (1),
-    uri        TEXT    UNIQUE,
-    desc       TEXT,
-    sort       INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER
-);
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     67,
+                     1,
+                     '/admin/member/user/balance',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
--- 插入默认前台URI
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           1,
-                           1,
-                           '/api/v1/login',
-                           '前台登录接口',
-                           0,
-                           63935000000,
-                           63935000000
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     68,
+                     1,
+                     '/admin/member/authgroup',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           2,
-                           1,
-                           '/api/v1/register',
-                           '前台注册接口',
-                           10,
-                           63935000000,
-                           63935000000
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     69,
+                     1,
+                     '/admin/member/auth',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           3,
-                           1,
-                           '/api/v1/logout',
-                           '前台登出接口',
-                           20,
-                           63935000000,
-                           63935000000
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     70,
+                     1,
+                     '/admin/member/user/repwd',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           4,
-                           1,
-                           '/api/v1/profile',
-                           '个人中心接口',
-                           30,
-                           63935000000,
-                           63935000000
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     71,
+                     1,
+                     '/admin/member/user',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           5,
-                           1,
-                           '/api/v1/profile/password',
-                           '修改密码接口',
-                           40,
-                           63935000000,
-                           63935000000
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     72,
+                     1,
+                     '/admin/member/group',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           6,
-                           1,
-                           '/api/v1/balance',
-                           '余额查询接口',
-                           50,
-                           63935000000,
-                           63935000000
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     73,
+                     1,
+                     '/api/v1/balance',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           7,
-                           1,
-                           '/api/v1/balance/log',
-                           '余额变动日志接口',
-                           60,
-                           63935000000,
-                           63935000000
-                       );
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     74,
+                     1,
+                     '/admin/view/member/authgroup/edit',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
-
--- 表：memberBalanceLog (前台用户余额变动日志表)
-CREATE TABLE memberBalanceLog (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    memberId   INTEGER,
-    type       INTEGER DEFAULT (0),
-    amount     INTEGER DEFAULT (0),
-    balance    INTEGER DEFAULT (0),
-    remark     TEXT,
-    operator   TEXT,
-    createTime INTEGER
-);
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     75,
+                     1,
+                     '/api/v1/profile',
+                     '',
+                     0,
+                     63935017488,
+                     63935017488
+                 );
 
 
 COMMIT TRANSACTION;
