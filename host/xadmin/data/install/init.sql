@@ -1,10 +1,583 @@
 --
--- SQLiteStudio v3.4.17 生成的文件，周三 1月 7 15:53:28 2026
+-- SQLiteStudio v3.4.17 生成的文件，周三 1月 7 21:29:41 2026
 --
 -- 所用的文本编码：UTF-8
 --
 PRAGMA foreign_keys = off;
 BEGIN TRANSACTION;
+
+-- 表：auth
+CREATE TABLE auth (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    groupID    INTEGER,
+    name       TEXT,
+    desc       TEXT,
+    sort       INTEGER,
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     1,
+                     1,
+                     '未分组',
+                     '未经分组的 URI 会被归类到这个分类下',
+                     0,
+                     63930019316,
+                     63935032474,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     2,
+                     1,
+                     '服务管理',
+                     '[服务管理] 页面和接口',
+                     1000,
+                     63933802678,
+                     63933903248,
+                     1
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     3,
+                     5,
+                     '基础页面',
+                     '主页、登录页面等非功能归类页面',
+                     100000,
+                     63933903210,
+                     63935032468,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     4,
+                     1,
+                     '服务列表',
+                     '[任务管理] 页面和接口',
+                     2000,
+                     63933903275,
+                     63933903275,
+                     1
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     5,
+                     3,
+                     '系统日志',
+                     '[系统日志] 页面和接口',
+                     500000,
+                     63933903308,
+                     63935032434,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     6,
+                     4,
+                     '后台用户管理',
+                     '[权限管理] - [用户管理] 页面和接口',
+                     700000,
+                     63933903342,
+                     63935033427,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     7,
+                     4,
+                     '后台角色管理',
+                     '[权限管理] - [角色管理] 页面和接口',
+                     701000,
+                     63933903366,
+                     63935033431,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     8,
+                     4,
+                     '后台权限分类',
+                     '[权限管理] - [权限分类] 页面和接口',
+                     702000,
+                     63933903387,
+                     63935033434,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     9,
+                     4,
+                     '后台权限分组',
+                     '[权限管理] - [权限分组] 页面和接口',
+                     703000,
+                     63933903428,
+                     63935033437,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     10,
+                     7,
+                     '接口管理',
+                     '[设置] - [接口管理] 页面和接口',
+                     802000,
+                     63933903456,
+                     63935032279,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     11,
+                     7,
+                     '设置管理',
+                     '所有 [自定义设置] 页面和接口',
+                     800000,
+                     63934948478,
+                     63935032338,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     12,
+                     7,
+                     '菜单管理',
+                     '[设置] - [菜单管理] 页面和接口',
+                     801000,
+                     63934948510,
+                     63935032255,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     13,
+                     8,
+                     '前台用户管理',
+                     '[前台用户管理] - [用户管理] 页面和接口',
+                     600000,
+                     63934949282,
+                     63935033458,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     14,
+                     8,
+                     '前台用户组管理',
+                     '[前台用户管理] - [用户组管理] 页面和接口',
+                     601000,
+                     63934949319,
+                     63935033454,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     15,
+                     9,
+                     '调试接口',
+                     '用于调试的接口',
+                     900000,
+                     63934949645,
+                     63935032233,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     16,
+                     8,
+                     '前台权限分类',
+                     '[前台用户管理] - [权限分类] 页面和接口',
+                     602000,
+                     63934949844,
+                     63935033451,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     17,
+                     8,
+                     '前台权限分组',
+                     '[前台用户管理] - [权限分组] 页面和接口',
+                     603000,
+                     63934949844,
+                     63935033445,
+                     0
+                 );
+
+INSERT INTO auth (
+                     id,
+                     groupID,
+                     name,
+                     desc,
+                     sort,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     18,
+                     8,
+                     'URI权限管理',
+                     '[前台用户管理] - [URI权限] 页面和接口',
+                     304000,
+                     63934949844,
+                     63934949844,
+                     1
+                 );
+
+
+-- 表：authGroup
+CREATE TABLE authGroup (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT,
+    desc       TEXT,
+    sort       INTEGER,
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          1,
+                          '未分类',
+                          '未分类的权限',
+                          0,
+                          63930028060,
+                          63935032504,
+                          0
+                      );
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          2,
+                          '服务管理',
+                          '[服务管理] 菜单',
+                          1000,
+                          63933807197,
+                          63933903128,
+                          1
+                      );
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          3,
+                          '系统日志',
+                          '[系统日志] 菜单',
+                          500000,
+                          63933903025,
+                          63935032210,
+                          0
+                      );
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          4,
+                          '后台权限管理',
+                          '[后台权限管理] 菜单',
+                          700000,
+                          63933903052,
+                          63935032198,
+                          0
+                      );
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          5,
+                          '基础权限',
+                          '主页、登录等页面',
+                          100000,
+                          63933903097,
+                          63935032501,
+                          0
+                      );
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          6,
+                          '服务列表',
+                          '[服务列表] 菜单',
+                          2000,
+                          63933903142,
+                          63933903142,
+                          1
+                      );
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          7,
+                          '设置',
+                          '[设置] 菜单',
+                          800000,
+                          63934948202,
+                          63935032191,
+                          0
+                      );
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          8,
+                          '前台用户管理',
+                          '[前台用户管理] 菜单',
+                          600000,
+                          63934948299,
+                          63935032204,
+                          0
+                      );
+
+INSERT INTO authGroup (
+                          id,
+                          name,
+                          desc,
+                          sort,
+                          createTime,
+                          updateTime,
+                          isDelete
+                      )
+                      VALUES (
+                          9,
+                          '调试接口',
+                          '用于调试的接口',
+                          900000,
+                          63934949629,
+                          63935032126,
+                          0
+                      );
 
 
 -- 表：logs
@@ -17,6 +590,246 @@ CREATE TABLE logs (
     param      TEXT,
     body       TEXT,
     createTime INTEGER
+);
+
+
+-- 表：member
+CREATE TABLE member (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    username   TEXT    UNIQUE,
+    salt       TEXT,
+    pwd        TEXT,
+    groupId    INTEGER DEFAULT (1),
+    authLevel  INTEGER DEFAULT (0),
+    balance    INTEGER DEFAULT (0),
+    nickname   TEXT,
+    email      TEXT,
+    phone      TEXT,
+    avatar     TEXT,
+    status     INTEGER DEFAULT (1),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO member (
+                       id,
+                       username,
+                       salt,
+                       pwd,
+                       groupId,
+                       authLevel,
+                       balance,
+                       nickname,
+                       email,
+                       phone,
+                       avatar,
+                       status,
+                       createTime,
+                       updateTime,
+                       isDelete
+                   )
+                   VALUES (
+                       1,
+                       'demo',
+                       'dM30uWu00001a1EiofyV4b9-_aHNO0aS',
+                       'C9D3D3A8E5B8F9C7D6A5B4C3D2E1F0A9B8C7D6E5F4A3B2C1D0E9F8A7B6C5D4E3',
+                       1,
+                       0,
+                       0,
+                       '演示用户',
+                       'demo@example.com',
+                       '',
+                       '',
+                       1,
+                       63935000000,
+                       63935000000,
+                       0
+                   );
+
+
+-- 表：memberAuth
+CREATE TABLE memberAuth (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    groupID    INTEGER DEFAULT (1),
+    name       TEXT,
+    desc       TEXT,
+    sort       INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO memberAuth (
+                           id,
+                           groupID,
+                           name,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime,
+                           isDelete
+                       )
+                       VALUES (
+                           1,
+                           2,
+                           '基础接口',
+                           '登录、注册、个人中心等基础接口',
+                           0,
+                           63935000000,
+                           63935000000,
+                           0
+                       );
+
+INSERT INTO memberAuth (
+                           id,
+                           groupID,
+                           name,
+                           desc,
+                           sort,
+                           createTime,
+                           updateTime,
+                           isDelete
+                       )
+                       VALUES (
+                           2,
+                           2,
+                           'VIP功能',
+                           'VIP专属功能接口',
+                           100,
+                           63935000000,
+                           63935000000,
+                           0
+                       );
+
+
+-- 表：memberAuthGroup
+CREATE TABLE memberAuthGroup (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT,
+    desc       TEXT,
+    sort       INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO memberAuthGroup (
+                                id,
+                                name,
+                                desc,
+                                sort,
+                                createTime,
+                                updateTime,
+                                isDelete
+                            )
+                            VALUES (
+                                1,
+                                '未分类',
+                                '未分类的权限',
+-                               1,
+                                63935000000,
+                                63935000000,
+                                0
+                            );
+
+INSERT INTO memberAuthGroup (
+                                id,
+                                name,
+                                desc,
+                                sort,
+                                createTime,
+                                updateTime,
+                                isDelete
+                            )
+                            VALUES (
+                                2,
+                                '基础功能',
+                                '基础访问权限',
+                                0,
+                                63935000000,
+                                63935000000,
+                                0
+                            );
+
+
+-- 表：memberBalanceLog
+CREATE TABLE memberBalanceLog (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    memberId   INTEGER,
+    type       INTEGER DEFAULT (0),
+    amount     INTEGER DEFAULT (0),
+    balance    INTEGER DEFAULT (0),
+    remark     TEXT,
+    operator   TEXT,
+    createTime INTEGER
+);
+
+
+-- 表：memberGroup
+CREATE TABLE memberGroup (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT,
+    desc       TEXT,
+    authList   TEXT    DEFAULT '[]',
+    authLevel  INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER DEFAULT (0) 
+);
+
+INSERT INTO memberGroup (
+                            id,
+                            name,
+                            desc,
+                            authList,
+                            authLevel,
+                            createTime,
+                            updateTime,
+                            isDelete
+                        )
+                        VALUES (
+                            1,
+                            '普通用户',
+                            '默认用户组，拥有基础访问权限',
+                            '[1]',
+                            0,
+                            63935000000,
+                            63935000000,
+                            0
+                        );
+
+INSERT INTO memberGroup (
+                            id,
+                            name,
+                            desc,
+                            authList,
+                            authLevel,
+                            createTime,
+                            updateTime,
+                            isDelete
+                        )
+                        VALUES (
+                            2,
+                            'VIP用户',
+                            'VIP用户组，拥有更多访问权限',
+                            '[1,2]',
+                            200,
+                            63935000000,
+                            63935032073,
+                            0
+                        );
+
+
+-- 表：memberUris
+CREATE TABLE memberUris (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    authID     INTEGER DEFAULT (1),
+    uri        TEXT    UNIQUE,
+    desc       TEXT,
+    sort       INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER
 );
 
 
@@ -116,7 +929,7 @@ INSERT INTO menu (
                  )
                  VALUES (
                      3,
-                     3,
+                     2,
                      '用户管理',
                      'layui-icon layui-icon-username',
                      1,
@@ -147,7 +960,7 @@ INSERT INTO menu (
                  )
                  VALUES (
                      4,
-                     3,
+                     2,
                      '角色管理',
                      'layui-icon layui-icon-user',
                      1,
@@ -178,7 +991,7 @@ INSERT INTO menu (
                  )
                  VALUES (
                      5,
-                     3,
+                     2,
                      '权限分类',
                      'layui-icon layui-icon-tabs',
                      1,
@@ -209,7 +1022,7 @@ INSERT INTO menu (
                  )
                  VALUES (
                      6,
-                     3,
+                     2,
                      '权限分组',
                      'layui-icon layui-icon-template',
                      1,
@@ -240,7 +1053,7 @@ INSERT INTO menu (
                  )
                  VALUES (
                      7,
-                     3,
+                     10,
                      '接口管理',
                      'layui-icon layui-icon-website',
                      1,
@@ -250,7 +1063,7 @@ INSERT INTO menu (
                      1,
                      '管理API接口',
                      63933640350,
-                     63934948575,
+                     63935026581,
                      0
                  );
 
@@ -271,7 +1084,7 @@ INSERT INTO menu (
                  )
                  VALUES (
                      8,
-                     11,
+                     10,
                      '菜单管理',
                      'layui-icon layui-icon-spread-left',
                      1,
@@ -302,7 +1115,7 @@ INSERT INTO menu (
                  )
                  VALUES (
                      9,
-                     11,
+                     10,
                      '全局配置',
                      'layui-icon layui-icon-set',
                      1,
@@ -339,11 +1152,11 @@ INSERT INTO menu (
                      0,
                      '',
                      '',
-                     200000,
+                     500000,
                      1,
                      '设置目录',
                      63934847322,
-                     63934848303,
+                     63935026669,
                      0
                  );
 
@@ -364,7 +1177,7 @@ INSERT INTO menu (
                  )
                  VALUES (
                      11,
-                     11,
+                     10,
                      '自定义设置',
                      'layui-icon layui-icon-face-smile',
                      1,
@@ -396,68 +1209,6 @@ INSERT INTO menu (
                  VALUES (
                      12,
                      0,
-                     '前台权限管理',
-                     'layui-icon layui-icon-user',
-                     0,
-                     '',
-                     '',
-                     300000,
-                     1,
-                     '',
-                     63934948636,
-                     63935018692,
-                     1
-                 );
-
-INSERT INTO menu (
-                     id,
-                     parent,
-                     title,
-                     icon,
-                     type,
-                     openType,
-                     href,
-                     sort,
-                     visible,
-                     remark,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     13,
-                     14,
-                     '用户管理',
-                     'layui-icon layui-icon-username',
-                     1,
-                     '_component',
-                     '',
-                     301000,
-                     1,
-                     '',
-                     63934949844,
-                     63935018689,
-                     1
-                 );
-
-INSERT INTO menu (
-                     id,
-                     parent,
-                     title,
-                     icon,
-                     type,
-                     openType,
-                     href,
-                     sort,
-                     visible,
-                     remark,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     14,
-                     0,
                      '前台用户管理',
                      'layui-icon layui-icon-friends',
                      0,
@@ -487,8 +1238,8 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     15,
-                     16,
+                     13,
+                     12,
                      '用户管理',
                      'layui-icon layui-icon-username',
                      1,
@@ -518,8 +1269,8 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     16,
-                     16,
+                     14,
+                     12,
                      '用户组管理',
                      'layui-icon layui-icon-group',
                      1,
@@ -549,8 +1300,8 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     17,
-                     16,
+                     15,
+                     12,
                      '权限分类',
                      'layui-icon layui-icon-tabs',
                      1,
@@ -580,8 +1331,8 @@ INSERT INTO menu (
                      isDelete
                  )
                  VALUES (
-                     18,
                      16,
+                     12,
                      '权限分组',
                      'layui-icon layui-icon-vercode',
                      1,
@@ -592,447 +1343,6 @@ INSERT INTO menu (
                      '管理前台权限分组',
                      63934949844,
                      63934949844,
-                     0
-                 );
-
-INSERT INTO menu (
-                     id,
-                     parent,
-                     title,
-                     icon,
-                     type,
-                     openType,
-                     href,
-                     sort,
-                     visible,
-                     remark,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     19,
-                     16,
-                     'URI权限',
-                     'layui-icon layui-icon-link',
-                     1,
-                     '_component',
-                     '/admin/view/member/uris',
-                     300500,
-                     1,
-                     '管理前台URI权限',
-                     63934949844,
-                     63934949844,
-                     0
-                 );
-
-
--- 表：member
-CREATE TABLE member (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    username   TEXT    UNIQUE,
-    salt       TEXT,
-    pwd        TEXT,
-    groupId    INTEGER DEFAULT (1),
-    authLevel  INTEGER DEFAULT (0),
-    balance    INTEGER DEFAULT (0),
-    nickname   TEXT,
-    email      TEXT,
-    phone      TEXT,
-    avatar     TEXT,
-    status     INTEGER DEFAULT (1),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0) 
-);
-
-INSERT INTO member (
-                       id,
-                       username,
-                       salt,
-                       pwd,
-                       groupId,
-                       authLevel,
-                       balance,
-                       nickname,
-                       email,
-                       phone,
-                       avatar,
-                       status,
-                       createTime,
-                       updateTime,
-                       isDelete
-                   )
-                   VALUES (
-                       1,
-                       'demo',
-                       'dM30uWu00001a1EiofyV4b9-_aHNO0aS',
-                       'C9D3D3A8E5B8F9C7D6A5B4C3D2E1F0A9B8C7D6E5F4A3B2C1D0E9F8A7B6C5D4E3',
-                       1,
-                       0,
-                       0,
-                       '演示用户',
-                       'demo@example.com',
-                       '',
-                       '',
-                       1,
-                       63935000000,
-                       63935000000,
-                       0
-                   );
-
-
--- 表：memberGroup
-CREATE TABLE memberGroup (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT,
-    desc       TEXT,
-    authList   TEXT    DEFAULT '[]',
-    authLevel  INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0) 
-);
-
-INSERT INTO memberGroup (
-                            id,
-                            name,
-                            desc,
-                            authList,
-                            authLevel,
-                            createTime,
-                            updateTime,
-                            isDelete
-                        )
-                        VALUES (
-                            1,
-                            '普通用户',
-                            '默认用户组，拥有基础访问权限',
-                            '[1]',
-                            0,
-                            63935000000,
-                            63935000000,
-                            0
-                        );
-
-INSERT INTO memberGroup (
-                            id,
-                            name,
-                            desc,
-                            authList,
-                            authLevel,
-                            createTime,
-                            updateTime,
-                            isDelete
-                        )
-                        VALUES (
-                            2,
-                            'VIP用户',
-                            'VIP用户组，拥有更多访问权限',
-                            '[1,2]',
-                            100,
-                            63935000000,
-                            63935000000,
-                            0
-                        );
-
-
--- 表：memberAuthGroup
-CREATE TABLE memberAuthGroup (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT,
-    desc       TEXT,
-    sort       INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0) 
-);
-
-INSERT INTO memberAuthGroup (
-                                id,
-                                name,
-                                desc,
-                                sort,
-                                createTime,
-                                updateTime,
-                                isDelete
-                            )
-                            VALUES (
-                                1,
-                                '未分类',
-                                '未分类的权限',
--                               1,
-                                63935000000,
-                                63935000000,
-                                0
-                            );
-
-INSERT INTO memberAuthGroup (
-                                id,
-                                name,
-                                desc,
-                                sort,
-                                createTime,
-                                updateTime,
-                                isDelete
-                            )
-                            VALUES (
-                                2,
-                                '基础功能',
-                                '基础访问权限',
-                                0,
-                                63935000000,
-                                63935000000,
-                                0
-                            );
-
-
--- 表：memberAuth
-CREATE TABLE memberAuth (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    groupID    INTEGER DEFAULT (1),
-    name       TEXT,
-    desc       TEXT,
-    sort       INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0) 
-);
-
-INSERT INTO memberAuth (
-                           id,
-                           groupID,
-                           name,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime,
-                           isDelete
-                       )
-                       VALUES (
-                           1,
-                           2,
-                           '基础接口',
-                           '登录、注册、个人中心等基础接口',
-                           0,
-                           63935000000,
-                           63935000000,
-                           0
-                       );
-
-INSERT INTO memberAuth (
-                           id,
-                           groupID,
-                           name,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime,
-                           isDelete
-                       )
-                       VALUES (
-                           2,
-                           2,
-                           'VIP功能',
-                           'VIP专属功能接口',
-                           100,
-                           63935000000,
-                           63935000000,
-                           0
-                       );
-
-
--- 表：memberUris
-CREATE TABLE memberUris (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    authID     INTEGER DEFAULT (1),
-    uri        TEXT    UNIQUE,
-    desc       TEXT,
-    sort       INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER
-);
-
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           1,
-                           1,
-                           '/api/v1/login',
-                           '前台登录接口',
-                           0,
-                           63935000000,
-                           63935000000
-                       );
-
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           2,
-                           1,
-                           '/api/v1/register',
-                           '前台注册接口',
-                           10,
-                           63935000000,
-                           63935000000
-                       );
-
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           3,
-                           1,
-                           '/api/v1/logout',
-                           '前台登出接口',
-                           20,
-                           63935000000,
-                           63935000000
-                       );
-
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           4,
-                           1,
-                           '/api/v1/profile',
-                           '个人中心接口',
-                           30,
-                           63935000000,
-                           63935000000
-                       );
-
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           5,
-                           1,
-                           '/api/v1/profile/password',
-                           '修改密码接口',
-                           40,
-                           63935000000,
-                           63935000000
-                       );
-
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           6,
-                           1,
-                           '/api/v1/balance',
-                           '余额查询接口',
-                           50,
-                           63935000000,
-                           63935000000
-                       );
-
-INSERT INTO memberUris (
-                           id,
-                           authID,
-                           uri,
-                           desc,
-                           sort,
-                           createTime,
-                           updateTime
-                       )
-                       VALUES (
-                           7,
-                           1,
-                           '/api/v1/balance/log',
-                           '余额变动日志接口',
-                           60,
-                           63935000000,
-                           63935000000
-                       );
-
-
--- 表：memberBalanceLog
-CREATE TABLE memberBalanceLog (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    memberId   INTEGER,
-    type       INTEGER DEFAULT (0),
-    amount     INTEGER DEFAULT (0),
-    balance    INTEGER DEFAULT (0),
-    remark     TEXT,
-    operator   TEXT,
-    createTime INTEGER
-);
-
-
--- 表：user
-CREATE TABLE user (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user       TEXT,
-    salt       TEXT,
-    pwd        TEXT,
-    role       INTEGER,
-    authLevel  INTEGER DEFAULT (0),
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER
-);
-
-INSERT INTO user (
-                     id,
-                     user,
-                     salt,
-                     pwd,
-                     role,
-                     authLevel,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     1,
-                     'admin',
-                     'yT30uWu00001a1EiofyV4b9-_aHNO0aS',
-                     '4FD681049123E6D9E48D534D7AA7DACEDE38C8860B14069647FF1E4446573521',
-                     1,
-                     0,
-                     63933640350,
-                     63933829361,
                      0
                  );
 
@@ -1084,584 +1394,10 @@ INSERT INTO role (
                      2,
                      '管理员',
                      '拥有除了权限管理外的所有权限',
-                     '[2,3,4,11,13,14]',
+                     '[3,13,14,16,17,11]',
                      200,
                      63930031443,
-                     63934938603,
-                     0
-                 );
-
-
--- 表：authGroup
-CREATE TABLE authGroup (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    name       TEXT,
-    desc       TEXT,
-    sort       INTEGER,
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0) 
-);
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          1,
-                          '未分类',
-                          '未分类的权限',
--                         1,
-                          63930028060,
-                          63930029645,
-                          0
-                      );
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          2,
-                          '服务管理',
-                          '[服务管理] 菜单',
-                          1000,
-                          63933807197,
-                          63933903128,
-                          1
-                      );
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          3,
-                          '系统日志',
-                          '[系统日志] 菜单',
-                          100000,
-                          63933903025,
-                          63933903063,
-                          0
-                      );
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          4,
-                          '后台权限管理',
-                          '[后台权限管理] 菜单',
-                          400000,
-                          63933903052,
-                          63934948278,
-                          0
-                      );
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          5,
-                          '基础权限',
-                          '主页、登录等页面',
-                          0,
-                          63933903097,
-                          63933903097,
-                          0
-                      );
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          6,
-                          '服务列表',
-                          '[服务列表] 菜单',
-                          2000,
-                          63933903142,
-                          63933903142,
-                          1
-                      );
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          7,
-                          '设置',
-                          '[设置] 菜单',
-                          200000,
-                          63934948202,
-                          63934948202,
-                          0
-                      );
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          8,
-                          '前台用户管理',
-                          '[前台用户管理] 菜单',
-                          300000,
-                          63934948299,
-                          63934948299,
-                          0
-                      );
-
-INSERT INTO authGroup (
-                          id,
-                          name,
-                          desc,
-                          sort,
-                          createTime,
-                          updateTime,
-                          isDelete
-                      )
-                      VALUES (
-                          9,
-                          '调试接口',
-                          '用于调试的接口',
-                          500000,
-                          63934949629,
-                          63934949629,
-                          0
-                      );
-
-
--- 表：auth
-CREATE TABLE auth (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    groupID    INTEGER,
-    name       TEXT,
-    desc       TEXT,
-    sort       INTEGER,
-    createTime INTEGER,
-    updateTime INTEGER,
-    isDelete   INTEGER DEFAULT (0) 
-);
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     1,
-                     1,
-                     '未分组',
-                     '未经分组的 URI 会被归类到这个分类下',
--                    1,
-                     63930019316,
-                     63933806362,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     2,
-                     1,
-                     '服务管理',
-                     '[服务管理] 页面和接口',
-                     1000,
-                     63933802678,
-                     63933903248,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     3,
-                     5,
-                     '基础页面',
-                     '主页、登录页面等非功能归类页面',
-                     0,
-                     63933903210,
-                     63933903210,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     4,
-                     1,
-                     '服务列表',
-                     '[任务管理] 页面和接口',
-                     2000,
-                     63933903275,
-                     63933903275,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     5,
-                     3,
-                     '系统日志',
-                     '[系统日志] 页面和接口',
-                     100000,
-                     63933903308,
-                     63933903308,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     6,
-                     4,
-                     '用户管理',
-                     '[权限管理] - [用户管理] 页面和接口',
-                     400000,
-                     63933903342,
-                     63934948319,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     7,
-                     4,
-                     '角色管理',
-                     '[权限管理] - [角色管理] 页面和接口',
-                     401000,
-                     63933903366,
-                     63934948316,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     8,
-                     4,
-                     '权限分类',
-                     '[权限管理] - [权限分类] 页面和接口',
-                     402000,
-                     63933903387,
-                     63934948313,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     9,
-                     4,
-                     '权限分组',
-                     '[权限管理] - [权限分组] 页面和接口',
-                     403000,
-                     63933903428,
-                     63934948310,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     10,
-                     4,
-                     '接口管理',
-                     '[权限管理] - [接口管理] 页面和接口',
-                     404000,
-                     63933903456,
-                     63934948308,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     11,
-                     7,
-                     '设置管理',
-                     '所有设置页面和接口',
-                     200000,
-                     63934948478,
-                     63934948478,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     12,
-                     7,
-                     '菜单管理',
-                     '[设置] - [菜单管理] 页面和接口',
-                     201000,
-                     63934948510,
-                     63934948510,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     13,
-                     8,
-                     '用户管理',
-                     '[前台用户管理] - [用户管理] 页面和接口',
-                     300000,
-                     63934949282,
-                     63934949282,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     14,
-                     8,
-                     '用户组管理',
-                     '[前台用户管理] - [用户组管理] 页面和接口',
-                     301000,
-                     63934949319,
-                     63934949325,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     15,
-                     9,
-                     '调试接口',
-                     '用于调试的接口',
-                     500000,
-                     63934949645,
-                     63934949649,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     16,
-                     8,
-                     '权限分类管理',
-                     '[前台用户管理] - [权限分类] 页面和接口',
-                     302000,
-                     63934949844,
-                     63934949844,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     17,
-                     8,
-                     '权限分组管理',
-                     '[前台用户管理] - [权限分组] 页面和接口',
-                     303000,
-                     63934949844,
-                     63934949844,
-                     0
-                 );
-
-INSERT INTO auth (
-                     id,
-                     groupID,
-                     name,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime,
-                     isDelete
-                 )
-                 VALUES (
-                     18,
-                     8,
-                     'URI权限管理',
-                     '[前台用户管理] - [URI权限] 页面和接口',
-                     304000,
-                     63934949844,
-                     63934949844,
+                     63935040521,
                      0
                  );
 
@@ -1673,10 +1409,10 @@ CREATE TABLE uris (
     authID     INTEGER REFERENCES auth (id),
     uri        TEXT    UNIQUE,
     desc       TEXT,
-    isBackend  INTEGER DEFAULT 1,   -- 是否后台接口 (1=后台, 0=前台)
-    needAuth   INTEGER DEFAULT 1,   -- 是否需要鉴权
-    needLog    INTEGER DEFAULT 0,   -- 是否记录日志
-    keepActive INTEGER DEFAULT 0,   -- 是否保持Session活跃
+    isBackend  INTEGER DEFAULT 1,
+    needAuth   INTEGER DEFAULT 1,
+    needLog    INTEGER DEFAULT 0,
+    keepActive INTEGER DEFAULT 0,
     sort       INTEGER,
     createTime INTEGER,
     updateTime INTEGER
@@ -1687,18 +1423,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      1,
-                     10,
-                     '/admin/view/auth/uris',
-                     '[接口管理] 主页面视图',
-                     404000,
-                     63933638060,
-                     63933904195
+                     3,
+                     '/admin/login',
+                     '后台 [用户登录] 主接口',
+                     1,
+                     0,
+                     1,
+                     0,
+                     1100000,
+                     63935023250,
+                     63935033999
                  );
 
 INSERT INTO uris (
@@ -1706,187 +1450,24 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      2,
-                     9,
-                     '/admin/view/auth/auth',
-                     '[权限分组] 主页面视图',
-                     403000,
-                     63933638060,
-                     63933904188
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     3,
-                     6,
-                     '/admin/view/auth/user',
-                     '[用户管理] 主页面视图',
-                     400000,
-                     63933638061,
-                     63933904184
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     4,
-                     8,
-                     '/admin/view/auth/group',
-                     '[权限分类] 主页面视图',
-                     402000,
-                     63933638061,
-                     63933904174
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     5,
-                     10,
-                     '/admin/auth/uris',
-                     '[接口管理] 主接口',
-                     404010,
-                     63933638061,
-                     63933904305
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     6,
-                     8,
-                     '/admin/auth/group',
-                     '[权限分类] 主接口',
-                     402010,
-                     63933638061,
-                     63933904326
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     7,
-                     3,
-                     '/admin/view/home',
-                     '管理后台主页',
-                     10,
-                     63933638061,
-                     63933904962
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     8,
-                     10,
-                     '/admin/view/auth/uris/edit',
-                     '[接口管理] - [编辑接口] 子页面视图',
-                     404020,
-                     63933638061,
-                     63934948331
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     9,
-                     7,
-                     '/admin/view/auth/role',
-                     '[角色管理] 主页面视图',
-                     401000,
-                     63933638061,
-                     63933904214
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     10,
-                     6,
-                     '/admin/auth/user/repwd',
-                     '[用户管理] 无条件重置密码接口（危险权限）',
-                     400040,
-                     63933638061,
-                     63933904541
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     11,
                      3,
                      '/admin',
                      '管理后台',
+                     1,
+                     1,
                      0,
+                     1,
+                     1100010,
                      63933638061,
                      63933904949
                  );
@@ -1896,75 +1477,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     12,
-                     5,
-                     '/admin/logs',
-                     '[系统日志] 主接口',
-                     100010,
-                     63933638061,
-                     63933904869
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     13,
-                     7,
-                     '/admin/auth/role',
-                     '[角色管理] 主接口',
-                     401010,
-                     63933638061,
-                     63933904366
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     14,
-                     5,
-                     '/admin/logs/clear',
-                     '[系统日志] 清除 7 天前日志接口',
-                     100020,
-                     63933638061,
-                     63933904915
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     15,
                      3,
-                     '/admin/logout',
-                     '注销登录接口',
-                     30,
+                     3,
+                     '/admin/view/home',
+                     '管理后台主页',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1100020,
                      63933638061,
-                     63933904983
+                     63933904962
                  );
 
 INSERT INTO uris (
@@ -1972,73 +1504,24 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     16,
-                     9,
-                     '/admin/auth/auth',
-                     '[权限分组] 主接口',
-                     403010,
-                     63933638061,
-                     63933904381
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     17,
-                     6,
-                     '/admin/auth/user',
-                     '[用户管理] 主接口',
-                     400010,
-                     63933638061,
-                     63933904407
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     18,
-                     5,
-                     '/admin/view/logs',
-                     '[系统日志] 主页面视图',
-                     100000,
-                     63933640875,
-                     63933904827
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     23,
+                     4,
                      3,
                      '/admin/menu',
                      '管理后台左侧菜单数据接口',
-                     20,
+                     1,
+                     1,
+                     0,
+                     0,
+                     1100030,
                      63933645834,
                      63933904968
                  );
@@ -2048,18 +1531,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     30,
-                     9,
-                     '/admin/view/auth/auth/edit',
-                     '[权限分组] - [编辑分组] 子页面视图',
-                     403030,
-                     63933720099,
-                     63933904753
+                     5,
+                     3,
+                     '/admin/logout',
+                     '后台 [注销登录] 主接口',
+                     1,
+                     1,
+                     0,
+                     0,
+                     1100040,
+                     63933638061,
+                     63933904983
                  );
 
 INSERT INTO uris (
@@ -2067,18 +1558,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     31,
-                     9,
-                     '/admin/view/auth/auth/add',
-                     '[权限分组] - [添加分组] 子页面视图',
-                     403020,
-                     63933720099,
-                     63933904731
+                     6,
+                     5,
+                     '/admin/view/logs',
+                     '[系统日志] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1500000,
+                     63933640875,
+                     63933904827
                  );
 
 INSERT INTO uris (
@@ -2086,56 +1585,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     32,
-                     8,
-                     '/admin/view/auth/group/add',
-                     '[权限分类] - [添加分类] 子页面视图',
-                     402020,
-                     63933805653,
-                     63933904697
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     33,
-                     8,
-                     '/admin/view/auth/group/edit',
-                     '[权限分类] - [编辑分类] 子页面视图',
-                     402030,
-                     63933805653,
-                     63933904710
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     34,
                      7,
-                     '/admin/view/auth/role/edit',
-                     '[角色管理] - [编辑角色] 子页面视图',
-                     401030,
-                     63933809706,
-                     63933904591
+                     5,
+                     '/admin/logs',
+                     '[系统日志] 主接口',
+                     1,
+                     1,
+                     0,
+                     1,
+                     1500010,
+                     63933638061,
+                     63933904869
                  );
 
 INSERT INTO uris (
@@ -2143,18 +1612,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     35,
-                     7,
-                     '/admin/view/auth/role/add',
-                     '[角色管理] - [添加角色] 子页面视图',
-                     401020,
-                     63933809706,
-                     63933904571
+                     8,
+                     5,
+                     '/admin/logs/clear',
+                     '[系统日志] 清除 7 天前日志接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1500020,
+                     63933638061,
+                     63933904915
                  );
 
 INSERT INTO uris (
@@ -2162,16 +1639,564 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     36,
+                     9,
+                     13,
+                     '/admin/view/member/user',
+                     '前台 [用户管理] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1600000,
+                     63935017487,
+                     63935033705
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     10,
+                     13,
+                     '/admin/member/user',
+                     '前台 [用户管理] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1600010,
+                     63935017488,
+                     63935033698
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     11,
+                     13,
+                     '/admin/view/member/user/add',
+                     '前台 [用户管理] - [添加用户] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1600020,
+                     63935017487,
+                     63935033716
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     12,
+                     13,
+                     '/admin/view/member/user/edit',
+                     '前台 [用户管理] - [编辑用户] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1600030,
+                     63935017487,
+                     63935033724
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     13,
+                     13,
+                     '/admin/member/user/repwd',
+                     '前台 [用户管理] 无条件重置密码接口（危险权限）',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1600040,
+                     63935017488,
+                     63935033736
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     14,
+                     13,
+                     '/admin/member/user/balance',
+                     '前台 [用户管理] 余额调整接口（危险权限）',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1600050,
+                     63935017488,
+                     63935033749
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     15,
+                     14,
+                     '/admin/view/member/group',
+                     '前台 [用户组管理] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1601000,
+                     63935017487,
+                     63935033606
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     16,
+                     14,
+                     '/admin/member/group',
+                     '前台 [用户组管理] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1601010,
+                     63935017488,
+                     63935033642
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     17,
+                     14,
+                     '/admin/view/member/group/add',
+                     '前台 [用户组管理] - [添加角色] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1601020,
+                     63935017488,
+                     63935033659
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     18,
+                     14,
+                     '/admin/view/member/group/edit',
+                     '前台 [用户组管理] - [编辑角色] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1601030,
+                     63935017488,
+                     63935033669
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     19,
+                     16,
+                     '/admin/view/member/authgroup',
+                     '前台 [权限分类] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1602000,
+                     63935017488,
+                     63935033515
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     20,
+                     16,
+                     '/admin/member/authgroup',
+                     '前台 [权限分类] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1602010,
+                     63935017488,
+                     63935033530
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     21,
+                     16,
+                     '/admin/view/member/authgroup/add',
+                     '前台 [权限分类] - [添加分类] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1602020,
+                     63935017487,
+                     63935033546
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     22,
+                     16,
+                     '/admin/view/member/authgroup/edit',
+                     '前台 [权限分类] - [编辑分类] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1602030,
+                     63935017488,
+                     63935033568
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     23,
+                     17,
+                     '/admin/view/member/auth',
+                     '前台 [权限分组] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1603000,
+                     63935017487,
+                     63935033369
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     24,
+                     17,
+                     '/admin/member/auth',
+                     '前台 [权限分组] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1603010,
+                     63935017488,
+                     63935033377
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     25,
+                     17,
+                     '/admin/view/member/auth/add',
+                     '前台 [权限分组] - [添加分组] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1603020,
+                     63935017487,
+                     63935033382
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     26,
+                     17,
+                     '/admin/view/member/auth/edit',
+                     '前台 [权限分组] - [编辑分组] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1603030,
+                     63935017487,
+                     63935033386
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     27,
+                     6,
+                     '/admin/view/auth/user',
+                     '后台 [用户管理] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1700000,
+                     63933638061,
+                     63933904184
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     28,
+                     6,
+                     '/admin/auth/user',
+                     '后台 [用户管理] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1700010,
+                     63933638061,
+                     63933904407
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     29,
                      6,
                      '/admin/view/auth/user/add',
-                     '[用户管理] - [添加用户] 子页面视图',
-                     400020,
+                     '后台 [用户管理] - [添加用户] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1700020,
                      63933814573,
                      63933904510
                  );
@@ -2181,16 +2206,24 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     37,
+                     30,
                      6,
                      '/admin/view/auth/user/edit',
-                     '[用户管理] - [编辑用户] 子页面视图',
-                     400030,
+                     '后台 [用户管理] - [编辑用户] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1700030,
                      63933814573,
                      63933904534
                  );
@@ -2200,18 +2233,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     38,
-                     11,
-                     '/admin/option',
-                     '[设置管理] 主接口',
-                     200010,
-                     63934828369,
-                     63934949473
+                     31,
+                     6,
+                     '/admin/auth/user/repwd',
+                     '后台 [用户管理] 无条件重置密码接口（危险权限）',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1700040,
+                     63933638061,
+                     63933904541
                  );
 
 INSERT INTO uris (
@@ -2219,16 +2260,348 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     32,
+                     7,
+                     '/admin/view/auth/role',
+                     '后台 [角色管理] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1701000,
+                     63933638061,
+                     63933904214
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     33,
+                     7,
+                     '/admin/auth/role',
+                     '后台 [角色管理] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1701010,
+                     63933638061,
+                     63933904366
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     34,
+                     7,
+                     '/admin/view/auth/role/add',
+                     '后台 [角色管理] - [添加角色] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1701020,
+                     63933809706,
+                     63933904571
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     35,
+                     7,
+                     '/admin/view/auth/role/edit',
+                     '后台 [角色管理] - [编辑角色] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1701030,
+                     63933809706,
+                     63933904591
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     36,
+                     8,
+                     '/admin/view/auth/group',
+                     '后台 [权限分类] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1702000,
+                     63933638061,
+                     63933904174
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     37,
+                     8,
+                     '/admin/auth/group',
+                     '后台 [权限分类] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1702010,
+                     63933638061,
+                     63933904326
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     38,
+                     8,
+                     '/admin/view/auth/group/add',
+                     '后台 [权限分类] - [添加分类] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1702020,
+                     63933805653,
+                     63933904697
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      39,
+                     8,
+                     '/admin/view/auth/group/edit',
+                     '后台 [权限分类] - [编辑分类] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1702030,
+                     63933805653,
+                     63933904710
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     40,
+                     9,
+                     '/admin/view/auth/auth',
+                     '后台 [权限分组] 主页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1703000,
+                     63933638060,
+                     63933904188
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     41,
+                     9,
+                     '/admin/auth/auth',
+                     '后台 [权限分组] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1703010,
+                     63933638061,
+                     63933904381
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     42,
+                     9,
+                     '/admin/view/auth/auth/add',
+                     '后台 [权限分组] - [添加分组] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1703020,
+                     63933720099,
+                     63933904731
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     43,
+                     9,
+                     '/admin/view/auth/auth/edit',
+                     '后台 [权限分组] - [编辑分组] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1703030,
+                     63933720099,
+                     63933904753
+                 );
+
+INSERT INTO uris (
+                     id,
+                     authID,
+                     uri,
+                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
+                     sort,
+                     createTime,
+                     updateTime
+                 )
+                 VALUES (
+                     44,
                      11,
                      '/admin/view/option',
                      '[设置管理] 主页面视图',
-                     200000,
+                     1,
+                     1,
+                     1,
+                     1,
+                     1800000,
                      63934828369,
                      63934949414
                  );
@@ -2238,18 +2611,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     40,
-                     12,
-                     '/admin/view/option/menu/edit',
-                     '[菜单管理] 编辑菜单视图',
-                     201040,
-                     63934829866,
-                     63934949602
+                     45,
+                     11,
+                     '/admin/option',
+                     '[设置管理] 主接口',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1800010,
+                     63934828369,
+                     63934949473
                  );
 
 INSERT INTO uris (
@@ -2257,35 +2638,24 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     41,
-                     12,
-                     '/admin/view/option/menu/add',
-                     '[菜单管理] 添加菜单视图',
-                     201030,
-                     63934829866,
-                     63934949575
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     42,
+                     46,
                      12,
                      '/admin/view/option/menu',
                      '[菜单管理] 主页面视图',
-                     201000,
+                     1,
+                     1,
+                     1,
+                     1,
+                     1801000,
                      63934829866,
                      63934949497
                  );
@@ -2295,16 +2665,24 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     43,
+                     47,
                      12,
                      '/admin/option/menu',
                      '[菜单管理] 主接口',
-                     201010,
+                     1,
+                     1,
+                     1,
+                     1,
+                     1801010,
                      63934829866,
                      63934949520
                  );
@@ -2314,16 +2692,24 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
-                     44,
+                     48,
                      12,
                      '/admin/view/option/menu/add/category',
-                     '[菜单管理] 添加分类视图',
-                     201020,
+                     '[菜单管理] - [添加分类] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1801020,
                      63934843214,
                      63934949555
                  );
@@ -2333,94 +2719,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     45,
-                     15,
-                     '/admin/trace/route',
-                     '获取路由表数据',
-                     500040,
-                     63934856181,
-                     63934949731
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     46,
-                     15,
-                     '/admin/trace/auth',
-                     '获取权限相关缓存数据',
-                     500030,
-                     63934856181,
-                     63934949719
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     47,
-                     15,
-                     '/admin/trace/session',
-                     '获取完整的 Session 缓存数据',
-                     500010,
-                     63934856181,
-                     63934949690
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     48,
-                     15,
-                     '/admin/trace/option',
-                     '获取完整的 Option 配置缓存数据',
-                     500020,
-                     63934856182,
-                     63934949703
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      49,
-                     15,
-                     '/admin/trace',
-                     '获取全局缓存概览',
-                     500000,
-                     63934856182,
-                     63934949671
+                     12,
+                     '/admin/view/option/menu/add',
+                     '[菜单管理] - [添加菜单] 子页面视图',
+                     1,
+                     1,
+                     1,
+                     1,
+                     1801030,
+                     63934829866,
+                     63934949575
                  );
 
 INSERT INTO uris (
@@ -2428,18 +2746,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      50,
+                     12,
+                     '/admin/view/option/menu/edit',
+                     '[菜单管理] - [编辑菜单] 子页面视图',
                      1,
-                     '/admin/view/member/user',
-                     '',
-                     0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1,
+                     1,
+                     1801040,
+                     63934829866,
+                     63934949602
                  );
 
 INSERT INTO uris (
@@ -2447,18 +2773,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      51,
+                     10,
+                     '/admin/view/auth/uris',
+                     '[接口管理] 主页面视图',
                      1,
-                     '/admin/view/member/uris/edit',
-                     '',
-                     0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1,
+                     1,
+                     1802000,
+                     63933638060,
+                     63933904195
                  );
 
 INSERT INTO uris (
@@ -2466,18 +2800,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      52,
+                     10,
+                     '/admin/auth/uris',
+                     '[接口管理] 主接口',
                      1,
-                     '/admin/view/member/authgroup/add',
-                     '',
-                     0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1,
+                     1,
+                     1802010,
+                     63933638061,
+                     63933904305
                  );
 
 INSERT INTO uris (
@@ -2485,18 +2827,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      53,
+                     10,
+                     '/admin/view/auth/uris/edit',
+                     '[接口管理] - [编辑接口] 子页面视图',
                      1,
-                     '/admin/view/member/uris',
-                     '',
-                     0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1,
+                     1,
+                     1802020,
+                     63933638061,
+                     63934948331
                  );
 
 INSERT INTO uris (
@@ -2504,18 +2854,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      54,
+                     15,
+                     '/admin/trace',
+                     '获取全局缓存概览',
                      1,
-                     '/admin/view/member/auth/add',
-                     '',
+                     1,
                      0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1900000,
+                     63934856182,
+                     63935032523
                  );
 
 INSERT INTO uris (
@@ -2523,18 +2881,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      55,
+                     15,
+                     '/admin/trace/session',
+                     '获取完整的 Session 缓存数据',
                      1,
-                     '/api/v1/balance/log',
-                     '',
+                     1,
                      0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1900010,
+                     63934856181,
+                     63935032527
                  );
 
 INSERT INTO uris (
@@ -2542,18 +2908,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      56,
+                     15,
+                     '/admin/trace/option',
+                     '获取完整的 Option 配置缓存数据',
                      1,
-                     '/admin/view/member/auth',
-                     '',
+                     1,
                      0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1900020,
+                     63934856182,
+                     63935032531
                  );
 
 INSERT INTO uris (
@@ -2561,18 +2935,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      57,
+                     15,
+                     '/admin/trace/auth',
+                     '获取权限相关缓存数据',
                      1,
-                     '/api/v1/profile/password',
-                     '',
+                     1,
                      0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1900030,
+                     63934856181,
+                     63935032534
                  );
 
 INSERT INTO uris (
@@ -2580,18 +2962,26 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
                  )
                  VALUES (
                      58,
+                     15,
+                     '/admin/trace/route',
+                     '获取路由表数据',
                      1,
-                     '/admin/view/member/user/add',
-                     '',
+                     1,
                      0,
-                     63935017487,
-                     63935017487
+                     1,
+                     1900040,
+                     63934856181,
+                     63935032538
                  );
 
 INSERT INTO uris (
@@ -2599,6 +2989,10 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
@@ -2606,11 +3000,15 @@ INSERT INTO uris (
                  VALUES (
                      59,
                      1,
-                     '/admin/view/member/auth/edit',
-                     '',
+                     '/api/v1/register',
+                     '前台 [用户注册] 主接口',
                      0,
-                     63935017487,
-                     63935017487
+                     0,
+                     0,
+                     0,
+                     100000,
+                     63935023250,
+                     63935034045
                  );
 
 INSERT INTO uris (
@@ -2618,6 +3016,10 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
@@ -2625,11 +3027,15 @@ INSERT INTO uris (
                  VALUES (
                      60,
                      1,
-                     '/admin/view/member/group',
-                     '',
+                     '/api/v1/login',
+                     '前台 [用户登录] 主接口',
                      0,
-                     63935017487,
-                     63935017487
+                     0,
+                     0,
+                     0,
+                     100010,
+                     63935023250,
+                     63935034051
                  );
 
 INSERT INTO uris (
@@ -2637,6 +3043,10 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
@@ -2645,10 +3055,14 @@ INSERT INTO uris (
                      61,
                      1,
                      '/api/v1/logout',
-                     '',
+                     '前台 [注销登录] 主接口',
                      0,
+                     1,
+                     0,
+                     0,
+                     100020,
                      63935017487,
-                     63935017487
+                     63935034062
                  );
 
 INSERT INTO uris (
@@ -2656,6 +3070,10 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
@@ -2663,11 +3081,15 @@ INSERT INTO uris (
                  VALUES (
                      62,
                      1,
-                     '/admin/view/member/user/edit',
-                     '',
+                     '/api/v1/profile',
+                     '前台 [获取当前用户信息] 接口',
                      0,
-                     63935017487,
-                     63935017487
+                     1,
+                     0,
+                     1,
+                     100030,
+                     63935017488,
+                     63935034077
                  );
 
 INSERT INTO uris (
@@ -2675,6 +3097,10 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
@@ -2682,11 +3108,15 @@ INSERT INTO uris (
                  VALUES (
                      63,
                      1,
-                     '/admin/view/member/group/add',
-                     '',
+                     '/api/v1/profile/password',
+                     '前台 [修改当前用户密码] 接口',
                      0,
-                     63935017488,
-                     63935017488
+                     1,
+                     0,
+                     1,
+                     100040,
+                     63935017487,
+                     63935034083
                  );
 
 INSERT INTO uris (
@@ -2694,6 +3124,10 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
@@ -2701,11 +3135,15 @@ INSERT INTO uris (
                  VALUES (
                      64,
                      1,
-                     '/admin/view/member/group/edit',
-                     '',
+                     '/api/v1/balance',
+                     '前台 [获取当前用户余额信息] 接口',
                      0,
+                     1,
+                     0,
+                     1,
+                     100050,
                      63935017488,
-                     63935017488
+                     63935034088
                  );
 
 INSERT INTO uris (
@@ -2713,6 +3151,10 @@ INSERT INTO uris (
                      authID,
                      uri,
                      desc,
+                     isBackend,
+                     needAuth,
+                     needLog,
+                     keepActive,
                      sort,
                      createTime,
                      updateTime
@@ -2720,201 +3162,52 @@ INSERT INTO uris (
                  VALUES (
                      65,
                      1,
-                     '/admin/view/member/authgroup',
-                     '',
+                     '/api/v1/balance/log',
+                     '前台 [获取当前用户余额日志] 接口',
                      0,
-                     63935017488,
-                     63935017488
+                     1,
+                     0,
+                     1,
+                     100060,
+                     63935017487,
+                     63935034093
                  );
 
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     66,
-                     1,
-                     '/admin/member/uris',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
-                 );
 
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     67,
-                     1,
-                     '/admin/member/user/balance',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
-                 );
+-- 表：user
+CREATE TABLE user (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user       TEXT,
+    salt       TEXT,
+    pwd        TEXT,
+    role       INTEGER,
+    authLevel  INTEGER DEFAULT (0),
+    createTime INTEGER,
+    updateTime INTEGER,
+    isDelete   INTEGER
+);
 
-INSERT INTO uris (
+INSERT INTO user (
                      id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
+                     user,
+                     salt,
+                     pwd,
+                     role,
+                     authLevel,
                      createTime,
-                     updateTime
+                     updateTime,
+                     isDelete
                  )
                  VALUES (
-                     68,
                      1,
-                     '/admin/member/authgroup',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     69,
+                     'admin',
+                     'yT30uWu00001a1EiofyV4b9-_aHNO0aS',
+                     '4FD681049123E6D9E48D534D7AA7DACEDE38C8860B14069647FF1E4446573521',
                      1,
-                     '/admin/member/auth',
-                     '',
                      0,
-                     63935017488,
-                     63935017488
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     70,
-                     1,
-                     '/admin/member/user/repwd',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     71,
-                     1,
-                     '/admin/member/user',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     72,
-                     1,
-                     '/admin/member/group',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     73,
-                     1,
-                     '/api/v1/balance',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     74,
-                     1,
-                     '/admin/view/member/authgroup/edit',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
-                 );
-
-INSERT INTO uris (
-                     id,
-                     authID,
-                     uri,
-                     desc,
-                     sort,
-                     createTime,
-                     updateTime
-                 )
-                 VALUES (
-                     75,
-                     1,
-                     '/api/v1/profile',
-                     '',
-                     0,
-                     63935017488,
-                     63935017488
+                     63933640350,
+                     63933829361,
+                     0
                  );
 
 

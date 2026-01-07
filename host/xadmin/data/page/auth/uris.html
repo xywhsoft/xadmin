@@ -45,7 +45,7 @@
 				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
 			},
 			cols: [[
-				{field:'sort', width:60, title: '排序'},
+				{field:'sort', width:100, title: '排序'},
 				{field:'needAuth', width:80, title: '鉴权', align:'center', templet: '<span class="{{# if(d.needAuth){ }}layui-badge layui-bg-green{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.needAuth){ }}需要{{# } else { }}否{{# } }}</span>'},
 				{field:'isBackend', width:80, title: '类型', align:'center', templet: '<span class="{{# if(d.isBackend){ }}layui-badge layui-bg-blue{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.isBackend){ }}后台{{# } else { }}前台{{# } }}</span>'},
 				{width:140, title: '权限组', templet: '<span class="layui-badge {{# if(d.isBackend){ }}backend-auth-color-{{= d.authID }}{{# } else { }}member-auth-color-{{= d.authID }}{{# } }}">{{# if(d.isBackend){ }}{{= d.authName }}{{# } else { }}{{= d.memberAuthName }}{{# } }}</span>'},
