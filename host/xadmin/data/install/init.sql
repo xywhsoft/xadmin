@@ -307,7 +307,7 @@ INSERT INTO menu (
                      'layui-icon layui-icon-spread-left',
                      1,
                      '_component',
-                     'view/auth/menu',
+                     'view/option/menu',
                      203000,
                      1,
                      '管理系统菜单',
@@ -1650,7 +1650,7 @@ INSERT INTO uris (
                  VALUES (
                      40,
                      12,
-                     '/view/auth/menu/edit',
+                     '/view/option/menu/edit',
                      '[菜单管理] 编辑菜单视图',
                      201040,
                      63934829866,
@@ -1669,7 +1669,7 @@ INSERT INTO uris (
                  VALUES (
                      41,
                      12,
-                     '/view/auth/menu/add',
+                     '/view/option/menu/add',
                      '[菜单管理] 添加菜单视图',
                      201030,
                      63934829866,
@@ -1688,7 +1688,7 @@ INSERT INTO uris (
                  VALUES (
                      42,
                      12,
-                     '/view/auth/menu',
+                     '/view/option/menu',
                      '[菜单管理] 主页面视图',
                      201000,
                      63934829866,
@@ -1707,7 +1707,7 @@ INSERT INTO uris (
                  VALUES (
                      43,
                      12,
-                     '/auth/menu',
+                     '/option/menu',
                      '[菜单管理] 主接口',
                      201010,
                      63934829866,
@@ -1726,7 +1726,7 @@ INSERT INTO uris (
                  VALUES (
                      44,
                      12,
-                     '/view/auth/menu/add/category',
+                     '/view/option/menu/add/category',
                      '[菜单管理] 添加分类视图',
                      201020,
                      63934843214,

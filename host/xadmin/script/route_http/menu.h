@@ -1,9 +1,8 @@
 
 
 
-
 // 菜单管理页面视图
-void Request_View_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		
@@ -19,7 +18,7 @@ void Request_View_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, st
 
 
 // 添加分类页面视图
-void Request_View_Auth_Menu_Add_Category(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Option_Menu_Add_Category(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		
@@ -35,7 +34,7 @@ void Request_View_Auth_Menu_Add_Category(XS_ServerObject objServer, XS_HostObjec
 
 
 // 添加菜单页面视图
-void Request_View_Auth_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Option_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		
@@ -51,7 +50,7 @@ void Request_View_Auth_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost
 
 
 // 编辑菜单/分类页面视图
-void Request_View_Auth_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		
@@ -111,7 +110,7 @@ void Request_View_Auth_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHos
 
 
 // 菜单数据接口
-void Request_Auth_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		
