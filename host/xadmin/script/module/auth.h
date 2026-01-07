@@ -4,12 +4,12 @@
 void Auth_CompileSQL()
 {
 	// 预编译 SQL 语句 - uris 表
-	int iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT uris.*, auth.name, COUNT(*) OVER() AS total_count FROM uris JOIN auth ON uris.authID = auth.id ORDER BY sort ASC, id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_all, NULL);
+	int iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT uris.*, auth.name AS authName, memberAuth.name AS memberAuthName, COUNT(*) OVER() AS total_count FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id ORDER BY sort ASC, id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT uris.*, auth.name, COUNT(*) OVER() AS total_count FROM uris JOIN auth ON uris.authID = auth.id WHERE (uris.uri LIKE ?) OR (uris.desc LIKE ?) ORDER BY sort ASC, id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT uris.*, auth.name AS authName, memberAuth.name AS memberAuthName, COUNT(*) OVER() AS total_count FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id WHERE (uris.uri LIKE ?) OR (uris.desc LIKE ?) ORDER BY sort ASC, id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
@@ -19,7 +19,7 @@ void Auth_CompileSQL()
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE uris SET authID = ?, desc = ?, sort = ?, updateTime = ? WHERE id = ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_put, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE uris SET authID = ?, desc = ?, sort = ?, isBackend = ?, needAuth = ?, needLog = ?, keepActive = ?, updateTime = ? WHERE id = ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_put, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_put] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
@@ -221,7 +221,7 @@ void Auth_CompileSQL()
 		printf("!!! ERROR !!! Auth_Init [stmt_cache_role] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, authID, uri FROM uris;", -1, SQL_PREPARE_DEFAULT, &stmt_cache_uris, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, authID, uri, isBackend, needAuth, needLog, keepActive FROM uris;", -1, SQL_PREPARE_DEFAULT, &stmt_cache_uris, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_cache_uris] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
@@ -414,7 +414,7 @@ void Auth_ReloadCache()
 
 
 
-// 更新 uris 表 ( 添加未收录的 URI，删除已失效的 URI )
+// 更新 uris 表 ( 添加未收录的 URI，删除已失效的 URI，并从数据库加载配置到路由表 )
 bool AuthRouteCheckProc(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
 {
 	if ( pInfo->bAuth && (pInfo->AuthID == 0) ) {
@@ -431,15 +431,24 @@ bool AuthRouteCheckProc(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
 }
 void Auth_UpdateURIS()
 {
-	// 删除数据库中存在，但路由表中不存在的记录
+	// 从数据库加载 URI 配置到路由表，同时删除已失效的记录
 	while ( sqlite3_step(stmt_cache_uris) == SQLITE_ROW ) {
 		int64 id = sqlite3_column_int64(stmt_cache_uris, 0);
 		int64 authID = sqlite3_column_int64(stmt_cache_uris, 1);
 		str uri = (str)sqlite3_column_text(stmt_cache_uris, 2);
+		int isBackend = sqlite3_column_int(stmt_cache_uris, 3);
+		int needAuth = sqlite3_column_int(stmt_cache_uris, 4);
+		int needLog = sqlite3_column_int(stmt_cache_uris, 5);
+		int keepActive = sqlite3_column_int(stmt_cache_uris, 6);
 		size_t iSize = strlen(uri);
 		RouteInfo* pInfo = xrtDictGet(G_StaticRouteTableHTTP, uri, iSize);
 		if ( pInfo ) {
+			// 从数据库加载配置到路由表
 			pInfo->AuthID = authID;
+			pInfo->bAdmin = isBackend ? TRUE : FALSE;
+			pInfo->bAuth = needAuth ? TRUE : FALSE;
+			pInfo->bPutLog = needLog ? TRUE : FALSE;
+			pInfo->bActive = keepActive ? TRUE : FALSE;
 		} else {
 			printf("            remove uris table item : %.*s (%d)\n", iSize, uri, id);
 			sqlite3_bind_int64(stmt_uris_del, 1, id);

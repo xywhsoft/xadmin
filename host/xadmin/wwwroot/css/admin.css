@@ -648,68 +648,104 @@ body,
 
 
 
-/* 64 种风格差别明显的RGB颜色 */
-.auth-color-0 { background-color: #FF6B6B !important; color: white !important; }
-.auth-color-1 { background-color: #4ECDC4 !important; color: white !important; }
-.auth-color-2 { background-color: #45B7D1 !important; color: white !important; }
-.auth-color-3 { background-color: #FFBE0B !important; color: white !important; }
-.auth-color-4 { background-color: #FB5607 !important; color: white !important; }
-.auth-color-5 { background-color: #8338EC !important; color: white !important; }
-.auth-color-6 { background-color: #3A86FF !important; color: white !important; }
-.auth-color-7 { background-color: #38B000 !important; color: white !important; }
-.auth-color-8 { background-color: #9D4EDD !important; color: white !important; }
-.auth-color-9 { background-color: #FF006E !important; color: white !important; }
-.auth-color-10 { background-color: #2EC4B6 !important; color: white !important; }
-.auth-color-11 { background-color: #E71D36 !important; color: white !important; }
-.auth-color-12 { background-color: #662E9B !important; color: white !important; }
-.auth-color-13 { background-color: #43BCCD !important; color: white !important; }
-.auth-color-14 { background-color: #F24236 !important; color: white !important; }
-.auth-color-15 { background-color: #5C9CE6 !important; color: white !important; }
-.auth-color-16 { background-color: #00C1D4 !important; color: white !important; }
-.auth-color-17 { background-color: #FF9F1C !important; color: white !important; }
-.auth-color-18 { background-color: #114B5F !important; color: white !important; }
-.auth-color-19 { background-color: #1A936F !important; color: white !important; }
-.auth-color-20 { background-color: #F45B69 !important; color: white !important; }
-.auth-color-21 { background-color: #2A9D8F !important; color: white !important; }
-.auth-color-22 { background-color: #E9C46A !important; color: black !important; }
-.auth-color-23 { background-color: #F1FAEE !important; color: black !important; }
-.auth-color-24 { background-color: #E63946 !important; color: white !important; }
-.auth-color-25 { background-color: #A8DADC !important; color: black !important; }
-.auth-color-26 { background-color: #1D3557 !important; color: white !important; }
-.auth-color-27 { background-color: #F15BB5 !important; color: white !important; }
-.auth-color-28 { background-color: #9B5DE5 !important; color: white !important; }
-.auth-color-29 { background-color: #00BBF9 !important; color: white !important; }
-.auth-color-30 { background-color: #00F5D4 !important; color: black !important; }
-.auth-color-31 { background-color: #FEE440 !important; color: black !important; }
-.auth-color-32 { background-color: #9B5DE5 !important; color: white !important; }
-.auth-color-33 { background-color: #F15BB5 !important; color: white !important; }
-.auth-color-34 { background-color: #FEE440 !important; color: black !important; }
-.auth-color-35 { background-color: #00BBF9 !important; color: white !important; }
-.auth-color-36 { background-color: #00F5D4 !important; color: black !important; }
-.auth-color-37 { background-color: #9B2226 !important; color: white !important; }
-.auth-color-38 { background-color: #BB3E03 !important; color: white !important; }
-.auth-color-39 { background-color: #AE2012 !important; color: white !important; }
-.auth-color-40 { background-color: #005F73 !important; color: white !important; }
-.auth-color-41 { background-color: #0A9396 !important; color: white !important; }
-.auth-color-42 { background-color: #94D2BD !important; color: black !important; }
-.auth-color-43 { background-color: #E9D8A6 !important; color: black !important; }
-.auth-color-44 { background-color: #CA6702 !important; color: white !important; }
-.auth-color-45 { background-color: #BB3E03 !important; color: white !important; }
-.auth-color-46 { background-color: #AE2012 !important; color: white !important; }
-.auth-color-47 { background-color: #9B2226 !important; color: white !important; }
-.auth-color-48 { background-color: #606C38 !important; color: white !important; }
-.auth-color-49 { background-color: #283618 !important; color: white !important; }
-.auth-color-50 { background-color: #FEFAE0 !important; color: black !important; }
-.auth-color-51 { background-color: #DDA15E !important; color: black !important; }
-.auth-color-52 { background-color: #BC6C25 !important; color: white !important; }
-.auth-color-53 { background-color: #606C38 !important; color: white !important; }
-.auth-color-54 { background-color: #283618 !important; color: white !important; }
-.auth-color-55 { background-color: #FEFAE0 !important; color: black !important; }
-.auth-color-56 { background-color: #DDA15E !important; color: black !important; }
-.auth-color-57 { background-color: #BC6C25 !important; color: white !important; }
-.auth-color-58 { background-color: #264653 !important; color: white !important; }
-.auth-color-59 { background-color: #2A9D8F !important; color: white !important; }
-.auth-color-60 { background-color: #E9C46A !important; color: black !important; }
-.auth-color-61 { background-color: #F4A261 !important; color: black !important; }
-.auth-color-62 { background-color: #E76F51 !important; color: white !important; }
-.auth-color-63 { background-color: #264653 !important; color: white !important; }
+/* ========== 通用配色方案（优化后，相邻序号颜色差别更大） ========== */
+.auth-color-0 { background-color: #E53935 !important; color: white !important; }  /* 红 */
+.auth-color-1 { background-color: #1E88E5 !important; color: white !important; }  /* 蓝 */
+.auth-color-2 { background-color: #43A047 !important; color: white !important; }  /* 绿 */
+.auth-color-3 { background-color: #FB8C00 !important; color: white !important; }  /* 橙 */
+.auth-color-4 { background-color: #8E24AA !important; color: white !important; }  /* 紫 */
+.auth-color-5 { background-color: #00ACC1 !important; color: white !important; }  /* 青 */
+.auth-color-6 { background-color: #D81B60 !important; color: white !important; }  /* 梅红 */
+.auth-color-7 { background-color: #7CB342 !important; color: white !important; }  /* 黄绿 */
+.auth-color-8 { background-color: #5E35B1 !important; color: white !important; }  /* 深紫 */
+.auth-color-9 { background-color: #F4511E !important; color: white !important; }  /* 深橙 */
+.auth-color-10 { background-color: #039BE5 !important; color: white !important; } /* 浅蓝 */
+.auth-color-11 { background-color: #C0CA33 !important; color: black !important; }  /* 黄绿 */
+.auth-color-12 { background-color: #6D4C41 !important; color: white !important; }  /* 棕 */
+.auth-color-13 { background-color: #00897B !important; color: white !important; }  /* 青绿 */
+.auth-color-14 { background-color: #EC407A !important; color: white !important; }  /* 粉红 */
+.auth-color-15 { background-color: #3949AB !important; color: white !important; }  /* 靛蓝 */
+.auth-color-16 { background-color: #FFB300 !important; color: black !important; }  /* 金黄 */
+.auth-color-17 { background-color: #546E7A !important; color: white !important; }  /* 蓝灰 */
+.auth-color-18 { background-color: #AB47BC !important; color: white !important; }  /* 淡紫 */
+.auth-color-19 { background-color: #26A69A !important; color: white !important; }  /* 蓝绿 */
+.auth-color-20 { background-color: #EF5350 !important; color: white !important; }  /* 亮红 */
+.auth-color-21 { background-color: #42A5F5 !important; color: white !important; }  /* 天蓝 */
+.auth-color-22 { background-color: #66BB6A !important; color: white !important; }  /* 亮绿 */
+.auth-color-23 { background-color: #FFCA28 !important; color: black !important; }  /* 橙黄 */
+.auth-color-24 { background-color: #7E57C2 !important; color: white !important; }  /* 中紫 */
+.auth-color-25 { background-color: #26C6DA !important; color: white !important; }  /* 亮青 */
+.auth-color-26 { background-color: #FF7043 !important; color: white !important; }  /* 珊瑚 */
+.auth-color-27 { background-color: #9CCC65 !important; color: black !important; }  /* 草绿 */
+.auth-color-28 { background-color: #5C6BC0 !important; color: white !important; }  /* 紫蓝 */
+.auth-color-29 { background-color: #FFEE58 !important; color: black !important; }  /* 柠檬黄 */
+.auth-color-30 { background-color: #8D6E63 !important; color: white !important; }  /* 淡棕 */
+.auth-color-31 { background-color: #4DD0E1 !important; color: black !important; }  /* 水青 */
+
+/* ========== 后台权限组配色方案（蓝紫色调） ========== */
+.backend-auth-color-0 { background-color: #1565C0 !important; color: white !important; }  /* 深蓝 */
+.backend-auth-color-1 { background-color: #7B1FA2 !important; color: white !important; }  /* 深紫 */
+.backend-auth-color-2 { background-color: #0097A7 !important; color: white !important; }  /* 青蓝 */
+.backend-auth-color-3 { background-color: #512DA8 !important; color: white !important; }  /* 紫蓝 */
+.backend-auth-color-4 { background-color: #0288D1 !important; color: white !important; }  /* 中蓝 */
+.backend-auth-color-5 { background-color: #6A1B9A !important; color: white !important; }  /* 葡萄紫 */
+.backend-auth-color-6 { background-color: #00838F !important; color: white !important; }  /* 深青 */
+.backend-auth-color-7 { background-color: #303F9F !important; color: white !important; }  /* 靛蓝 */
+.backend-auth-color-8 { background-color: #0277BD !important; color: white !important; }  /* 钢蓝 */
+.backend-auth-color-9 { background-color: #9C27B0 !important; color: white !important; }  /* 中紫 */
+.backend-auth-color-10 { background-color: #006064 !important; color: white !important; } /* 深青蓝 */
+.backend-auth-color-11 { background-color: #4527A0 !important; color: white !important; } /* 暗紫 */
+.backend-auth-color-12 { background-color: #01579B !important; color: white !important; } /* 海蓝 */
+.backend-auth-color-13 { background-color: #8E24AA !important; color: white !important; } /* 媒介紫 */
+.backend-auth-color-14 { background-color: #00796B !important; color: white !important; } /* 青绿 */
+.backend-auth-color-15 { background-color: #283593 !important; color: white !important; } /* 暗蓝 */
+.backend-auth-color-16 { background-color: #1976D2 !important; color: white !important; } /* 亮蓝 */
+.backend-auth-color-17 { background-color: #7C4DFF !important; color: white !important; } /* 魔幻紫 */
+.backend-auth-color-18 { background-color: #0091EA !important; color: white !important; } /* 湖蓝 */
+.backend-auth-color-19 { background-color: #6200EA !important; color: white !important; } /* 电紫 */
+.backend-auth-color-20 { background-color: #00B8D4 !important; color: white !important; } /* 晶青 */
+.backend-auth-color-21 { background-color: #4A148C !important; color: white !important; } /* 酱紫 */
+.backend-auth-color-22 { background-color: #2962FF !important; color: white !important; } /* 亮蓝 */
+.backend-auth-color-23 { background-color: #AA00FF !important; color: white !important; } /* 紫红 */
+.backend-auth-color-24 { background-color: #0D47A1 !important; color: white !important; } /* 深海蓝 */
+.backend-auth-color-25 { background-color: #6A1B9A !important; color: white !important; } /* 葡萄紫 */
+.backend-auth-color-26 { background-color: #00BCD4 !important; color: white !important; } /* 青色 */
+.backend-auth-color-27 { background-color: #311B92 !important; color: white !important; } /* 暗紫蓝 */
+.backend-auth-color-28 { background-color: #2196F3 !important; color: white !important; } /* 纳蓝 */
+.backend-auth-color-29 { background-color: #D500F9 !important; color: white !important; } /* 霍紫 */
+.backend-auth-color-30 { background-color: #039BE5 !important; color: white !important; } /* 水蓝 */
+.backend-auth-color-31 { background-color: #651FFF !important; color: white !important; } /* 荧光紫 */
+
+/* ========== 前台权限组配色方案（绿橙色调） ========== */
+.member-auth-color-0 { background-color: #2E7D32 !important; color: white !important; }  /* 深绿 */
+.member-auth-color-1 { background-color: #EF6C00 !important; color: white !important; }  /* 深橙 */
+.member-auth-color-2 { background-color: #00897B !important; color: white !important; }  /* 青绿 */
+.member-auth-color-3 { background-color: #F57C00 !important; color: white !important; }  /* 橙 */
+.member-auth-color-4 { background-color: #388E3C !important; color: white !important; }  /* 中绿 */
+.member-auth-color-5 { background-color: #FF8F00 !important; color: white !important; }  /* 琥珀 */
+.member-auth-color-6 { background-color: #00695C !important; color: white !important; }  /* 深青绿 */
+.member-auth-color-7 { background-color: #E65100 !important; color: white !important; }  /* 深橙红 */
+.member-auth-color-8 { background-color: #558B2F !important; color: white !important; }  /* 橄榄绿 */
+.member-auth-color-9 { background-color: #FF6F00 !important; color: white !important; }  /* 亮橙 */
+.member-auth-color-10 { background-color: #004D40 !important; color: white !important; } /* 墨绿 */
+.member-auth-color-11 { background-color: #BF360C !important; color: white !important; } /* 砖红 */
+.member-auth-color-12 { background-color: #43A047 !important; color: white !important; } /* 亮绿 */
+.member-auth-color-13 { background-color: #FB8C00 !important; color: white !important; } /* 中橙 */
+.member-auth-color-14 { background-color: #1B5E20 !important; color: white !important; } /* 森林绿 */
+.member-auth-color-15 { background-color: #FF5722 !important; color: white !important; } /* 珊瑚橙 */
+.member-auth-color-16 { background-color: #66BB6A !important; color: white !important; } /* 浅绿 */
+.member-auth-color-17 { background-color: #FFB300 !important; color: black !important; }  /* 金橙 */
+.member-auth-color-18 { background-color: #26A69A !important; color: white !important; } /* 蓝绿 */
+.member-auth-color-19 { background-color: #FF9800 !important; color: white !important; } /* 橙黄 */
+.member-auth-color-20 { background-color: #81C784 !important; color: black !important; }  /* 薄荷绿 */
+.member-auth-color-21 { background-color: #FFA726 !important; color: white !important; } /* 浅橙 */
+.member-auth-color-22 { background-color: #4CAF50 !important; color: white !important; } /* 标准绿 */
+.member-auth-color-23 { background-color: #FFCA28 !important; color: black !important; }  /* 金黄 */
+.member-auth-color-24 { background-color: #009688 !important; color: white !important; } /* 水鸭绿 */
+.member-auth-color-25 { background-color: #F57F17 !important; color: white !important; } /* 芥末黄 */
+.member-auth-color-26 { background-color: #7CB342 !important; color: white !important; } /* 苹果绿 */
+.member-auth-color-27 { background-color: #FFD54F !important; color: black !important; }  /* 浅金 */
+.member-auth-color-28 { background-color: #8BC34A !important; color: white !important; } /* 浅橄榄 */
+.member-auth-color-29 { background-color: #FFC107 !important; color: black !important; }  /* 琥珀黄 */
+.member-auth-color-30 { background-color: #AED581 !important; color: black !important; }  /* 淡绿 */
+.member-auth-color-31 { background-color: #FFE082 !important; color: black !important; }  /* 淡金 */

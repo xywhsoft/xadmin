@@ -15,7 +15,7 @@
 			<label class="layui-form-label">权限组</label>
 			<div class="layui-input-block">
 				<select name="authID" lay-verify="required">
-					{*AuthComboListItem:authList}
+					<!-- 动态填充 -->
 				</select>
 			</div>
 		</div>
@@ -37,6 +37,40 @@
 				<input type="number" name="sort" value="{$sort}" placeholder="请输入排序值（数值越小排在前面）" autocomplete="off" class="layui-input">
 			</div>
 		</div>
+		<div class="layui-form-item" style="margin-top: 10px;">
+			<label class="layui-form-label">URI属性</label>
+			<div class="layui-input-block">
+				<div style="display: flex; gap: 20px; flex-wrap: wrap;">
+					<div>
+						<input type="checkbox" name="isBackend" lay-skin="switch" lay-text="后台|前台" lay-filter="isBackendSwitch">
+						<div class="layui-form-mid layui-word-aux" style="padding: 0; margin-top: 2px;">后台接口</div>
+					</div>
+					<div>
+						<input type="checkbox" name="needAuth" lay-skin="switch" lay-text="需要|公开">
+						<div class="layui-form-mid layui-word-aux" style="padding: 0; margin-top: 2px;">需要鉴权</div>
+					</div>
+					<div>
+						<input type="checkbox" name="needLog" lay-skin="switch" lay-text="记录|忽略">
+						<div class="layui-form-mid layui-word-aux" style="padding: 0; margin-top: 2px;">记录日志</div>
+					</div>
+					<div>
+						<input type="checkbox" name="keepActive" lay-skin="switch" lay-text="保持|忽略">
+						<div class="layui-form-mid layui-word-aux" style="padding: 0; margin-top: 2px;">保持活跃</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="layui-form-item" style="margin-top: 10px;">
+			<label class="layui-form-label">属性说明</label>
+			<div class="layui-input-block">
+				<div class="layui-form-mid layui-word-aux" style="line-height: 1.8;">
+					<b>后台接口</b>：前台和后台接口使用两套完全隔离的鉴权系统<br>
+					<b>需要鉴权</b>：所有人都可以无需鉴权的访问该接口<br>
+					<b>记录日志</b>：访问该接口时写入后台系统日志<br>
+					<b>保持活跃</b>：访问该接口时自动延长Session寿命
+				</div>
+			</div>
+		</div>
 		<div style="flex: 1;"></div>
 		<div class="layui-form-item" style="text-align: right; margin-bottom: 0;">
 			<button class="layui-btn" lay-submit lay-filter="submit">保存</button>
@@ -45,14 +79,51 @@
 	</form>
 	<script src="/layui/layui.js"></script>
 	<script>
+		// 后台权限分组数据
+		var backendAuthList = [{*AuthJsonItem:authList}];
+		// 前台权限分组数据
+		var memberAuthList = [{*AuthJsonItem:memberAuthList}];
+		
 		layui.use('form', function(){{
 			var form = layui.form;
 			var layer = layui.layer;
+			var $ = layui.$;
+			
+			// 更新权限分组下拉框
+			function updateAuthSelect(isBackend, currentAuthID) {{
+				var list = isBackend ? backendAuthList : memberAuthList;
+				var html = '';
+				for (var i = 0; i < list.length; i++) {{
+					var selected = (list[i].id == currentAuthID) ? ' selected' : '';
+					html += '<option value="' + list[i].id + '"' + selected + '>' + list[i].name + '</option>';
+				}
+				$('select[name=authID]').html(html);
+				form.render('select');
+			}
+			
+			// 初始值
+			var initAuthID = {$authID};
+			var initIsBackend = {$isBackend} == 1;
 			
 			// 渲染表单
 			form.render();
 			form.val('urisForm', {{
-				"authID": {$authID}
+				"isBackend": initIsBackend,
+				"needAuth": {$needAuth} == 1,
+				"needLog": {$needLog} == 1,
+				"keepActive": {$keepActive} == 1
+			});
+			
+			// 初始化权限分组下拉框
+			updateAuthSelect(initIsBackend, initAuthID);
+			
+			// 监听 isBackend 开关变化
+			form.on('switch(isBackendSwitch)', function(data){{
+				var isBackend = data.elem.checked;
+				// 切换时默认选中第一个权限分组
+				var list = isBackend ? backendAuthList : memberAuthList;
+				var defaultAuthID = list.length > 0 ? list[0].id : 1;
+				updateAuthSelect(isBackend, defaultAuthID);
 			});
 			
 			// 取消按钮
@@ -64,6 +135,12 @@
 			// 提交事件
 			form.on('submit(submit)', function(data){{
 				var field = data.field; // 获取表单字段值
+				
+				// 处理 checkbox 字段，转换为数字
+				field.isBackend = field.isBackend == 'on' ? 1 : 0;
+				field.needAuth = field.needAuth == 'on' ? 1 : 0;
+				field.needLog = field.needLog == 'on' ? 1 : 0;
+				field.keepActive = field.keepActive == 'on' ? 1 : 0;
 				
 				// 提交请求
 				fetch('/admin/auth/uris', {{
@@ -99,3 +176,4 @@
 </body>
 </html>
 {#define:AuthComboListItem}<option value={$id}>{$name}</option>{#end}
+{#define:AuthJsonItem}{{id:{$id},name:"{$name}"},{#end}

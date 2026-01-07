@@ -108,15 +108,15 @@ typedef struct {
 xdict G_StaticRouteTableHTTP;
 
 // 添加全局静态路由表项 - HTTP
-void AddStaticRouteHTTP(str uri, void* proc, bool bAuth, bool bAdmin, bool bPutLog, bool bActive)
+void AddStaticRouteHTTP(str uri, void* proc)
 {
 	RouteInfo* pInfo = xrtDictSet(G_StaticRouteTableHTTP, uri, strlen(uri), NULL);
 	if ( pInfo ) {
 		pInfo->Proc = proc;
-		pInfo->bAuth = bAuth;
-		pInfo->bAdmin = bAdmin;
-		pInfo->bPutLog = bPutLog;
-		pInfo->bActive = bActive;
+		pInfo->bAuth = TRUE;		// 默认需要鉴权（安全优先）
+		pInfo->bAdmin = TRUE;		// 默认后台接口
+		pInfo->bPutLog = FALSE;		// 默认不记录日志
+		pInfo->bActive = FALSE;		// 默认不保持活跃
 		pInfo->AuthID = 0;
 		pInfo->AuthLevel = 0;
 	} else {

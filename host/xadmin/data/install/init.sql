@@ -1673,6 +1673,10 @@ CREATE TABLE uris (
     authID     INTEGER REFERENCES auth (id),
     uri        TEXT    UNIQUE,
     desc       TEXT,
+    isBackend  INTEGER DEFAULT 1,   -- 是否后台接口 (1=后台, 0=前台)
+    needAuth   INTEGER DEFAULT 1,   -- 是否需要鉴权
+    needLog    INTEGER DEFAULT 0,   -- 是否记录日志
+    keepActive INTEGER DEFAULT 0,   -- 是否保持Session活跃
     sort       INTEGER,
     createTime INTEGER,
     updateTime INTEGER

@@ -1243,8 +1243,14 @@ void Request_View_Auth_URIs_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			xvoTableSetInt(tblInfo, "authID", 6, sqlite3_column_int64(stmt_uris_get, 1));
 			xvoTableSetText(tblInfo, "uri", 3, (str)sqlite3_column_text(stmt_uris_get, 2), 0, FALSE);
 			xvoTableSetText(tblInfo, "desc", 4, (str)sqlite3_column_text(stmt_uris_get, 3), 0, FALSE);
-			xvoTableSetInt(tblInfo, "sort", 4, sqlite3_column_int64(stmt_uris_get, 4));
+			// 新4个字段: isBackend(4), needAuth(5), needLog(6), keepActive(7)
+			xvoTableSetInt(tblInfo, "isBackend", 9, sqlite3_column_int64(stmt_uris_get, 4));
+			xvoTableSetInt(tblInfo, "needAuth", 8, sqlite3_column_int64(stmt_uris_get, 5));
+			xvoTableSetInt(tblInfo, "needLog", 7, sqlite3_column_int64(stmt_uris_get, 6));
+			xvoTableSetInt(tblInfo, "keepActive", 10, sqlite3_column_int64(stmt_uris_get, 7));
+			xvoTableSetInt(tblInfo, "sort", 4, sqlite3_column_int64(stmt_uris_get, 8));
 			xvoTableSetValue(tblInfo, "authList", 8, G_CACHE_Auth, FALSE);
+			xvoTableSetValue(tblInfo, "memberAuthList", 14, G_CACHE_MemberAuth, FALSE);
 			bRow = TRUE;
 		}
 		sqlite3_reset(stmt_uris_get);
@@ -1295,14 +1301,20 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, struct 
 				xvoTableSetInt(tblRow, "authID", 6, sqlite3_column_int64(stmt_uris_all, 1));
 				xvoTableSetText(tblRow, "uri", 3, (str)sqlite3_column_text(stmt_uris_all, 2), 0, FALSE);
 				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_uris_all, 3), 0, FALSE);
-				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_uris_all, 4));
-				xtime iTime = sqlite3_column_int64(stmt_uris_all, 5);
+				// 新4个字段: isBackend(4), needAuth(5), needLog(6), keepActive(7)
+				xvoTableSetInt(tblRow, "isBackend", 9, sqlite3_column_int64(stmt_uris_all, 4));
+				xvoTableSetInt(tblRow, "needAuth", 8, sqlite3_column_int64(stmt_uris_all, 5));
+				xvoTableSetInt(tblRow, "needLog", 7, sqlite3_column_int64(stmt_uris_all, 6));
+				xvoTableSetInt(tblRow, "keepActive", 10, sqlite3_column_int64(stmt_uris_all, 7));
+				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_uris_all, 8));
+				xtime iTime = sqlite3_column_int64(stmt_uris_all, 9);
 				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				iTime = sqlite3_column_int64(stmt_uris_all, 6);
+				iTime = sqlite3_column_int64(stmt_uris_all, 10);
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "authName", 8, (str)sqlite3_column_text(stmt_uris_all, 7), 0, FALSE);
+				xvoTableSetText(tblRow, "authName", 8, (str)sqlite3_column_text(stmt_uris_all, 11), 0, FALSE);
+				xvoTableSetText(tblRow, "memberAuthName", 14, (str)sqlite3_column_text(stmt_uris_all, 12), 0, FALSE);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_all, 8);
+					iCount = sqlite3_column_int64(stmt_uris_all, 13);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -1319,12 +1331,20 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, struct 
 				xvoTableSetInt(tblRow, "authID", 6, sqlite3_column_int64(stmt_uris_sel, 1));
 				xvoTableSetText(tblRow, "uri", 3, (str)sqlite3_column_text(stmt_uris_sel, 2), 0, FALSE);
 				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_uris_sel, 3), 0, FALSE);
-				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_uris_sel, 4));
-				xtime iTime = sqlite3_column_int64(stmt_uris_sel, 5);
+				// 新4个字段: isBackend(4), needAuth(5), needLog(6), keepActive(7)
+				xvoTableSetInt(tblRow, "isBackend", 9, sqlite3_column_int64(stmt_uris_sel, 4));
+				xvoTableSetInt(tblRow, "needAuth", 8, sqlite3_column_int64(stmt_uris_sel, 5));
+				xvoTableSetInt(tblRow, "needLog", 7, sqlite3_column_int64(stmt_uris_sel, 6));
+				xvoTableSetInt(tblRow, "keepActive", 10, sqlite3_column_int64(stmt_uris_sel, 7));
+				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_uris_sel, 8));
+				xtime iTime = sqlite3_column_int64(stmt_uris_sel, 9);
 				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "authName", 8, (str)sqlite3_column_text(stmt_uris_sel, 6), 0, FALSE);
+				iTime = sqlite3_column_int64(stmt_uris_sel, 10);
+				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				xvoTableSetText(tblRow, "authName", 8, (str)sqlite3_column_text(stmt_uris_sel, 11), 0, FALSE);
+				xvoTableSetText(tblRow, "memberAuthName", 14, (str)sqlite3_column_text(stmt_uris_sel, 12), 0, FALSE);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_sel, 7);
+					iCount = sqlite3_column_int64(stmt_uris_sel, 13);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -1360,11 +1380,22 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		str uri = xvoTableGetText(tblForm, "uri", 3);
 		str desc = xvoTableGetText(tblForm, "desc", 4);
 		int64 sort = xvoTableGetInt(tblForm, "sort", 4);
+		// 新4个字段
+		int64 isBackend = xvoTableGetInt(tblForm, "isBackend", 9);
+		int64 needAuth = xvoTableGetInt(tblForm, "needAuth", 8);
+		int64 needLog = xvoTableGetInt(tblForm, "needLog", 7);
+		int64 keepActive = xvoTableGetInt(tblForm, "keepActive", 10);
+		
+		// UPDATE uris SET authID=?, desc=?, sort=?, isBackend=?, needAuth=?, needLog=?, keepActive=?, updateTime=? WHERE id=?
 		sqlite3_bind_int64(stmt_uris_put, 1, authID);
 		sqlite3_bind_text(stmt_uris_put, 2, desc, strlen(desc), SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_uris_put, 3, sort);
-		sqlite3_bind_int64(stmt_uris_put, 4, xrtNow());
-		sqlite3_bind_int64(stmt_uris_put, 5, id);
+		sqlite3_bind_int64(stmt_uris_put, 4, isBackend);
+		sqlite3_bind_int64(stmt_uris_put, 5, needAuth);
+		sqlite3_bind_int64(stmt_uris_put, 6, needLog);
+		sqlite3_bind_int64(stmt_uris_put, 7, keepActive);
+		sqlite3_bind_int64(stmt_uris_put, 8, xrtNow());
+		sqlite3_bind_int64(stmt_uris_put, 9, id);
 		sqlite3_step(stmt_uris_put);
 		sqlite3_reset(stmt_uris_put);
 		xvoUnref(tblForm);
@@ -1373,6 +1404,10 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		RouteInfo* pInfo = xrtDictGet(G_StaticRouteTableHTTP, uri, 0);
 		if ( pInfo ) {
 			pInfo->AuthID = authID;
+			pInfo->bAdmin = isBackend ? TRUE : FALSE;
+			pInfo->bAuth = needAuth ? TRUE : FALSE;
+			pInfo->bPutLog = needLog ? TRUE : FALSE;
+			pInfo->bActive = keepActive ? TRUE : FALSE;
 		}
 		Auth_ReloadCache();
 		
