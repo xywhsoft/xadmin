@@ -1,0 +1,74 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Member_Uris" lay-filter="Table_Member_Uris"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Member_Uris">
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Member_Uris_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<span class="layui-badge layui-bg-blue" style="line-height: 32px; padding: 0 12px;">URI自动同步，无需手动添加</span>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Member_Uris">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		
+		table.render({
+			elem: '#Table_Member_Uris',
+			toolbar: '#Toolbar_Member_Uris',
+			url: '/admin/member/uris',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			cellMinWidth: 60,
+			skin: "line",
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'id', width:80, title: 'ID'},
+				{field:'uri', width:300, title: 'URI路径', templet: '<code>{{= d.uri }}</code>'},
+				{field:'authID', width:100, title: '权限分组ID'},
+				{field:'desc', title: '描述'},
+				{field:'sort', width:100, title: '排序'},
+				{field:'createTime', width:180, title: '创建时间'},
+				{width:100, title: '操作', templet: '#Tool_Member_Uris'},
+			]],
+		});
+		
+		table.on('toolbar(Table_Member_Uris)', function(obj){
+			switch ( obj.event ) {
+				case 'Member_Uris_Refresh':
+					table.reloadData('Table_Member_Uris');
+				break;
+			};
+		});
+		
+		table.on('tool(Table_Member_Uris)', function(obj){
+			var data = obj.data;
+			if ( obj.event == 'edit' ) {
+				layer.open({
+					title: '编辑URI权限',
+					type: 2,
+					shadeClose: true,
+					area: ['500px', '450px'],
+					content: '/admin/view/member/uris/edit?id=' + data.id,
+				});
+			}
+		});
+	});
+</script>

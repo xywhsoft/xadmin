@@ -4,7 +4,7 @@
 		"image": "/img/logo.png"
 	},
 	"menu": {
-		"data": "/menu",
+		"data": "/admin/menu",
 		"method": "GET",
 		"accordion": true,
 		"collapse": false,
@@ -21,7 +21,7 @@
 		"max": "30",
 		"index": {
 			"id": "home",
-			"href": "view/home",
+			"href": "/admin/view/home",
 			"title": "主页"
 		}
 	},

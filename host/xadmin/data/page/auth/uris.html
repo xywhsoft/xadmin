@@ -32,7 +32,7 @@
 		table.render({
 			elem: '#Table_Auth_URIs',
 			toolbar: '#Toolbar_Auth_URIs',
-			url: '/auth/uris',
+			url: '/admin/auth/uris',
 			defaultToolbar: ['filter', 'exports', 'print'],
 			height: 'full-135',			// 最大高度减去其他容器已占有的高度差
 			css: "",					// 重设当前表格样式
@@ -88,7 +88,7 @@
 					type: 2,
 					shadeClose: true,
 					area: ['500px', '460px'],
-					content: '/view/auth/uris/edit?id=' + data.id,
+					content: '/admin/view/auth/uris/edit?id=' + data.id,
 				});
 			}
 		});

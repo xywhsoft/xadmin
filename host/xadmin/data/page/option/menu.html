@@ -89,7 +89,7 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 	{
 		var loading = layer.load(2);
 		
-		fetch('/option/menu')
+		fetch('/admin/option/menu')
 		.then(response => response.json())
 		.then(result => {
 			layer.close(loading);
@@ -167,7 +167,7 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 					type: 2,
 					shadeClose: true,
 					area: ['600px', '500px'],
-					content: '/view/option/menu/add/category',
+					content: '/admin/view/option/menu/add/category',
 					end: function(){
 						loadMenuData();
 					}
@@ -180,7 +180,7 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 					type: 2,
 					shadeClose: true,
 					area: ['600px', '640px'],
-					content: '/view/option/menu/add',
+					content: '/admin/view/option/menu/add',
 					end: function(){
 						loadMenuData();
 					}
@@ -201,7 +201,7 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 				type: 2,
 				shadeClose: true,
 				area: sArea,
-				content: '/view/option/menu/edit?id=' + data.id,
+				content: '/admin/view/option/menu/edit?id=' + data.id,
 				end: function(){
 					loadMenuData();
 				}
@@ -216,7 +216,7 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 				icon: 3,
 				title: '删除确认'
 			}, function(index){
-				fetch('/option/menu?id=' + data.id, {
+				fetch('/admin/option/menu?id=' + data.id, {
 					method: 'DELETE',
 					headers: {
 						'Content-Type': 'application/json'

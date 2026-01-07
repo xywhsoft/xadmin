@@ -28,7 +28,7 @@
 		table.render({
 			elem: '#Table_Logs',
 			toolbar: '#Toolbar_Logs',
-			url: '/logs',
+			url: '/admin/logs',
 			defaultToolbar: ['filter', 'exports', 'print'],
 			height: 'full-135',			// 最大高度减去其他容器已占有的高度差
 			css: "",					// 重设当前表格样式
@@ -78,7 +78,7 @@
 						title: '清空日志'
 					}, function(index) {
 						var loading = layer.load(2);
-						fetch('/logs/clear', {
+						fetch('/admin/logs/clear', {
 							method: 'POST'
 						})
 						.then(response => response.json())

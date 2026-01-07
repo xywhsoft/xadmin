@@ -1,0 +1,253 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Member_User" lay-filter="Table_Member_User"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Member_User">
+	<div class="layui-inline">
+		<input type="text" id="searchMemberUser" placeholder="搜索用户名..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Member_User_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Member_User_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="Member_User_Add"><i class="layui-icon layui-icon-addition"></i> 添加用户</button>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Member_User">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-cyan" lay-event="resetPwd">重置密码</a>
+		<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="balance">余额调整</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	// SHA-256 哈希函数（使用 Web Crypto API）
+	async function sha256(message) {
+		const msgBuffer = new TextEncoder().encode(message);
+		const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+		const hashArray = Array.from(new Uint8Array(hashBuffer));
+		const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+		return hashHex;
+	}
+	
+	// 格式化余额（分转元）
+	function formatBalance(balance) {
+		return (balance / 100).toFixed(2);
+	}
+	
+	layui.use(['table', 'form'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		var form = layui.form;
+		var $ = layui.$;
+		
+		// 创建渲染实例
+		table.render({
+			elem: '#Table_Member_User',
+			toolbar: '#Toolbar_Member_User',
+			url: '/admin/member/user',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			css: "",
+			cellMinWidth: 60,
+			skin: "line",
+			totalRow: false,
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'id', width:80, title: 'ID'},
+				{title: '用户名', templet: '<code>{{= d.username }}</code>'},
+				{field:'nickname', width:140, title: '昵称'},
+				{width:120, title: '用户组', templet: '<span class="layui-badge layui-bg-blue">{{= d.groupId }}</span>'},
+				{width:100, title: '权限级别', templet: '<span class="layui-badge layui-bg-orange">{{= d.authLevel }}</span>'},
+				{width:120, title: '余额(元)', templet: function(d){ return '<span class="layui-badge layui-bg-green">' + (d.balance / 100).toFixed(2) + '</span>'; }},
+				{width:100, title: '状态', templet: function(d){ return d.status == 1 ? '<span class="layui-badge layui-bg-green">正常</span>' : '<span class="layui-badge layui-bg-gray">禁用</span>'; }},
+				{field:'createTime', width:180, title: '注册时间'},
+				{width:260, title: '操作', templet: '#Tool_Member_User'},
+			]],
+			done: function(){},
+			error: function(res, msg){ console.log(res, msg); }
+		});
+		
+		// 工具栏事件
+		table.on('toolbar(Table_Member_User)', function(obj){
+			switch ( obj.event ) {
+				case 'Member_User_Search':
+					table.reloadData('Table_Member_User', {
+						where: { search: "%" + document.getElementById('searchMemberUser').value + "%" },
+					});
+				break;
+				case 'Member_User_Refresh':
+					table.reloadData('Table_Member_User');
+				break;
+				case 'Member_User_Add':
+					layer.open({
+						title: '添加前台用户',
+						type: 2,
+						shadeClose: true,
+						area: ['550px', '560px'],
+						content: '/admin/view/member/user/add',
+					});
+				break;
+			};
+		});
+		
+		// 触发单元格工具事件
+		table.on('tool(Table_Member_User)', function(obj){
+			var data = obj.data;
+			if ( obj.event == 'edit' ) {
+				layer.open({
+					title: '编辑用户',
+					type: 2,
+					shadeClose: true,
+					area: ['550px', '560px'],
+					content: '/admin/view/member/user/edit?id=' + data.id,
+				});
+			} else if ( obj.event == 'resetPwd' ) {
+				layer.prompt({
+					formType: 1,
+					title: '重置密码 - ' + data.username,
+					area: ['400px', '200px']
+				}, async function(newPassword, promptIndex) {
+					if (!newPassword || newPassword.trim() === '') {
+						layer.msg('密码不能为空', {icon: 2});
+						return;
+					}
+					const pwdHash = await sha256(data.username + '_xywhsoft_' + newPassword);
+					fetch('/admin/member/user/repwd', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ id: data.id, username: data.username, password: pwdHash })
+					})
+					.then(response => response.json())
+					.then(result => {
+						if (result && result.result === true) {
+							layer.msg(result.message || '密码重置成功', {icon: 1});
+							table.reloadData('Table_Member_User');
+							layer.close(promptIndex);
+						} else {
+							layer.msg(result.message || '重置失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+				});
+			} else if ( obj.event == 'balance' ) {
+				// 余额调整
+				layer.open({
+					type: 1,
+					title: '余额调整 - ' + data.username,
+					area: ['450px', '360px'],
+					content: `
+						<form class="layui-form" style="padding: 20px;" lay-filter="balanceForm">
+							<div class="layui-form-item">
+								<label class="layui-form-label">当前余额</label>
+								<div class="layui-input-block">
+									<input type="text" class="layui-input" value="${formatBalance(data.balance)} 元" readonly>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">操作类型</label>
+								<div class="layui-input-block">
+									<select name="type" lay-filter="balanceType">
+										<option value="1">充值 (+)</option>
+										<option value="2">扣款 (-)</option>
+									</select>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">金额(元)</label>
+								<div class="layui-input-block">
+									<input type="number" name="amount" step="0.01" min="0.01" class="layui-input" placeholder="请输入金额" required>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">备注</label>
+								<div class="layui-input-block">
+									<input type="text" name="remark" class="layui-input" placeholder="操作备注">
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<div class="layui-input-block">
+									<button type="button" class="layui-btn" id="submitBalance">确认</button>
+									<button type="button" class="layui-btn layui-btn-primary" id="cancelBalance">取消</button>
+								</div>
+							</div>
+						</form>
+					`,
+					success: function(layero, index) {
+						form.render('select');
+						layero.find('#cancelBalance').click(function(){ layer.close(index); });
+						layero.find('#submitBalance').click(function(){
+							var type = layero.find('select[name=type]').val();
+							var amount = parseFloat(layero.find('input[name=amount]').val());
+							var remark = layero.find('input[name=remark]').val();
+							if (!amount || amount <= 0) {
+								layer.msg('请输入有效金额', {icon: 2});
+								return;
+							}
+							// 转换为分
+							var amountCent = Math.round(amount * 100);
+							fetch('/admin/member/user/balance', {
+								method: 'POST',
+								headers: { 'Content-Type': 'application/json' },
+								body: JSON.stringify({ id: data.id, type: parseInt(type), amount: amountCent, remark: remark || '' })
+							})
+							.then(response => response.json())
+							.then(result => {
+								if (result && result.result === true) {
+									layer.msg(result.message || '余额调整成功', {icon: 1});
+									table.reloadData('Table_Member_User');
+									layer.close(index);
+								} else {
+									layer.msg(result.message || '操作失败', {icon: 2});
+								}
+							})
+							.catch(error => {
+								layer.msg('请求出错', {icon: 2});
+								console.error('Error:', error);
+							});
+						});
+					}
+				});
+			} else if ( obj.event == 'delete' ) {
+				layer.confirm('确定要删除用户 "' + data.username + '" 吗？', {
+					icon: 3,
+					title: '删除确认'
+				}, function(index){
+					fetch('/admin/member/user?id=' + data.id, {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' }
+					})
+					.then(response => response.json())
+					.then(result => {
+						if (result && result.result === true) {
+							layer.msg(result.message || '删除成功', {icon: 1});
+							table.reloadData('Table_Member_User');
+						} else {
+							layer.msg(result.message || '删除失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+					layer.close(index);
+				});
+			}
+		});
+	});
+</script>

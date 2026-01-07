@@ -9,23 +9,23 @@
 	<link href="/layui/css/layui.css" rel="stylesheet">
 </head>
 <body>
-	<form class="layui-form" style="padding: 20px; min-height: calc(100vh - 40px); display: flex; flex-direction: column;" lay-filter="AuthGroupAddForm">
+	<form class="layui-form" style="padding: 20px; min-height: calc(100vh - 40px); display: flex; flex-direction: column;">
 		<div class="layui-form-item">
 			<label class="layui-form-label">分类名称</label>
 			<div class="layui-input-block">
-				<input type="text" name="name" value="" required lay-verify="required" placeholder="分类名称" autocomplete="off" class="layui-input">
+				<input type="text" name="name" required lay-verify="required" placeholder="请输入分类名称" autocomplete="off" class="layui-input">
 			</div>
 		</div>
-		<div class="layui-form-item">
+		<div class="layui-form-item layui-form-text">
 			<label class="layui-form-label">描述</label>
 			<div class="layui-input-block">
-				<input type="text" name="desc" value="" placeholder="请输入权限分类描述" autocomplete="off" class="layui-input">
+				<textarea name="desc" placeholder="请输入描述" class="layui-textarea" style="height: 80px;"></textarea>
 			</div>
 		</div>
 		<div class="layui-form-item">
-			<label class="layui-form-label">排序值</label>
+			<label class="layui-form-label">排序</label>
 			<div class="layui-input-block">
-				<input type="number" name="sort" value="0" placeholder="请输入排序值（数值越小排在前面）" autocomplete="off" class="layui-input">
+				<input type="number" name="sort" value="0" placeholder="请输入排序值" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div style="flex: 1;"></div>
@@ -39,32 +39,31 @@
 		layui.use('form', function(){
 			var form = layui.form;
 			var layer = layui.layer;
+			form.render();
 			
-			// 取消按钮
 			document.getElementById('btnCancel').onclick = function(){
 				var index = parent.layer.getFrameIndex(window.name);
 				parent.layer.close(index);
 			};
 			
-			// 提交事件
 			form.on('submit(submit)', function(data){
-				var field = data.field; // 获取表单字段值
+				var field = data.field;
+				var submitData = {
+					name: field.name,
+					desc: field.desc || '',
+					sort: parseInt(field.sort) || 0
+				};
 				
-				// 提交请求
-				fetch('/admin/auth/group', {
+				fetch('/admin/member/authgroup', {
 					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify(field),
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(submitData),
 				})
 				.then(response => response.json())
 				.then(data => {
 					if ( data.result ) {
 						layer.msg(data.message, {icon: 1});
-						// 刷新父窗口列表
-						parent.layui.table.reloadData('Table_Auth_Group');
-						// 关闭当前弹窗
+						parent.layui.table.reloadData('Table_Member_AuthGroup');
 						var index = parent.layer.getFrameIndex(window.name);
 						parent.layer.close(index);
 					} else {
@@ -72,11 +71,10 @@
 					}
 				})
 				.catch(error => {
-					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
+					layer.msg('请求出错', {icon: 2});
 					console.error('Error:', error);
 				});
 				
-				// 阻止默认 form 跳转
 				return false;
 			});
 		});

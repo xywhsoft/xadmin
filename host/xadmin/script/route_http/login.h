@@ -8,9 +8,9 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 		
 		// 登录页面
 		if ( hm->session->Type == XVO_DT_TABLE ) {
-			http_reply(c, 302, "Location: /\r\n", NULL, 0);
+			http_reply(c, 302, "Location: /admin\r\n", NULL, 0);
 		} else {
-			LoadPage(c, 200, HTTP_CT_HTML, "login.html");
+			LoadPage(c, 200, HTTP_CT_HTML, "admin/login.html");
 		}
 		
 	} else if ( hm->methodCode == HTTP_POST ) {
@@ -68,10 +68,9 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 				if ( tblRole && (tblRole->Type == XVO_DT_TABLE) ) {
 					bOK = TRUE;
 					
-					// step 5 : 创建用户 Session 表
+					// step 5 : 创建用户 Session 表（使用新的创建函数，自动设置过期时间）
 					XID = xrtMakeXIDS();
-					tblSession = xvoCreateTable();
-					xvoTableSetValue(G_Session, XID, 32, tblSession, TRUE);
+					tblSession = Session_CreateAdmin(XID);
 					
 					// 获取 authLevel
 					int64 iLvUser = sqlite3_column_int64(stmt_login_get, 5);
@@ -106,9 +105,9 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 			// step 8 : 返回响应，附带 cookie 信息（remember 字段在勾选 [记住登录状态] 时传递为字符串 on，不勾选时不传递参数）
 			str sHeader;
 			if ( xvoTableItemType(tblForm, "remember", 8) == XVO_DT_TEXT ) {
-				sHeader = xrtFormat("%sSet-Cookie: XSID=%s; HttpOnly; Max-Age=604800\r\n", HTTP_CT_JSON, XID);
+				sHeader = xrtFormat("%sSet-Cookie: XSID=%s; Path=/; HttpOnly; Max-Age=604800\r\n", HTTP_CT_JSON, XID);
 			} else {
-				sHeader = xrtFormat("%sSet-Cookie: XSID=%s; HttpOnly\r\n", HTTP_CT_JSON, XID);
+				sHeader = xrtFormat("%sSet-Cookie: XSID=%s; Path=/; HttpOnly\r\n", HTTP_CT_JSON, XID);
 			}
 			http_reply(c, 200, sHeader, "{\"result\": true, \"message\": \"登录成功，即将跳转到后台管理页面！\"}", 0);
 			xrtFree(sHeader);
@@ -140,11 +139,11 @@ void Request_Logout(XS_ServerObject objServer, XS_HostObject objHost, struct mg_
 		// 删除 Session
 		if ( hm->session->Type == XVO_DT_TABLE ) {
 			str sID = xvoTableGetText(hm->session, "xid", 3);
-			xvoTableRemove(G_Session, sID, 0);
+			xvoTableRemove(G_AdminSession, sID, 0);
 		}
 		
 		// 清除 Cookie 并跳转到登录页
-		str sHeader = xrtFormat("%sSet-Cookie: XSID=; HttpOnly; Max-Age=0\r\nLocation: /login\r\n", HTTP_CT_JSON);
+		str sHeader = xrtFormat("%sSet-Cookie: XSID=; Path=/; HttpOnly; Max-Age=0\r\nLocation: /admin/login\r\n", HTTP_CT_JSON);
 		http_reply(c, 302, sHeader, "{\"result\": true, \"message\": \"注销成功！\"}", 0);
 		xrtFree(sHeader);
 		

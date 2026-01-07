@@ -1,0 +1,115 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Member_Group" lay-filter="Table_Member_Group"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Member_Group">
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Member_Group_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="Member_Group_Add"><i class="layui-icon layui-icon-addition"></i> 添加用户组</button>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Member_Group">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		var $ = layui.$;
+		
+		table.render({
+			elem: '#Table_Member_Group',
+			toolbar: '#Toolbar_Member_Group',
+			url: '/admin/member/group',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			cellMinWidth: 60,
+			skin: "line",
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'id', width:80, title: 'ID'},
+				{field:'name', width:180, title: '用户组名称'},
+				{field:'desc', title: '描述'},
+				{width:100, title: '权限级别', templet: '<span class="layui-badge layui-bg-orange">{{= d.authLevel }}</span>'},
+				{width:100, title: '用户数', templet: '<span class="layui-badge layui-bg-blue">{{= d.userCount || 0 }}</span>'},
+				{field:'createTime', width:180, title: '创建时间'},
+				{width:160, title: '操作', templet: '#Tool_Member_Group'},
+			]],
+			done: function(){},
+			error: function(res, msg){ console.log(res, msg); }
+		});
+		
+		table.on('toolbar(Table_Member_Group)', function(obj){
+			switch ( obj.event ) {
+				case 'Member_Group_Refresh':
+					table.reloadData('Table_Member_Group');
+				break;
+				case 'Member_Group_Add':
+					layer.open({
+						title: '添加用户组',
+						type: 2,
+						shadeClose: true,
+						area: ['650px', '688px'],
+						content: '/admin/view/member/group/add',
+					});
+				break;
+			};
+		});
+		
+		table.on('tool(Table_Member_Group)', function(obj){
+			var data = obj.data;
+			if ( obj.event == 'edit' ) {
+				layer.open({
+					title: '编辑用户组',
+					type: 2,
+					shadeClose: true,
+					area: ['650px', '688px'],
+					content: '/admin/view/member/group/edit?id=' + data.id,
+				});
+			} else if ( obj.event == 'delete' ) {
+				if (data.id == 1) {
+					layer.msg('不能删除默认用户组', {icon: 2});
+					return;
+				}
+				layer.confirm('确定要删除用户组 "' + data.name + '" 吗？', {
+					icon: 3,
+					title: '删除确认'
+				}, function(index){
+					fetch('/admin/member/group?id=' + data.id, {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' }
+					})
+					.then(response => response.json())
+					.then(result => {
+						if (result && result.result === true) {
+							layer.msg(result.message || '删除成功', {icon: 1});
+							table.reloadData('Table_Member_Group');
+						} else {
+							layer.msg(result.message || '删除失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+					layer.close(index);
+				});
+			}
+		});
+	});
+</script>

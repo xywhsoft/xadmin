@@ -1,6 +1,5 @@
 {
 	"namespace":	"global",
-	"authLevel":	200,
 	"classList":	[
 		{
 			"style":	"",
@@ -188,5 +187,6 @@
 			"title":	"表单测试"
 		}
 	],
+	"authLevel":	200,
 	"title":	"全局配置"
 }

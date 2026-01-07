@@ -7,7 +7,7 @@ void Request_Index(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 	if ( hm->methodCode == HTTP_GET ) {
 		
 		// 后台主页
-		LoadPage(c, 200, HTTP_CT_HTML, "index.html");
+		LoadPage(c, 200, HTTP_CT_HTML, "admin/index.html");
 		
 	} else {
 		
@@ -25,7 +25,7 @@ void Request_View_Home(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	if ( hm->methodCode == HTTP_GET ) {
 		
 		// 加载主页页面
-		LoadPage(c, 200, HTTP_CT_HTML, "home.html");
+		LoadPage(c, 200, HTTP_CT_HTML, "admin/home.html");
 		
 	} else {
 		

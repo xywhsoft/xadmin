@@ -49,6 +49,12 @@
 // 菜单管理模块
 #include "module/menu.h"
 
+// 前台用户模块
+#include "module/member.h"
+
+// 前台权限缓存模块
+#include "module/member_auth.h"
+
 
 
 // 路由调用 - HTTP
@@ -59,6 +65,8 @@
 #include "route_http/option.h"
 #include "route_http/menu.h"
 #include "route_http/trace.h"
+#include "route_http/api.h"
+#include "route_http/member.h"
 
 
 
@@ -112,6 +120,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	// 初始化菜单管理模块
 	Menu_Init();
 	
+	// 初始化前台用户模块（SQL预编译）
+	Member_Init();
+	
+	// 初始化前台权限缓存模块
+	MemberAuth_Init();
+	
 }
 
 
@@ -119,6 +133,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 // 服务卸载
 void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 {
+	
+	// 卸载前台权限缓存模块
+	MemberAuth_Unit();
+	
+	// 卸载前台用户模块
+	Member_Unit();
 	
 	// 卸载菜单管理模块
 	Menu_Unit();

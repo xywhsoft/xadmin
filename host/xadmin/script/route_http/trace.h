@@ -18,13 +18,13 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, st
 	
 	xvalue tblData = xvoCreateTable();
 	
-	// Session 缓存信息
+	// Session 缓存信息 - 后台管理员
 	xvalue tblSession = xvoCreateTable();
-	xvoTableSetBool(tblSession, "exists", 6, G_Session != NULL);
-	if ( G_Session != NULL ) {
-		xvoTableSetInt(tblSession, "count", 5, xvoTableItemCount(G_Session));
+	xvoTableSetBool(tblSession, "exists", 6, G_AdminSession != NULL);
+	if ( G_AdminSession != NULL ) {
+		xvoTableSetInt(tblSession, "count", 5, xvoTableItemCount(G_AdminSession));
 	}
-	xvoTableSetValue(tblData, "session", 7, tblSession, TRUE);
+	xvoTableSetValue(tblData, "adminSession", 12, tblSession, TRUE);
 	
 	// Option 缓存信息
 	xvalue tblOption = xvoCreateTable();
@@ -91,13 +91,13 @@ void Request_Trace_Session(XS_ServerObject objServer, XS_HostObject objHost, str
 	
 	xvalue tblRet = xvoCreateTable();
 	
-	if ( G_Session == NULL ) {
+	if ( G_AdminSession == NULL ) {
 		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "Session 缓存不存在", 0, FALSE);
+		xvoTableSetText(tblRet, "message", 7, "AdminSession 缓存不存在", 0, FALSE);
 	} else {
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoAddRef(G_Session);
-		xvoTableSetValue(tblRet, "data", 4, G_Session, TRUE);
+		xvoAddRef(G_AdminSession);
+		xvoTableSetValue(tblRet, "data", 4, G_AdminSession, TRUE);
 	}
 	
 	size_t iRetSize = 0;

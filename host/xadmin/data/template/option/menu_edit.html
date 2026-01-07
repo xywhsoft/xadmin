@@ -109,7 +109,7 @@
 			// 加载分类列表
 			function loadParentCategories()
 			{{
-				fetch('/option/menu')
+				fetch('/admin/option/menu')
 				.then(response => response.json())
 				.then(result => {{
 					if ( result.result ) {{
@@ -172,7 +172,7 @@
 					remark: field.remark || ''
 				};
 				
-				fetch('/option/menu', {{
+				fetch('/admin/option/menu', {{
 					method: 'PUT',
 					headers: {{
 						'Content-Type': 'application/json'

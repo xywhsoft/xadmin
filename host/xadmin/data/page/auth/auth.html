@@ -36,7 +36,7 @@
 		table.render({
 			elem: '#Table_Auth_Auth',
 			toolbar: '#Toolbar_Auth_Auth',
-			url: '/auth/auth',
+			url: '/admin/auth/auth',
 			defaultToolbar: ['filter', 'exports', 'print'],
 			height: 'full-135',			// 最大高度减去其他容器已占有的高度差
 			css: "",					// 重设当前表格样式
@@ -86,7 +86,7 @@
 						type: 2,
 						shadeClose: true,
 						area: ['500px', '460px'],
-						content: '/view/auth/auth/add',
+						content: '/admin/view/auth/auth/add',
 					});
 				break;
 			};
@@ -102,7 +102,7 @@
 					type: 2,
 					shadeClose: true,
 					area: ['500px', '460px'],
-					content: '/view/auth/auth/edit?id=' + data.id,
+					content: '/admin/view/auth/auth/edit?id=' + data.id,
 				});
 			} else if ( obj.event == 'delete' ) {
 				// 删除
@@ -111,7 +111,7 @@
 					title: '删除确认'
 				}, function(index){
 					// 确认删除
-					fetch('/auth/auth?id=' + data.id, {
+					fetch('/admin/auth/auth?id=' + data.id, {
 						method: 'DELETE',
 						headers: {
 							'Content-Type': 'application/json'

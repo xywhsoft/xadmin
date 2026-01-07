@@ -103,16 +103,16 @@
 				// 注销
 				admin.logout(function(){
 					// 调用后端注销接口
-					fetch('/logout', {
+					fetch('/admin/logout', {
 						method: 'POST'
 					}).then(function() {
 						// 清空 tabs 缓存
 						popup.success("注销成功",function(){
-							location.href = "/login";
+							location.href = "/admin/login";
 						});
 					}).catch(function() {
 						// 即使接口失败也跳转到登录页
-						location.href = "/login";
+						location.href = "/admin/login";
 					});
 					
 					return new Promise((resolve) => {

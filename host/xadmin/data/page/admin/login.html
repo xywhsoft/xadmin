@@ -99,7 +99,7 @@
 				const pwdHash = await sha256(formData.username + '_xywhsoft_' + formData.password);
 				
 				// 发送请求（传输哈希值而非明文）
-				fetch("/login", {
+				fetch("/admin/login", {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json'
@@ -113,7 +113,7 @@
 				.then(response => response.json())
 				.then(data => {
 					if ( data.result ) {
-						window.location.href = '/';
+						window.location.href = '/admin';
 					} else {
 						layer.msg(data.message, {icon: 2});
 						btn.classList.remove('layui-btn-disabled');
