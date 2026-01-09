@@ -38,6 +38,15 @@ sqlite3_stmt* stmt_{{MODEL_NAME}}_put;
 sqlite3_stmt* stmt_{{MODEL_NAME}}_del;
 sqlite3_stmt* stmt_{{MODEL_NAME}}_count;
 
+{{#IF_ENABLE_REPLY}}
+// 评论预编译语句
+sqlite3_stmt* stmt_{{MODEL_NAME}}_reply_list;
+sqlite3_stmt* stmt_{{MODEL_NAME}}_reply_add;
+sqlite3_stmt* stmt_{{MODEL_NAME}}_reply_del;
+sqlite3_stmt* stmt_{{MODEL_NAME}}_reply_count;
+sqlite3_stmt* stmt_{{MODEL_NAME}}_reply_get;
+{{#ENDIF_ENABLE_REPLY}}
+
 // 初始化预编译语句
 void Model_{{MODEL_NAME}}_InitStmt()
 {
@@ -73,6 +82,37 @@ void Model_{{MODEL_NAME}}_InitStmt()
 	sqlite3_prepare_v3(db,
 		"SELECT COUNT(*) FROM {{TABLE_NAME}} WHERE isDelete = 0",
 		-1, 0, &stmt_{{MODEL_NAME}}_count, NULL);
+	
+{{#IF_ENABLE_REPLY}}
+	// 评论列表（根据内容ID）
+	sqlite3_prepare_v3(db,
+		"SELECT id, userId, userType, content, quoteId, quoteText, status, createTime "
+		"FROM reply WHERE modelName = '{{MODEL_NAME}}' AND contentId = ? AND isDelete = 0 "
+		"ORDER BY id DESC LIMIT ? OFFSET ?",
+		-1, 0, &stmt_{{MODEL_NAME}}_reply_list, NULL);
+	
+	// 获取单条评论
+	sqlite3_prepare_v3(db,
+		"SELECT id, userId, userType, content, quoteId, quoteText, status, createTime "
+		"FROM reply WHERE id = ? AND isDelete = 0",
+		-1, 0, &stmt_{{MODEL_NAME}}_reply_get, NULL);
+	
+	// 添加评论
+	sqlite3_prepare_v3(db,
+		"INSERT INTO reply (modelName, contentId, userId, userType, content, quoteId, quoteText, status, createTime, updateTime, isDelete) "
+		"VALUES ('{{MODEL_NAME}}', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
+		-1, 0, &stmt_{{MODEL_NAME}}_reply_add, NULL);
+	
+	// 删除评论（软删除）
+	sqlite3_prepare_v3(db,
+		"UPDATE reply SET isDelete = 1, updateTime = ? WHERE id = ?",
+		-1, 0, &stmt_{{MODEL_NAME}}_reply_del, NULL);
+	
+	// 评论总数
+	sqlite3_prepare_v3(db,
+		"SELECT COUNT(*) FROM reply WHERE modelName = '{{MODEL_NAME}}' AND contentId = ? AND isDelete = 0",
+		-1, 0, &stmt_{{MODEL_NAME}}_reply_count, NULL);
+{{#ENDIF_ENABLE_REPLY}}
 }
 
 // 销毁预编译语句
@@ -84,6 +124,13 @@ void Model_{{MODEL_NAME}}_FreeStmt()
 	if ( stmt_{{MODEL_NAME}}_put ) sqlite3_finalize(stmt_{{MODEL_NAME}}_put);
 	if ( stmt_{{MODEL_NAME}}_del ) sqlite3_finalize(stmt_{{MODEL_NAME}}_del);
 	if ( stmt_{{MODEL_NAME}}_count ) sqlite3_finalize(stmt_{{MODEL_NAME}}_count);
+{{#IF_ENABLE_REPLY}}
+	if ( stmt_{{MODEL_NAME}}_reply_list ) sqlite3_finalize(stmt_{{MODEL_NAME}}_reply_list);
+	if ( stmt_{{MODEL_NAME}}_reply_get ) sqlite3_finalize(stmt_{{MODEL_NAME}}_reply_get);
+	if ( stmt_{{MODEL_NAME}}_reply_add ) sqlite3_finalize(stmt_{{MODEL_NAME}}_reply_add);
+	if ( stmt_{{MODEL_NAME}}_reply_del ) sqlite3_finalize(stmt_{{MODEL_NAME}}_reply_del);
+	if ( stmt_{{MODEL_NAME}}_reply_count ) sqlite3_finalize(stmt_{{MODEL_NAME}}_reply_count);
+{{#ENDIF_ENABLE_REPLY}}
 }
 
 
@@ -221,6 +268,179 @@ void Api_{{MODEL_NAME}}_Submit(XS_ServerObject objServer, XS_HostObject objHost,
 	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 {{#ENDIF_ENABLE_SUBMIT}}
+
+
+
+{{#IF_ENABLE_REPLY}}
+// ==================== 评论 API ====================
+
+// 获取评论列表
+void Api_{{MODEL_NAME}}_Reply_List(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	char sParam[64];
+	mg_http_get_var(&hm->query, "contentId", sParam, sizeof(sParam));
+	int64 iContentId = xrtStrToI64(sParam);
+	if ( iContentId <= 0 ) {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
+		return;
+	}
+	
+	mg_http_get_var(&hm->query, "page", sParam, sizeof(sParam));
+	int64 iPage = xrtStrToI64(sParam);
+	if ( iPage <= 0 ) iPage = 1;
+	mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam));
+	int64 iLimit = xrtStrToI64(sParam);
+	if ( iLimit <= 0 ) iLimit = 20;
+	if ( iLimit > 100 ) iLimit = 100;
+	int64 iOffset = (iPage - 1) * iLimit;
+	
+	// 获取总数
+	int64 iCount = 0;
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_count, 1, iContentId);
+	if ( sqlite3_step(stmt_{{MODEL_NAME}}_reply_count) == SQLITE_ROW ) {
+		iCount = sqlite3_column_int64(stmt_{{MODEL_NAME}}_reply_count, 0);
+	}
+	sqlite3_reset(stmt_{{MODEL_NAME}}_reply_count);
+	
+	// 获取评论列表
+	xvalue arrData = xvoCreateArray();
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_list, 1, iContentId);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_list, 2, iLimit);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_list, 3, iOffset);
+	while ( sqlite3_step(stmt_{{MODEL_NAME}}_reply_list) == SQLITE_ROW ) {
+		xvalue tblRow = xvoCreateTable();
+		int iCol = 0;
+		xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_{{MODEL_NAME}}_reply_list, iCol++));
+		xvoTableSetInt(tblRow, "userId", 6, sqlite3_column_int64(stmt_{{MODEL_NAME}}_reply_list, iCol++));
+		xvoTableSetInt(tblRow, "userType", 8, sqlite3_column_int64(stmt_{{MODEL_NAME}}_reply_list, iCol++));
+		xvoTableSetText(tblRow, "content", 7, (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_reply_list, iCol++), 0, FALSE);
+		xvoTableSetInt(tblRow, "quoteId", 7, sqlite3_column_int64(stmt_{{MODEL_NAME}}_reply_list, iCol++));
+		xvoTableSetText(tblRow, "quoteText", 9, (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_reply_list, iCol++), 0, FALSE);
+		xvoTableSetInt(tblRow, "status", 6, sqlite3_column_int64(stmt_{{MODEL_NAME}}_reply_list, iCol++));
+		xtime iTime = sqlite3_column_int64(stmt_{{MODEL_NAME}}_reply_list, iCol++);
+		xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+		xvoArrayAppendValue(arrData, tblRow, TRUE);
+	}
+	sqlite3_reset(stmt_{{MODEL_NAME}}_reply_list);
+	
+	// 构建响应
+	xvalue tblRet = xvoCreateTable();
+	xvoTableSetBool(tblRet, "result", 6, TRUE);
+	xvoTableSetInt(tblRet, "count", 5, iCount);
+	xvoTableSetValue(tblRet, "data", 4, arrData, TRUE);
+	
+	size_t iSize = 0;
+	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
+	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	xrtFree(sJson);
+	xvoUnref(tblRet);
+}
+
+// 添加评论
+void Api_{{MODEL_NAME}}_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	if ( hm->methodCode != HTTP_POST ) {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+		return;
+	}
+	
+	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		if ( tblForm ) xvoUnref(tblForm);
+		return;
+	}
+	
+	int64 iContentId = xvoTableGetInt(tblForm, "contentId", 9);
+	if ( iContentId <= 0 ) {
+		xvoUnref(tblForm);
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
+		return;
+	}
+	
+	str sContent = xvoTableGetText(tblForm, "content", 7);
+	if ( !sContent || strlen(sContent) == 0 ) {
+		xvoUnref(tblForm);
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Content is required\"}", 0);
+		return;
+	}
+	
+	// 获取引用信息
+	int64 iQuoteId = xvoTableGetInt(tblForm, "quoteId", 7);
+	str sQuoteText = "";
+	bool bFreeQuote = FALSE;
+	if ( iQuoteId > 0 ) {
+		// 获取被引用评论的内容摘要
+		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_get, 1, iQuoteId);
+		if ( sqlite3_step(stmt_{{MODEL_NAME}}_reply_get) == SQLITE_ROW ) {
+			str sOrigContent = (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_reply_get, 3);  // content 在第4列
+			if ( sOrigContent ) {
+				int iMaxLen = {{REPLY_QUOTE_MAX_LEN}};
+				int iLen = strlen(sOrigContent);
+				if ( iLen > iMaxLen ) {
+					sQuoteText = xrtCopyStr(sOrigContent, iMaxLen);
+				} else {
+					sQuoteText = xrtCopyStr(sOrigContent, iLen);
+				}
+				bFreeQuote = TRUE;
+			}
+		}
+		sqlite3_reset(stmt_{{MODEL_NAME}}_reply_get);
+	}
+	
+	// 获取用户信息（从 session 中获取，这里简化处理）
+	int64 iUserId = xvoTableGetInt(tblForm, "userId", 6);
+	int64 iUserType = xvoTableGetInt(tblForm, "userType", 8);  // 0=会员, 1=后台用户
+	
+	// 状态：是否需要审核
+	int64 iStatus = {{REPLY_NEED_APPROVE}} ? 0 : 1;  // 0=待审核, 1=已发布
+	
+	xtime now = xrtNow();
+	int iIdx = 1;
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, iContentId);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, iUserId);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, iUserType);
+	sqlite3_bind_text(stmt_{{MODEL_NAME}}_reply_add, iIdx++, sContent, -1, SQLITE_STATIC);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, iQuoteId);
+	sqlite3_bind_text(stmt_{{MODEL_NAME}}_reply_add, iIdx++, sQuoteText, -1, SQLITE_STATIC);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, iStatus);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, now);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, now);
+	sqlite3_step(stmt_{{MODEL_NAME}}_reply_add);
+	int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
+	sqlite3_reset(stmt_{{MODEL_NAME}}_reply_add);
+	
+	// 清理临时内存
+	if ( bFreeQuote ) {
+		xrtFree(sQuoteText);
+	}
+	xvoUnref(tblForm);
+	
+	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+}
+
+// 删除评论（需要校验权限）
+void Api_{{MODEL_NAME}}_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	char sParam[24];
+	mg_http_get_var(&hm->query, "id", sParam, sizeof(sParam));
+	int64 iID = xrtStrToI64(sParam);
+	if ( iID <= 0 ) {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		return;
+	}
+	
+	// TODO: 应该校验当前用户是否有权删除该评论
+	
+	xtime now = xrtNow();
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_del, 1, now);
+	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_del, 2, iID);
+	sqlite3_step(stmt_{{MODEL_NAME}}_reply_del);
+	sqlite3_reset(stmt_{{MODEL_NAME}}_reply_del);
+	
+	http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+}
+{{#ENDIF_ENABLE_REPLY}}
 
 
 
@@ -425,6 +645,13 @@ void Model_{{MODEL_NAME}}_RegisterRoutes()
 	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/submit", Api_{{MODEL_NAME}}_Submit, TRUE, FALSE, 0, {{API_AUTH_LEVEL}});
 {{#ENDIF_ENABLE_SUBMIT}}
 
+{{#IF_ENABLE_REPLY}}
+	// 评论路由
+	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/list", Api_{{MODEL_NAME}}_Reply_List, FALSE, FALSE, 0, 0);
+	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/add", Api_{{MODEL_NAME}}_Reply_Add, TRUE, FALSE, 0, {{REPLY_AUTH_LEVEL}});
+	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/delete", Api_{{MODEL_NAME}}_Reply_Delete, TRUE, FALSE, 0, {{REPLY_AUTH_LEVEL}});
+{{#ENDIF_ENABLE_REPLY}}
+
 {{#IF_ENABLE_ADMIN}}
 	// 后台管理路由
 	Model_AddRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/list", Admin_{{MODEL_NAME}}_List, TRUE, TRUE, {{ADMIN_AUTH_ID}}, 0);
@@ -447,6 +674,12 @@ void Model_{{MODEL_NAME}}_UnregisterRoutes()
 {{#IF_ENABLE_SUBMIT}}
 	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/submit");
 {{#ENDIF_ENABLE_SUBMIT}}
+
+{{#IF_ENABLE_REPLY}}
+	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/list");
+	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/add");
+	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/delete");
+{{#ENDIF_ENABLE_REPLY}}
 
 {{#IF_ENABLE_ADMIN}}
 	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/list");

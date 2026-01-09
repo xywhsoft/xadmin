@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>编辑模型</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+	<style>
+		.layui-form-label { width: 120px; }
+		.layui-input-block { margin-left: 150px; }
+		.form-content { padding: 20px; padding-bottom: 70px; overflow-y: auto; }
+		.form-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 15px 20px; background: #fff; border-top: 1px solid #e6e6e6; text-align: right; }
+		.layui-colla-item { margin-bottom: 10px; }
+		.layui-colla-title { background: #f8f8f8; }
+		.layui-colla-content { padding: 15px; }
+	</style>
+</head>
+<body>
+	<form class="layui-form" lay-filter="ModelEditForm">
+		<div class="form-content">
+			<input type="hidden" name="name" id="modelName">
+			<div class="layui-form-item">
+				<label class="layui-form-label">模型标识</label>
+				<div class="layui-input-block">
+					<input type="text" id="displayName" class="layui-input layui-disabled" readonly>
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">模型名称</label>
+				<div class="layui-input-block">
+					<input type="text" name="title" required lay-verify="required" placeholder="显示名称" autocomplete="off" class="layui-input">
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">命名空间</label>
+				<div class="layui-input-block">
+					<input type="text" name="namespace" placeholder="API路径前缀" autocomplete="off" class="layui-input">
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">图标</label>
+				<div class="layui-input-block">
+					<input type="text" name="icon" placeholder="layui-icon 图标类名" autocomplete="off" class="layui-input">
+				</div>
+			</div>
+			<div class="layui-form-item layui-form-text">
+				<label class="layui-form-label">描述</label>
+				<div class="layui-input-block">
+					<textarea name="desc" placeholder="模型描述信息" class="layui-textarea" style="min-height: 60px;"></textarea>
+				</div>
+			</div>
+			
+			<div class="layui-collapse" lay-accordion>
+				<div class="layui-colla-item">
+					<h2 class="layui-colla-title">功能开关</h2>
+					<div class="layui-colla-content layui-show">
+						<div class="layui-form-item">
+							<label class="layui-form-label">前台API</label>
+							<div class="layui-input-block">
+								<input type="checkbox" name="enableApi" lay-skin="switch" lay-text="启用|禁用">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">后台管理</label>
+							<div class="layui-input-block">
+								<input type="checkbox" name="enableAdmin" lay-skin="switch" lay-text="启用|禁用">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">前台投稿</label>
+							<div class="layui-input-block">
+								<input type="checkbox" name="enableSubmit" lay-skin="switch" lay-text="启用|禁用">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">评论功能</label>
+							<div class="layui-input-block">
+								<input type="checkbox" name="enableReply" lay-skin="switch" lay-text="启用|禁用">
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layui-colla-item">
+					<h2 class="layui-colla-title">权限配置</h2>
+					<div class="layui-colla-content">
+						<div class="layui-form-item">
+							<label class="layui-form-label">API权限级别</label>
+							<div class="layui-input-block">
+								<input type="number" name="apiAuthLevel" value="0" placeholder="0表示公开访问" autocomplete="off" class="layui-input" style="width: 200px;">
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="layui-colla-item">
+					<h2 class="layui-colla-title">评论配置</h2>
+					<div class="layui-colla-content">
+						<div class="layui-form-item">
+							<label class="layui-form-label">评论需审核</label>
+							<div class="layui-input-block">
+								<input type="checkbox" name="replyNeedApprove" lay-skin="switch" lay-text="是|否">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">评论权限级别</label>
+							<div class="layui-input-block">
+								<input type="number" name="replyAuthLevel" value="0" placeholder="0表示游客可评论" autocomplete="off" class="layui-input" style="width: 200px;">
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">引用摘要长度</label>
+							<div class="layui-input-block">
+								<input type="number" name="replyQuoteMaxLen" value="50" placeholder="默认50字符" autocomplete="off" class="layui-input" style="width: 200px;">
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		
+		<div class="form-footer">
+			<button class="layui-btn" lay-submit lay-filter="submit">保存修改</button>
+			<button type="button" class="layui-btn layui-btn-primary" id="btnCancel">取消</button>
+		</div>
+	</form>
+	<script src="/layui/layui.js"></script>
+	<script>
+		layui.use(['form', 'element'], function(){
+			var form = layui.form;
+			var element = layui.element;
+			var layer = layui.layer;
+			var $ = layui.jquery;
+			
+			// 获取URL参数
+			function procGetUrlParam(sName) {
+				var sReg = new RegExp("(^|&)" + sName + "=([^&]*)(&|$)", "i");
+				var arrR = window.location.search.substr(1).match(sReg);
+				if ( arrR != null ) return decodeURIComponent(arrR[2]);
+				return null;
+			}
+			
+			var sModelName = procGetUrlParam('name');
+			if ( !sModelName ) {
+				layer.msg('缺少模型参数', {icon: 2});
+				return;
+			}
+			
+			// 加载模型数据
+			fetch('/admin/model/get?name=' + sModelName)
+			.then(response => response.json())
+			.then(result => {
+				if ( result && result.result && result.data ) {
+					var tblData = result.data;
+					document.getElementById('modelName').value = tblData.name;
+					document.getElementById('displayName').value = tblData.name;
+					form.val('ModelEditForm', {
+						'title': tblData.title || '',
+						'namespace': tblData.namespace || '',
+						'icon': tblData.icon || '',
+						'desc': tblData.desc || '',
+						'enableApi': tblData.enableApi,
+						'enableAdmin': tblData.enableAdmin,
+						'enableSubmit': tblData.enableSubmit,
+						'enableReply': tblData.enableReply,
+						'apiAuthLevel': tblData.apiAuthLevel || 0,
+						'replyNeedApprove': tblData.replyNeedApprove,
+						'replyAuthLevel': tblData.replyAuthLevel || 0,
+						'replyQuoteMaxLen': tblData.replyQuoteMaxLen || 50
+					});
+				} else {
+					layer.msg(result.message || '加载失败', {icon: 2});
+				}
+			})
+			.catch(error => {
+				layer.msg('请求出错', {icon: 2});
+				console.error('Error:', error);
+			});
+			
+			// 取消按钮
+			document.getElementById('btnCancel').onclick = function(){
+				var index = parent.layer.getFrameIndex(window.name);
+				parent.layer.close(index);
+			};
+			
+			// 提交事件
+			form.on('submit(submit)', function(data){
+				var field = data.field;
+				
+				// 处理开关值
+				field.enableApi = field.enableApi === 'on';
+				field.enableAdmin = field.enableAdmin === 'on';
+				field.enableSubmit = field.enableSubmit === 'on';
+				field.enableReply = field.enableReply === 'on';
+				field.replyNeedApprove = field.replyNeedApprove === 'on';
+				field.apiAuthLevel = parseInt(field.apiAuthLevel) || 0;
+				field.replyAuthLevel = parseInt(field.replyAuthLevel) || 0;
+				field.replyQuoteMaxLen = parseInt(field.replyQuoteMaxLen) || 50;
+				
+				fetch('/admin/model/save', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(field)
+				})
+				.then(response => response.json())
+				.then(data => {
+					if ( data.result ) {
+						layer.msg('保存成功', {icon: 1});
+						parent.layui.table.reloadData('Table_Model_List');
+						var index = parent.layer.getFrameIndex(window.name);
+						parent.layer.close(index);
+					} else {
+						layer.msg('请求服务报错：' + data.message, {icon: 2});
+					}
+				})
+				.catch(error => {
+					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
+					console.error('Error:', error);
+				});
+				
+				return false;
+			});
+		});
+	</script>
+</body>
+</html>

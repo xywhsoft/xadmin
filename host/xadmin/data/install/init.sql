@@ -1378,6 +1378,23 @@ INSERT INTO menu (
                  );
 
 
+-- 表：reply
+CREATE TABLE reply (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    modelName   TEXT,
+    contentId   INTEGER,
+    userId      INTEGER,
+    userType    INTEGER DEFAULT (0),
+    content     TEXT,
+    quoteId     INTEGER DEFAULT (0),
+    quoteText   TEXT,
+    status      INTEGER DEFAULT (1),
+    createTime  INTEGER,
+    updateTime  INTEGER,
+    isDelete    INTEGER DEFAULT (0)
+);
+
+
 -- 表：role
 CREATE TABLE role (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,

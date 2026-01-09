@@ -20,7 +20,7 @@
 	"desc":	"",
 	"features":	{
 		"enableSubmit":	false,
-		"enableReply":	false,
+		"enableReply":	true,
 		"enableAdmin":	true,
 		"enableApi":	true
 	},
@@ -36,6 +36,6 @@
 			"showInList":	true
 		}
 	],
-	"updateTime":	41830,
+	"updateTime":	43277,
 	"createTime":	66230
 }

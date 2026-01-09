@@ -742,6 +742,33 @@ bool Model_GenerateCode(ModelInstance* pModel)
 		xrtFree(sCode); sCode = sTemp;
 	}
 	
+	// 评论功能
+	if ( pModel->bEnableReply ) {
+		sTemp = xrtReplace(sCode, 0, "{{#IF_ENABLE_REPLY}}", 0, "", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		sTemp = xrtReplace(sCode, 0, "{{#ENDIF_ENABLE_REPLY}}", 0, "", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		
+		// 评论配置参数
+		char sReplyAuthLevel[16];
+		sprintf(sReplyAuthLevel, "%d", pModel->iReplyAuthLevel);
+		sTemp = xrtReplace(sCode, 0, "{{REPLY_AUTH_LEVEL}}", 0, sReplyAuthLevel, 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		
+		char sReplyQuoteMaxLen[16];
+		sprintf(sReplyQuoteMaxLen, "%d", pModel->iReplyQuoteMaxLen > 0 ? pModel->iReplyQuoteMaxLen : 50);
+		sTemp = xrtReplace(sCode, 0, "{{REPLY_QUOTE_MAX_LEN}}", 0, sReplyQuoteMaxLen, 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		
+		sTemp = xrtReplace(sCode, 0, "{{REPLY_NEED_APPROVE}}", 0, pModel->bReplyNeedApprove ? "1" : "0", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+	} else {
+		sTemp = xrtReplace(sCode, 0, "{{#IF_ENABLE_REPLY}}", 0, "/* REPLY DISABLED\n", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		sTemp = xrtReplace(sCode, 0, "{{#ENDIF_ENABLE_REPLY}}", 0, "*/", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+	}
+	
 	// 保存生成的代码
 	str sCodePath = xrtFormat("%s/%s/code.h", ModelPath, pModel->sName);
 	
