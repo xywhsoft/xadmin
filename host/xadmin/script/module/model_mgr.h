@@ -500,7 +500,7 @@ str Model_GenFieldBindAddCode(str sFieldName, str sFieldType)
 	if ( strcmp(sFieldType, "text") == 0 || strcmp(sFieldType, "textarea") == 0 || 
 		 strcmp(sFieldType, "richtext") == 0 || strcmp(sFieldType, "select") == 0 ||
 		 strcmp(sFieldType, "image") == 0 || strcmp(sFieldType, "file") == 0 ) {
-		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_add, iIdx++, sVal ? sVal : \"\", -1, NULL); }\n",
+		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_add, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n",
 			sFieldName, iNameLen);
 	} else if ( strcmp(sFieldType, "number") == 0 || strcmp(sFieldType, "switch") == 0 ) {
 		return xrtFormat("\tsqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, xvoTableGetInt(tblForm, \"%s\", %d));\n",
@@ -509,7 +509,7 @@ str Model_GenFieldBindAddCode(str sFieldName, str sFieldType)
 		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, sVal ? xrtStrToTime(sVal, 0) : 0); }\n",
 			sFieldName, iNameLen);
 	} else {
-		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_add, iIdx++, sVal ? sVal : \"\", -1, NULL); }\n",
+		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_add, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n",
 			sFieldName, iNameLen);
 	}
 }
@@ -522,7 +522,7 @@ str Model_GenFieldBindUpdateCode(str sFieldName, str sFieldType)
 	if ( strcmp(sFieldType, "text") == 0 || strcmp(sFieldType, "textarea") == 0 || 
 		 strcmp(sFieldType, "richtext") == 0 || strcmp(sFieldType, "select") == 0 ||
 		 strcmp(sFieldType, "image") == 0 || strcmp(sFieldType, "file") == 0 ) {
-		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_put, iIdx++, sVal ? sVal : \"\", -1, NULL); }\n",
+		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_put, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n",
 			sFieldName, iNameLen);
 	} else if ( strcmp(sFieldType, "number") == 0 || strcmp(sFieldType, "switch") == 0 ) {
 		return xrtFormat("\tsqlite3_bind_int64(stmt_{{MODEL_NAME}}_put, iIdx++, xvoTableGetInt(tblForm, \"%s\", %d));\n",
@@ -531,7 +531,7 @@ str Model_GenFieldBindUpdateCode(str sFieldName, str sFieldType)
 		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_int64(stmt_{{MODEL_NAME}}_put, iIdx++, sVal ? xrtStrToTime(sVal, 0) : 0); }\n",
 			sFieldName, iNameLen);
 	} else {
-		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_put, iIdx++, sVal ? sVal : \"\", -1, NULL); }\n",
+		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_put, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n",
 			sFieldName, iNameLen);
 	}
 }

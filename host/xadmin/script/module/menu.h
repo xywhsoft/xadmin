@@ -123,7 +123,7 @@ xvalue Menu_BuildTree()
 		xvoTableSetText(tblRow, "title", 5, (char*)sqlite3_column_text(stmt_menu_tree, 2), 0, FALSE);
 		
 		// 确保 icon 字段始终有值
-		char* sIcon = (char*)sqlite3_column_text(stmt_menu_tree, 3);
+		str sIcon = (str)sqlite3_column_text(stmt_menu_tree, 3);
 		xvoTableSetText(tblRow, "icon", 4, sIcon ? sIcon : (str)"", 0, FALSE);
 		
 		xvoTableSetInt(tblRow, "type", 4, sqlite3_column_int(stmt_menu_tree, 4));

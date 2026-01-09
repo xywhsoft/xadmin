@@ -2,7 +2,7 @@
 // ============================================
 // 模型: 文章 (article)
 // 自动生成代码 - 请勿手动修改
-// 生成时间: 2026-01-09 12:14:43
+// 生成时间: 2026-01-09 15:58:00
 // TCC独立状态机编译
 // ============================================
 
@@ -38,7 +38,6 @@ sqlite3_stmt* stmt_article_put;
 sqlite3_stmt* stmt_article_del;
 sqlite3_stmt* stmt_article_count;
 
-/* REPLY DISABLED
 
 // 评论预编译语句
 sqlite3_stmt* stmt_article_reply_list;
@@ -46,7 +45,7 @@ sqlite3_stmt* stmt_article_reply_add;
 sqlite3_stmt* stmt_article_reply_del;
 sqlite3_stmt* stmt_article_reply_count;
 sqlite3_stmt* stmt_article_reply_get;
-*/
+
 
 // 初始化预编译语句
 void Model_article_InitStmt()
@@ -84,7 +83,6 @@ void Model_article_InitStmt()
 		"SELECT COUNT(*) FROM model_cms_article WHERE isDelete = 0",
 		-1, 0, &stmt_article_count, NULL);
 	
-/* REPLY DISABLED
 
 	// 评论列表（根据内容ID）
 	sqlite3_prepare_v3(db,
@@ -114,7 +112,7 @@ void Model_article_InitStmt()
 	sqlite3_prepare_v3(db,
 		"SELECT COUNT(*) FROM reply WHERE modelName = 'article' AND contentId = ? AND isDelete = 0",
 		-1, 0, &stmt_article_reply_count, NULL);
-*/
+
 }
 
 // 销毁预编译语句
@@ -126,14 +124,13 @@ void Model_article_FreeStmt()
 	if ( stmt_article_put ) sqlite3_finalize(stmt_article_put);
 	if ( stmt_article_del ) sqlite3_finalize(stmt_article_del);
 	if ( stmt_article_count ) sqlite3_finalize(stmt_article_count);
-/* REPLY DISABLED
 
 	if ( stmt_article_reply_list ) sqlite3_finalize(stmt_article_reply_list);
 	if ( stmt_article_reply_get ) sqlite3_finalize(stmt_article_reply_get);
 	if ( stmt_article_reply_add ) sqlite3_finalize(stmt_article_reply_add);
 	if ( stmt_article_reply_del ) sqlite3_finalize(stmt_article_reply_del);
 	if ( stmt_article_reply_count ) sqlite3_finalize(stmt_article_reply_count);
-*/
+
 }
 
 
@@ -278,7 +275,6 @@ void Api_article_Get(XS_ServerObject objServer, XS_HostObject objHost, struct mg
 
 
 
-/* SUBMIT DISABLED
 
 // ==================== 前台投稿 ====================
 
@@ -299,25 +295,25 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, struct
 	
 	xtime now = xrtNow();
 	int iIdx = 1;
-	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
@@ -328,11 +324,10 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, struct
 	
 	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
-*/
 
 
 
-/* REPLY DISABLED
+
 
 // ==================== 评论 API ====================
 
@@ -437,7 +432,7 @@ void Api_article_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, str
 		if ( sqlite3_step(stmt_article_reply_get) == SQLITE_ROW ) {
 			str sOrigContent = (str)sqlite3_column_text(stmt_article_reply_get, 3);  // content 在第4列
 			if ( sOrigContent ) {
-				int iMaxLen = {{REPLY_QUOTE_MAX_LEN}};
+				int iMaxLen = 50;
 				int iLen = strlen(sOrigContent);
 				if ( iLen > iMaxLen ) {
 					sQuoteText = xrtCopyStr(sOrigContent, iMaxLen);
@@ -455,7 +450,7 @@ void Api_article_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, str
 	int64 iUserType = xvoTableGetInt(tblForm, "userType", 8);  // 0=会员, 1=后台用户
 	
 	// 状态：是否需要审核
-	int64 iStatus = {{REPLY_NEED_APPROVE}} ? 0 : 1;  // 0=待审核, 1=已发布
+	int64 iStatus = 0 ? 0 : 1;  // 0=待审核, 1=已发布
 	
 	xtime now = xrtNow();
 	int iIdx = 1;
@@ -502,7 +497,7 @@ void Api_article_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, 
 	
 	http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
-*/
+
 
 
 
@@ -660,25 +655,25 @@ void Admin_article_Add(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	
 	xtime now = xrtNow();
 	int iIdx = 1;
-	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
@@ -714,25 +709,25 @@ void Admin_article_Save(XS_ServerObject objServer, XS_HostObject objHost, struct
 	
 	xtime now = xrtNow();
 	int iIdx = 1;
-	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
-	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
 	sqlite3_bind_int64(stmt_article_put, iIdx++, now);
 	sqlite3_bind_int64(stmt_article_put, iIdx++, iID);
@@ -778,19 +773,17 @@ void Model_article_RegisterRoutes()
 	Model_AddRoute("/api/v1/cms/article/get", Api_article_Get, FALSE, FALSE, 0, 0);
 
 
-/* SUBMIT DISABLED
 
 	// 前台投稿路由
 	Model_AddRoute("/api/v1/cms/article/submit", Api_article_Submit, TRUE, FALSE, 0, 0);
-*/
 
-/* REPLY DISABLED
+
 
 	// 评论路由
 	Model_AddRoute("/api/v1/cms/article/reply/list", Api_article_Reply_List, FALSE, FALSE, 0, 0);
-	Model_AddRoute("/api/v1/cms/article/reply/add", Api_article_Reply_Add, TRUE, FALSE, 0, {{REPLY_AUTH_LEVEL}});
-	Model_AddRoute("/api/v1/cms/article/reply/delete", Api_article_Reply_Delete, TRUE, FALSE, 0, {{REPLY_AUTH_LEVEL}});
-*/
+	Model_AddRoute("/api/v1/cms/article/reply/add", Api_article_Reply_Add, TRUE, FALSE, 0, 0);
+	Model_AddRoute("/api/v1/cms/article/reply/delete", Api_article_Reply_Delete, TRUE, FALSE, 0, 0);
+
 
 
 	// 后台管理路由
@@ -811,17 +804,15 @@ void Model_article_UnregisterRoutes()
 	Model_RemoveRoute("/api/v1/cms/article/get");
 
 
-/* SUBMIT DISABLED
 
 	Model_RemoveRoute("/api/v1/cms/article/submit");
-*/
 
-/* REPLY DISABLED
+
 
 	Model_RemoveRoute("/api/v1/cms/article/reply/list");
 	Model_RemoveRoute("/api/v1/cms/article/reply/add");
 	Model_RemoveRoute("/api/v1/cms/article/reply/delete");
-*/
+
 
 
 	Model_RemoveRoute("/admin/cms/article/list");

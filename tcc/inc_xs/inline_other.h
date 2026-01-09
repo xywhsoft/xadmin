@@ -11,6 +11,6 @@ xdict ParseCookies(struct mg_http_message* hm);
 void FreeCookies(xdict tblCookies);
 
 // 将函数映射到 TCC 执行环境
-void ImportXDO(TCCState* s);
+void ImportAll(TCCState* s);
 
 
