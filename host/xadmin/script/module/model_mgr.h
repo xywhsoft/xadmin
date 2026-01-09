@@ -364,7 +364,7 @@ xvalue ModelCtx_GetMemberSession(str token)
 // 获取当前时间戳
 int64 ModelCtx_TimeNow()
 {
-	return xrtTime();
+	return xrtNow();
 }
 
 // 日志输出
@@ -1212,7 +1212,7 @@ bool Model_Compile(ModelInstance* pModel)
 			xvoTableSetValue(tblConfig, "status", 6, tblStatus, TRUE);
 		}
 		xvoTableSetBool(tblStatus, "compiled", 8, TRUE);
-		xvoTableSetInt(tblConfig, "updateTime", 10, xrtTime());
+		xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
 		xrtStringifyJSON_File(pModel->sConfigPath, tblConfig, TRUE);
 		xvoUnref(tblConfig);
 	}
@@ -1798,7 +1798,7 @@ bool Model_Enable(ModelInstance* pModel)
 			xvoTableSetValue(tblConfig, "status", 6, tblStatus, TRUE);
 		}
 		xvoTableSetBool(tblStatus, "enabled", 7, TRUE);
-		xvoTableSetInt(tblConfig, "updateTime", 10, xrtTime());
+		xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
 		
 		// 保存权限ID
 		xvalue tblAdmin = xvoTableGetValue(tblConfig, "admin", 5);
@@ -1884,7 +1884,7 @@ bool Model_Disable(ModelInstance* pModel)
 			xvoTableSetValue(tblConfig, "status", 6, tblStatus, TRUE);
 		}
 		xvoTableSetBool(tblStatus, "enabled", 7, FALSE);
-		xvoTableSetInt(tblConfig, "updateTime", 10, xrtTime());
+		xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
 		xrtStringifyJSON_File(pModel->sConfigPath, tblConfig, TRUE);
 		xvoUnref(tblConfig);
 	}
@@ -2033,8 +2033,8 @@ bool ModelMgr_ListWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 	xvoTableSetText(tblItem, "icon", 4, pModel->sIcon ? pModel->sIcon : (str)"", 0, FALSE);
 	xvoTableSetBool(tblItem, "enabled", 7, pModel->bEnabled);
 	xvoTableSetBool(tblItem, "compiled", 8, pModel->bCompiled);
-	xvoTableSetInt(tblItem, "createTime", 10, pModel->iCreateTime);
-	xvoTableSetInt(tblItem, "updateTime", 10, pModel->iUpdateTime);
+	xvoTableSetText(tblItem, "createTime", 10, xrtTimeToStr(pModel->iCreateTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+	xvoTableSetText(tblItem, "updateTime", 10, xrtTimeToStr(pModel->iUpdateTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 	
 	xvoArrayAppendValue(arrList, tblItem, TRUE);
 	return TRUE;  // 继续遍历

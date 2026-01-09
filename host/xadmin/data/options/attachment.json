@@ -1,0 +1,98 @@
+{
+	"namespace":	"attachment",
+	"classList":	[
+		{
+			"style":	"",
+			"options":	[
+				{
+					"value":	"jpg,jpeg,png,gif,webp,bmp,svg,ico,txt,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,mp3,mp4",
+					"title":	"允许的文件类型",
+					"type":	"text",
+					"desc":	"多个扩展名用英文逗号分隔",
+					"name":	"allowedExts"
+				}, {
+					"value":	10,
+					"min":	0,
+					"title":	"最大上传大小(MB)",
+					"type":	"int",
+					"max":	1024,
+					"desc":	"0表示不限制",
+					"name":	"maxSize"
+				}, {
+					"value":	0,
+					"min":	0,
+					"title":	"用户上传配额(MB)",
+					"type":	"int",
+					"desc":	"每个用户最大上传总量，0表示不限制",
+					"name":	"userQuota"
+				}
+			],
+			"title":	"上传限制"
+		}, {
+			"style":	"",
+			"options":	[
+				{
+					"value":	true,
+					"title":	"默认允许外链",
+					"type":	"switch",
+					"desc":	"新上传附件的默认外链设置",
+					"name":	"defaultHotlink"
+				}, {
+					"value":	0,
+					"list":	[
+						{
+							"value":	0,
+							"label":	"公开（任何人可访问）"
+						}, {
+							"value":	1,
+							"label":	"登录可见（需登录）"
+						}, {
+							"value":	2,
+							"label":	"付费下载（需购买）"
+						}
+					],
+					"title":	"默认访问类型",
+					"type":	"select",
+					"desc":	"新上传附件的默认访问类型",
+					"name":	"defaultAccessType"
+				}, {
+					"value":	true,
+					"title":	"允许游客查看",
+					"type":	"switch",
+					"desc":	"关闭后，所有附件都需要登录才能访问（忽略单个附件的accessType设置）",
+					"name":	"allowGuestView"
+				}
+			],
+			"title":	"默认访问控制"
+		}, {
+			"style":	"",
+			"options":	[
+				{
+					"height":	"120px",
+					"value":	"",
+					"title":	"外链白名单域名",
+					"type":	"textarea",
+					"desc":	"每行一个域名，支持 *.domain.com 通配符",
+					"name":	"hotlinkWhitelist"
+				}
+			],
+			"title":	"防盗链设置"
+		}, {
+			"style":	"",
+			"options":	[
+				{
+					"value":	20,
+					"min":	0,
+					"title":	"平台抽成比例(%)",
+					"type":	"int",
+					"max":	100,
+					"desc":	"用户购买附件时，平台抽取的比例，0表示不抽成",
+					"name":	"platformFeeRate"
+				}
+			],
+			"title":	"付费设置"
+		}
+	],
+	"authLevel":	200,
+	"title":	"附件设置"
+}

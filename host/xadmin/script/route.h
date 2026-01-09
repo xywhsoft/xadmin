@@ -122,6 +122,23 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/view/member/auth/add",				Request_View_Member_Auth_Add);
 	AddStaticRouteHTTP("/admin/view/member/auth/edit",				Request_View_Member_Auth_Edit);
 	
+	// ==================== 附件管理路由 ====================
+	
+	// 附件访问（公开，通过查询参数 ?xid=xxx 访问）
+	AddStaticRouteHTTP("/attachment",								Request_Attachment_Access);
+	
+	// 后台附件管理 API
+	AddStaticRouteHTTP("/admin/attachment/upload",					Request_Attachment_Upload);
+	AddStaticRouteHTTP("/admin/attachment/list",					Request_Attachment_List);
+	AddStaticRouteHTTP("/admin/attachment/get",						Request_Attachment_Get);
+	AddStaticRouteHTTP("/admin/attachment/save",					Request_Attachment_Save);
+	AddStaticRouteHTTP("/admin/attachment/delete",					Request_Attachment_Delete);
+	AddStaticRouteHTTP("/admin/attachment/stats",					Request_Attachment_Stats);
+	
+	// 后台附件页面
+	AddStaticRouteHTTP("/admin/view/attachment",					Request_View_Attachment_List);
+	AddStaticRouteHTTP("/admin/view/attachment/stats",				Request_View_Attachment_Stats);
+	
 	// ==================== 前台API路由 ====================
 	
 	// 添加 HTTP 静态路由 - 前台 API v1
@@ -132,6 +149,12 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/api/v1/profile/password",					API_Password);
 	AddStaticRouteHTTP("/api/v1/balance",							API_Balance);
 	AddStaticRouteHTTP("/api/v1/balance/log",						API_BalanceLog);
+	
+	// 前台附件 API
+	AddStaticRouteHTTP("/api/v1/attachment/upload",				Request_Api_Attachment_Upload);
+	AddStaticRouteHTTP("/api/v1/attachment/purchase",				Request_Api_Attachment_Purchase);
+	AddStaticRouteHTTP("/api/v1/attachment/my",						Request_Api_Attachment_MyList);
+	AddStaticRouteHTTP("/api/v1/attachment/purchased",				Request_Api_Attachment_Purchased);
 	
 }
 

@@ -226,7 +226,7 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	}
 	
 	// 创建配置文件
-	int64 iNow = xrtTime();
+	int64 iNow = xrtNow();
 	xvalue tblConfig = xvoCreateTable();
 	xvoTableSetText(tblConfig, "title", 5, sTitle ? sTitle : (str)"", 0, FALSE);
 	xvoTableSetText(tblConfig, "namespace", 9, sNamespace ? sNamespace : (str)"", 0, FALSE);
@@ -373,7 +373,7 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, struct
 	xvoTableSetInt(tblReply, "quoteMaxLen", 11, xvoTableGetInt(tblData, "replyQuoteMaxLen", 16));
 	
 	// 更新时间戳
-	xvoTableSetInt(tblConfig, "updateTime", 10, xrtTime());
+	xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
 	
 	// 标记需要重新编译
 	xvalue tblStatus = xvoTableGetValue(tblConfig, "status", 6);
@@ -395,7 +395,7 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, struct
 		pModel->sDesc = sDesc ? xrtCopyStr(sDesc, 0) : NULL;
 		if ( sIcon && pModel->sIcon ) { xrtFree(pModel->sIcon); pModel->sIcon = xrtCopyStr(sIcon, 0); }
 		pModel->bCompiled = FALSE;
-		pModel->iUpdateTime = xrtTime();
+		pModel->iUpdateTime = xrtNow();
 		
 		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"保存成功\"}", 0);
 	} else {
@@ -530,7 +530,7 @@ void Request_Model_Fields_Save(XS_ServerObject objServer, XS_HostObject objHost,
 	}
 	
 	// 更新时间戳
-	xvoTableSetInt(tblConfig, "updateTime", 10, xrtTime());
+	xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
 	
 	// 标记需要重新编译
 	xvalue tblStatus = xvoTableGetValue(tblConfig, "status", 6);
@@ -554,7 +554,7 @@ void Request_Model_Fields_Save(XS_ServerObject objServer, XS_HostObject objHost,
 			pModel->arrFields = NULL;
 		}
 		pModel->bCompiled = FALSE;
-		pModel->iUpdateTime = xrtTime();
+		pModel->iUpdateTime = xrtNow();
 	}
 	
 	xvoUnref(tblData);

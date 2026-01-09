@@ -61,6 +61,9 @@
 // 模型管理器
 #include "module/model_mgr.h"
 
+// 附件管理模块
+#include "module/attachment.h"
+
 
 
 // 路由调用 - HTTP
@@ -74,6 +77,8 @@
 #include "route_http/api.h"
 #include "route_http/member.h"
 #include "route_http/model.h"
+#include "route_http/attachment.h"
+#include "route_http/attachment_api.h"
 
 
 
@@ -136,6 +141,9 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	// 初始化模型管理器
 	ModelMgr_Init();
 	
+	// 初始化附件管理模块
+	Attachment_Init();
+	
 	// 同步 URI 表（在所有路由注册完成后）
 	Auth_SyncURIS();
 	
@@ -146,6 +154,9 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 // 服务卸载
 void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 {
+	
+	// 卸载附件管理模块
+	Attachment_Unit();
 	
 	// 卸载模型管理器
 	ModelMgr_Unit();

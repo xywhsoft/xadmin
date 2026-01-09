@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>存储统计</title>
+<link rel="stylesheet" href="/pear/css/pear.css" />
+<link rel="stylesheet" href="/css/reset.css" />
+<style>
+.stats-card {
+	background: #fff;
+	border-radius: 8px;
+	padding: 20px;
+	margin-bottom: 20px;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.stats-card h3 {
+	font-size: 16px;
+	color: #333;
+	margin-bottom: 15px;
+	border-bottom: 1px solid #eee;
+	padding-bottom: 10px;
+}
+.stats-total {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 30px;
+}
+.stats-total .item {
+	text-align: center;
+	padding: 0 50px;
+}
+.stats-total .item .num {
+	font-size: 36px;
+	font-weight: bold;
+	color: #1E9FFF;
+}
+.stats-total .item .label {
+	font-size: 14px;
+	color: #666;
+	margin-top: 5px;
+}
+.stats-list {
+	max-height: 400px;
+	overflow-y: auto;
+}
+.stats-list .item {
+	display: flex;
+	align-items: center;
+	padding: 10px 0;
+	border-bottom: 1px solid #f5f5f5;
+}
+.stats-list .item:last-child {
+	border-bottom: none;
+}
+.stats-list .item .name {
+	flex: 1;
+	font-size: 14px;
+	color: #333;
+}
+.stats-list .item .count {
+	width: 80px;
+	text-align: right;
+	font-size: 14px;
+	color: #666;
+}
+.stats-list .item .size {
+	width: 100px;
+	text-align: right;
+	font-size: 14px;
+	color: #1E9FFF;
+	font-weight: bold;
+}
+.stats-list .item .bar {
+	width: 150px;
+	margin-left: 15px;
+}
+.stats-list .item .bar-inner {
+	height: 8px;
+	background: #1E9FFF;
+	border-radius: 4px;
+}
+</style>
+</head>
+<body class="pear-container">
+<div class="layui-row layui-col-space15">
+	<div class="layui-col-md12">
+		<div class="stats-card">
+			<h3><i class="layui-icon layui-icon-chart"></i> 总体概况</h3>
+			<div class="stats-total" id="statsTotal">
+				<div class="item">
+					<div class="num" id="totalCount">-</div>
+					<div class="label">附件总数</div>
+				</div>
+				<div class="item">
+					<div class="num" id="totalSize">-</div>
+					<div class="label">总存储空间</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div class="layui-col-md6">
+		<div class="stats-card">
+			<h3><i class="layui-icon layui-icon-app"></i> 按模型统计</h3>
+			<div class="stats-list" id="statsByModel"></div>
+		</div>
+	</div>
+	<div class="layui-col-md6">
+		<div class="stats-card">
+			<h3><i class="layui-icon layui-icon-file"></i> 按文件类型统计</h3>
+			<div class="stats-list" id="statsByExt"></div>
+		</div>
+	</div>
+</div>
+
+<script src="/pear/layui/layui.js"></script>
+<script>
+layui.use(['layer'], function () {
+	var layer = layui.layer;
+	var $ = layui.$;
+	
+	function formatSize(size)
+	{
+		if ( size >= 1073741824 ) {
+			return (size / 1073741824).toFixed(2) + ' GB';
+		} else if ( size >= 1048576 ) {
+			return (size / 1048576).toFixed(2) + ' MB';
+		} else if ( size >= 1024 ) {
+			return (size / 1024).toFixed(2) + ' KB';
+		} else {
+			return size + ' B';
+		}
+	}
+	
+	function loadStats()
+	{
+		fetch('/admin/attachment/stats')
+		.then(function ( r ) { return r.json(); })
+		.then(function ( res ) {
+			if ( !res.result ) {
+				layer.msg(res.message || '加载失败');
+				return;
+			}
+			
+			var data = res.data;
+			
+			// 总体统计
+			$('#totalCount').text(data.total.count);
+			$('#totalSize').text(data.total.sizeText);
+			
+			// 按模型统计
+			var sHtmlModel = '';
+			var iTotalSizeModel = data.total.size || 1;
+			data.byModel.forEach(function ( item ) {
+				var iPct = Math.round(item.size / iTotalSizeModel * 100);
+				sHtmlModel += '<div class="item">' +
+					'<div class="name">' + (item.title || '未知') + '</div>' +
+					'<div class="count">' + item.count + ' 个</div>' +
+					'<div class="size">' + formatSize(item.size) + '</div>' +
+					'<div class="bar"><div class="bar-inner" style="width:' + iPct + '%"></div></div>' +
+				'</div>';
+			});
+			$('#statsByModel').html(sHtmlModel || '<div style="padding:20px;text-align:center;color:#999;">暂无数据</div>');
+			
+			// 按扩展名统计
+			var sHtmlExt = '';
+			data.byExt.forEach(function ( item ) {
+				var iPct = Math.round(item.size / iTotalSizeModel * 100);
+				sHtmlExt += '<div class="item">' +
+					'<div class="name">.' + item.ext + '</div>' +
+					'<div class="count">' + item.count + ' 个</div>' +
+					'<div class="size">' + formatSize(item.size) + '</div>' +
+					'<div class="bar"><div class="bar-inner" style="width:' + iPct + '%"></div></div>' +
+				'</div>';
+			});
+			$('#statsByExt').html(sHtmlExt || '<div style="padding:20px;text-align:center;color:#999;">暂无数据</div>');
+		})
+		.catch(function ( err ) {
+			console.error(err);
+			layer.msg('加载统计数据失败');
+		});
+	}
+	
+	loadStats();
+});
+</script>
+</body>
+</html>

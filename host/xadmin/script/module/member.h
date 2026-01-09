@@ -176,45 +176,15 @@ void Member_Init()
 		"UPDATE memberAuth SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_del, NULL);
 	
-	// memberAuth 表 - 统计关联的 URI 权限数量
+	// memberAuth 表 - 统计关联的 URI 权限数量（从 uris 表筛选前台 URI）
 	sqlite3_prepare_v3(db,
-		"SELECT COUNT(*) FROM memberUris WHERE authID = ?",
+		"SELECT COUNT(*) FROM uris WHERE authID = ? AND isBackend = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_sum, NULL);
 	
-	// memberAuth 表 - 移动权限分组下的 URI 权限到默认分组
+	// memberAuth 表 - 移动权限分组下的 URI 权限到默认分组（仅前台 URI）
 	sqlite3_prepare_v3(db,
-		"UPDATE memberUris SET authID = 1, updateTime = ? WHERE authID = ?",
+		"UPDATE uris SET authID = 1, updateTime = ? WHERE authID = ? AND isBackend = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_mov, NULL);
-	
-	// memberUris 表 - 分页获取所有前台 URI 数据
-	sqlite3_prepare_v3(db,
-		"SELECT id, authID, uri, desc, sort, createTime, updateTime FROM memberUris ORDER BY sort ASC LIMIT ? OFFSET ?",
-		-1, SQL_PREPARE_DEFAULT, &stmt_muris_all, NULL);
-	
-	// memberUris 表 - 分页条件查询前台 URI 数据
-	sqlite3_prepare_v3(db,
-		"SELECT id, authID, uri, desc, sort, createTime, updateTime FROM memberUris WHERE uri LIKE ? OR desc LIKE ? ORDER BY sort ASC LIMIT ? OFFSET ?",
-		-1, SQL_PREPARE_DEFAULT, &stmt_muris_sel, NULL);
-	
-	// memberUris 表 - 根据 ID 获取前台 URI 记录
-	sqlite3_prepare_v3(db,
-		"SELECT id, authID, uri, desc, sort, createTime, updateTime FROM memberUris WHERE id = ?",
-		-1, SQL_PREPARE_DEFAULT, &stmt_muris_get, NULL);
-	
-	// memberUris 表 - 添加前台 URI 记录
-	sqlite3_prepare_v3(db,
-		"INSERT INTO memberUris (authID, uri, desc, sort, createTime, updateTime) VALUES (?, ?, ?, ?, ?, ?)",
-		-1, SQL_PREPARE_DEFAULT, &stmt_muris_add, NULL);
-	
-	// memberUris 表 - 修改前台 URI 记录
-	sqlite3_prepare_v3(db,
-		"UPDATE memberUris SET authID = ?, desc = ?, sort = ?, updateTime = ? WHERE id = ?",
-		-1, SQL_PREPARE_DEFAULT, &stmt_muris_put, NULL);
-	
-	// memberUris 表 - 删除前台 URI 记录
-	sqlite3_prepare_v3(db,
-		"DELETE FROM memberUris WHERE id = ?",
-		-1, SQL_PREPARE_DEFAULT, &stmt_muris_del, NULL);
 	
 	// memberBalanceLog 表 - 分页获取余额变动日志
 	sqlite3_prepare_v3(db,
@@ -242,9 +212,9 @@ void Member_Init()
 		"SELECT id, name, desc, authList, authLevel FROM memberGroup WHERE isDelete = 0 ORDER BY id ASC",
 		-1, SQL_PREPARE_DEFAULT, &stmt_cache_mgroup, NULL);
 	
-	// 缓存用 SQL - 获取所有前台 URI 记录
+	// 缓存用 SQL - 获取所有前台 URI 记录（从 uris 表筛选 isBackend=0 的前台接口）
 	sqlite3_prepare_v3(db,
-		"SELECT id, authID, uri, desc, sort FROM memberUris ORDER BY sort ASC",
+		"SELECT id, authID, uri, desc, sort FROM uris WHERE isBackend = 0 ORDER BY sort ASC",
 		-1, SQL_PREPARE_DEFAULT, &stmt_cache_muris, NULL);
 }
 
@@ -296,13 +266,6 @@ void Member_Unit()
 	if (stmt_mauth_sum) sqlite3_finalize(stmt_mauth_sum);
 	if (stmt_mauth_mov) sqlite3_finalize(stmt_mauth_mov);
 	
-	// 释放 memberUris 表预编译语句
-	if (stmt_muris_all) sqlite3_finalize(stmt_muris_all);
-	if (stmt_muris_sel) sqlite3_finalize(stmt_muris_sel);
-	if (stmt_muris_get) sqlite3_finalize(stmt_muris_get);
-	if (stmt_muris_add) sqlite3_finalize(stmt_muris_add);
-	if (stmt_muris_put) sqlite3_finalize(stmt_muris_put);
-	if (stmt_muris_del) sqlite3_finalize(stmt_muris_del);
 	
 	// 释放 memberBalanceLog 表预编译语句
 	if (stmt_mbalance_all) sqlite3_finalize(stmt_mbalance_all);

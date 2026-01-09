@@ -240,13 +240,6 @@ sqlite3_stmt* stmt_mauth_del = NULL;			// 删除前台权限分组记录（软�
 sqlite3_stmt* stmt_mauth_sum = NULL;			// 统计关联的 URI 权限数量
 sqlite3_stmt* stmt_mauth_mov = NULL;			// 移动权限分组下的 URI 权限到默认分组
 
-// 预编译的 SQL 语句 - memberUris 表
-sqlite3_stmt* stmt_muris_all = NULL;			// 分页获取所有前台 URI 数据
-sqlite3_stmt* stmt_muris_sel = NULL;			// 分页条件查询前台 URI 数据
-sqlite3_stmt* stmt_muris_get = NULL;			// 根据 ID 获取前台 URI 记录
-sqlite3_stmt* stmt_muris_add = NULL;			// 添加前台 URI 记录
-sqlite3_stmt* stmt_muris_put = NULL;			// 修改前台 URI 记录
-sqlite3_stmt* stmt_muris_del = NULL;			// 删除前台 URI 记录
 
 // 预编译的 SQL 语句 - memberBalanceLog 表
 sqlite3_stmt* stmt_mbalance_all = NULL;		// 分页获取余额变动日志
@@ -259,7 +252,7 @@ sqlite3_stmt* stmt_member_login = NULL;		// 根据用户名获取前台用户信
 sqlite3_stmt* stmt_cache_mauth = NULL;			// 获取所有前台权限分组数据（缓存用）
 sqlite3_stmt* stmt_cache_magroup = NULL;		// 获取所有前台权限分类数据（缓存用）
 sqlite3_stmt* stmt_cache_mgroup = NULL;		// 获取所有前台用户组数据（缓存用）
-sqlite3_stmt* stmt_cache_muris = NULL;			// 获取所有前台URI记录（用于更新URI表）
+sqlite3_stmt* stmt_cache_muris = NULL;			// 获取所有前台URI记录（从uris表筛选isBackend=0）
 
 
 

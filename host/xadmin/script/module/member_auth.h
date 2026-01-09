@@ -204,34 +204,13 @@ void MemberAuth_ReloadCache()
 
 
 
-// ==================== 前台 URI 同步 ====================
+// ==================== 前台 URI 缓存加载 ====================
 
-// 前台路由检查回调 - 添加未收录的前台 URI
-bool MemberAuthRouteCheckProc(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
+// 加载前台 URI 配置到路由表（从 uris 表筛选 isBackend=0 的记录）
+void MemberAuth_LoadURIS()
 {
-	// 仅处理前台 URI（bAdmin = FALSE）且需要鉴权的路由
-	if ( !pInfo->bAdmin && pInfo->bAuth && (pInfo->AuthID == 0) ) {
-		printf("            new memberUris table item : %.*s\n", pKey->KeyLen, pKey->Key);
-		sqlite3_bind_int64(stmt_muris_add, 1, 1);  // 默认权限分组ID = 1
-		sqlite3_bind_text(stmt_muris_add, 2, pKey->Key, pKey->KeyLen, SQLITE_STATIC);
-		sqlite3_bind_text(stmt_muris_add, 3, "", -1, SQLITE_STATIC);  // 空描述
-		sqlite3_bind_int(stmt_muris_add, 4, 0);  // 排序值
-		xtime tNow = xrtNow();
-		sqlite3_bind_int64(stmt_muris_add, 5, tNow);
-		sqlite3_bind_int64(stmt_muris_add, 6, tNow);
-		sqlite3_step(stmt_muris_add);
-		sqlite3_reset(stmt_muris_add);
-		pInfo->AuthID = 1;
-	}
-	return FALSE;
-}
-
-// 更新前台 memberUris 表（添加未收录的 URI，删除已失效的 URI）
-void MemberAuth_UpdateURIS()
-{
-	// 遍历数据库中的记录，更新路由表中的 AuthID
+	// 遍历数据库中的前台 URI 记录，更新路由表中的 AuthID
 	while ( sqlite3_step(stmt_cache_muris) == SQLITE_ROW ) {
-		int64 id = sqlite3_column_int64(stmt_cache_muris, 0);
 		int64 authID = sqlite3_column_int64(stmt_cache_muris, 1);
 		str uri = (str)sqlite3_column_text(stmt_cache_muris, 2);
 		size_t iSize = strlen(uri);
@@ -239,18 +218,9 @@ void MemberAuth_UpdateURIS()
 		if ( pInfo && !pInfo->bAdmin ) {
 			// 前台路由存在，更新 AuthID
 			pInfo->AuthID = authID;
-		} else {
-			// 路由不存在或不是前台路由，删除记录
-			printf("            remove memberUris table item : %.*s (%d)\n", iSize, uri, id);
-			sqlite3_bind_int64(stmt_muris_del, 1, id);
-			sqlite3_step(stmt_muris_del);
-			sqlite3_reset(stmt_muris_del);
 		}
 	}
 	sqlite3_reset(stmt_cache_muris);
-	
-	// 遍历路由表，将数据库中不存在的前台路由添加进去
-	xrtDictWalk(G_StaticRouteTableHTTP, (ptr)MemberAuthRouteCheckProc, NULL);
 }
 
 
@@ -262,8 +232,8 @@ void MemberAuth_Init()
 {
 	printf("        MemberAuth_Init \n");
 	
-	// 更新前台 memberUris 表（添加未收录的 URI，删除已失效的 URI）
-	MemberAuth_UpdateURIS();
+	// 从 uris 表加载前台 URI 配置到路由表
+	MemberAuth_LoadURIS();
 	
 	// 重新加载全局缓存
 	ReloadCache_MemberAuth();

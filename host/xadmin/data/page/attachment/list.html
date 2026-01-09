@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>附件管理</title>
+<link rel="stylesheet" href="/pear/css/pear.css" />
+<link rel="stylesheet" href="/css/reset.css" />
+</head>
+<body class="pear-container">
+<div class="layui-card">
+	<div class="layui-card-body">
+		<form class="layui-form" action="">
+			<div class="layui-form-item">
+				<label class="layui-form-label" style="width:70px;">模型</label>
+				<div class="layui-input-inline" style="width:150px;">
+					<input type="text" name="modelName" placeholder="模型名称" class="layui-input">
+				</div>
+				<label class="layui-form-label" style="width:70px;">扩展名</label>
+				<div class="layui-input-inline" style="width:100px;">
+					<input type="text" name="ext" placeholder="jpg" class="layui-input">
+				</div>
+				<label class="layui-form-label" style="width:70px;">访问类型</label>
+				<div class="layui-input-inline" style="width:120px;">
+					<select name="accessType">
+						<option value="">全部</option>
+						<option value="0">公开</option>
+						<option value="1">登录可见</option>
+						<option value="2">付费下载</option>
+					</select>
+				</div>
+				<div class="layui-input-inline">
+					<button class="layui-btn layui-btn-primary" lay-submit lay-filter="search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+					<button type="reset" class="layui-btn layui-btn-default"><i class="layui-icon layui-icon-refresh"></i> 重置</button>
+				</div>
+			</div>
+		</form>
+	</div>
+</div>
+
+<div class="layui-card">
+	<div class="layui-card-body">
+		<div style="margin-bottom: 10px;">
+			<button class="layui-btn layui-btn-sm layui-btn-normal" id="btnUpload"><i class="layui-icon layui-icon-upload"></i> 上传附件</button>
+			<button class="layui-btn layui-btn-sm layui-btn-danger" id="btnBatchDel"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>
+		</div>
+		<table class="layui-hide" id="dataTable" lay-filter="dataTable"></table>
+	</div>
+</div>
+
+<script type="text/html" id="toolBar">
+	<a class="layui-btn layui-btn-xs" lay-event="view"><i class="layui-icon layui-icon-eye"></i> 查看</a>
+	<a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="edit"><i class="layui-icon layui-icon-edit"></i> 编辑</a>
+	<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete"><i class="layui-icon layui-icon-delete"></i> 删除</a>
+</script>
+
+<script type="text/html" id="tplFilename">
+	<a href="/attachment?xid={{d.xid}}" target="_blank" style="color:#1E9FFF;">{{d.filename}}</a>
+</script>
+
+<script type="text/html" id="tplSize">
+	{{# if(d.size >= 1073741824) { }}
+		{{ (d.size / 1073741824).toFixed(2) }} GB
+	{{# } else if(d.size >= 1048576) { }}
+		{{ (d.size / 1048576).toFixed(2) }} MB
+	{{# } else if(d.size >= 1024) { }}
+		{{ (d.size / 1024).toFixed(2) }} KB
+	{{# } else { }}
+		{{ d.size }} B
+	{{# } }}
+</script>
+
+<script type="text/html" id="tplAccessType">
+	{{# if(d.accessType == 0) { }}
+		<span class="layui-badge layui-bg-green">公开</span>
+	{{# } else if(d.accessType == 1) { }}
+		<span class="layui-badge layui-bg-blue">登录可见</span>
+	{{# } else if(d.accessType == 2) { }}
+		<span class="layui-badge layui-bg-orange">付费下载 ¥{{d.price/100}}</span>
+	{{# } }}
+</script>
+
+<script src="/pear/layui/layui.js"></script>
+<script>
+layui.use(['table', 'form', 'upload', 'layer'], function () {
+	var table = layui.table;
+	var form = layui.form;
+	var upload = layui.upload;
+	var layer = layui.layer;
+	var $ = layui.$;
+	
+	// 初始化表格
+	table.render({
+		elem: '#dataTable',
+		url: '/admin/attachment/list',
+		page: true,
+		cols: [[
+			{type: 'checkbox'},
+			{field: 'xid', title: 'XID', width: 200, hide: true},
+			{field: 'filename', title: '文件名', minWidth: 200, templet: '#tplFilename'},
+			{field: 'ext', title: '类型', width: 80, align: 'center'},
+			{field: 'size', title: '大小', width: 100, templet: '#tplSize'},
+			{field: 'modelName', title: '模型', width: 100},
+			{field: 'accessType', title: '访问类型', width: 140, templet: '#tplAccessType'},
+			{field: 'downloadCount', title: '下载', width: 80, align: 'center'},
+			{field: 'salesCount', title: '销量', width: 80, align: 'center'},
+			{field: 'createTime', title: '上传时间', width: 170},
+			{title: '操作', width: 200, align: 'center', toolbar: '#toolBar'}
+		]],
+		parseData: function ( res ) {
+			return {
+				"code": res.result ? 0 : 1,
+				"msg": res.message || '',
+				"count": res.count || 0,
+				"data": res.data || []
+			};
+		}
+	});
+	
+	// 搜索
+	form.on('submit(search)', function ( data ) {
+		table.reload('dataTable', {
+			where: data.field,
+			page: { curr: 1 }
+		});
+		return false;
+	});
+	
+	// 上传
+	upload.render({
+		elem: '#btnUpload',
+		url: '/admin/attachment/upload',
+		accept: 'file',
+		done: function ( res ) {
+			if ( res.result ) {
+				layer.msg('上传成功');
+				table.reload('dataTable');
+			} else {
+				layer.msg(res.message || '上传失败');
+			}
+		}
+	});
+	
+	// 行操作
+	table.on('tool(dataTable)', function ( obj ) {
+		var data = obj.data;
+		if ( obj.event === 'view' ) {
+			window.open('/attachment?xid=' + data.xid);
+		} else if ( obj.event === 'edit' ) {
+			layer.open({
+				type: 1,
+				title: '编辑附件',
+				area: ['500px', '400px'],
+				content: '<form class="layui-form" style="padding:20px;" id="editForm">' +
+					'<input type="hidden" name="xid" value="' + data.xid + '">' +
+					'<div class="layui-form-item">' +
+						'<label class="layui-form-label">文件名</label>' +
+						'<div class="layui-input-block"><input type="text" class="layui-input" value="' + data.filename + '" disabled></div>' +
+					'</div>' +
+					'<div class="layui-form-item">' +
+						'<label class="layui-form-label">允许外链</label>' +
+						'<div class="layui-input-block"><input type="checkbox" name="allowHotlink" lay-skin="switch" lay-text="是|否" ' + (data.allowHotlink ? 'checked' : '') + '></div>' +
+					'</div>' +
+					'<div class="layui-form-item">' +
+						'<label class="layui-form-label">访问类型</label>' +
+						'<div class="layui-input-block">' +
+							'<select name="accessType">' +
+								'<option value="0"' + (data.accessType==0?' selected':'') + '>公开</option>' +
+								'<option value="1"' + (data.accessType==1?' selected':'') + '>登录可见</option>' +
+								'<option value="2"' + (data.accessType==2?' selected':'') + '>付费下载</option>' +
+							'</select>' +
+						'</div>' +
+					'</div>' +
+					'<div class="layui-form-item">' +
+						'<label class="layui-form-label">价格(分)</label>' +
+						'<div class="layui-input-block"><input type="number" name="price" class="layui-input" value="' + data.price + '"></div>' +
+					'</div>' +
+					'<div class="layui-form-item">' +
+						'<label class="layui-form-label">备注</label>' +
+						'<div class="layui-input-block"><textarea name="remark" class="layui-textarea">' + (data.remark||'') + '</textarea></div>' +
+					'</div>' +
+					'<div class="layui-form-item">' +
+						'<div class="layui-input-block"><button class="layui-btn" lay-submit lay-filter="saveEdit">保存</button></div>' +
+					'</div>' +
+				'</form>',
+				success: function ( layero, index ) {
+					form.render();
+					form.on('submit(saveEdit)', function ( formData ) {
+						var postData = formData.field;
+						postData.allowHotlink = postData.allowHotlink ? true : false;
+						postData.accessType = parseInt(postData.accessType);
+						postData.price = parseInt(postData.price) || 0;
+						
+						fetch('/admin/attachment/save', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify(postData)
+						})
+						.then(function ( r ) { return r.json(); })
+						.then(function ( res ) {
+							if ( res.result ) {
+								layer.close(index);
+								layer.msg('保存成功');
+								table.reload('dataTable');
+							} else {
+								layer.msg(res.message || '保存失败');
+							}
+						});
+						return false;
+					});
+				}
+			});
+		} else if ( obj.event === 'delete' ) {
+			layer.confirm('确定删除此附件？删除后文件将被永久移除。', function ( index ) {
+				fetch('/admin/attachment/delete?xid=' + data.xid, { method: 'POST' })
+				.then(function ( r ) { return r.json(); })
+				.then(function ( res ) {
+					if ( res.result ) {
+						layer.msg('删除成功');
+						obj.del();
+					} else {
+						layer.msg(res.message || '删除失败');
+					}
+				});
+				layer.close(index);
+			});
+		}
+	});
+	
+	// 批量删除
+	$('#btnBatchDel').on('click', function () {
+		var checkData = table.checkStatus('dataTable').data;
+		if ( checkData.length === 0 ) {
+			layer.msg('请选择要删除的附件');
+			return;
+		}
+		layer.confirm('确定删除选中的 ' + checkData.length + ' 个附件？', function ( index ) {
+			var iDeleted = 0;
+			checkData.forEach(function ( item ) {
+				fetch('/admin/attachment/delete?xid=' + item.xid, { method: 'POST' })
+				.then(function ( r ) { return r.json(); })
+				.then(function ( res ) {
+					iDeleted++;
+					if ( iDeleted === checkData.length ) {
+						layer.msg('删除完成');
+						table.reload('dataTable');
+					}
+				});
+			});
+			layer.close(index);
+		});
+	});
+});
+</script>
+</body>
+</html>
