@@ -2,7 +2,7 @@
 // ============================================
 // 模型: 文章 (article)
 // 自动生成代码 - 请勿手动修改
-// 生成时间: 2026-01-09 12:01:15
+// 生成时间: 2026-01-09 12:14:43
 // TCC独立状态机编译
 // ============================================
 
@@ -55,23 +55,23 @@ void Model_article_InitStmt()
 	
 	// 分页获取列表
 	sqlite3_prepare_v3(db,
-		"SELECT id, title, createTime, updateTime FROM model_cms_article "
+		"SELECT id, title, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, createTime, updateTime FROM model_cms_article "
 		"WHERE isDelete = 0 ORDER BY id DESC LIMIT ? OFFSET ?",
 		-1, 0, &stmt_article_all, NULL);
 	
 	// 根据ID获取单条记录
 	sqlite3_prepare_v3(db,
-		"SELECT id, title, createTime, updateTime FROM model_cms_article WHERE id = ? AND isDelete = 0",
+		"SELECT id, title, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, createTime, updateTime FROM model_cms_article WHERE id = ? AND isDelete = 0",
 		-1, 0, &stmt_article_get, NULL);
 	
 	// 添加记录
 	sqlite3_prepare_v3(db,
-		"INSERT INTO model_cms_article (title, createTime, updateTime, isDelete) VALUES (?, ?, ?, 0)",
+		"INSERT INTO model_cms_article (title, f2, f3, f4, f5, f6, f7, f8, f9, f10, f11, f12, f13, f14, f15, f16, f17, f18, f19, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
 		-1, 0, &stmt_article_add, NULL);
 	
 	// 更新记录
 	sqlite3_prepare_v3(db,
-		"UPDATE model_cms_article SET title = ?, updateTime = ? WHERE id = ?",
+		"UPDATE model_cms_article SET title = ?, f2 = ?, f3 = ?, f4 = ?, f5 = ?, f6 = ?, f7 = ?, f8 = ?, f9 = ?, f10 = ?, f11 = ?, f12 = ?, f13 = ?, f14 = ?, f15 = ?, f16 = ?, f17 = ?, f18 = ?, f19 = ?, updateTime = ? WHERE id = ?",
 		-1, 0, &stmt_article_put, NULL);
 	
 	// 删除记录（软删除）
@@ -175,6 +175,24 @@ void Api_article_List(XS_ServerObject objServer, XS_HostObject objHost, struct m
 		int iCol = 0;
 		xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_article_all, iCol++));
 		xvoTableSetText(tblRow, "title", 5, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f2", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f3", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f4", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f5", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f6", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f7", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f8", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f9", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f10", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f11", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f12", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f13", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f14", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f15", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f16", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f17", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f18", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f19", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
 
 		xtime iTime = sqlite3_column_int64(stmt_article_all, iCol++);
 		xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
@@ -215,6 +233,24 @@ void Api_article_Get(XS_ServerObject objServer, XS_HostObject objHost, struct mg
 		int iCol = 0;
 		xvoTableSetInt(tblData, "id", 2, sqlite3_column_int64(stmt_article_get, iCol++));
 		xvoTableSetText(tblData, "title", 5, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f2", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f3", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f4", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f5", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f6", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f7", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f8", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f9", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f10", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f11", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f12", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f13", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f14", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f15", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f16", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f17", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f18", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f19", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
 
 		xtime iTime = sqlite3_column_int64(stmt_article_get, iCol++);
 		xvoTableSetText(tblData, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
@@ -264,6 +300,24 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, struct
 	xtime now = xrtNow();
 	int iIdx = 1;
 	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
 
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
@@ -488,6 +542,24 @@ void Admin_article_List(XS_ServerObject objServer, XS_HostObject objHost, struct
 		int iCol = 0;
 		xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_article_all, iCol++));
 		xvoTableSetText(tblRow, "title", 5, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f2", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f3", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f4", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f5", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f6", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f7", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f8", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f9", 2, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f10", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f11", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f12", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f13", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f14", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f15", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f16", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f17", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f18", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
+		xvoTableSetText(tblRow, "f19", 3, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
 
 		xtime iTime = sqlite3_column_int64(stmt_article_all, iCol++);
 		xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
@@ -529,6 +601,24 @@ void Admin_article_Get(XS_ServerObject objServer, XS_HostObject objHost, struct 
 		int iCol = 0;
 		xvoTableSetInt(tblData, "id", 2, sqlite3_column_int64(stmt_article_get, iCol++));
 		xvoTableSetText(tblData, "title", 5, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f2", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f3", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f4", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f5", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f6", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f7", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f8", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f9", 2, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f10", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f11", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f12", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f13", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f14", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f15", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f16", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f17", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f18", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
+		xvoTableSetText(tblData, "f19", 3, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
 
 		xtime iTime = sqlite3_column_int64(stmt_article_get, iCol++);
 		xvoTableSetText(tblData, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
@@ -571,6 +661,24 @@ void Admin_article_Add(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	xtime now = xrtNow();
 	int iIdx = 1;
 	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : "", -1, NULL); }
 
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
@@ -607,6 +715,24 @@ void Admin_article_Save(XS_ServerObject objServer, XS_HostObject objHost, struct
 	xtime now = xrtNow();
 	int iIdx = 1;
 	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f2", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f3", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f4", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f5", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f6", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f7", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f8", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f9", 2); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f10", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f11", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f12", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f13", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f14", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f15", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f16", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f17", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f18", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
+	{ str sVal = xvoTableGetText(tblForm, "f19", 3); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : "", -1, NULL); }
 
 	sqlite3_bind_int64(stmt_article_put, iIdx++, now);
 	sqlite3_bind_int64(stmt_article_put, iIdx++, iID);
