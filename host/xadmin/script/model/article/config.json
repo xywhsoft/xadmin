@@ -1,0 +1,41 @@
+{
+	"namespace":	"cms",
+	"table":	{
+		"name":	"model_cms_article"
+	},
+	"api":	{
+		"authLevel":	0
+	},
+	"title":	"文章",
+	"status":	{
+		"compiled":	true,
+		"enabled":	true
+	},
+	"reply":	{
+		"authLevel":	1,
+		"needApprove":	false,
+		"quoteMaxLen":	50
+	},
+	"icon":	"layui-icon-file",
+	"desc":	"",
+	"features":	{
+		"enableSubmit":	false,
+		"enableReply":	false,
+		"enableAdmin":	true,
+		"enableApi":	true
+	},
+	"fields":	[
+		{
+			"dataType":	0,
+			"title":	"标题",
+			"defaultValue":	"",
+			"formType":	0,
+			"desc":	"",
+			"name":	"title",
+			"required":	true,
+			"showInList":	true
+		}
+	],
+	"updateTime":	41830,
+	"createTime":	66230
+}

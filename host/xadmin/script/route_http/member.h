@@ -303,7 +303,7 @@ void Request_View_Member_Group_Edit(XS_ServerObject objServer, XS_HostObject obj
 					xvalue tblAuth = xrtPtrArrayGet_Inline(arrAuths->vArray, a);
 					int64 authID = xvoTableGetInt(tblAuth, "id", 2);
 					bool bCheck = xvoListGetBool(listAuth, authID);
-					xvoTableSetText(tblAuth, "checked", 7, bCheck ? " checked" : "", 0, FALSE);
+					xvoTableSetText(tblAuth, "checked", 7, bCheck ? (str)" checked" : (str)"", 0, FALSE);
 				}
 			}
 		}

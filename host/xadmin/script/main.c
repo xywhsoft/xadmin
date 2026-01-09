@@ -55,6 +55,12 @@
 // 前台权限缓存模块
 #include "module/member_auth.h"
 
+// 模型字段类型定义
+#include "module/model_field.h"
+
+// 模型管理器
+#include "module/model_mgr.h"
+
 
 
 // 路由调用 - HTTP
@@ -67,6 +73,7 @@
 #include "route_http/trace.h"
 #include "route_http/api.h"
 #include "route_http/member.h"
+#include "route_http/model.h"
 
 
 
@@ -126,6 +133,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	// 初始化前台权限缓存模块
 	MemberAuth_Init();
 	
+	// 初始化模型管理器
+	ModelMgr_Init();
+	
+	// 同步 URI 表（在所有路由注册完成后）
+	Auth_SyncURIS();
+	
 }
 
 
@@ -133,6 +146,9 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 // 服务卸载
 void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 {
+	
+	// 卸载模型管理器
+	ModelMgr_Unit();
 	
 	// 卸载前台权限缓存模块
 	MemberAuth_Unit();

@@ -1346,6 +1346,37 @@ INSERT INTO menu (
                      0
                  );
 
+INSERT INTO menu (
+                     id,
+                     parent,
+                     title,
+                     icon,
+                     type,
+                     openType,
+                     href,
+                     sort,
+                     visible,
+                     remark,
+                     createTime,
+                     updateTime,
+                     isDelete
+                 )
+                 VALUES (
+                     17,
+                     0,
+                     '内容模型',
+                     'layui-icon layui-icon-component',
+                     1,
+                     '_component',
+                     '/admin/view/model',
+                     200000,
+                     1,
+                     '内容模型管理，可定义自定义内容结构',
+                     63935100000,
+                     63935100000,
+                     0
+                 );
+
 
 -- 表：role
 CREATE TABLE role (

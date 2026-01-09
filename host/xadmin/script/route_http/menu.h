@@ -176,13 +176,13 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		xtime now = xrtNow();
 		sqlite3_bind_int(stmt_menu_add, 1, iParent);
 		sqlite3_bind_text(stmt_menu_add, 2, sTitle, -1, SQLITE_STATIC);
-		sqlite3_bind_text(stmt_menu_add, 3, sIcon ? (ptr)sIcon : "", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_menu_add, 3, sIcon ? (ptr)sIcon : (str)"", -1, SQLITE_STATIC);
 		sqlite3_bind_int(stmt_menu_add, 4, iType);
-		sqlite3_bind_text(stmt_menu_add, 5, sOpenType ? (ptr)sOpenType : "_component", -1, SQLITE_STATIC);
-		sqlite3_bind_text(stmt_menu_add, 6, sHref ? (ptr)sHref : "", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_menu_add, 5, sOpenType ? (ptr)sOpenType : (str)"_component", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_menu_add, 6, sHref ? (ptr)sHref : (str)"", -1, SQLITE_STATIC);
 		sqlite3_bind_int(stmt_menu_add, 7, iSort);
 		sqlite3_bind_int(stmt_menu_add, 8, iVisible);
-		sqlite3_bind_text(stmt_menu_add, 9, sRemark ? (ptr)sRemark : "", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_menu_add, 9, sRemark ? (ptr)sRemark : (str)"", -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_menu_add, 10, now);
 		sqlite3_bind_int64(stmt_menu_add, 11, now);
 		
@@ -241,13 +241,13 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		xtime now = xrtNow();
 		sqlite3_bind_int(stmt_menu_put, 1, iParent);
 		sqlite3_bind_text(stmt_menu_put, 2, sTitle, -1, SQLITE_STATIC);
-		sqlite3_bind_text(stmt_menu_put, 3, sIcon ? (ptr)sIcon : "", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_menu_put, 3, sIcon ? (ptr)sIcon : (str)"", -1, SQLITE_STATIC);
 		sqlite3_bind_int(stmt_menu_put, 4, iType);
-		sqlite3_bind_text(stmt_menu_put, 5, sOpenType ? (ptr)sOpenType : "_component", -1, SQLITE_STATIC);
-		sqlite3_bind_text(stmt_menu_put, 6, sHref ? (ptr)sHref : "", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_menu_put, 5, sOpenType ? (ptr)sOpenType : (str)"_component", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_menu_put, 6, sHref ? (ptr)sHref : (str)"", -1, SQLITE_STATIC);
 		sqlite3_bind_int(stmt_menu_put, 7, iSort);
 		sqlite3_bind_int(stmt_menu_put, 8, iVisible);
-		sqlite3_bind_text(stmt_menu_put, 9, sRemark ? (ptr)sRemark : "", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_menu_put, 9, sRemark ? (ptr)sRemark : (str)"", -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_menu_put, 10, now);
 		sqlite3_bind_int(stmt_menu_put, 11, iID);
 		

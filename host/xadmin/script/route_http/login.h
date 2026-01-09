@@ -76,8 +76,6 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 					int64 iLvUser = sqlite3_column_int64(stmt_login_get, 5);
 					int64 iLvRole = xvoTableGetInt(tblRole, "__authLevel__", 13);
 					int64 iAuthLevel = iLvUser > iLvRole ? iLvUser : iLvRole;
-					printf("iLvUser : %d\n", iLvUser);
-					xvoPrintValue(tblRole, 0, 0, 0, NULL);
 					
 					// step 6 : 将用户信息填入用户 Session 表
 					xvoTableSetText(tblSession, "xid", 3, XID, 0, TRUE);

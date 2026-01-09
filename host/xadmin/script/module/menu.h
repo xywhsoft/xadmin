@@ -79,7 +79,7 @@ void Menu_BuildTree_Recursive(xvalue arrResult, xvalue arrAll, int iParentID)
 			
 			// 确保 icon 字段始终输出（即使为空）
 			str sIcon = xvoTableGetText(tblItem, "icon", 4);
-			xvoTableSetText(tblMenu, "icon", 4, sIcon ? (ptr)sIcon : "", 0, FALSE);
+			xvoTableSetText(tblMenu, "icon", 4, sIcon ? (ptr)sIcon : (str)"", 0, FALSE);
 			
 			xvoTableSetInt(tblMenu, "type", 4, xvoTableGetInt(tblItem, "type", 4));
 			
@@ -124,7 +124,7 @@ xvalue Menu_BuildTree()
 		
 		// 确保 icon 字段始终有值
 		char* sIcon = (char*)sqlite3_column_text(stmt_menu_tree, 3);
-		xvoTableSetText(tblRow, "icon", 4, sIcon ? sIcon : "", 0, FALSE);
+		xvoTableSetText(tblRow, "icon", 4, sIcon ? sIcon : (str)"", 0, FALSE);
 		
 		xvoTableSetInt(tblRow, "type", 4, sqlite3_column_int(stmt_menu_tree, 4));
 		xvoTableSetText(tblRow, "openType", 8, (char*)sqlite3_column_text(stmt_menu_tree, 5), 0, FALSE);

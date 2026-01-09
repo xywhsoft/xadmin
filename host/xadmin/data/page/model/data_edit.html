@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>编辑数据</title>
+<meta name="renderer" content="webkit">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="/layui/css/layui.css" rel="stylesheet">
+<style>
+.form-container {
+	padding: 20px 30px 10px 30px;
+}
+.layui-form-label {
+	width: 100px;
+}
+.layui-input-block {
+	margin-left: 130px;
+}
+</style>
+</head>
+<body>
+<div class="form-container">
+	<form class="layui-form" lay-filter="Form_Model_Edit" id="Form_Model_Edit">
+		<input type="hidden" name="id" id="dataId">
+		<!-- 表单字段将动态生成 -->
+		<div id="formFields"></div>
+		
+		<div class="layui-form-item" style="margin-top: 30px;">
+			<div class="layui-input-block">
+				<button type="submit" class="layui-btn" lay-submit lay-filter="Model_Edit_Submit">保存</button>
+				<button type="reset" class="layui-btn layui-btn-primary">重置</button>
+			</div>
+		</div>
+	</form>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script>
+layui.use(['form', 'layer'], function(){
+	var form = layui.form;
+	var layer = layui.layer;
+	var $ = layui.$;
+	
+	// 从 URL 路径解析模型信息
+	var sPath = window.location.pathname;
+	
+	// 获取 URL 参数中的 id
+	var urlParams = new URLSearchParams(window.location.search);
+	var iDataId = urlParams.get('id');
+	
+	if ( !iDataId ) {
+		layer.msg('缺少数据ID', {icon: 2});
+		return;
+	}
+	
+	document.getElementById('dataId').value = iDataId;
+	
+	// 使用正则表达式匹配路径
+	var arrMatch = sPath.match(/\/admin\/view\/model\/data\/([^\/]+)\/([^\/]+)\/edit/);
+	var sNamespace = '';
+	var sModelName = '';
+	
+	if ( arrMatch && arrMatch.length >= 3 ) {
+		sNamespace = arrMatch[1];
+		sModelName = arrMatch[2];
+	} else {
+		// 尝试无命名空间的路径
+		arrMatch = sPath.match(/\/admin\/view\/model\/data\/([^\/]+)\/edit/);
+		if ( arrMatch && arrMatch.length >= 2 ) {
+			sModelName = arrMatch[1];
+		}
+	}
+	
+	// 构建 API 路径前缀
+	var sApiPrefix = sNamespace ? ('/admin/' + sNamespace + '/' + sModelName) : ('/admin/' + sModelName);
+	
+	// 存储字段配置
+	var G_Fields = [];
+	
+	// 获取字段配置并生成表单
+	fetch('/admin/model/fields?name=' + sModelName)
+	.then(function(response){ return response.json(); })
+	.then(function(result){
+		if ( !result || !result.result ) {
+			layer.msg('获取字段配置失败', {icon: 2});
+			return;
+		}
+		
+		var arrFields = result.data || [];
+		G_Fields = arrFields;
+		var sFormHtml = '';
+		
+		// 根据字段配置生成表单
+		for ( var i = 0; i < arrFields.length; i++ ) {
+			var tblField = arrFields[i];
+			var sFieldHtml = '';
+			var sRequired = tblField.required ? ' lay-verify="required"' : '';
+			var sPlaceholder = tblField.placeholder || ('请输入' + (tblField.title || tblField.name));
+			
+			switch ( tblField.type ) {
+				case 'text':
+				case 'string':
+					sFieldHtml = '<input type="text" name="' + tblField.name + '" placeholder="' + sPlaceholder + '" class="layui-input"' + sRequired + '>';
+				break;
+				
+				case 'textarea':
+					sFieldHtml = '<textarea name="' + tblField.name + '" placeholder="' + sPlaceholder + '" class="layui-textarea"' + sRequired + '></textarea>';
+				break;
+				
+				case 'richtext':
+					sFieldHtml = '<textarea name="' + tblField.name + '" placeholder="' + sPlaceholder + '" class="layui-textarea" style="height: 200px;"' + sRequired + '></textarea>';
+				break;
+				
+				case 'number':
+				case 'int':
+				case 'integer':
+					sFieldHtml = '<input type="number" name="' + tblField.name + '" placeholder="' + sPlaceholder + '" class="layui-input"' + sRequired + '>';
+				break;
+				
+				case 'switch':
+					sFieldHtml = '<input type="checkbox" name="' + tblField.name + '" lay-skin="switch" lay-text="是|否">';
+				break;
+				
+				case 'image':
+					sFieldHtml = '<input type="text" name="' + tblField.name + '" placeholder="请输入图片URL" class="layui-input"' + sRequired + '>';
+				break;
+				
+				case 'select':
+					sFieldHtml = '<select name="' + tblField.name + '"' + sRequired + '>';
+					sFieldHtml += '<option value="">请选择</option>';
+					if ( tblField.options ) {
+						for ( var j = 0; j < tblField.options.length; j++ ) {
+							var opt = tblField.options[j];
+							sFieldHtml += '<option value="' + opt.value + '">' + opt.text + '</option>';
+						}
+					}
+					sFieldHtml += '</select>';
+				break;
+				
+				default:
+					sFieldHtml = '<input type="text" name="' + tblField.name + '" placeholder="' + sPlaceholder + '" class="layui-input"' + sRequired + '>';
+				break;
+			}
+			
+			sFormHtml += '<div class="layui-form-item">';
+			sFormHtml += '<label class="layui-form-label">' + (tblField.title || tblField.name) + '</label>';
+			sFormHtml += '<div class="layui-input-block">' + sFieldHtml + '</div>';
+			sFormHtml += '</div>';
+		}
+		
+		document.getElementById('formFields').innerHTML = sFormHtml;
+		form.render();
+		
+		// 获取现有数据并填充表单
+		return fetch(sApiPrefix + '/get?id=' + iDataId);
+	})
+	.then(function(response){ return response.json(); })
+	.then(function(result){
+		if ( !result || !result.result ) {
+			layer.msg('获取数据失败', {icon: 2});
+			return;
+		}
+		
+		var tblData = result.data;
+		
+		// 填充表单数据
+		for ( var i = 0; i < G_Fields.length; i++ ) {
+			var tblField = G_Fields[i];
+			var sFieldName = tblField.name;
+			var sValue = tblData[sFieldName];
+			
+			if ( sValue !== undefined && sValue !== null ) {
+				if ( tblField.type === 'switch' ) {
+					// 开关类型需要特殊处理
+					var elem = document.querySelector('input[name="' + sFieldName + '"]');
+					if ( elem ) {
+						elem.checked = !!sValue;
+					}
+				} else {
+					var elem = document.querySelector('[name="' + sFieldName + '"]');
+					if ( elem ) {
+						elem.value = sValue;
+					}
+				}
+			}
+		}
+		
+		form.render();
+	})
+	.catch(function(error){
+		layer.msg('获取数据出错', {icon: 2});
+		console.error('Error:', error);
+	});
+	
+	// 表单提交
+	form.on('submit(Model_Edit_Submit)', function(data){
+		fetch(sApiPrefix + '/save', {
+			method: 'PUT',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(data.field)
+		})
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( result && result.result === true ) {
+				layer.msg(result.message || '保存成功', {icon: 1});
+				// 关闭当前弹窗并刷新父页面
+				setTimeout(function(){
+					var parentLayer = parent.layer;
+					var index = parentLayer.getFrameIndex(window.name);
+					parentLayer.close(index);
+					// 刷新父页面的表格
+					if ( parent.layui && parent.layui.table ) {
+						parent.layui.table.reloadData('Table_Model_Data');
+					}
+				}, 500);
+			} else {
+				layer.msg(result.message || '保存失败', {icon: 2});
+			}
+		})
+		.catch(function(error){
+			layer.msg('请求出错', {icon: 2});
+			console.error('Error:', error);
+		});
+		
+		return false;
+	});
+});
+</script>
+</body>
+</html>

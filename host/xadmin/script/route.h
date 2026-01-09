@@ -78,6 +78,22 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/trace/auth",							Request_Trace_Auth);
 	AddStaticRouteHTTP("/admin/trace/route",						Request_Trace_Route);
 	
+	// 添加 HTTP 静态路由 - Model (模型管理)
+	AddStaticRouteHTTP("/admin/model/list",							Request_Model_List);
+	AddStaticRouteHTTP("/admin/model/get",							Request_Model_Get);
+	AddStaticRouteHTTP("/admin/model/add",							Request_Model_Add);
+	AddStaticRouteHTTP("/admin/model/save",							Request_Model_Save);
+	AddStaticRouteHTTP("/admin/model/delete",						Request_Model_Delete);
+	AddStaticRouteHTTP("/admin/model/fields",						Request_Model_Fields);
+	AddStaticRouteHTTP("/admin/model/fields/save",					Request_Model_Fields_Save);
+	AddStaticRouteHTTP("/admin/model/compile",						Request_Model_Compile);
+	AddStaticRouteHTTP("/admin/model/enable",						Request_Model_Enable);
+	AddStaticRouteHTTP("/admin/model/disable",						Request_Model_Disable);
+	AddStaticRouteHTTP("/admin/view/model",							Request_View_Model_List);
+	AddStaticRouteHTTP("/admin/view/model/add",						Request_View_Model_Add);
+	AddStaticRouteHTTP("/admin/view/model/edit",					Request_View_Model_Edit);
+	AddStaticRouteHTTP("/admin/view/model/fields",					Request_View_Model_Fields);
+	
 	// ==================== 后台管理前台用户路由 ====================
 	
 	// 添加 HTTP 静态路由 - 后台管理前台用户 (Member)

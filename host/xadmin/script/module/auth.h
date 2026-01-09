@@ -473,12 +473,19 @@ void Auth_Init()
 	// 预编译 SQL 语句
 	Auth_CompileSQL();
 	
-	// 更新 uris 表 ( 添加未收录的 URI，删除已失效的 URI )
-	Auth_UpdateURIS();
-	
 	// 重新加载全局缓存
 	ReloadCache_Auth_Auth();
 	ReloadCache_Auth_Group();
+	Auth_ReloadCache();
+}
+
+// 同步 URI 表（应在所有路由注册完成后调用）
+void Auth_SyncURIS()
+{
+	// 更新 uris 表 ( 添加未收录的 URI，删除已失效的 URI )
+	Auth_UpdateURIS();
+	
+	// 重新加载缓存
 	Auth_ReloadCache();
 }
 

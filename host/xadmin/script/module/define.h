@@ -23,6 +23,8 @@ str ToolPath;
 str OptionPath;
 str InstallPath;
 str TemplatePath;
+str ModelPath;				// 模型实例目录 (script/model)
+str ModelTemplatePath;		// 模型代码模板目录 (data/model_template)
 
 
 
@@ -276,10 +278,14 @@ void Define_Init(XS_ServerObject objServer, XS_HostObject objHost)
 	OptionPath = xrtPathJoin(3, AppPath, "data", "options");
 	InstallPath = xrtPathJoin(3, AppPath, "data", "install");
 	TemplatePath = xrtPathJoin(3, AppPath, "data", "template");
+	ModelPath = xrtPathJoin(2, AppPath, "script/model");
+	ModelTemplatePath = xrtPathJoin(3, AppPath, "data", "model_template");
 	
 	// 自动创建目录
 	xrtDirCreate(LogPath);
 	xrtDirCreate(TempPath);
+	xrtDirCreate(ModelPath);
+	xrtDirCreate(ModelTemplatePath);
 }
 
 
@@ -297,6 +303,8 @@ void Define_Unit()
 	xrtFree(OptionPath);
 	xrtFree(InstallPath);
 	xrtFree(TemplatePath);
+	xrtFree(ModelPath);
+	xrtFree(ModelTemplatePath);
 }
 
 
