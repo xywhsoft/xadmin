@@ -6,10 +6,14 @@
 <!-- 表格工具栏 -->
 <script type="text/html" id="Toolbar_Member_AuthGroup">
 	<div class="layui-inline">
+		<input type="text" id="Search_Member_AuthGroup" placeholder="搜索权限分类名称或描述..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Member_AuthGroup_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
 		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Member_AuthGroup_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
 	</div>
 	<div class="layui-inline" style="float: right;">
-		<button class="layui-btn layui-btn-sm" lay-event="Member_AuthGroup_Add"><i class="layui-icon layui-icon-addition"></i> 添加权限分类</button>
+		<button class="layui-btn layui-btn-sm" lay-event="Member_AuthGroup_Add"><i class="layui-icon layui-icon-addition"></i> 添加分类</button>
 	</div>
 </script>
 
@@ -41,18 +45,23 @@
 				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
 			},
 			cols: [[
-				{field:'id', width:80, title: 'ID'},
-				{field:'name', width:180, title: '分类名称'},
+				{field:'sort', width:80, title: '排序'},
+				{width:320, title: '分类名称', templet: '<code>{{= d.name }}</code>'},
 				{field:'desc', title: '描述'},
-				{field:'sort', width:100, title: '排序'},
-				{width:100, title: '权限数', templet: '<span class="layui-badge layui-bg-blue">{{= d.authCount || 0 }}</span>'},
+				{width:100, title: '分组数量', field:'authCount', templet: '<span class="layui-badge layui-bg-blue">{{= d.authCount || 0 }} 个分组</span>'},
 				{field:'createTime', width:180, title: '创建时间'},
-				{width:160, title: '操作', templet: '#Tool_Member_AuthGroup'},
+				{field:'updateTime', width:180, title: '修改时间'},
+				{width:120, title: '操作', templet: '#Tool_Member_AuthGroup'},
 			]],
 		});
 		
 		table.on('toolbar(Table_Member_AuthGroup)', function(obj){
 			switch ( obj.event ) {
+				case 'Member_AuthGroup_Search':
+					table.reloadData('Table_Member_AuthGroup', {
+						where: { search: '%' + document.getElementById('Search_Member_AuthGroup').value + '%' },
+					});
+				break;
 				case 'Member_AuthGroup_Refresh':
 					table.reloadData('Table_Member_AuthGroup');
 				break;

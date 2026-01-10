@@ -68,16 +68,18 @@ void Member_Init()
 		"FROM member WHERE username = ? AND isDelete = 0 AND status = 1",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_login, NULL);
 	
-	// memberGroup 表 - 分页获取所有前台用户组数据
+	// memberGroup 表 - 分页获取所有前台用户组数据 (包含 total 计数)
 	sqlite3_prepare_v3(db,
-		"SELECT id, name, desc, authList, authLevel, createTime, updateTime "
+		"SELECT id, name, desc, authList, authLevel, createTime, updateTime, "
+		"(SELECT COUNT(*) FROM memberGroup WHERE isDelete = 0) AS total "
 		"FROM memberGroup WHERE isDelete = 0 ORDER BY id ASC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_all, NULL);
 	
-	// memberGroup 表 - 分页条件查询前台用户组数据
+	// memberGroup 表 - 分页条件查询前台用户组数据 (支持搜索名称和描述)
 	sqlite3_prepare_v3(db,
-		"SELECT id, name, desc, authList, authLevel, createTime, updateTime "
-		"FROM memberGroup WHERE isDelete = 0 AND name LIKE ? ORDER BY id ASC LIMIT ? OFFSET ?",
+		"SELECT id, name, desc, authList, authLevel, createTime, updateTime, "
+		"(SELECT COUNT(*) FROM memberGroup WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1)) AS total "
+		"FROM memberGroup WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1) ORDER BY id ASC LIMIT ?2 OFFSET ?3",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_sel, NULL);
 	
 	// memberGroup 表 - 根据 ID 获取前台用户组记录
@@ -106,14 +108,18 @@ void Member_Init()
 		"SELECT COUNT(*) FROM member WHERE groupId = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_sum, NULL);
 	
-	// memberAuthGroup 表 - 分页获取所有前台权限分类数据
+	// memberAuthGroup 表 - 分页获取所有前台权限分类数据 (包含 total 计数)
 	sqlite3_prepare_v3(db,
-		"SELECT id, name, desc, sort, createTime, updateTime FROM memberAuthGroup WHERE isDelete = 0 ORDER BY sort ASC LIMIT ? OFFSET ?",
+		"SELECT id, name, desc, sort, createTime, updateTime, "
+		"(SELECT COUNT(*) FROM memberAuthGroup WHERE isDelete = 0) AS total "
+		"FROM memberAuthGroup WHERE isDelete = 0 ORDER BY sort ASC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_all, NULL);
 	
-	// memberAuthGroup 表 - 分页条件查询前台权限分类数据
+	// memberAuthGroup 表 - 分页条件查询前台权限分类数据 (支持搜索名称和描述)
 	sqlite3_prepare_v3(db,
-		"SELECT id, name, desc, sort, createTime, updateTime FROM memberAuthGroup WHERE isDelete = 0 AND name LIKE ? ORDER BY sort ASC LIMIT ? OFFSET ?",
+		"SELECT id, name, desc, sort, createTime, updateTime, "
+		"(SELECT COUNT(*) FROM memberAuthGroup WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1)) AS total "
+		"FROM memberAuthGroup WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1) ORDER BY sort ASC LIMIT ?2 OFFSET ?3",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_sel, NULL);
 	
 	// memberAuthGroup 表 - 根据 ID 获取前台权限分类记录
@@ -146,14 +152,20 @@ void Member_Init()
 		"UPDATE memberAuth SET groupID = 1, updateTime = ? WHERE groupID = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_mov, NULL);
 	
-	// memberAuth 表 - 分页获取所有前台权限分组数据
+	// memberAuth 表 - 分页获取所有前台权限分组数据 (JOIN memberAuthGroup 获取分类名称)
 	sqlite3_prepare_v3(db,
-		"SELECT id, groupID, name, desc, sort, createTime, updateTime FROM memberAuth WHERE isDelete = 0 ORDER BY sort ASC LIMIT ? OFFSET ?",
+		"SELECT a.id, a.groupID, a.name, a.desc, a.sort, a.createTime, a.updateTime, g.name AS groupName, "
+		"(SELECT COUNT(*) FROM memberAuth WHERE isDelete = 0) AS total "
+		"FROM memberAuth a LEFT JOIN memberAuthGroup g ON a.groupID = g.id "
+		"WHERE a.isDelete = 0 ORDER BY a.sort ASC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_all, NULL);
 	
-	// memberAuth 表 - 分页条件查询前台权限分组数据
+	// memberAuth 表 - 分页条件查询前台权限分组数据 (JOIN memberAuthGroup 获取分类名称)
 	sqlite3_prepare_v3(db,
-		"SELECT id, groupID, name, desc, sort, createTime, updateTime FROM memberAuth WHERE isDelete = 0 AND name LIKE ? ORDER BY sort ASC LIMIT ? OFFSET ?",
+		"SELECT a.id, a.groupID, a.name, a.desc, a.sort, a.createTime, a.updateTime, g.name AS groupName, "
+		"(SELECT COUNT(*) FROM memberAuth WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1)) AS total "
+		"FROM memberAuth a LEFT JOIN memberAuthGroup g ON a.groupID = g.id "
+		"WHERE a.isDelete = 0 AND (a.name LIKE ?1 OR a.desc LIKE ?1) ORDER BY a.sort ASC LIMIT ?2 OFFSET ?3",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_sel, NULL);
 	
 	// memberAuth 表 - 根据 ID 获取前台权限分组记录

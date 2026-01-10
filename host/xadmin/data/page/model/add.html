@@ -8,8 +8,9 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link href="/layui/css/layui.css" rel="stylesheet">
 </head>
-<body>
-	<form class="layui-form" style="padding: 20px; min-height: calc(100vh - 40px); display: flex; flex-direction: column;" lay-filter="ModelAddForm">
+<body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+	<div style="flex: 1; overflow-y: auto; padding: 20px;">
+	<form class="layui-form" lay-filter="ModelAddForm">
 		<div class="layui-form-item">
 			<label class="layui-form-label">模型标识</label>
 			<div class="layui-input-block">
@@ -40,12 +41,12 @@
 				<textarea name="desc" placeholder="模型描述信息" class="layui-textarea" style="min-height: 80px;"></textarea>
 			</div>
 		</div>
-		<div style="flex: 1;"></div>
-		<div class="layui-form-item" style="text-align: right; margin-bottom: 0;">
-			<button class="layui-btn" lay-submit lay-filter="submit">创建模型</button>
-			<button type="button" class="layui-btn layui-btn-primary" id="btnCancel">取消</button>
-		</div>
 	</form>
+	</div>
+	<div style="padding: 10px 20px; border-top: 1px solid #e6e6e6; text-align: right;">
+		<button class="layui-btn layui-bg-blue" lay-submit lay-filter="submit"><i class="layui-icon layui-icon-ok"></i> 创建模型</button>
+		<button type="button" class="layui-btn layui-btn-primary" id="btnCancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
+	</div>
 	<script src="/layui/layui.js"></script>
 	<script>
 		layui.use('form', function(){

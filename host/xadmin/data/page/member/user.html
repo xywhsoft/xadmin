@@ -6,7 +6,7 @@
 <!-- 表格工具栏 -->
 <script type="text/html" id="Toolbar_Member_User">
 	<div class="layui-inline">
-		<input type="text" id="searchMemberUser" placeholder="搜索用户名..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+		<input type="text" id="Search_Member_User" placeholder="搜索用户名..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
 	</div>
 	<div class="layui-inline">
 		<button class="layui-btn layui-btn-sm" lay-event="Member_User_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
@@ -38,15 +38,9 @@
 		return hashHex;
 	}
 	
-	// 格式化余额（分转元）
-	function formatBalance(balance) {
-		return (balance / 100).toFixed(2);
-	}
-	
-	layui.use(['table', 'form'], function(){
+	layui.use(['table'], function(){
 		var table = layui.table;
 		var layer = layui.layer;
-		var form = layui.form;
 		var $ = layui.$;
 		
 		// 创建渲染实例
@@ -85,7 +79,7 @@
 			switch ( obj.event ) {
 				case 'Member_User_Search':
 					table.reloadData('Table_Member_User', {
-						where: { search: "%" + document.getElementById('searchMemberUser').value + "%" },
+						where: { search: "%" + document.getElementById('Search_Member_User').value + "%" },
 					});
 				break;
 				case 'Member_User_Refresh':
@@ -148,80 +142,11 @@
 			} else if ( obj.event == 'balance' ) {
 				// 余额调整
 				layer.open({
-					type: 1,
 					title: '余额调整 - ' + data.username,
-					area: ['450px', '360px'],
-					content: `
-						<form class="layui-form" style="padding: 20px;" lay-filter="balanceForm">
-							<div class="layui-form-item">
-								<label class="layui-form-label">当前余额</label>
-								<div class="layui-input-block">
-									<input type="text" class="layui-input" value="${formatBalance(data.balance)} 元" readonly>
-								</div>
-							</div>
-							<div class="layui-form-item">
-								<label class="layui-form-label">操作类型</label>
-								<div class="layui-input-block">
-									<select name="type" lay-filter="balanceType">
-										<option value="1">充值 (+)</option>
-										<option value="2">扣款 (-)</option>
-									</select>
-								</div>
-							</div>
-							<div class="layui-form-item">
-								<label class="layui-form-label">金额(元)</label>
-								<div class="layui-input-block">
-									<input type="number" name="amount" step="0.01" min="0.01" class="layui-input" placeholder="请输入金额" required>
-								</div>
-							</div>
-							<div class="layui-form-item">
-								<label class="layui-form-label">备注</label>
-								<div class="layui-input-block">
-									<input type="text" name="remark" class="layui-input" placeholder="操作备注">
-								</div>
-							</div>
-							<div class="layui-form-item">
-								<div class="layui-input-block">
-									<button type="button" class="layui-btn" id="submitBalance">确认</button>
-									<button type="button" class="layui-btn layui-btn-primary" id="cancelBalance">取消</button>
-								</div>
-							</div>
-						</form>
-					`,
-					success: function(layero, index) {
-						form.render('select');
-						layero.find('#cancelBalance').click(function(){ layer.close(index); });
-						layero.find('#submitBalance').click(function(){
-							var type = layero.find('select[name=type]').val();
-							var amount = parseFloat(layero.find('input[name=amount]').val());
-							var remark = layero.find('input[name=remark]').val();
-							if (!amount || amount <= 0) {
-								layer.msg('请输入有效金额', {icon: 2});
-								return;
-							}
-							// 转换为分
-							var amountCent = Math.round(amount * 100);
-							fetch('/admin/member/user/balance', {
-								method: 'POST',
-								headers: { 'Content-Type': 'application/json' },
-								body: JSON.stringify({ id: data.id, type: parseInt(type), amount: amountCent, remark: remark || '' })
-							})
-							.then(response => response.json())
-							.then(result => {
-								if (result && result.result === true) {
-									layer.msg(result.message || '余额调整成功', {icon: 1});
-									table.reloadData('Table_Member_User');
-									layer.close(index);
-								} else {
-									layer.msg(result.message || '操作失败', {icon: 2});
-								}
-							})
-							.catch(error => {
-								layer.msg('请求出错', {icon: 2});
-								console.error('Error:', error);
-							});
-						});
-					}
+					type: 2,
+					shadeClose: true,
+					area: ['450px', '400px'],
+					content: '/admin/view/member/user/balance?id=' + data.id,
 				});
 			} else if ( obj.event == 'delete' ) {
 				layer.confirm('确定要删除用户 "' + data.username + '" 吗？', {

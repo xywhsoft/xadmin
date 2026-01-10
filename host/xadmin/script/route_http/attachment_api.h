@@ -30,6 +30,7 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 	size_t iFileSize = 0;
 	int iAllowHotlink = 1;
 	int iAccessType = 0;
+	int iAccessLevel = 0;
 	int64 iPrice = 0;
 	int iPriceType = 0;
 	
@@ -60,6 +61,11 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 			size_t iLen = part.body.len < 7 ? part.body.len : 7;
 			memcpy(sTmp, part.body.buf, iLen);
 			iAccessType = atoi(sTmp);
+		} else if ( mg_match(part.name, mg_str("accessLevel"), NULL) ) {
+			char sTmp[8] = {0};
+			size_t iLen = part.body.len < 7 ? part.body.len : 7;
+			memcpy(sTmp, part.body.buf, iLen);
+			iAccessLevel = atoi(sTmp);
 		} else if ( mg_match(part.name, mg_str("price"), NULL) ) {
 			char sTmp[24] = {0};
 			size_t iLen = part.body.len < 23 ? part.body.len : 23;
@@ -147,7 +153,7 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 	// 添加数据库记录
 	bool bOK = Attachment_Add(sXID, sFilename, sExt, sMime, iFileSize, sPath,
 							  sModelName, iRecordId, iUploaderId, iUploaderType,
-							  iAllowHotlink, iAccessType, iPrice, iPriceType);
+							  iAllowHotlink, iAccessType, iAccessLevel, iPrice, iPriceType);
 	
 	if ( bOK ) {
 		str sJson = xrtFormat("{\"result\":true,\"data\":{\"xid\":\"%s\",\"filename\":\"%s\",\"ext\":\"%s\",\"size\":%lld,\"url\":\"/attachment?xid=%s\"}}",
@@ -211,8 +217,8 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 	int64 iUploaderId = sqlite3_column_int64(stmt_attachment_get, 8);
 	int iUploaderType = sqlite3_column_int(stmt_attachment_get, 9);
 	int iAccessType = sqlite3_column_int(stmt_attachment_get, 11);
-	int64 iPrice = sqlite3_column_int64(stmt_attachment_get, 12);
-	int iPriceType = sqlite3_column_int(stmt_attachment_get, 13);
+	int64 iPrice = sqlite3_column_int64(stmt_attachment_get, 13);
+	int iPriceType = sqlite3_column_int(stmt_attachment_get, 14);
 	
 	sqlite3_reset(stmt_attachment_get);
 	

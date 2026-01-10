@@ -25,6 +25,7 @@ CREATE TABLE attachment (
 	uploaderType  INTEGER DEFAULT (1),
 	allowHotlink  INTEGER DEFAULT (1),
 	accessType    INTEGER DEFAULT (0),
+	accessLevel   INTEGER DEFAULT (0),
 	price         INTEGER DEFAULT (0),
 	priceType     INTEGER DEFAULT (0),
 	salesCount    INTEGER DEFAULT (0),

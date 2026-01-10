@@ -330,7 +330,7 @@ bool Attachment_EnsureDir(str sPath)
 // 添加附件记录
 bool Attachment_Add(str sXID, str sFilename, str sExt, str sMime, int64 iSize, str sPath,
 					str sModelName, int64 iRecordId, int64 iUploaderId, int iUploaderType,
-					int iAllowHotlink, int iAccessType, int64 iPrice, int iPriceType)
+					int iAllowHotlink, int iAccessType, int iAccessLevel, int64 iPrice, int iPriceType)
 {
 	sqlite3_bind_text(stmt_attachment_add, 1, sXID, -1, NULL);
 	sqlite3_bind_text(stmt_attachment_add, 2, sFilename, -1, NULL);
@@ -344,9 +344,10 @@ bool Attachment_Add(str sXID, str sFilename, str sExt, str sMime, int64 iSize, s
 	sqlite3_bind_int(stmt_attachment_add, 10, iUploaderType);
 	sqlite3_bind_int(stmt_attachment_add, 11, iAllowHotlink);
 	sqlite3_bind_int(stmt_attachment_add, 12, iAccessType);
-	sqlite3_bind_int64(stmt_attachment_add, 13, iPrice);
-	sqlite3_bind_int(stmt_attachment_add, 14, iPriceType);
-	sqlite3_bind_int64(stmt_attachment_add, 15, xrtNow());
+	sqlite3_bind_int(stmt_attachment_add, 13, iAccessLevel);
+	sqlite3_bind_int64(stmt_attachment_add, 14, iPrice);
+	sqlite3_bind_int(stmt_attachment_add, 15, iPriceType);
+	sqlite3_bind_int64(stmt_attachment_add, 16, xrtNow());
 	
 	int rc = sqlite3_step(stmt_attachment_add);
 	sqlite3_reset(stmt_attachment_add);
@@ -453,13 +454,13 @@ void Attachment_Init()
 	// 预编译 SQL 语句
 	sqlite3_prepare_v3(G_DB->objDB,
 		"INSERT INTO attachment (xid, filename, ext, mime, size, path, modelName, recordId, "
-		"uploaderId, uploaderType, allowHotlink, accessType, price, priceType, createTime) "
-		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"uploaderId, uploaderType, allowHotlink, accessType, accessLevel, price, priceType, createTime) "
+		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		-1, 0, &stmt_attachment_add, NULL);
 	
 	sqlite3_prepare_v3(G_DB->objDB,
 		"SELECT xid, filename, ext, mime, size, path, modelName, recordId, uploaderId, uploaderType, "
-		"allowHotlink, accessType, price, priceType, salesCount, downloadCount, remark, createTime "
+		"allowHotlink, accessType, accessLevel, price, priceType, salesCount, downloadCount, remark, createTime "
 		"FROM attachment WHERE xid = ? AND isDelete = 0",
 		-1, 0, &stmt_attachment_get, NULL);
 	

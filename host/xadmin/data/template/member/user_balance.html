@@ -2,57 +2,63 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>编辑权限分组</title>
+	<title>余额调整</title>
 	<meta name="renderer" content="webkit">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link href="/layui/css/layui.css" rel="stylesheet">
 </head>
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
-	<form class="layui-form" lay-filter="AuthEditForm" style="height: 100%; display: flex; flex-direction: column;">
+	<form class="layui-form" lay-filter="MemberUserBalanceForm" style="height: 100%; display: flex; flex-direction: column;">
+	<input type="hidden" name="id" value="{$id}">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-		<input type="hidden" name="id" value="{$id}">
 		<div class="layui-form-item">
-			<label class="layui-form-label">所属分类</label>
+			<label class="layui-form-label">用户名</label>
 			<div class="layui-input-block">
-				<select name="groupID" lay-verify="required">
-					{*GroupComboListItem:groupList}
+				<input type="text" value="{$username}" class="layui-input" readonly disabled style="background:#f2f2f2;">
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">当前余额</label>
+			<div class="layui-input-block">
+				<input type="text" value="{$balanceYuan} 元" class="layui-input" readonly disabled style="background:#f2f2f2;">
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">操作类型</label>
+			<div class="layui-input-block">
+				<select name="type" lay-verify="required">
+					<option value="1">充值 (+)</option>
+					<option value="2">扣款 (-)</option>
 				</select>
 			</div>
 		</div>
 		<div class="layui-form-item">
-			<label class="layui-form-label">权限名称</label>
+			<label class="layui-form-label">金额(元)</label>
 			<div class="layui-input-block">
-				<input type="text" name="name" value="{$name}" required lay-verify="required" placeholder="请输入权限名称" autocomplete="off" class="layui-input">
-			</div>
-		</div>
-		<div class="layui-form-item layui-form-text">
-			<label class="layui-form-label">描述</label>
-			<div class="layui-input-block">
-				<textarea name="desc" placeholder="请输入描述" class="layui-textarea" style="height: 80px;">{$desc}</textarea>
+				<input type="number" name="amount" step="0.01" min="0.01" placeholder="请输入金额" autocomplete="off" class="layui-input" lay-verify="required|number">
 			</div>
 		</div>
 		<div class="layui-form-item">
-			<label class="layui-form-label">排序</label>
+			<label class="layui-form-label">备注</label>
 			<div class="layui-input-block">
-				<input type="number" name="sort" value="{$sort}" placeholder="请输入排序值" autocomplete="off" class="layui-input">
+				<input type="text" name="remark" placeholder="操作备注（可选）" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 	</div>
 	<div style="padding: 10px 20px; border-top: 1px solid #e6e6e6; text-align: right;">
-		<button class="layui-btn layui-bg-blue" lay-submit lay-filter="submit"><i class="layui-icon layui-icon-ok"></i> 保存</button>
+		<button class="layui-btn layui-bg-blue" lay-submit lay-filter="submit"><i class="layui-icon layui-icon-ok"></i> 确认</button>
 		<button type="button" class="layui-btn layui-btn-primary" id="btnCancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
 	</div>
 	</form>
 	<script src="/layui/layui.js"></script>
 	<script>
-		var currentGroupID = {$groupID};
+		var iUserId = {$id};
 		
 		layui.use('form', function(){
 			var form = layui.form;
 			var layer = layui.layer;
 			
-			form.val('AuthEditForm', { groupID: currentGroupID });
 			form.render();
 			
 			document.getElementById('btnCancel').onclick = function(){
@@ -62,16 +68,25 @@
 			
 			form.on('submit(submit)', function(data){
 				var field = data.field;
+				var fAmount = parseFloat(field.amount);
+				
+				if ( !fAmount || fAmount <= 0 ) {
+					layer.msg('请输入有效金额', {icon: 2});
+					return false;
+				}
+				
+				// 转换为分
+				var iAmountCent = Math.round(fAmount * 100);
+				
 				var submitData = {
-					id: parseInt(field.id),
-					groupID: parseInt(field.groupID),
-					name: field.name,
-					desc: field.desc || '',
-					sort: parseInt(field.sort) || 0
+					id: iUserId,
+					type: parseInt(field.type),
+					amount: iAmountCent,
+					remark: field.remark || ''
 				};
 				
-				fetch('/admin/member/auth', {
-					method: 'PUT',
+				fetch('/admin/member/user/balance', {
+					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(submitData),
 				})
@@ -79,7 +94,7 @@
 				.then(function(data) {
 					if ( data.result ) {
 						layer.msg(data.message, {icon: 1});
-						parent.layui.table.reloadData('Table_Member_Auth');
+						parent.layui.table.reloadData('Table_Member_User');
 						var index = parent.layer.getFrameIndex(window.name);
 						parent.layer.close(index);
 					} else {
@@ -97,4 +112,3 @@
 	</script>
 </body>
 </html>
-{#define:GroupComboListItem}<option value="{$id}">{$name}</option>{#end}

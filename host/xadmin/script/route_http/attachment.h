@@ -130,7 +130,7 @@ void Request_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost,
 	// 添加数据库记录
 	bool bOK = Attachment_Add(sXID, sFilename, sExt, sMime, iFileSize, sPath,
 							  sModelName, iRecordId, iUploaderId, iUploaderType,
-							  iAllowHotlink, iAccessType, 0, 0);
+							  iAllowHotlink, iAccessType, 0, 0, 0);
 	
 	if ( bOK ) {
 		str sJson = xrtFormat("{\"result\":true,\"data\":{\"xid\":\"%s\",\"filename\":\"%s\",\"ext\":\"%s\",\"size\":%lld,\"url\":\"/attachment?xid=%s\"}}",
@@ -177,7 +177,7 @@ void Request_Attachment_List(XS_ServerObject objServer, XS_HostObject objHost, s
 	xbuffer_struct bufSQL;
 	xrtBufferInit(&bufSQL, 256);
 	xrtBufferAppend(&bufSQL, "SELECT xid, filename, ext, mime, size, modelName, recordId, "
-		"uploaderId, uploaderType, allowHotlink, accessType, price, priceType, salesCount, downloadCount, createTime "
+		"uploaderId, uploaderType, allowHotlink, accessType, accessLevel, price, priceType, salesCount, downloadCount, createTime "
 		"FROM attachment WHERE isDelete = 0", 0, XBUF_ANSI);
 	
 	if ( sModelName[0] ) {
@@ -216,11 +216,12 @@ void Request_Attachment_List(XS_ServerObject objServer, XS_HostObject objHost, s
 		xvoTableSetInt(tblRow, "uploaderType", 12, sqlite3_column_int(stmt, 8));
 		xvoTableSetBool(tblRow, "allowHotlink", 12, sqlite3_column_int(stmt, 9));
 		xvoTableSetInt(tblRow, "accessType", 10, sqlite3_column_int(stmt, 10));
-		xvoTableSetInt(tblRow, "price", 5, sqlite3_column_int64(stmt, 11));
-		xvoTableSetInt(tblRow, "priceType", 9, sqlite3_column_int(stmt, 12));
-		xvoTableSetInt(tblRow, "salesCount", 10, sqlite3_column_int(stmt, 13));
-		xvoTableSetInt(tblRow, "downloadCount", 13, sqlite3_column_int(stmt, 14));
-		xtime iTime = sqlite3_column_int64(stmt, 15);
+		xvoTableSetInt(tblRow, "accessLevel", 11, sqlite3_column_int(stmt, 11));
+		xvoTableSetInt(tblRow, "price", 5, sqlite3_column_int64(stmt, 12));
+		xvoTableSetInt(tblRow, "priceType", 9, sqlite3_column_int(stmt, 13));
+		xvoTableSetInt(tblRow, "salesCount", 10, sqlite3_column_int(stmt, 14));
+		xvoTableSetInt(tblRow, "downloadCount", 13, sqlite3_column_int(stmt, 15));
+		xtime iTime = sqlite3_column_int64(stmt, 16);
 		xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 		xvoArrayAppendValue(arrData, tblRow, TRUE);
 	}
@@ -299,12 +300,13 @@ void Request_Attachment_Get(XS_ServerObject objServer, XS_HostObject objHost, st
 	xvoTableSetInt(tblData, "uploaderType", 12, sqlite3_column_int(stmt_attachment_get, 9));
 	xvoTableSetBool(tblData, "allowHotlink", 12, sqlite3_column_int(stmt_attachment_get, 10));
 	xvoTableSetInt(tblData, "accessType", 10, sqlite3_column_int(stmt_attachment_get, 11));
-	xvoTableSetInt(tblData, "price", 5, sqlite3_column_int64(stmt_attachment_get, 12));
-	xvoTableSetInt(tblData, "priceType", 9, sqlite3_column_int(stmt_attachment_get, 13));
-	xvoTableSetInt(tblData, "salesCount", 10, sqlite3_column_int(stmt_attachment_get, 14));
-	xvoTableSetInt(tblData, "downloadCount", 13, sqlite3_column_int(stmt_attachment_get, 15));
-	xvoTableSetText(tblData, "remark", 6, (str)sqlite3_column_text(stmt_attachment_get, 16), 0, FALSE);
-	xtime iTime = sqlite3_column_int64(stmt_attachment_get, 17);
+	xvoTableSetInt(tblData, "accessLevel", 11, sqlite3_column_int(stmt_attachment_get, 12));
+	xvoTableSetInt(tblData, "price", 5, sqlite3_column_int64(stmt_attachment_get, 13));
+	xvoTableSetInt(tblData, "priceType", 9, sqlite3_column_int(stmt_attachment_get, 14));
+	xvoTableSetInt(tblData, "salesCount", 10, sqlite3_column_int(stmt_attachment_get, 15));
+	xvoTableSetInt(tblData, "downloadCount", 13, sqlite3_column_int(stmt_attachment_get, 16));
+	xvoTableSetText(tblData, "remark", 6, (str)sqlite3_column_text(stmt_attachment_get, 17), 0, FALSE);
+	xtime iTime = sqlite3_column_int64(stmt_attachment_get, 18);
 	xvoTableSetText(tblData, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 	
 	sqlite3_reset(stmt_attachment_get);
@@ -348,16 +350,17 @@ void Request_Attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, s
 	// 更新记录
 	sqlite3_stmt* stmt;
 	sqlite3_prepare_v3(G_DB->objDB,
-		"UPDATE attachment SET allowHotlink=?, accessType=?, price=?, priceType=?, remark=? WHERE xid=?",
+		"UPDATE attachment SET allowHotlink=?, accessType=?, accessLevel=?, price=?, priceType=?, remark=? WHERE xid=?",
 		-1, 0, &stmt, NULL);
 	
 	sqlite3_bind_int(stmt, 1, xvoTableGetBool(tblForm, "allowHotlink", 12) ? 1 : 0);
 	sqlite3_bind_int(stmt, 2, (int)xvoTableGetInt(tblForm, "accessType", 10));
-	sqlite3_bind_int64(stmt, 3, xvoTableGetInt(tblForm, "price", 5));
-	sqlite3_bind_int(stmt, 4, (int)xvoTableGetInt(tblForm, "priceType", 9));
+	sqlite3_bind_int(stmt, 3, (int)xvoTableGetInt(tblForm, "accessLevel", 11));
+	sqlite3_bind_int64(stmt, 4, xvoTableGetInt(tblForm, "price", 5));
+	sqlite3_bind_int(stmt, 5, (int)xvoTableGetInt(tblForm, "priceType", 9));
 	str sRemark = xvoTableGetText(tblForm, "remark", 6);
-	sqlite3_bind_text(stmt, 5, sRemark ? sRemark : (str)"", -1, NULL);
-	sqlite3_bind_text(stmt, 6, sXID, -1, NULL);
+	sqlite3_bind_text(stmt, 6, sRemark ? sRemark : (str)"", -1, NULL);
+	sqlite3_bind_text(stmt, 7, sXID, -1, NULL);
 	
 	int rc = sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
@@ -520,8 +523,9 @@ void Request_Attachment_Access(XS_ServerObject objServer, XS_HostObject objHost,
 	int iUploaderType = sqlite3_column_int(stmt_attachment_get, 9);
 	int iAllowHotlink = sqlite3_column_int(stmt_attachment_get, 10);
 	int iAccessType = sqlite3_column_int(stmt_attachment_get, 11);
-	int64 iPrice = sqlite3_column_int64(stmt_attachment_get, 12);
-	int iPriceType = sqlite3_column_int(stmt_attachment_get, 13);
+	int iAccessLevel = sqlite3_column_int(stmt_attachment_get, 12);
+	int64 iPrice = sqlite3_column_int64(stmt_attachment_get, 13);
+	int iPriceType = sqlite3_column_int(stmt_attachment_get, 14);
 	
 	sqlite3_reset(stmt_attachment_get);
 	
@@ -575,6 +579,32 @@ void Request_Attachment_Access(XS_ServerObject objServer, XS_HostObject objHost,
 				xrtFree(sJson);
 				return;
 			}
+		}
+	} else if ( iAccessType == 3 ) {
+		// 权限级别限制
+		if ( !hm->session || hm->session->Type != XVO_DT_TABLE ) {
+			xrtFree(sFilename);
+			xrtFree(sExt);
+			xrtFree(sMime);
+			xrtFree(sPath);
+			http_reply(c, 401, HTTP_CT_JSON, "{\"error\":\"Login required\"}", 0);
+			return;
+		}
+		
+		// 获取用户权限级别
+		int iUserLevel = xvoTableGetInt(hm->session, "authLevel", 9);
+		
+		// 检查权限级别是否足够
+		if ( iUserLevel < iAccessLevel ) {
+			xrtFree(sFilename);
+			xrtFree(sExt);
+			xrtFree(sMime);
+			xrtFree(sPath);
+			
+			str sJson = xrtFormat("{\"error\":\"Insufficient permission level\",\"required\":%d,\"current\":%d}", iAccessLevel, iUserLevel);
+			http_reply(c, 403, HTTP_CT_JSON, sJson, 0);
+			xrtFree(sJson);
+			return;
 		}
 	}
 	
@@ -633,6 +663,16 @@ void Request_View_Attachment_List(XS_ServerObject objServer, XS_HostObject objHo
 void Request_View_Attachment_Stats(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
 	LoadPage(c, 200, HTTP_CT_HTML, "attachment/stats.html");
+}
+
+void Request_View_Attachment_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	LoadPage(c, 200, HTTP_CT_HTML, "attachment/edit.html");
+}
+
+void Request_View_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	LoadPage(c, 200, HTTP_CT_HTML, "attachment/upload.html");
 }
 
 

@@ -64,6 +64,36 @@ void Request_View_Member_User_Edit(XS_ServerObject objServer, XS_HostObject objH
 	}
 }
 
+void Request_View_Member_User_Balance(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	if ( hm->methodCode == HTTP_GET ) {
+		char sID[24];
+		mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+		int64 id = xrtStrToI64(sID);
+		
+		xvalue tblInfo = xvoCreateTable();
+		sqlite3_bind_int64(stmt_member_get, 1, id);
+		if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
+			xvoTableSetInt(tblInfo, "id", 2, sqlite3_column_int64(stmt_member_get, 0));
+			xvoTableSetText(tblInfo, "username", 8, (str)sqlite3_column_text(stmt_member_get, 1), 0, FALSE);
+			int64 balance = sqlite3_column_int64(stmt_member_get, 4);
+			xvoTableSetInt(tblInfo, "balance", 7, balance);
+			// 转换为元，保留2位小数
+			char sBalanceYuan[32];
+			snprintf(sBalanceYuan, sizeof(sBalanceYuan), "%.2f", balance / 100.0);
+			xvoTableSetText(tblInfo, "balanceYuan", 11, sBalanceYuan, 0, FALSE);
+		}
+		sqlite3_reset(stmt_member_get);
+		size_t iSize = 0;
+		str sPage = MakePageWithTemplate("member/user_balance.html", tblInfo, &iSize);
+		xvoUnref(tblInfo);
+		http_reply(c, 200, HTTP_CT_HTML, sPage, iSize);
+		xrtFree(sPage);
+	} else {
+		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+	}
+}
+
 void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
 {
 	if ( hm->methodCode == HTTP_GET ) {
@@ -326,28 +356,72 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, stru
 		mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam));
 		int64 iLimit = xrtStrToI64(sParam); if ( iLimit <= 0 ) iLimit = 10;
 		int64 iOffset = (iPage - 1) * iLimit;
-		xvalue data = xvoCreateArray();
-		int64 iCount = 0;
-		sqlite3_bind_int64(stmt_mgroup_all, 1, iLimit);
-		sqlite3_bind_int64(stmt_mgroup_all, 2, iOffset);
-		while ( sqlite3_step(stmt_mgroup_all) == SQLITE_ROW ) {
-			xvalue tblRow = xvoCreateTable();
-			xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_mgroup_all, 0));
-			xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_mgroup_all, 1), 0, FALSE);
-			xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_mgroup_all, 2), 0, FALSE);
-			xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_mgroup_all, 4));
-			xtime iTime = sqlite3_column_int64(stmt_mgroup_all, 5);
-			xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-			sqlite3_bind_int64(stmt_mgroup_sum, 1, sqlite3_column_int64(stmt_mgroup_all, 0));
-			if ( sqlite3_step(stmt_mgroup_sum) == SQLITE_ROW ) xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_mgroup_sum, 0));
-			sqlite3_reset(stmt_mgroup_sum);
-			xvoArrayAppendValue(data, tblRow, TRUE);
+		int iSize = mg_http_get_var(&hm->query, "search", sParam, sizeof(sParam));
+		
+		xvalue data = xvoCreateArray(); int64 iCount = 0;
+		if ( iSize <= 0 ) {
+			// 查询全部
+			sqlite3_bind_int64(stmt_mgroup_all, 1, iLimit);
+			sqlite3_bind_int64(stmt_mgroup_all, 2, iOffset);
+			while ( sqlite3_step(stmt_mgroup_all) == SQLITE_ROW ) {
+				xvalue tblRow = xvoCreateTable(); int64 rowId = sqlite3_column_int64(stmt_mgroup_all, 0);
+				xvoTableSetInt(tblRow, "id", 2, rowId);
+				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_mgroup_all, 1), 0, FALSE);
+				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_mgroup_all, 2), 0, FALSE);
+				// 解析 authList 获取权限数量
+				str authList = (str)sqlite3_column_text(stmt_mgroup_all, 3);
+				int64 authCount = 0;
+				if ( authList && strlen(authList) > 2 ) {
+					xvalue arrAuth = xrtParseJSON(authList, strlen(authList));
+					if ( (arrAuth) && (arrAuth->Type == XVO_DT_ARRAY) ) authCount = xvoArrayItemCount(arrAuth);
+					if ( arrAuth ) xvoUnref(arrAuth);
+				}
+				xvoTableSetInt(tblRow, "authCount", 9, authCount);
+				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_mgroup_all, 4));
+				xtime iTime = sqlite3_column_int64(stmt_mgroup_all, 5);
+				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				iTime = sqlite3_column_int64(stmt_mgroup_all, 6);
+				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				sqlite3_bind_int64(stmt_mgroup_sum, 1, rowId);
+				if ( sqlite3_step(stmt_mgroup_sum) == SQLITE_ROW ) xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_mgroup_sum, 0));
+				sqlite3_reset(stmt_mgroup_sum);
+				if ( iCount <= 0 ) iCount = sqlite3_column_int64(stmt_mgroup_all, 7);
+				xvoArrayAppendValue(data, tblRow, TRUE);
+			}
+			sqlite3_reset(stmt_mgroup_all);
+		} else {
+			// 筛选查询
+			sqlite3_bind_text(stmt_mgroup_sel, 1, sParam, iSize, NULL);
+			sqlite3_bind_int64(stmt_mgroup_sel, 2, iLimit);
+			sqlite3_bind_int64(stmt_mgroup_sel, 3, iOffset);
+			while ( sqlite3_step(stmt_mgroup_sel) == SQLITE_ROW ) {
+				xvalue tblRow = xvoCreateTable(); int64 rowId = sqlite3_column_int64(stmt_mgroup_sel, 0);
+				xvoTableSetInt(tblRow, "id", 2, rowId);
+				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_mgroup_sel, 1), 0, FALSE);
+				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_mgroup_sel, 2), 0, FALSE);
+				// 解析 authList 获取权限数量
+				str authList = (str)sqlite3_column_text(stmt_mgroup_sel, 3);
+				int64 authCount = 0;
+				if ( authList && strlen(authList) > 2 ) {
+					xvalue arrAuth = xrtParseJSON(authList, strlen(authList));
+					if ( (arrAuth) && (arrAuth->Type == XVO_DT_ARRAY) ) authCount = xvoArrayItemCount(arrAuth);
+					if ( arrAuth ) xvoUnref(arrAuth);
+				}
+				xvoTableSetInt(tblRow, "authCount", 9, authCount);
+				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_mgroup_sel, 4));
+				xtime iTime = sqlite3_column_int64(stmt_mgroup_sel, 5);
+				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				iTime = sqlite3_column_int64(stmt_mgroup_sel, 6);
+				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				sqlite3_bind_int64(stmt_mgroup_sum, 1, rowId);
+				if ( sqlite3_step(stmt_mgroup_sum) == SQLITE_ROW ) xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_mgroup_sum, 0));
+				sqlite3_reset(stmt_mgroup_sum);
+				if ( iCount <= 0 ) iCount = sqlite3_column_int64(stmt_mgroup_sel, 7);
+				xvoArrayAppendValue(data, tblRow, TRUE);
+			}
+			sqlite3_reset(stmt_mgroup_sel);
 		}
-		sqlite3_reset(stmt_mgroup_all);
-		sqlite3_stmt* stmt_count;
-		sqlite3_prepare_v3(G_DB->objDB, "SELECT COUNT(*) FROM memberGroup WHERE isDelete = 0", -1, 0, &stmt_count, NULL);
-		if ( sqlite3_step(stmt_count) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_count, 0);
-		sqlite3_finalize(stmt_count);
+		
 		xvalue tblRet = xvoCreateTable();
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
 		xvoTableSetInt(tblRet, "code", 4, 0);
@@ -454,24 +528,52 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 		char sParam[64]; mg_http_get_var(&hm->query, "page", sParam, sizeof(sParam)); int64 iPage = xrtStrToI64(sParam); if ( iPage <= 0 ) iPage = 1;
 		mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam)); int64 iLimit = xrtStrToI64(sParam); if ( iLimit <= 0 ) iLimit = 10;
 		int64 iOffset = (iPage - 1) * iLimit;
+		int iSize = mg_http_get_var(&hm->query, "search", sParam, sizeof(sParam));
+		
 		xvalue data = xvoCreateArray(); int64 iCount = 0;
-		sqlite3_bind_int64(stmt_magroup_all, 1, iLimit); sqlite3_bind_int64(stmt_magroup_all, 2, iOffset);
-		while ( sqlite3_step(stmt_magroup_all) == SQLITE_ROW ) {
-			xvalue tblRow = xvoCreateTable(); int64 rowId = sqlite3_column_int64(stmt_magroup_all, 0);
-			xvoTableSetInt(tblRow, "id", 2, rowId);
-			xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_magroup_all, 1), 0, FALSE);
-			xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_magroup_all, 2), 0, FALSE);
-			xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_magroup_all, 3));
-			xtime iTime = sqlite3_column_int64(stmt_magroup_all, 4);
-			xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-			sqlite3_bind_int64(stmt_magroup_sum, 1, rowId);
-			if ( sqlite3_step(stmt_magroup_sum) == SQLITE_ROW ) xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_magroup_sum, 0));
-			sqlite3_reset(stmt_magroup_sum);
-			xvoArrayAppendValue(data, tblRow, TRUE);
+		if ( iSize <= 0 ) {
+			// 查询全部
+			sqlite3_bind_int64(stmt_magroup_all, 1, iLimit); sqlite3_bind_int64(stmt_magroup_all, 2, iOffset);
+			while ( sqlite3_step(stmt_magroup_all) == SQLITE_ROW ) {
+				xvalue tblRow = xvoCreateTable(); int64 rowId = sqlite3_column_int64(stmt_magroup_all, 0);
+				xvoTableSetInt(tblRow, "id", 2, rowId);
+				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_magroup_all, 1), 0, FALSE);
+				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_magroup_all, 2), 0, FALSE);
+				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_magroup_all, 3));
+				xtime iTime = sqlite3_column_int64(stmt_magroup_all, 4);
+				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				iTime = sqlite3_column_int64(stmt_magroup_all, 5);
+				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				sqlite3_bind_int64(stmt_magroup_sum, 1, rowId);
+				if ( sqlite3_step(stmt_magroup_sum) == SQLITE_ROW ) xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_magroup_sum, 0));
+				sqlite3_reset(stmt_magroup_sum);
+				if ( iCount <= 0 ) iCount = sqlite3_column_int64(stmt_magroup_all, 6);
+				xvoArrayAppendValue(data, tblRow, TRUE);
+			}
+			sqlite3_reset(stmt_magroup_all);
+		} else {
+			// 筛选查询
+			sqlite3_bind_text(stmt_magroup_sel, 1, sParam, iSize, NULL);
+			sqlite3_bind_int64(stmt_magroup_sel, 2, iLimit); sqlite3_bind_int64(stmt_magroup_sel, 3, iOffset);
+			while ( sqlite3_step(stmt_magroup_sel) == SQLITE_ROW ) {
+				xvalue tblRow = xvoCreateTable(); int64 rowId = sqlite3_column_int64(stmt_magroup_sel, 0);
+				xvoTableSetInt(tblRow, "id", 2, rowId);
+				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_magroup_sel, 1), 0, FALSE);
+				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_magroup_sel, 2), 0, FALSE);
+				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_magroup_sel, 3));
+				xtime iTime = sqlite3_column_int64(stmt_magroup_sel, 4);
+				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				iTime = sqlite3_column_int64(stmt_magroup_sel, 5);
+				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				sqlite3_bind_int64(stmt_magroup_sum, 1, rowId);
+				if ( sqlite3_step(stmt_magroup_sum) == SQLITE_ROW ) xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_magroup_sum, 0));
+				sqlite3_reset(stmt_magroup_sum);
+				if ( iCount <= 0 ) iCount = sqlite3_column_int64(stmt_magroup_sel, 6);
+				xvoArrayAppendValue(data, tblRow, TRUE);
+			}
+			sqlite3_reset(stmt_magroup_sel);
 		}
-		sqlite3_reset(stmt_magroup_all);
-		sqlite3_stmt* stmt_count; sqlite3_prepare_v3(G_DB->objDB, "SELECT COUNT(*) FROM memberAuthGroup WHERE isDelete = 0", -1, 0, &stmt_count, NULL);
-		if ( sqlite3_step(stmt_count) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_count, 0); sqlite3_finalize(stmt_count);
+		
 		xvalue tblRet = xvoCreateTable(); xvoTableSetBool(tblRet, "result", 6, TRUE); xvoTableSetInt(tblRet, "code", 4, 0);
 		xvoTableSetInt(tblRet, "count", 5, iCount); xvoTableSetValue(tblRet, "data", 4, data, TRUE);
 		size_t iRetSize = 0; char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
@@ -548,25 +650,50 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, struc
 		char sParam[64]; mg_http_get_var(&hm->query, "page", sParam, sizeof(sParam)); int64 iPage = xrtStrToI64(sParam); if ( iPage <= 0 ) iPage = 1;
 		mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam)); int64 iLimit = xrtStrToI64(sParam); if ( iLimit <= 0 ) iLimit = 10;
 		int64 iOffset = (iPage - 1) * iLimit;
+		int iSize = mg_http_get_var(&hm->query, "search", sParam, sizeof(sParam));
+		
 		xvalue data = xvoCreateArray(); int64 iCount = 0;
-		sqlite3_bind_int64(stmt_mauth_all, 1, iLimit); sqlite3_bind_int64(stmt_mauth_all, 2, iOffset);
-		while ( sqlite3_step(stmt_mauth_all) == SQLITE_ROW ) {
-			xvalue tblRow = xvoCreateTable(); int64 rowId = sqlite3_column_int64(stmt_mauth_all, 0);
-			xvoTableSetInt(tblRow, "id", 2, rowId);
-			xvoTableSetInt(tblRow, "groupID", 7, sqlite3_column_int64(stmt_mauth_all, 1));
-			xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_mauth_all, 2), 0, FALSE);
-			xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_mauth_all, 3), 0, FALSE);
-			xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_mauth_all, 4));
-			xtime iTime = sqlite3_column_int64(stmt_mauth_all, 5);
-			xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-			sqlite3_bind_int64(stmt_mauth_sum, 1, rowId);
-			if ( sqlite3_step(stmt_mauth_sum) == SQLITE_ROW ) xvoTableSetInt(tblRow, "urisCount", 9, sqlite3_column_int64(stmt_mauth_sum, 0));
-			sqlite3_reset(stmt_mauth_sum);
-			xvoArrayAppendValue(data, tblRow, TRUE);
+		if ( iSize <= 0 ) {
+			// 查询全部
+			sqlite3_bind_int64(stmt_mauth_all, 1, iLimit); sqlite3_bind_int64(stmt_mauth_all, 2, iOffset);
+			while ( sqlite3_step(stmt_mauth_all) == SQLITE_ROW ) {
+				xvalue tblRow = xvoCreateTable();
+				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_mauth_all, 0));
+				xvoTableSetInt(tblRow, "groupID", 7, sqlite3_column_int64(stmt_mauth_all, 1));
+				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_mauth_all, 2), 0, FALSE);
+				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_mauth_all, 3), 0, FALSE);
+				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_mauth_all, 4));
+				xtime iTime = sqlite3_column_int64(stmt_mauth_all, 5);
+				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				iTime = sqlite3_column_int64(stmt_mauth_all, 6);
+				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				xvoTableSetText(tblRow, "groupName", 9, (str)sqlite3_column_text(stmt_mauth_all, 7), 0, FALSE);
+				if ( iCount <= 0 ) iCount = sqlite3_column_int64(stmt_mauth_all, 8);
+				xvoArrayAppendValue(data, tblRow, TRUE);
+			}
+			sqlite3_reset(stmt_mauth_all);
+		} else {
+			// 筛选查询
+			sqlite3_bind_text(stmt_mauth_sel, 1, sParam, iSize, NULL);
+			sqlite3_bind_int64(stmt_mauth_sel, 2, iLimit); sqlite3_bind_int64(stmt_mauth_sel, 3, iOffset);
+			while ( sqlite3_step(stmt_mauth_sel) == SQLITE_ROW ) {
+				xvalue tblRow = xvoCreateTable();
+				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_mauth_sel, 0));
+				xvoTableSetInt(tblRow, "groupID", 7, sqlite3_column_int64(stmt_mauth_sel, 1));
+				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_mauth_sel, 2), 0, FALSE);
+				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_mauth_sel, 3), 0, FALSE);
+				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_mauth_sel, 4));
+				xtime iTime = sqlite3_column_int64(stmt_mauth_sel, 5);
+				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				iTime = sqlite3_column_int64(stmt_mauth_sel, 6);
+				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				xvoTableSetText(tblRow, "groupName", 9, (str)sqlite3_column_text(stmt_mauth_sel, 7), 0, FALSE);
+				if ( iCount <= 0 ) iCount = sqlite3_column_int64(stmt_mauth_sel, 8);
+				xvoArrayAppendValue(data, tblRow, TRUE);
+			}
+			sqlite3_reset(stmt_mauth_sel);
 		}
-		sqlite3_reset(stmt_mauth_all);
-		sqlite3_stmt* stmt_count; sqlite3_prepare_v3(G_DB->objDB, "SELECT COUNT(*) FROM memberAuth WHERE isDelete = 0", -1, 0, &stmt_count, NULL);
-		if ( sqlite3_step(stmt_count) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_count, 0); sqlite3_finalize(stmt_count);
+		
 		xvalue tblRet = xvoCreateTable(); xvoTableSetBool(tblRet, "result", 6, TRUE); xvoTableSetInt(tblRet, "code", 4, 0);
 		xvoTableSetInt(tblRet, "count", 5, iCount); xvoTableSetValue(tblRet, "data", 4, data, TRUE);
 		size_t iRetSize = 0; char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);

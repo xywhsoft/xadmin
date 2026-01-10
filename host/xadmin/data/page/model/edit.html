@@ -10,16 +10,14 @@
 	<style>
 		.layui-form-label { width: 120px; }
 		.layui-input-block { margin-left: 150px; }
-		.form-content { padding: 20px; padding-bottom: 70px; overflow-y: auto; }
-		.form-footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 15px 20px; background: #fff; border-top: 1px solid #e6e6e6; text-align: right; }
 		.layui-colla-item { margin-bottom: 10px; }
 		.layui-colla-title { background: #f8f8f8; }
 		.layui-colla-content { padding: 15px; }
 	</style>
 </head>
-<body>
-	<form class="layui-form" lay-filter="ModelEditForm">
-		<div class="form-content">
+<body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+	<div style="flex: 1; overflow-y: auto; padding: 20px;">
+		<form class="layui-form" lay-filter="ModelEditForm">
 			<input type="hidden" name="name" id="modelName">
 			<div class="layui-form-item">
 				<label class="layui-form-label">模型标识</label>
@@ -117,13 +115,12 @@
 					</div>
 				</div>
 			</div>
-		</div>
-		
-		<div class="form-footer">
-			<button class="layui-btn" lay-submit lay-filter="submit">保存修改</button>
-			<button type="button" class="layui-btn layui-btn-primary" id="btnCancel">取消</button>
-		</div>
-	</form>
+		</form>
+	</div>
+	<div style="padding: 10px 20px; border-top: 1px solid #e6e6e6; text-align: right;">
+		<button class="layui-btn layui-bg-blue" lay-submit lay-filter="submit"><i class="layui-icon layui-icon-ok"></i> 保存修改</button>
+		<button type="button" class="layui-btn layui-btn-primary" id="btnCancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
+	</div>
 	<script src="/layui/layui.js"></script>
 	<script>
 		layui.use(['form', 'element'], function(){

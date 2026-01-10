@@ -103,6 +103,7 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/view/member/user",					Request_View_Member_User);
 	AddStaticRouteHTTP("/admin/view/member/user/add",				Request_View_Member_User_Add);
 	AddStaticRouteHTTP("/admin/view/member/user/edit",				Request_View_Member_User_Edit);
+	AddStaticRouteHTTP("/admin/view/member/user/balance",			Request_View_Member_User_Balance);
 	
 	// 添加 HTTP 静态路由 - 后台管理前台用户组 (Member Group)
 	AddStaticRouteHTTP("/admin/member/group",						Request_Member_Group);
@@ -137,6 +138,8 @@ void RouteHTTP_Init()
 	
 	// 后台附件页面
 	AddStaticRouteHTTP("/admin/view/attachment",					Request_View_Attachment_List);
+	AddStaticRouteHTTP("/admin/view/attachment/edit",				Request_View_Attachment_Edit);
+	AddStaticRouteHTTP("/admin/view/attachment/upload",			Request_View_Attachment_Upload);
 	AddStaticRouteHTTP("/admin/view/attachment/stats",				Request_View_Attachment_Stats);
 	
 	// ==================== 前台API路由 ====================
