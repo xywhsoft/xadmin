@@ -7,6 +7,8 @@
 
 
 
+
+
 #include "inline_xrt.h"
 #include "inline_libtcc.h"
 #include "inline_mongoose.h"
@@ -14,7 +16,8 @@
 #include "inline_xdo.h"
 #include "inline_md4c.h"
 #include "inline_xtp.h"
-#include "inline_other.h"
+
+
 
 
 
@@ -78,6 +81,12 @@ typedef struct {
 	struct mg_connection* Conn;							// mongoose 连接对象
 	struct mg_connection* ConnTLS;						// mongoose 连接对象 TLS
 } XS_ServerStruct, *XS_ServerObject;
+
+
+
+
+
+#include "inline_other.h"
 
 
 
