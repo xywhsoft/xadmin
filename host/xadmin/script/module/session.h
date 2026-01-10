@@ -104,16 +104,6 @@ void Session_ExtendMember(xvalue session)
 
 
 
-// 清理过期的 Session
-// 注：过期 Session 已在 http.h 中每次请求时按需清理，此函数为预留接口
-void Session_Cleanup()
-{
-	// 每次 HTTP 请求时已在 http.h 中检查并删除过期 Session
-	// 无需额外的批量清理逻辑
-}
-
-
-
 // 卸载 Session 模块
 void Session_Unit()
 {

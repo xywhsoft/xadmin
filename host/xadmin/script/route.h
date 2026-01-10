@@ -124,7 +124,7 @@ void RouteHTTP_Init()
 	
 	// ==================== 附件管理路由 ====================
 	
-	// 附件访问（公开，通过查询参数 ?xid=xxx 访问）
+	// 附件访问（通过查询参数 ?xid=xxx 访问）
 	AddStaticRouteHTTP("/attachment",								Request_Attachment_Access);
 	
 	// 后台附件管理 API
@@ -151,7 +151,7 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/api/v1/balance/log",						API_BalanceLog);
 	
 	// 前台附件 API
-	AddStaticRouteHTTP("/api/v1/attachment/upload",				Request_Api_Attachment_Upload);
+	AddStaticRouteHTTP("/api/v1/attachment/upload",					Request_Api_Attachment_Upload);
 	AddStaticRouteHTTP("/api/v1/attachment/purchase",				Request_Api_Attachment_Purchase);
 	AddStaticRouteHTTP("/api/v1/attachment/my",						Request_Api_Attachment_MyList);
 	AddStaticRouteHTTP("/api/v1/attachment/purchased",				Request_Api_Attachment_Purchased);

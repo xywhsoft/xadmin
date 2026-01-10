@@ -1248,8 +1248,8 @@ bool Model_TccLoad(ModelInstance* pModel)
 		return FALSE;
 	}
 	
-	// 创建TCC状态机
-	TCCState* pTcc = tcc_new();
+	// 创建TCC状态机（使用 xsCreateTCC 自动配置路径和导入运行时函数）
+	TCCState* pTcc = xsCreateTCC(ModelPath);
 	if ( !pTcc ) {
 		printf("        [TCC] Failed to create TCC state\n");
 		xrtFree(sCode);
@@ -1259,38 +1259,14 @@ bool Model_TccLoad(ModelInstance* pModel)
 	// 设置错误回调
 	tcc_set_error_func(pTcc, stderr, Model_TccErrorFunc);
 	
-	// 添加引用文件、库文件目录（参考 xserver 实现）
-	#if defined(_WIN32) || defined(_WIN64)
-		tcc_add_include_path(pTcc, "tcc/include_win/winapi");
-		tcc_add_include_path(pTcc, "tcc/include_win");
-	#else
-		tcc_add_include_path(pTcc, "tcc/include_linux");
-		tcc_add_include_path(pTcc, "/usr/include");
-		tcc_add_library_path(pTcc, "/usr/lib");
-		tcc_add_include_path(pTcc, "/usr/include/x86_64-linux-gnu");
-		tcc_add_include_path(pTcc, "/usr/include/x86_64-linux-gnu/sys");
-		tcc_add_library_path(pTcc, "/usr/lib/x86_64-linux-gnu");
-	#endif
-	tcc_add_include_path(pTcc, "tcc/inc_xs");
-	tcc_add_include_path(pTcc, "tcc/include");
-	tcc_add_library_path(pTcc, "tcc/lib");
-	tcc_add_include_path(pTcc, ModelPath);
-	tcc_add_library_path(pTcc, ModelPath);
-	
-	// 设置编译到内存
-	tcc_set_output_type(pTcc, TCC_OUTPUT_MEMORY);
-	
 	// 编译代码
 	if ( tcc_compile_string(pTcc, sCode) < 0 ) {
 		printf("        [TCC] Compile failed\n");
-		tcc_delete(pTcc);
+		xsDestroyTCC(pTcc);
 		xrtFree(sCode);
 		return FALSE;
 	}
 	xrtFree(sCode);
-	
-	// 导入运行时和全局数据（使用 xserver 提供的 ImportAll 函数）
-	ImportAll(pTcc);
 	
 	// 注册模型管理器特有的符号
 	tcc_add_symbol(pTcc, "Model_AddRoute", Model_AddRoute);
@@ -1300,7 +1276,7 @@ bool Model_TccLoad(ModelInstance* pModel)
 	// 地址重定向
 	if ( tcc_relocate(pTcc) < 0 ) {
 		printf("        [TCC] Relocate failed\n");
-		tcc_delete(pTcc);
+		xsDestroyTCC(pTcc);
 		return FALSE;
 	}
 	
@@ -1320,7 +1296,7 @@ bool Model_TccLoad(ModelInstance* pModel)
 	
 	if ( !procInit ) {
 		printf("        [TCC] Init function not found\n");
-		tcc_delete(pTcc);
+		xsDestroyTCC(pTcc);
 		pModel->pTccState = NULL;
 		return FALSE;
 	}
@@ -1352,7 +1328,7 @@ bool Model_TccUnload(ModelInstance* pModel)
 	}
 	
 	// 释放TCC状态机
-	tcc_delete(pModel->pTccState);
+	xsDestroyTCC(pModel->pTccState);
 	pModel->pTccState = NULL;
 	
 	printf("        [TCC] Model unloaded: %s\n", pModel->sName);

@@ -5,7 +5,7 @@
 			"style":	"",
 			"options":	[
 				{
-					"value":	"jpg,jpeg,png,gif,webp,bmp,svg,ico,txt,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,mp3,mp4",
+					"value":	"jpg,jpeg,png,gif,webp,bmp,svg,ico,txt,json,md,pdf,doc,docx,xls,xlsx,ppt,pptx,zip,rar,7z,mp3,mp4",
 					"title":	"允许的文件类型",
 					"type":	"text",
 					"desc":	"多个扩展名用英文逗号分隔",
@@ -19,7 +19,7 @@
 					"desc":	"0表示不限制",
 					"name":	"maxSize"
 				}, {
-					"value":	0,
+					"value":	100,
 					"min":	0,
 					"title":	"用户上传配额(MB)",
 					"type":	"int",
