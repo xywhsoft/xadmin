@@ -142,7 +142,7 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 	
 	// 获取 MIME 类型
 	MimeMapping* pMime = Attachment_GetMime(sExt);
-	str sMime = pMime ? pMime->mime : "application/octet-stream";
+	str sMime = pMime ? pMime->mime : (str)"application/octet-stream";
 	
 	// 添加数据库记录
 	bool bOK = Attachment_Add(sXID, sFilename, sExt, sMime, iFileSize, sPath,

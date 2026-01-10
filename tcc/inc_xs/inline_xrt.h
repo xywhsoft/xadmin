@@ -168,6 +168,16 @@
 		xrand rand64_low;
 		xrand rand64_high;
 		
+		// 约等于配置
+		int iApproxIntMode;       // 整数模式: 0=差值, 1=百分比
+		double fApproxIntTol;     // 整数容差
+		int iApproxNumMode;       // 浮点模式: 0=差值, 1=百分比
+		double fApproxNumTol;     // 浮点容差
+		int64 iApproxTimeTol;     // 时间容差(xtime单位)
+		int iApproxStrMode;       // 字符串模式: 0=通配符, 1=相似度
+		double fApproxStrTol;     // 字符串相似度阈值(0.0-1.0)
+		bool bApproxStrCase;      // 通配符模式大小写开关(TRUE=忽略)
+		
 	} xrtGlobalData;
 	
 	// 全局数据
@@ -293,6 +303,10 @@
 	
 	/* ------------------------------------ Math 函数库 ------------------------------------ */
 	
+	// 约等于模式常量
+	#define XRT_APPROX_DIFF     0   // 差值模式
+	#define XRT_APPROX_PERCENT  1   // 百分比模式
+	
 	// 静态初始化随机数生成器的推荐值
 	#define XRAND_INITIALIZER  { 0x853c49e6748fea9bULL, 0xda3e39cb94b95bdbULL }
 	
@@ -316,6 +330,12 @@
 	
 	// 获取 32 位范围随机数
 	XXAPI int xrtRandRange(int min, int max);
+	
+	// 整数约等于（使用 xCore 配置）
+	XXAPI bool xrtIntApprox(int64 a, int64 b);
+	
+	// 浮点数约等于（使用 xCore 配置）
+	XXAPI bool xrtNumApprox(double a, double b);
 	
 	
 	
@@ -342,6 +362,9 @@
 	
 	// 字符串检查（ sText 中是否包含 sSubText 列出的字符，支持 utf-8 mb6 编码 ）
 	XXAPI str xrtCheckStr(str sText, size_t iSize, str sSubText, size_t iSubSize);
+	
+	// 通配符匹配（ * 匹配任意字符序列，? 匹配单个UTF-8字符，bCase 为 TRUE 时忽略大小写 ）
+	XXAPI bool xrtStrLike(str sText, size_t iTextSize, str sPattern, size_t iPatSize, bool bCase);
 	
 	// 裁剪字符串（ bSrcRevise 为 FALSE 时，需使用 xrtFree 释放内存 ）
 	XXAPI str xrtLTrim(str sText, size_t iSize, str sSubText, size_t iSubSize, bool bSrcRevise, size_t* iRetSize);
@@ -374,6 +397,22 @@
 	
 	// Base64 解码（ 需使用 xrtFree 释放 ）
 	XXAPI ptr xrtBase64Decode(str sText, size_t iSize, str sTable);
+	
+	// 整数格式化（格式符: , 千分位 | 0N 前导零 | + 正号 | x/X 十六进制 | o 八进制 | b 二进制）（ 需使用 xrtFree 释放 ）
+	XXAPI str xrtIntFormat(int64 value, str format);
+	
+	// 浮点数格式化（格式符: , 千分位 | .N 小数位 | + 正号 | % 百分比）（ 需使用 xrtFree 释放 ）
+	XXAPI str xrtNumFormat(double value, str format);
+	
+	// 字符串相似度（基于 Levenshtein 编辑距离，返回 0.0-1.0）
+	XXAPI double xrtStrSim(str s1, size_t len1, str s2, size_t len2);
+	
+	// 字符串约等于模式常量
+	#define XRT_STR_APPROX_LIKE     0   // 通配符模式（s2为模式串）
+	#define XRT_STR_APPROX_SIM      1   // 相似度阈值模式
+	
+	// 字符串约等于（使用 xCore 配置）
+	XXAPI bool xrtStrApprox(str s1, size_t len1, str s2, size_t len2);
 	
 	
 	
@@ -505,6 +544,93 @@
 	
 	// 单位时间差计算（ 不支持 XRT_TIME_INTERVAL_WEEKDAY ）
 	XXAPI int64 xrtDateDiff(int interval, xtime iTime1, xtime iTime2);
+	
+	// 字符串转时间（智能解析，支持多种格式）
+	// 支持: YYYY-MM-DD HH:MM:SS, YYYY/MM/DD, YYYYMMDD, YYYYMMDDHHMMSS, HH:MM:SS 等
+	XXAPI xtime xrtStrToTime(str sTime, size_t iSize);
+	
+	// 获取季度（1-4）
+	XXAPI int xrtQuarter(xtime iTime);
+	
+	// 获取日期部分（去除时间）
+	XXAPI xtime xrtDatePart(xtime iTime);
+	
+	// 获取时间部分（去除日期）
+	XXAPI xtime xrtTimePart(xtime iTime);
+	
+	// 是否同一天
+	XXAPI bool xrtIsSameDay(xtime iTime1, xtime iTime2);
+	
+	// 是否同一月
+	XXAPI bool xrtIsSameMonth(xtime iTime1, xtime iTime2);
+	
+	// 是否同一年
+	XXAPI bool xrtIsSameYear(xtime iTime1, xtime iTime2);
+	
+	// 判断时间是否在区间内
+	XXAPI bool xrtTimeInRange(xtime iTime, xtime iStart, xtime iEnd);
+	
+	// 判断两个时间区间是否重叠
+	XXAPI bool xrtTimeRangeOverlap(xtime iStart1, xtime iEnd1, xtime iStart2, xtime iEnd2);
+	
+	// 与Unix时间戳互转 - xtime转Unix时间戳
+	XXAPI int64 xrtToUnixTime(xtime iTime);
+	
+	// 与Unix时间戳互转 - Unix时间戳转xtime
+	XXAPI xtime xrtFromUnixTime(int64 unixTime);
+	
+	// 获取月份的第一天
+	XXAPI xtime xrtFirstDayOfMonth(xtime iTime);
+	
+	// 获取月份的最后一天
+	XXAPI xtime xrtLastDayOfMonth(xtime iTime);
+	
+	// 获取年份的第一天
+	XXAPI xtime xrtFirstDayOfYear(xtime iTime);
+	
+	// 获取年份的最后一天
+	XXAPI xtime xrtLastDayOfYear(xtime iTime);
+	
+	// 获取周的第一天（iStartDay: 0=周日, 1=周一, ...）
+	XXAPI xtime xrtFirstDayOfWeek(xtime iTime, int iStartDay);
+	
+	// 获取周的最后一天（iStartDay: 0=周日, 1=周一, ...）
+	XXAPI xtime xrtLastDayOfWeek(xtime iTime, int iStartDay);
+	
+	// 获取当年第几周（ISO周数，周一为一周开始）
+	XXAPI int xrtWeekOfYear(xtime iTime);
+	
+	// 获取当月第几周（周一为一周开始）
+	XXAPI int xrtWeekOfMonth(xtime iTime);
+	
+	// 获取UTC时间
+	XXAPI xtime xrtNowUTC();
+	
+	// 获取本地时区偏移（秒）
+	XXAPI int xrtTimezoneOffset();
+	
+	// UTC转本地时间
+	XXAPI xtime xrtUTCToLocal(xtime utc);
+	
+	// 本地时间转UTC
+	XXAPI xtime xrtLocalToUTC(xtime local);
+	
+	// 获取相对时间描述（如“3天前”、“2小时后”）（ 需使用 xrtFree 释放内存 ）
+	XXAPI str xrtRelativeTime(xtime iTime, xtime iBaseTime);
+	
+	// 时间格式化为字符串（ 需使用 xrtFree 释放内存 ）
+	// 格式占位符: yyyy/yy(年), mm/m(月,h后=分钟), mmm/mmmm(英文月份),
+	//             dd/d(日), hh/h(24时), HH/H(12时), nn/n(分钟),
+	//             ss/s(秒), ap/AP(am/pm), w/ww/www(星期), q(季度)
+	XXAPI str xrtTimeFormat(xtime iTime, str sFormat);
+	
+	// 字符串解析为时间
+	// 格式占位符同 xrtTimeFormat，另支持: *(跳过任意非数字), .(至少1个非数字), ?(跳过1字符), 空格(跳过空白)
+	// 解析时自动跳过前缀冗余文本
+	XXAPI xtime xrtTimeParse(str sTime, str sFormat);
+	
+	// 时间约等于（使用 xCore.iApproxTimeTol 容差）
+	XXAPI bool xrtTimeApprox(xtime a, xtime b);
 	
 	
 	
@@ -2349,7 +2475,7 @@
 		uint32 ErrorRefLine;					// 出错参考行
 		uint32 ErrorRefLinePos;				// 出错参考行位置
 		uint32 ErrorRefPos;					// 错误参考位置
-		xarray Tokens;								// Token 列表
+		xarray_struct Tokens;						// Token 列表
 		xparray_struct Actions;						// 编译后的动作列表
 		xdict_struct SubTemplates;					// 子模板列表（哈希表）
 	} XTE_LiteStruct, *XTE_LiteObject;
@@ -2381,6 +2507,126 @@
 	// 根据 XTE_LiteObject 模板对象生成文档
 	XXAPI char* xteMakeActions(xparray arrAction, XTE_LiteObject objTemplate, xvalue tblVal, xvalue tblRoot, xvalue tblENV, xdict tblInclude, size_t* pRetSize);
 	XXAPI char* xteMake(XTE_LiteObject objTemplate, xvalue tblVal, xvalue tblENV, xdict tblInclude, size_t* pRetSize);
+	
+	// 路径解析器：支持 a.b.c 和 arr[0] 语法
+	// path: 路径字符串（如 "user.profile.name" 或 "items[0].title"）
+	// pathLen: 路径长度（传0则自动计算）
+	// tblVal: 当前作用域
+	// tblRoot: 根作用域
+	// tblENV: 环境变量
+	// 返回: 解析到的 xvalue，失败返回 &XVO_VALUE_NULL
+	XXAPI xvalue xteResolvePath(const char* path, size_t pathLen, xvalue tblVal, xvalue tblRoot, xvalue tblENV);
+	
+	
+	
+	/* -------------------- 表达式解析器 (Expression Parser) -------------------- */
+	
+	// 表达式 Token 类型
+	#define XTE_ETK_EOF			0			// 结束
+	#define XTE_ETK_NUM			1			// 数字（整数或浮点数）
+	#define XTE_ETK_STR			2			// 字符串字面量
+	#define XTE_ETK_BOOL		3			// 布尔值 (true/false)
+	#define XTE_ETK_IDENT		4			// 标识符/变量名（支持路径）
+	#define XTE_ETK_LPAREN		10			// (
+	#define XTE_ETK_RPAREN		11			// )
+	// 运算符
+	#define XTE_ETK_OP_EQ		20			// =
+	#define XTE_ETK_OP_NE		21			// !=
+	#define XTE_ETK_OP_AE		22			// ~= (约等于)
+	#define XTE_ETK_OP_GT		23			// >
+	#define XTE_ETK_OP_LT		24			// <
+	#define XTE_ETK_OP_GE		25			// >=
+	#define XTE_ETK_OP_LE		26			// <=
+	#define XTE_ETK_OP_AND		30			// and
+	#define XTE_ETK_OP_OR		31			// or
+	#define XTE_ETK_OP_NOT		32			// not
+	
+	// 表达式 Token 结构体
+	typedef struct {
+		uint32 Type;						// Token 类型
+		union {
+			int64 IntVal;					// 整数值
+			double NumVal;					// 浮点数值
+			int BoolVal;						// 布尔值
+			struct {
+				const char* Ptr;			// 字符串/标识符指针
+				size_t Len;					// 长度
+			} Str;
+		} Value;
+		int IsFloat;							// 数字是否为浮点数
+		size_t Pos;							// 在表达式中的位置
+	} XTE_ExprToken_Struct, *XTE_ExprToken;
+	
+	// AST 节点类型
+	#define XTE_AST_LITERAL		1			// 字面量（数字、字符串、布尔）
+	#define XTE_AST_VARIABLE	2			// 变量引用
+	#define XTE_AST_UNARY		3			// 一元运算 (not)
+	#define XTE_AST_BINARY		4			// 二元运算
+	
+	// 字面量类型
+	#define XTE_LIT_INT			1			// 整数
+	#define XTE_LIT_FLOAT		2			// 浮点数
+	#define XTE_LIT_STRING		3			// 字符串
+	#define XTE_LIT_BOOL		4			// 布尔
+	
+	// AST 节点结构体（前向声明）
+	typedef struct XTE_ASTNode_Struct XTE_ASTNode_Struct;
+	typedef XTE_ASTNode_Struct* XTE_ASTNode;
+	
+	struct XTE_ASTNode_Struct {
+		uint32 Type;						// 节点类型
+		union {
+			// 字面量节点
+			struct {
+				uint32 LitType;			// 字面量类型
+				union {
+					int64 IntVal;
+					double NumVal;
+					int BoolVal;
+					struct {
+						char* Ptr;			// 已复制的字符串
+						size_t Len;
+					} Str;
+				} Val;
+			} Literal;
+			// 变量节点
+			struct {
+				char* Path;					// 路径字符串（已复制）
+				size_t PathLen;
+			} Variable;
+			// 一元运算节点
+			struct {
+				uint32 Op;				// 运算符
+				XTE_ASTNode Operand;		// 操作数
+			} Unary;
+			// 二元运算节点
+			struct {
+				uint32 Op;				// 运算符
+				XTE_ASTNode Left;			// 左操作数
+				XTE_ASTNode Right;			// 右操作数
+			} Binary;
+		} Data;
+	};
+	
+	// 表达式解析结果
+	typedef struct {
+		int Success;							// 解析是否成功
+		const char* ErrorDesc;					// 错误描述
+		size_t ErrorPos;						// 错误位置
+		XTE_ASTNode Root;						// AST 根节点
+	} XTE_ExprResult_Struct, *XTE_ExprResult;
+	
+	// 解析表达式字符串，返回 AST
+	XXAPI XTE_ExprResult xteExprParse(const char* expr, size_t len);
+	
+	// 释放表达式解析结果
+	XXAPI void xteExprFree(XTE_ExprResult result);
+	
+	// 求值表达式，返回 xvalue 结果（调用者负责 unref）
+	XXAPI xvalue xteExprEval(XTE_ASTNode ast, xvalue tblVal, xvalue tblRoot, xvalue tblENV);
+	
+	// 便捷函数：解析并求值表达式，返回布尔结果
+	XXAPI int xteExprEvalBool(const char* expr, size_t len, xvalue tblVal, xvalue tblRoot, xvalue tblENV);
 	
 	
 	

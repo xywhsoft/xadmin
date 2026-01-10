@@ -306,7 +306,7 @@ str Attachment_GeneratePath(str sModelName, str sXID, str sExt)
 	xrtFree(sDate);
 	
 	// 构建路径
-	str sSubDir = (sModelName && *sModelName) ? sModelName : "global";
+	str sSubDir = (sModelName && *sModelName) ? sModelName : (str)"global";
 	str sPath = xrtFormat("%s/%s/%s.%s", sSubDir, sYearMonth, sXID, sExt);
 	
 	return sPath;
@@ -338,7 +338,7 @@ bool Attachment_Add(str sXID, str sFilename, str sExt, str sMime, int64 iSize, s
 	sqlite3_bind_text(stmt_attachment_add, 4, sMime, -1, NULL);
 	sqlite3_bind_int64(stmt_attachment_add, 5, iSize);
 	sqlite3_bind_text(stmt_attachment_add, 6, sPath, -1, NULL);
-	sqlite3_bind_text(stmt_attachment_add, 7, sModelName ? sModelName : "", -1, NULL);
+	sqlite3_bind_text(stmt_attachment_add, 7, sModelName ? sModelName : (str)"", -1, NULL);
 	sqlite3_bind_int64(stmt_attachment_add, 8, iRecordId);
 	sqlite3_bind_int64(stmt_attachment_add, 9, iUploaderId);
 	sqlite3_bind_int(stmt_attachment_add, 10, iUploaderType);

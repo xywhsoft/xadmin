@@ -120,7 +120,7 @@ void Request_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost,
 	
 	// 获取 MIME 类型
 	MimeMapping* pMime = Attachment_GetMime(sExt);
-	str sMime = pMime ? pMime->mime : "application/octet-stream";
+	str sMime = pMime ? pMime->mime : (str)"application/octet-stream";
 	
 	// 获取默认配置
 	xvalue tblAttachment = xvoTableGetValue(G_Option, "attachment", 10);
@@ -356,7 +356,7 @@ void Request_Attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, s
 	sqlite3_bind_int64(stmt, 3, xvoTableGetInt(tblForm, "price", 5));
 	sqlite3_bind_int(stmt, 4, (int)xvoTableGetInt(tblForm, "priceType", 9));
 	str sRemark = xvoTableGetText(tblForm, "remark", 6);
-	sqlite3_bind_text(stmt, 5, sRemark ? sRemark : "", -1, NULL);
+	sqlite3_bind_text(stmt, 5, sRemark ? sRemark : (str)"", -1, NULL);
 	sqlite3_bind_text(stmt, 6, sXID, -1, NULL);
 	
 	int rc = sqlite3_step(stmt);
@@ -459,8 +459,8 @@ void Request_Attachment_Stats(XS_ServerObject objServer, XS_HostObject objHost, 
 	while ( sqlite3_step(stmt_attachment_stats_by_model) == SQLITE_ROW ) {
 		xvalue tblItem = xvoCreateTable();
 		str sModel = (str)sqlite3_column_text(stmt_attachment_stats_by_model, 0);
-		xvoTableSetText(tblItem, "modelName", 9, sModel ? sModel : "", 0, FALSE);
-		xvoTableSetText(tblItem, "title", 5, (sModel && *sModel) ? sModel : "全局附件", 0, FALSE);
+		xvoTableSetText(tblItem, "modelName", 9, sModel ? sModel : (str)"", 0, FALSE);
+		xvoTableSetText(tblItem, "title", 5, (sModel && *sModel) ? sModel : (str)"全局附件", 0, FALSE);
 		xvoTableSetInt(tblItem, "count", 5, sqlite3_column_int64(stmt_attachment_stats_by_model, 1));
 		xvoTableSetInt(tblItem, "size", 4, sqlite3_column_int64(stmt_attachment_stats_by_model, 2));
 		xvoArrayAppendValue(arrByModel, tblItem, TRUE);
