@@ -19,10 +19,13 @@
 
 <!-- 状态列模板 -->
 <script type="text/html" id="Tpl_Model_Status">
-	{{# if(d.enabled && d.compiled){ }}
-		<span class="layui-badge layui-bg-green">运行中</span>
-	{{# } else if(d.enabled && !d.compiled){ }}
-		<span class="layui-badge layui-bg-orange">待编译</span>
+	{{# if(d.enabled){ }}
+		{{# if(d.needUpdate){ }}
+			<span class="layui-badge layui-bg-green">运行中</span>
+			<span class="layui-badge layui-bg-red" title="配置已更新，需要重新启用">!</span>
+		{{# } else { }}
+			<span class="layui-badge layui-bg-green">运行中</span>
+		{{# } }}
 	{{# } else { }}
 		<span class="layui-badge layui-bg-gray">已禁用</span>
 	{{# } }}
@@ -33,10 +36,12 @@
 	<div class="layui-clear-space">
 		<a class="layui-btn layui-btn-xs" lay-event="fields">字段</a>
 		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
-		{{# if(d.enabled && d.compiled){ }}
-			<a class="layui-btn layui-btn-xs layui-bg-gray" lay-event="disable">禁用</a>
-		{{# } else if(!d.compiled){ }}
-			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="compile">编译</a>
+		{{# if(d.enabled){ }}
+			{{# if(d.needUpdate){ }}
+				<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="update">更新</a>
+			{{# } else { }}
+				<a class="layui-btn layui-btn-xs layui-bg-gray" lay-event="disable">禁用</a>
+			{{# } }}
 		{{# } else { }}
 			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="enable">启用</a>
 		{{# } }}
@@ -66,12 +71,12 @@
 				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
 			},
 			cols: [[
+				{field:'sort', width:80, title: '排序', sort: true, edit: 'text'},
 				{field:'name', width:150, title: '模型标识', templet: '<code>{{= d.name }}</code>'},
 				{field:'title', width:200, title: '模型名称'},
 				{field:'namespace', width:150, title: '命名空间'},
 				{field:'desc', title: '描述'},
 				{width:100, title: '状态', templet: '#Tpl_Model_Status'},
-				{field:'createTime', width:180, title: '创建时间'},
 				{field:'updateTime', width:180, title: '修改时间'},
 				{width:220, title: '操作', templet: '#Tool_Model_List'},
 			]],
@@ -79,6 +84,27 @@
 			},
 			error: function(res, msg){
 				console.log(res, msg)
+			}
+		});
+		
+		// 单元格编辑事件（排序值）
+		table.on('edit(Table_Model_List)', function(obj){
+			if ( obj.field === 'sort' ) {
+				var iSort = parseInt(obj.value) || 0;
+				fetch('/admin/model/sort', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name: obj.data.name, sort: iSort })
+				})
+				.then(response => response.json())
+				.then(result => {
+					if ( result && result.result ) {
+						layer.msg('排序已更新', {icon: 1, time: 1000});
+					} else {
+						layer.msg(result.message || '更新失败', {icon: 2});
+						table.reloadData('Table_Model_List');
+					}
+				});
 			}
 		});
 		
@@ -128,45 +154,23 @@
 					area: ['600px', '720px'],
 					content: '/admin/view/model/edit?name=' + data.name,
 				});
-			} else if ( obj.event == 'compile' ) {
-				// 编译
-				layer.confirm('确定要编译模型 "' + data.title + '" 吗？', {
-					icon: 3,
-					title: '编译确认'
-				}, function(index){
-					fetch('/admin/model/compile?name=' + data.name, {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json'
-						}
-					})
-					.then(response => response.json())
-					.then(result => {
-						if ( result && result.result === true ) {
-							layer.msg(result.message || '编译成功', {icon: 1});
-							table.reloadData('Table_Model_List');
-						} else {
-							layer.msg(result.message || '编译失败', {icon: 2});
-						}
-					})
-					.catch(error => {
-						layer.msg('请求出错', {icon: 2});
-						console.error('Error:', error);
-					});
-					layer.close(index);
-				});
-			} else if ( obj.event == 'enable' ) {
-				// 启用
+			} else if ( (obj.event == 'enable') || (obj.event == 'update') ) {
+				// 启用或更新（自动编译+启用）
+				var sActionText = obj.event == 'update' ? '更新' : '启用';
 				fetch('/admin/model/enable?name=' + data.name, {
 					method: 'POST'
 				})
 				.then(response => response.json())
 				.then(result => {
 					if ( result && result.result === true ) {
-						layer.msg('已启用', {icon: 1});
+						layer.msg('已' + sActionText, {icon: 1});
 						table.reloadData('Table_Model_List');
+						// 刷新后台页面以显示模型菜单
+						if ( parent && parent.location ) {
+							parent.location.reload();
+						}
 					} else {
-						layer.msg(result.message || '启用失败', {icon: 2});
+						layer.msg(result.message || sActionText + '失败', {icon: 2});
 					}
 				});
 			} else if ( obj.event == 'disable' ) {
@@ -179,6 +183,10 @@
 					if ( result && result.result === true ) {
 						layer.msg('已禁用', {icon: 1});
 						table.reloadData('Table_Model_List');
+						// 刷新后台页面以隐藏模型菜单
+						if ( parent && parent.location ) {
+							parent.location.reload();
+						}
 					} else {
 						layer.msg(result.message || '禁用失败', {icon: 2});
 					}

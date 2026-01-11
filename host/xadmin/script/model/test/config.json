@@ -1,0 +1,24 @@
+{
+	"sort":	0,
+	"namespace":	"test",
+	"table":	{
+		"name":	"model_test_test"
+	},
+	"title":	"测试",
+	"status":	{
+		"enableTime":	63935387673,
+		"compiled":	true,
+		"enabled":	false
+	},
+	"icon":	"layui-icon layui-icon-face-surprised",
+	"desc":	"",
+	"features":	{
+		"enableSubmit":	false,
+		"enableReply":	false,
+		"enableAdmin":	true,
+		"enableApi":	true
+	},
+	"fields":	[],
+	"updateTime":	63935387679,
+	"createTime":	63935387556
+}

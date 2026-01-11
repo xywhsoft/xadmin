@@ -93,7 +93,19 @@ void Request_Model_List(XS_ServerObject objServer, XS_HostObject objHost, struct
 		}
 	}
 	
+	// 按 sort 字段排序（冒泡排序，模型数量通常不多）
 	int iFilteredTotal = xvoArrayItemCount(arrFiltered);
+	for ( int i = 0; i < iFilteredTotal - 1; i++ ) {
+		for ( int j = 0; j < iFilteredTotal - 1 - i; j++ ) {
+			xvalue tblA = xvoArrayGetValue(arrFiltered, j);
+			xvalue tblB = xvoArrayGetValue(arrFiltered, j + 1);
+			int iSortA = xvoTableGetInt(tblA, "sort", 4);
+			int iSortB = xvoTableGetInt(tblB, "sort", 4);
+			if ( iSortA > iSortB ) {
+				xvoArraySwap(arrFiltered, j, j + 1);
+			}
+		}
+	}
 	
 	// 分页
 	int iStart = (iPage - 1) * iLimit;
@@ -150,6 +162,7 @@ void Request_Model_Get(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	xvoTableSetText(tblData, "namespace", 9, pModel->sNamespace ? pModel->sNamespace : (str)"", 0, FALSE);
 	xvoTableSetText(tblData, "desc", 4, pModel->sDesc ? pModel->sDesc : (str)"", 0, FALSE);
 	xvoTableSetText(tblData, "icon", 4, pModel->sIcon ? pModel->sIcon : (str)"", 0, FALSE);
+	xvoTableSetInt(tblData, "sort", 4, pModel->iSort);
 	xvoTableSetBool(tblData, "enabled", 7, pModel->bEnabled);
 	xvoTableSetBool(tblData, "compiled", 8, pModel->bCompiled);
 	xvoTableSetBool(tblData, "enableApi", 9, pModel->bEnableApi);
@@ -160,6 +173,14 @@ void Request_Model_Get(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	xvoTableSetBool(tblData, "replyNeedApprove", 16, pModel->bReplyNeedApprove);
 	xvoTableSetInt(tblData, "replyAuthLevel", 14, pModel->iReplyAuthLevel);
 	xvoTableSetInt(tblData, "replyQuoteMaxLen", 16, pModel->iReplyQuoteMaxLen);
+	// 访问控制配置
+	xvoTableSetBool(tblData, "enableAccessControl", 19, pModel->bEnableAccessControl);
+	xvoTableSetInt(tblData, "defaultAccessLevel", 18, pModel->iDefaultAccessLevel);
+	xvoTableSetBool(tblData, "enablePreview", 13, pModel->bEnablePreview);
+	xvoTableSetBool(tblData, "enablePurchase", 14, pModel->bEnablePurchase);
+	// 投稿配置
+	xvoTableSetBool(tblData, "allowGuestSubmit", 16, pModel->bAllowGuestSubmit);
+	xvoTableSetBool(tblData, "submitNeedReview", 16, pModel->bSubmitNeedReview);
 	
 	xvalue tblResponse = xvoCreateTable();
 	xvoTableSetBool(tblResponse, "result", 6, TRUE);
@@ -232,6 +253,7 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	xvoTableSetText(tblConfig, "namespace", 9, sNamespace ? sNamespace : (str)"", 0, FALSE);
 	xvoTableSetText(tblConfig, "desc", 4, sDesc ? sDesc : (str)"", 0, FALSE);
 	xvoTableSetText(tblConfig, "icon", 4, sIcon ? sIcon : (str)"layui-icon-file", 0, FALSE);
+	xvoTableSetInt(tblConfig, "sort", 4, 0);  // 排序值默认0
 	
 	// 表配置
 	xvalue tblTable = xvoCreateTable();
@@ -266,6 +288,9 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	str sConfigPath = xrtFormat("%s/config.json", sModelDir);
 	int iResult = xrtStringifyJSON_File(sConfigPath, tblConfig, TRUE);
 	
+	// 复制 sName，因为释放 tblData 后指针将无效
+	str sNameCopy = xrtCopyStr(sName, 0);
+	
 	xvoUnref(tblConfig);
 	xrtFree(sConfigPath);
 	xrtFree(sModelDir);
@@ -274,9 +299,10 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, struct 
 	if ( iResult ) {
 		// 重新扫描模型
 		// 简单方案：直接加载新创建的模型
-		str sNewConfigPath = xrtFormat("%s/%s/config.json", ModelPath, sName);
-		ModelInstance* pNewModel = Model_LoadFromConfig(sName, sNewConfigPath);
+		str sNewConfigPath = xrtFormat("%s/%s/config.json", ModelPath, sNameCopy);
+		ModelInstance* pNewModel = Model_LoadFromConfig(sNameCopy, sNewConfigPath);
 		xrtFree(sNewConfigPath);
+		xrtFree(sNameCopy);
 		
 		if ( pNewModel ) {
 			ModelInstance** ppSlot = xrtDictSet(G_ModelMgr->tblModels, pNewModel->sName, strlen(pNewModel->sName), NULL);
@@ -284,10 +310,39 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, struct 
 				*ppSlot = pNewModel;
 			}
 			Model_RegisterNamespace(pNewModel);
+			
+			// 创建权限分组
+			int iAuthId = Model_CreateAuthGroup(pNewModel);
+			pNewModel->iAdminAuthId = iAuthId;
+			
+			// 创建后台菜单（默认不可见，启用时才显示）
+			if ( pNewModel->bEnableAdmin ) {
+				Model_CreateMenu(pNewModel);
+				// 创建时隐藏菜单
+				Model_HideMenu(pNewModel);
+			}
+			
+			// 保存权限ID到配置文件
+			xvalue tblConfig = xrtParseJSON_File(pNewModel->sConfigPath);
+			if ( tblConfig ) {
+				xvalue tblAdmin = xvoTableGetValue(tblConfig, "admin", 5);
+				if ( !tblAdmin ) {
+					tblAdmin = xvoCreateTable();
+					xvoTableSetValue(tblConfig, "admin", 5, tblAdmin, TRUE);
+				}
+				xvoTableSetInt(tblAdmin, "authId", 6, iAuthId);
+				xrtStringifyJSON_File(pNewModel->sConfigPath, tblConfig, TRUE);
+				xvoUnref(tblConfig);
+			}
+			
+			// 刷新权限缓存
+			ReloadCache_Auth_Auth();
+			ReloadCache_Auth_Group();
 		}
 		
 		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"创建成功\"}", 0);
 	} else {
+		xrtFree(sNameCopy);
 		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存配置文件失败\"}", 0);
 	}
 }
@@ -343,6 +398,12 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, struct
 	str sIcon = xvoTableGetText(tblData, "icon", 4);
 	if ( sIcon ) xvoTableSetText(tblConfig, "icon", 4, sIcon, 0, FALSE);
 	
+	// 更新排序值
+	xvalue valSort = xvoTableGetValue(tblData, "sort", 4);
+	if ( valSort ) {
+		xvoTableSetInt(tblConfig, "sort", 4, xvoTableGetInt(tblData, "sort", 4));
+	}
+	
 	// 更新功能开关
 	xvalue tblFeatures = xvoTableGetValue(tblConfig, "features", 8);
 	if ( !tblFeatures || tblFeatures->Type != XVO_DT_TABLE ) {
@@ -353,6 +414,26 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, struct
 	xvoTableSetBool(tblFeatures, "enableAdmin", 11, xvoTableGetBool(tblData, "enableAdmin", 11));
 	xvoTableSetBool(tblFeatures, "enableSubmit", 12, xvoTableGetBool(tblData, "enableSubmit", 12));
 	xvoTableSetBool(tblFeatures, "enableReply", 11, xvoTableGetBool(tblData, "enableReply", 11));
+	xvoTableSetBool(tblFeatures, "enableAccessControl", 19, xvoTableGetBool(tblData, "enableAccessControl", 19));
+	
+	// 更新投稿配置
+	xvalue tblSubmit = xvoTableGetValue(tblConfig, "submit", 6);
+	if ( !tblSubmit || tblSubmit->Type != XVO_DT_TABLE ) {
+		tblSubmit = xvoCreateTable();
+		xvoTableSetValue(tblConfig, "submit", 6, tblSubmit, TRUE);
+	}
+	xvoTableSetBool(tblSubmit, "allowGuest", 10, xvoTableGetBool(tblData, "allowGuestSubmit", 16));
+	xvoTableSetBool(tblSubmit, "needReview", 10, xvoTableGetBool(tblData, "submitNeedReview", 16));
+	
+	// 更新访问控制配置
+	xvalue tblAccessControl = xvoTableGetValue(tblConfig, "accessControl", 13);
+	if ( !tblAccessControl || tblAccessControl->Type != XVO_DT_TABLE ) {
+		tblAccessControl = xvoCreateTable();
+		xvoTableSetValue(tblConfig, "accessControl", 13, tblAccessControl, TRUE);
+	}
+	xvoTableSetInt(tblAccessControl, "defaultLevel", 12, xvoTableGetInt(tblData, "defaultAccessLevel", 18));
+	xvoTableSetBool(tblAccessControl, "enablePreview", 13, xvoTableGetBool(tblData, "enablePreview", 13));
+	xvoTableSetBool(tblAccessControl, "enablePurchase", 14, xvoTableGetBool(tblData, "enablePurchase", 14));
 	
 	// 更新API权限配置
 	xvalue tblApi = xvoTableGetValue(tblConfig, "api", 3);
@@ -394,6 +475,7 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, struct
 		if ( pModel->sDesc ) xrtFree(pModel->sDesc);
 		pModel->sDesc = sDesc ? xrtCopyStr(sDesc, 0) : NULL;
 		if ( sIcon && pModel->sIcon ) { xrtFree(pModel->sIcon); pModel->sIcon = xrtCopyStr(sIcon, 0); }
+		if ( valSort ) pModel->iSort = xvoTableGetInt(tblData, "sort", 4);
 		pModel->bCompiled = FALSE;
 		pModel->iUpdateTime = xrtNow();
 		
@@ -420,10 +502,17 @@ void Request_Model_Delete(XS_ServerObject objServer, XS_HostObject objHost, stru
 		return;
 	}
 	
-	// 如果模型已启用，先禁用（移除路由、菜单、权限组）
+	// 如果模型已启用，先禁用（移除路由）
 	if ( pModel->bEnabled ) {
 		Model_Disable(pModel);
 	}
+	
+	// 删除权限分组和菜单
+	Model_DeleteAuthGroup(pModel);
+	Model_DeleteMenu(pModel);
+	
+	// 删除模型的 URI
+	Model_RemoveUrisFromDb(pModel);
 	
 	// 注销命名空间
 	Model_UnregisterNamespace(pModel);
@@ -438,6 +527,11 @@ void Request_Model_Delete(XS_ServerObject objServer, XS_HostObject objHost, stru
 	
 	// 销毁模型实例
 	Model_Destroy(pModel);
+	
+	// 刷新权限缓存
+	ReloadCache_Auth_Auth();
+	ReloadCache_Auth_Group();
+	Auth_ReloadCache();
 	
 	http_reply(c, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"删除成功\"}", 0);
 }
@@ -470,6 +564,18 @@ void Request_Model_Fields(XS_ServerObject objServer, XS_HostObject objHost, stru
 	} else {
 		xvalue arrEmpty = xvoCreateArray();
 		xvoTableSetValue(tblResponse, "data", 4, arrEmpty, TRUE);
+	}
+	
+	// 返回访问控制配置
+	xvoTableSetBool(tblResponse, "enableAccessControl", 19, pModel->bEnableAccessControl);
+	xvoTableSetInt(tblResponse, "defaultAccessLevel", 18, pModel->iDefaultAccessLevel);
+	xvoTableSetBool(tblResponse, "enablePreview", 13, pModel->bEnablePreview);
+	xvoTableSetBool(tblResponse, "enablePurchase", 14, pModel->bEnablePurchase);
+	
+	// 返回会员组等级列表（用于访问级别选择）
+	if ( pModel->bEnableAccessControl && G_CACHE_MemberGroup ) {
+		xvoAddRef(G_CACHE_MemberGroup);
+		xvoTableSetValue(tblResponse, "memberGroups", 12, G_CACHE_MemberGroup, TRUE);
 	}
 	
 	size_t iJsonSize = 0;
@@ -610,8 +716,15 @@ void Request_Model_Enable(XS_ServerObject objServer, XS_HostObject objHost, stru
 		return;
 	}
 	
-	if ( !pModel->bCompiled ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型尚未编译\"}", 0);
+	// 如果模型已启用，先禁用再重新启用（用于更新）
+	bool bWasEnabled = pModel->bEnabled;
+	if ( bWasEnabled ) {
+		Model_Disable(pModel);
+	}
+	
+	// 重新编译模型（确保代码是最新的）
+	if ( !Model_Compile(pModel) ) {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"编译失败\"}", 0);
 		return;
 	}
 	
@@ -646,6 +759,61 @@ void Request_Model_Disable(XS_ServerObject objServer, XS_HostObject objHost, str
 		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"已禁用\"}", 0);
 	} else {
 		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"禁用失败\"}", 0);
+	}
+}
+
+
+// 更新模型排序值
+void Request_Model_Sort(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	if ( hm->methodCode != HTTP_POST ) {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
+		return;
+	}
+	
+	// 解析JSON
+	xvalue tblData = xrtParseJSON(hm->body.buf, hm->body.len);
+	if ( !tblData ) {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
+		return;
+	}
+	
+	str sName = xvoTableGetText(tblData, "name", 4);
+	if ( !sName ) {
+		xvoUnref(tblData);
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		return;
+	}
+	
+	ModelInstance* pModel = ModelMgr_GetModel(sName);
+	if ( !pModel ) {
+		xvoUnref(tblData);
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		return;
+	}
+	
+	int iSort = xvoTableGetInt(tblData, "sort", 4);
+	xvoUnref(tblData);
+	
+	// 更新配置文件
+	xvalue tblConfig = xrtParseJSON_File(pModel->sConfigPath);
+	if ( !tblConfig ) {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"读取配置文件失败\"}", 0);
+		return;
+	}
+	
+	xvoTableSetInt(tblConfig, "sort", 4, iSort);
+	xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
+	
+	int iResult = xrtStringifyJSON_File(pModel->sConfigPath, tblConfig, TRUE);
+	xvoUnref(tblConfig);
+	
+	if ( iResult ) {
+		pModel->iSort = iSort;
+		pModel->iUpdateTime = xrtNow();
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"保存成功\"}", 0);
+	} else {
+		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存失败\"}", 0);
 	}
 }
 

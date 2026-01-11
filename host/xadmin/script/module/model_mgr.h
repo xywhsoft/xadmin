@@ -18,6 +18,7 @@ typedef struct {
 	str sDesc;					// 模型描述
 	str sNamespace;				// 命名空间（API路径前缀）
 	str sIcon;					// 图标
+	int iSort;					// 排序值（值越小越靠前）
 	str sTableName;				// 数据表名（model_{namespace}_{name}）
 	str sConfigPath;			// 配置文件路径
 	str sCodePath;				// 生成的代码路径
@@ -37,6 +38,16 @@ typedef struct {
 	bool bEnableAdmin;			// 启用后台管理
 	bool bEnableSubmit;			// 启用前台投稿
 	bool bEnableReply;			// 启用评论功能
+	bool bEnableAccessControl;	// 启用访问控制
+	
+	// ===== 投稿配置 =====
+	bool bAllowGuestSubmit;		// 允许游客投稿
+	bool bSubmitNeedReview;		// 前台会员投稿需审核
+	
+	// ===== 访问控制配置 =====
+	int iDefaultAccessLevel;	// 默认访问级别（0=公开）
+	bool bEnablePreview;		// 启用预览功能
+	bool bEnablePurchase;		// 启用付费功能
 	
 	// ===== 权限配置 =====
 	int iApiAuthLevel;			// 前台API权限级别
@@ -58,6 +69,7 @@ typedef struct {
 	// ===== 时间戳 =====
 	int64 iCreateTime;
 	int64 iUpdateTime;
+	int64 iEnableTime;				// 启用时间（用于检测是否需要更新）
 	
 } ModelInstance;
 
@@ -122,6 +134,104 @@ ModelContext* G_ModelCtx = NULL;
 
 
 
+// ==================== 条件块处理 ====================
+
+// 处理条件块（支持 IF/ELSE/ENDIF）
+// 参数：
+//   sCode: 源代码
+//   sIfTag: IF 标签，如 "{{#IF_ENABLE_ACCESS_CONTROL}}"
+//   sElseTag: ELSE 标签，如 "{{#ELSE}}"（可以为 NULL 表示没有 ELSE 分支）
+//   sEndifTag: ENDIF 标签，如 "{{#ENDIF_ENABLE_ACCESS_CONTROL}}"
+//   bCondition: 条件值
+// 返回：处理后的代码（需要释放）
+str Model_ProcessCondBlock(str sCode, str sIfTag, str sElseTag, str sEndifTag, bool bCondition)
+{
+	str sResult = xrtCopyStr(sCode, 0);
+	
+	while ( TRUE ) {
+		// 查找 IF 标签
+		char* pIfPos = strstr((char*)sResult, (char*)sIfTag);
+		if ( !pIfPos ) break;
+		
+		// 查找对应的 ENDIF 标签
+		char* pEndifPos = strstr(pIfPos + strlen((char*)sIfTag), (char*)sEndifTag);
+		if ( !pEndifPos ) break;
+		
+		// 查找中间是否有 ELSE 标签
+		char* pElsePos = NULL;
+		if ( sElseTag ) {
+			char* pSearch = pIfPos + strlen((char*)sIfTag);
+			while ( pSearch < pEndifPos ) {
+				char* pFound = strstr(pSearch, (char*)sElseTag);
+				if ( (pFound) && (pFound < pEndifPos) ) {
+					pElsePos = pFound;
+					break;
+				}
+				break;
+			}
+		}
+		
+		// 计算各部分的位置
+		int iIfStart = pIfPos - (char*)sResult;
+		int iIfEnd = iIfStart + strlen((char*)sIfTag);
+		int iEndifStart = pEndifPos - (char*)sResult;
+		int iEndifEnd = iEndifStart + strlen((char*)sEndifTag);
+		
+		str sNew = NULL;
+		
+		if ( pElsePos ) {
+			int iElseStart = pElsePos - (char*)sResult;
+			int iElseEnd = iElseStart + strlen((char*)sElseTag);
+			
+			if ( bCondition ) {
+				// 保留 IF 块，删除 ELSE 块
+				// 结果 = [0, iIfStart) + [iIfEnd, iElseStart) + [iEndifEnd, end)
+				int iIfBlockLen = iElseStart - iIfEnd;
+				int iAfterLen = strlen((char*)sResult) - iEndifEnd;
+				sNew = xrtMalloc(iIfStart + iIfBlockLen + iAfterLen + 1);
+				memcpy(sNew, sResult, iIfStart);
+				memcpy(sNew + iIfStart, sResult + iIfEnd, iIfBlockLen);
+				memcpy(sNew + iIfStart + iIfBlockLen, sResult + iEndifEnd, iAfterLen + 1);
+			} else {
+				// 保留 ELSE 块，删除 IF 块
+				// 结果 = [0, iIfStart) + [iElseEnd, iEndifStart) + [iEndifEnd, end)
+				int iElseBlockLen = iEndifStart - iElseEnd;
+				int iAfterLen = strlen((char*)sResult) - iEndifEnd;
+				sNew = xrtMalloc(iIfStart + iElseBlockLen + iAfterLen + 1);
+				memcpy(sNew, sResult, iIfStart);
+				memcpy(sNew + iIfStart, sResult + iElseEnd, iElseBlockLen);
+				memcpy(sNew + iIfStart + iElseBlockLen, sResult + iEndifEnd, iAfterLen + 1);
+			}
+		} else {
+			// 没有 ELSE 块
+			if ( bCondition ) {
+				// 保留 IF 块内容
+				// 结果 = [0, iIfStart) + [iIfEnd, iEndifStart) + [iEndifEnd, end)
+				int iIfBlockLen = iEndifStart - iIfEnd;
+				int iAfterLen = strlen((char*)sResult) - iEndifEnd;
+				sNew = xrtMalloc(iIfStart + iIfBlockLen + iAfterLen + 1);
+				memcpy(sNew, sResult, iIfStart);
+				memcpy(sNew + iIfStart, sResult + iIfEnd, iIfBlockLen);
+				memcpy(sNew + iIfStart + iIfBlockLen, sResult + iEndifEnd, iAfterLen + 1);
+			} else {
+				// 删除整个 IF 块
+				// 结果 = [0, iIfStart) + [iEndifEnd, end)
+				int iAfterLen = strlen((char*)sResult) - iEndifEnd;
+				sNew = xrtMalloc(iIfStart + iAfterLen + 1);
+				memcpy(sNew, sResult, iIfStart);
+				memcpy(sNew + iIfStart, sResult + iEndifEnd, iAfterLen + 1);
+			}
+		}
+		
+		xrtFree(sResult);
+		sResult = sNew;
+	}
+	
+	return sResult;
+}
+
+
+
 // ==================== 动态路由管理 ====================
 
 // 动态添加路由（返回 RouteInfo* 以便进一步配置）
@@ -170,6 +280,26 @@ void Request_View_Model_Data_Edit(XS_ServerObject objServer, XS_HostObject objHo
 {
 	if ( hm->methodCode == HTTP_GET ) {
 		LoadPage(c, 200, HTTP_CT_HTML, "model/data_edit.html");
+	} else {
+		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+	}
+}
+
+// 模型数据草稿箱页面
+void Request_View_Model_Data_Draft(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	if ( hm->methodCode == HTTP_GET ) {
+		LoadPage(c, 200, HTTP_CT_HTML, "model/data_draft.html");
+	} else {
+		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+	}
+}
+
+// 模型数据草稿编辑页面
+void Request_View_Model_Data_Draft_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+{
+	if ( hm->methodCode == HTTP_GET ) {
+		LoadPage(c, 200, HTTP_CT_HTML, "model/data_draft_edit.html");
 	} else {
 		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
 	}
@@ -536,6 +666,110 @@ str Model_GenFieldBindUpdateCode(str sFieldName, str sFieldType)
 	}
 }
 
+// 根据字段类型生成草稿发布绑定代码（从 sqlite3_column 读取并绑定到 add 语句）
+str Model_GenFieldBindDraftPublishCode(str sFieldName, str sFieldType)
+{
+	if ( strcmp(sFieldType, "text") == 0 || strcmp(sFieldType, "textarea") == 0 || 
+		 strcmp(sFieldType, "richtext") == 0 || strcmp(sFieldType, "select") == 0 ||
+		 strcmp(sFieldType, "image") == 0 || strcmp(sFieldType, "file") == 0 ) {
+		return xrtFormat("\t{ str sVal = (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_draft_get, iCol++); sqlite3_bind_text(stmt_{{MODEL_NAME}}_add, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n");
+	} else if ( strcmp(sFieldType, "number") == 0 || strcmp(sFieldType, "switch") == 0 ) {
+		return xrtFormat("\tsqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, sqlite3_column_int64(stmt_{{MODEL_NAME}}_draft_get, iCol++));\n");
+	} else if ( strcmp(sFieldType, "date") == 0 || strcmp(sFieldType, "datetime") == 0 ) {
+		return xrtFormat("\tsqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, sqlite3_column_int64(stmt_{{MODEL_NAME}}_draft_get, iCol++));\n");
+	} else {
+		return xrtFormat("\t{ str sVal = (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_draft_get, iCol++); sqlite3_bind_text(stmt_{{MODEL_NAME}}_add, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n");
+	}
+}
+
+// 根据字段类型生成草稿添加绑定代码（从 tblForm 读取并绑定到 draft_add 语句）
+str Model_GenFieldBindDraftAddCode(str sFieldName, str sFieldType)
+{
+	int iNameLen = strlen(sFieldName);
+	
+	if ( strcmp(sFieldType, "text") == 0 || strcmp(sFieldType, "textarea") == 0 || 
+		 strcmp(sFieldType, "richtext") == 0 || strcmp(sFieldType, "select") == 0 ||
+		 strcmp(sFieldType, "image") == 0 || strcmp(sFieldType, "file") == 0 ) {
+		return xrtFormat("\t\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_draft_add, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n",
+			sFieldName, iNameLen);
+	} else if ( strcmp(sFieldType, "number") == 0 || strcmp(sFieldType, "switch") == 0 ) {
+		return xrtFormat("\t\tsqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, xvoTableGetInt(tblForm, \"%s\", %d));\n",
+			sFieldName, iNameLen);
+	} else if ( strcmp(sFieldType, "date") == 0 || strcmp(sFieldType, "datetime") == 0 ) {
+		return xrtFormat("\t\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, sVal ? xrtStrToTime(sVal, 0) : 0); }\n",
+			sFieldName, iNameLen);
+	} else {
+		return xrtFormat("\t\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_draft_add, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n",
+			sFieldName, iNameLen);
+	}
+}
+
+// 根据字段类型生成草稿列表读取代码（使用 stmt_*_draft_all）
+str Model_GenFieldReadCodeDraftList(str sFieldName, str sFieldType)
+{
+	int iNameLen = strlen(sFieldName);
+	
+	if ( strcmp(sFieldType, "text") == 0 || strcmp(sFieldType, "textarea") == 0 || 
+		 strcmp(sFieldType, "richtext") == 0 || strcmp(sFieldType, "select") == 0 ||
+		 strcmp(sFieldType, "image") == 0 || strcmp(sFieldType, "file") == 0 ) {
+		return xrtFormat("\t\txvoTableSetText(tblRow, \"%s\", %d, (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_draft_all, iCol++), 0, FALSE);\n", 
+			sFieldName, iNameLen);
+	} else if ( strcmp(sFieldType, "number") == 0 || strcmp(sFieldType, "switch") == 0 ) {
+		return xrtFormat("\t\txvoTableSetInt(tblRow, \"%s\", %d, sqlite3_column_int64(stmt_{{MODEL_NAME}}_draft_all, iCol++));\n", 
+			sFieldName, iNameLen);
+	} else if ( strcmp(sFieldType, "date") == 0 || strcmp(sFieldType, "datetime") == 0 ) {
+		return xrtFormat("\t\t{ xtime iFieldTime = sqlite3_column_int64(stmt_{{MODEL_NAME}}_draft_all, iCol++); xvoTableSetText(tblRow, \"%s\", %d, xrtTimeToStr(iFieldTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE); }\n",
+			sFieldName, iNameLen);
+	} else {
+		return xrtFormat("\t\txvoTableSetText(tblRow, \"%s\", %d, (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_draft_all, iCol++), 0, FALSE);\n", 
+			sFieldName, iNameLen);
+	}
+}
+
+// 根据字段类型生成草稿详情读取代码（使用 stmt_*_draft_get）
+str Model_GenFieldReadCodeDraftGet(str sFieldName, str sFieldType)
+{
+	int iNameLen = strlen(sFieldName);
+	
+	if ( strcmp(sFieldType, "text") == 0 || strcmp(sFieldType, "textarea") == 0 || 
+		 strcmp(sFieldType, "richtext") == 0 || strcmp(sFieldType, "select") == 0 ||
+		 strcmp(sFieldType, "image") == 0 || strcmp(sFieldType, "file") == 0 ) {
+		return xrtFormat("\t\txvoTableSetText(tblData, \"%s\", %d, (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_draft_get, iCol++), 0, FALSE);\n", 
+			sFieldName, iNameLen);
+	} else if ( strcmp(sFieldType, "number") == 0 || strcmp(sFieldType, "switch") == 0 ) {
+		return xrtFormat("\t\txvoTableSetInt(tblData, \"%s\", %d, sqlite3_column_int64(stmt_{{MODEL_NAME}}_draft_get, iCol++));\n", 
+			sFieldName, iNameLen);
+	} else if ( strcmp(sFieldType, "date") == 0 || strcmp(sFieldType, "datetime") == 0 ) {
+		return xrtFormat("\t\t{ xtime iFieldTime = sqlite3_column_int64(stmt_{{MODEL_NAME}}_draft_get, iCol++); xvoTableSetText(tblData, \"%s\", %d, xrtTimeToStr(iFieldTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE); }\n",
+			sFieldName, iNameLen);
+	} else {
+		return xrtFormat("\t\txvoTableSetText(tblData, \"%s\", %d, (str)sqlite3_column_text(stmt_{{MODEL_NAME}}_draft_get, iCol++), 0, FALSE);\n", 
+			sFieldName, iNameLen);
+	}
+}
+
+// 根据字段类型生成草稿更新绑定代码（从 tblForm 读取并绑定到 draft_put 语句）
+str Model_GenFieldBindDraftUpdateCode(str sFieldName, str sFieldType)
+{
+	int iNameLen = strlen(sFieldName);
+	
+	if ( strcmp(sFieldType, "text") == 0 || strcmp(sFieldType, "textarea") == 0 || 
+		 strcmp(sFieldType, "richtext") == 0 || strcmp(sFieldType, "select") == 0 ||
+		 strcmp(sFieldType, "image") == 0 || strcmp(sFieldType, "file") == 0 ) {
+		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_draft_put, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n",
+			sFieldName, iNameLen);
+	} else if ( strcmp(sFieldType, "number") == 0 || strcmp(sFieldType, "switch") == 0 ) {
+		return xrtFormat("\tsqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_put, iIdx++, xvoTableGetInt(tblForm, \"%s\", %d));\n",
+			sFieldName, iNameLen);
+	} else if ( strcmp(sFieldType, "date") == 0 || strcmp(sFieldType, "datetime") == 0 ) {
+		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_put, iIdx++, sVal ? xrtStrToTime(sVal, 0) : 0); }\n",
+			sFieldName, iNameLen);
+	} else {
+		return xrtFormat("\t{ str sVal = xvoTableGetText(tblForm, \"%s\", %d); sqlite3_bind_text(stmt_{{MODEL_NAME}}_draft_put, iIdx++, sVal ? sVal : (str)\"\", -1, NULL); }\n",
+			sFieldName, iNameLen);
+	}
+}
+
 // 生成模型代码
 bool Model_GenerateCode(ModelInstance* pModel)
 {
@@ -559,6 +793,11 @@ bool Model_GenerateCode(ModelInstance* pModel)
 	str sFieldReadCodeGet = xrtCopyStr("", 0);
 	str sFieldBindAddCode = xrtCopyStr("", 0);
 	str sFieldBindUpdateCode = xrtCopyStr("", 0);
+	str sFieldBindDraftPublishCode = xrtCopyStr("", 0);
+	str sFieldBindDraftAddCode = xrtCopyStr("", 0);
+	str sFieldReadCodeDraftList = xrtCopyStr("", 0);
+	str sFieldReadCodeDraftGet = xrtCopyStr("", 0);
+	str sFieldBindDraftUpdateCode = xrtCopyStr("", 0);
 	
 	xvalue arrFields = pModel->arrFields;
 	int iFieldCount = arrFields ? xvoArrayItemCount(arrFields) : 0;
@@ -627,6 +866,41 @@ bool Model_GenerateCode(ModelInstance* pModel)
 		xrtFree(sFieldBindUpdateCode);
 		sFieldBindUpdateCode = sTemp;
 		xrtFree(sBindUpdateCode);
+		
+		// 草稿发布绑定代码
+		str sBindDraftPublishCode = Model_GenFieldBindDraftPublishCode(sFieldName, sFieldType);
+		sTemp = xrtFormat("%s%s", sFieldBindDraftPublishCode, sBindDraftPublishCode);
+		xrtFree(sFieldBindDraftPublishCode);
+		sFieldBindDraftPublishCode = sTemp;
+		xrtFree(sBindDraftPublishCode);
+		
+		// 草稿添加绑定代码
+		str sBindDraftAddCode = Model_GenFieldBindDraftAddCode(sFieldName, sFieldType);
+		sTemp = xrtFormat("%s%s", sFieldBindDraftAddCode, sBindDraftAddCode);
+		xrtFree(sFieldBindDraftAddCode);
+		sFieldBindDraftAddCode = sTemp;
+		xrtFree(sBindDraftAddCode);
+		
+		// 草稿列表读取代码
+		str sReadDraftListCode = Model_GenFieldReadCodeDraftList(sFieldName, sFieldType);
+		sTemp = xrtFormat("%s%s", sFieldReadCodeDraftList, sReadDraftListCode);
+		xrtFree(sFieldReadCodeDraftList);
+		sFieldReadCodeDraftList = sTemp;
+		xrtFree(sReadDraftListCode);
+		
+		// 草稿详情读取代码
+		str sReadDraftGetCode = Model_GenFieldReadCodeDraftGet(sFieldName, sFieldType);
+		sTemp = xrtFormat("%s%s", sFieldReadCodeDraftGet, sReadDraftGetCode);
+		xrtFree(sFieldReadCodeDraftGet);
+		sFieldReadCodeDraftGet = sTemp;
+		xrtFree(sReadDraftGetCode);
+		
+		// 草稿更新绑定代码
+		str sBindDraftUpdateCode = Model_GenFieldBindDraftUpdateCode(sFieldName, sFieldType);
+		sTemp = xrtFormat("%s%s", sFieldBindDraftUpdateCode, sBindDraftUpdateCode);
+		xrtFree(sFieldBindDraftUpdateCode);
+		sFieldBindDraftUpdateCode = sTemp;
+		xrtFree(sBindDraftUpdateCode);
 	}
 	
 	// 如果没有字段，设置默认值
@@ -687,6 +961,21 @@ bool Model_GenerateCode(ModelInstance* pModel)
 	xrtFree(sCode); sCode = sTemp;
 	
 	sTemp = xrtReplace(sCode, 0, "{{FIELD_BIND_UPDATE_CODE}}", 0, sFieldBindUpdateCode, 0, NULL);
+	xrtFree(sCode); sCode = sTemp;
+	
+	sTemp = xrtReplace(sCode, 0, "{{FIELD_BIND_DRAFT_PUBLISH_CODE}}", 0, sFieldBindDraftPublishCode, 0, NULL);
+	xrtFree(sCode); sCode = sTemp;
+	
+	sTemp = xrtReplace(sCode, 0, "{{FIELD_BIND_DRAFT_ADD_CODE}}", 0, sFieldBindDraftAddCode, 0, NULL);
+	xrtFree(sCode); sCode = sTemp;
+	
+	sTemp = xrtReplace(sCode, 0, "{{FIELD_READ_CODE_DRAFT_LIST}}", 0, sFieldReadCodeDraftList, 0, NULL);
+	xrtFree(sCode); sCode = sTemp;
+	
+	sTemp = xrtReplace(sCode, 0, "{{FIELD_READ_CODE_DRAFT_GET}}", 0, sFieldReadCodeDraftGet, 0, NULL);
+	xrtFree(sCode); sCode = sTemp;
+	
+	sTemp = xrtReplace(sCode, 0, "{{FIELD_BIND_DRAFT_UPDATE_CODE}}", 0, sFieldBindDraftUpdateCode, 0, NULL);
 	xrtFree(sCode); sCode = sTemp;
 	
 	// 第二次 MODEL_NAME 替换（处理字段代码中的模板变量）
@@ -769,6 +1058,35 @@ bool Model_GenerateCode(ModelInstance* pModel)
 		xrtFree(sCode); sCode = sTemp;
 	}
 	
+	// 访问控制功能（使用新的条件块处理函数，支持 ELSE）
+	sTemp = Model_ProcessCondBlock(sCode, "{{#IF_ENABLE_ACCESS_CONTROL}}", "{{#ELSE}}", "{{#ENDIF_ENABLE_ACCESS_CONTROL}}", pModel->bEnableAccessControl);
+	xrtFree(sCode); sCode = sTemp;
+	
+	// 草稿箱功能（后台管理或前台投稿启用时）
+	if ( pModel->bEnableAdmin || pModel->bEnableSubmit ) {
+		sTemp = xrtReplace(sCode, 0, "{{#IF_ENABLE_DRAFT}}", 0, "", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		sTemp = xrtReplace(sCode, 0, "{{#ENDIF_ENABLE_DRAFT}}", 0, "", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		
+		// 草稿表名
+		str sDraftTable = xrtFormat("%s_draft", pModel->sTableName ? pModel->sTableName : pModel->sName);
+		sTemp = xrtReplace(sCode, 0, "{{DRAFT_TABLE_NAME}}", 0, sDraftTable, 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		xrtFree(sDraftTable);
+		
+		// 投稿配置
+		sTemp = xrtReplace(sCode, 0, "{{ALLOW_GUEST_SUBMIT}}", 0, pModel->bAllowGuestSubmit ? "1" : "0", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		sTemp = xrtReplace(sCode, 0, "{{SUBMIT_NEED_REVIEW}}", 0, pModel->bSubmitNeedReview ? "1" : "0", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+	} else {
+		sTemp = xrtReplace(sCode, 0, "{{#IF_ENABLE_DRAFT}}", 0, "/* DRAFT DISABLED\n", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+		sTemp = xrtReplace(sCode, 0, "{{#ENDIF_ENABLE_DRAFT}}", 0, "*/", 0, NULL);
+		xrtFree(sCode); sCode = sTemp;
+	}
+	
 	// 保存生成的代码
 	str sCodePath = xrtFormat("%s/%s/code.h", ModelPath, pModel->sName);
 	
@@ -797,6 +1115,11 @@ bool Model_GenerateCode(ModelInstance* pModel)
 	xrtFree(sFieldReadCodeGet);
 	xrtFree(sFieldBindAddCode);
 	xrtFree(sFieldBindUpdateCode);
+	xrtFree(sFieldBindDraftPublishCode);
+	xrtFree(sFieldBindDraftAddCode);
+	xrtFree(sFieldReadCodeDraftList);
+	xrtFree(sFieldReadCodeDraftGet);
+	xrtFree(sFieldBindDraftUpdateCode);
 	xrtFree(sNamespacePath);
 	xrtFree(sGenTime);
 	
@@ -891,6 +1214,34 @@ xvalue Model_GetModelColumns(ModelInstance* pModel)
 		}
 	}
 	
+	// 添加访问控制系统列（如果启用）
+	if ( pModel->bEnableAccessControl ) {
+		xvalue tblAccessLevel = xvoCreateTable();
+		xvoTableSetText(tblAccessLevel, "name", 4, "accessLevel", 0, FALSE);
+		xvoArrayAppendValue(arrColumns, tblAccessLevel, TRUE);
+		
+		xvalue tblAccessPrice = xvoCreateTable();
+		xvoTableSetText(tblAccessPrice, "name", 4, "accessPrice", 0, FALSE);
+		xvoArrayAppendValue(arrColumns, tblAccessPrice, TRUE);
+		
+		xvalue tblAccessPreview = xvoCreateTable();
+		xvoTableSetText(tblAccessPreview, "name", 4, "accessPreview", 0, FALSE);
+		xvoArrayAppendValue(arrColumns, tblAccessPreview, TRUE);
+	}
+	
+	// 添加作者系统列
+	xvalue tblAuthorType = xvoCreateTable();
+	xvoTableSetText(tblAuthorType, "name", 4, "authorType", 0, FALSE);
+	xvoArrayAppendValue(arrColumns, tblAuthorType, TRUE);
+	
+	xvalue tblAuthorId = xvoCreateTable();
+	xvoTableSetText(tblAuthorId, "name", 4, "authorId", 0, FALSE);
+	xvoArrayAppendValue(arrColumns, tblAuthorId, TRUE);
+	
+	xvalue tblAuthorName = xvoCreateTable();
+	xvoTableSetText(tblAuthorName, "name", 4, "authorName", 0, FALSE);
+	xvoArrayAppendValue(arrColumns, tblAuthorName, TRUE);
+	
 	// 添加系统列
 	xvalue tblCreate = xvoCreateTable();
 	xvoTableSetText(tblCreate, "name", 4, "createTime", 0, FALSE);
@@ -969,15 +1320,39 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 	}
 	
 	// 2. 创建临时表（新结构）
-	str sCreateSQL = xrtFormat(
-		"CREATE TABLE %s (\n"
-		"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
-		"    createTime INTEGER,\n"
-		"    updateTime INTEGER,\n"
-		"    isDelete INTEGER DEFAULT 0\n"
-		")",
-		sTempTable, sColumns
-	);
+	str sCreateSQL;
+	if ( pModel->bEnableAccessControl ) {
+		// 含访问控制字段
+		sCreateSQL = xrtFormat(
+			"CREATE TABLE %s (\n"
+			"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
+			"    accessLevel INTEGER DEFAULT %d,\n"
+			"    accessPrice REAL DEFAULT 0,\n"
+			"    accessPreview TEXT DEFAULT '',\n"
+			"    authorType INTEGER DEFAULT 0,\n"
+			"    authorId INTEGER DEFAULT 0,\n"
+			"    authorName TEXT DEFAULT '',\n"
+			"    createTime INTEGER,\n"
+			"    updateTime INTEGER,\n"
+			"    isDelete INTEGER DEFAULT 0\n"
+			")",
+			sTempTable, sColumns, pModel->iDefaultAccessLevel
+		);
+	} else {
+		// 不含访问控制字段
+		sCreateSQL = xrtFormat(
+			"CREATE TABLE %s (\n"
+			"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
+			"    authorType INTEGER DEFAULT 0,\n"
+			"    authorId INTEGER DEFAULT 0,\n"
+			"    authorName TEXT DEFAULT '',\n"
+			"    createTime INTEGER,\n"
+			"    updateTime INTEGER,\n"
+			"    isDelete INTEGER DEFAULT 0\n"
+			")",
+			sTempTable, sColumns
+		);
+	}
 	xrtFree(sColumns);
 	
 	printf("        [Model] Creating temp table: %s\n", sTempTable);
@@ -1065,6 +1440,9 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 }
 
 
+// 前向声明
+bool Model_CreateDraftTable(ModelInstance* pModel);
+
 // 创建或同步数据库表
 bool Model_CreateTable(ModelInstance* pModel)
 {
@@ -1096,15 +1474,39 @@ bool Model_CreateTable(ModelInstance* pModel)
 			sColumns = sTemp;
 		}
 		
-		str sSQL = xrtFormat(
-			"CREATE TABLE %s (\n"
-			"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
-			"    createTime INTEGER,\n"
-			"    updateTime INTEGER,\n"
-			"    isDelete INTEGER DEFAULT 0\n"
-			")",
-			pModel->sTableName, sColumns
-		);
+		str sSQL;
+		if ( pModel->bEnableAccessControl ) {
+			// 含访问控制字段
+			sSQL = xrtFormat(
+				"CREATE TABLE %s (\n"
+				"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
+				"    accessLevel INTEGER DEFAULT %d,\n"
+				"    accessPrice REAL DEFAULT 0,\n"
+				"    accessPreview TEXT DEFAULT '',\n"
+				"    authorType INTEGER DEFAULT 0,\n"
+				"    authorId INTEGER DEFAULT 0,\n"
+				"    authorName TEXT DEFAULT '',\n"
+				"    createTime INTEGER,\n"
+				"    updateTime INTEGER,\n"
+				"    isDelete INTEGER DEFAULT 0\n"
+				")",
+				pModel->sTableName, sColumns, pModel->iDefaultAccessLevel
+			);
+		} else {
+			// 不含访问控制字段
+			sSQL = xrtFormat(
+				"CREATE TABLE %s (\n"
+				"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
+				"    authorType INTEGER DEFAULT 0,\n"
+				"    authorId INTEGER DEFAULT 0,\n"
+				"    authorName TEXT DEFAULT '',\n"
+				"    createTime INTEGER,\n"
+				"    updateTime INTEGER,\n"
+				"    isDelete INTEGER DEFAULT 0\n"
+				")",
+				pModel->sTableName, sColumns
+			);
+		}
 		xrtFree(sColumns);
 		
 		printf("        [Model] SQL: %s\n", sSQL);
@@ -1120,6 +1522,11 @@ bool Model_CreateTable(ModelInstance* pModel)
 		}
 		
 		printf("        [Model] Table created: %s\n", pModel->sTableName);
+		
+		// 创建草稿表（如果启用后台管理或前台投稿）
+		if ( pModel->bEnableAdmin || pModel->bEnableSubmit ) {
+			Model_CreateDraftTable(pModel);
+		}
 		return TRUE;
 	}
 	
@@ -1140,6 +1547,91 @@ bool Model_CreateTable(ModelInstance* pModel)
 	printf("        [Model] Table structure is up to date\n");
 	xvoUnref(arrTableCols);
 	xvoUnref(arrModelCols);
+	
+	// 确保草稿表存在（如果启用后台管理或前台投稿）
+	if ( pModel->bEnableAdmin || pModel->bEnableSubmit ) {
+		Model_CreateDraftTable(pModel);
+	}
+	return TRUE;
+}
+
+
+// 创建草稿表
+bool Model_CreateDraftTable(ModelInstance* pModel)
+{
+	str sDraftTable = xrtFormat("%s_draft", pModel->sTableName);
+	
+	// 检查草稿表是否存在
+	if ( Model_TableExists(sDraftTable) ) {
+		printf("        [Model] Draft table already exists: %s\n", sDraftTable);
+		xrtFree(sDraftTable);
+		return TRUE;
+	}
+	
+	printf("        [Model] Creating draft table: %s\n", sDraftTable);
+	
+	// 构建字段列定义
+	str sColumns = xrtCopyStr("", 0);
+	xvalue arrFields = pModel->arrFields;
+	int iFieldCount = arrFields ? xvoArrayItemCount(arrFields) : 0;
+	
+	for ( int i = 0; i < iFieldCount; i++ ) {
+		xvalue tblField = xvoArrayGetValue(arrFields, i);
+		str sFieldName = xvoTableGetText(tblField, "name", 4);
+		str sFieldType = xvoTableGetText(tblField, "type", 4);
+		if ( !sFieldName || !sFieldType ) continue;
+		
+		str sSqlType = Model_GetSqliteType(sFieldType);
+		str sTemp = xrtFormat("%s,\n    %s %s", sColumns, sFieldName, sSqlType);
+		xrtFree(sColumns);
+		sColumns = sTemp;
+	}
+	
+	// 草稿表结构：与主表相同，但不需要 isDelete 字段（草稿硬删除）
+	str sSQL;
+	if ( pModel->bEnableAccessControl ) {
+		sSQL = xrtFormat(
+			"CREATE TABLE %s (\n"
+			"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
+			"    accessLevel INTEGER DEFAULT %d,\n"
+			"    accessPrice REAL DEFAULT 0,\n"
+			"    accessPreview TEXT DEFAULT '',\n"
+			"    authorType INTEGER DEFAULT 0,\n"
+			"    authorId INTEGER DEFAULT 0,\n"
+			"    authorName TEXT DEFAULT '',\n"
+			"    createTime INTEGER,\n"
+			"    updateTime INTEGER\n"
+			")",
+			sDraftTable, sColumns, pModel->iDefaultAccessLevel
+		);
+	} else {
+		sSQL = xrtFormat(
+			"CREATE TABLE %s (\n"
+			"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
+			"    authorType INTEGER DEFAULT 0,\n"
+			"    authorId INTEGER DEFAULT 0,\n"
+			"    authorName TEXT DEFAULT '',\n"
+			"    createTime INTEGER,\n"
+			"    updateTime INTEGER\n"
+			")",
+			sDraftTable, sColumns
+		);
+	}
+	xrtFree(sColumns);
+	
+	char* sErr = NULL;
+	int iResult = sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, &sErr);
+	xrtFree(sSQL);
+	
+	if ( iResult != SQLITE_OK ) {
+		printf("        [Model] Failed to create draft table: %s\n", sErr ? sErr : "unknown error");
+		if ( sErr ) sqlite3_free(sErr);
+		xrtFree(sDraftTable);
+		return FALSE;
+	}
+	
+	printf("        [Model] Draft table created: %s\n", sDraftTable);
+	xrtFree(sDraftTable);
 	return TRUE;
 }
 
@@ -1339,6 +1831,45 @@ bool Model_TccUnload(ModelInstance* pModel)
 
 // ==================== 菜单与权限管理 ====================
 
+// 获取或创建"内容管理"目录菜单的ID
+int Model_GetOrCreateContentMenuId()
+{
+	// 查找"内容管理"目录菜单
+	sqlite3_stmt* stmt_check;
+	sqlite3_prepare_v3(G_DB->objDB,
+		"SELECT id FROM menu WHERE title = '内容管理' AND parent = 0 AND type = 0 AND isDelete = 0",
+		-1, 0, &stmt_check, NULL);
+	
+	int iMenuId = 0;
+	if ( sqlite3_step(stmt_check) == SQLITE_ROW ) {
+		iMenuId = sqlite3_column_int(stmt_check, 0);
+	}
+	sqlite3_finalize(stmt_check);
+	
+	// 如果不存在则创建
+	if ( iMenuId == 0 ) {
+		xtime now = xrtNow();
+		
+		sqlite3_stmt* stmt_insert;
+		sqlite3_prepare_v3(G_DB->objDB,
+			"INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete) "
+			"VALUES (0, '内容管理', 'layui-icon layui-icon-read', 0, '', '', 150000, 1, '内容模型数据管理目录', ?, ?, 0)",
+			-1, 0, &stmt_insert, NULL);
+		
+		sqlite3_bind_int64(stmt_insert, 1, now);
+		sqlite3_bind_int64(stmt_insert, 2, now);
+		
+		sqlite3_step(stmt_insert);
+		iMenuId = sqlite3_last_insert_rowid(G_DB->objDB);
+		sqlite3_finalize(stmt_insert);
+		
+		printf("        [Model] Content menu directory created: %d\n", iMenuId);
+	}
+	
+	return iMenuId;
+}
+
+
 // 为模型创建权限分组
 int Model_CreateAuthGroup(ModelInstance* pModel)
 {
@@ -1386,12 +1917,33 @@ int Model_CreateAuthGroup(ModelInstance* pModel)
 }
 
 
-// 删除模型的权限分组（不再删除，保留权限组以便复用）
+// 删除模型的权限分组（禁用时不删除，保留权限组以便复用）
 void Model_RemoveAuthGroup(ModelInstance* pModel)
 {
 	// 不再删除权限组，这样用户分配的权限不会因为模型禁用/启用而失效
 	// 权限组会在下次启用时被复用
 	printf("        [Model] Keeping auth group for %s (will be reused on next enable)\n", pModel->sName);
+}
+
+
+// 永久删除模型的权限分组（删除模型时调用）
+void Model_DeleteAuthGroup(ModelInstance* pModel)
+{
+	printf("        [Model] Deleting auth group for %s...\n", pModel->sName);
+	
+	str sAuthName = xrtFormat("模型:%s", pModel->sTitle ? pModel->sTitle : pModel->sName);
+	
+	// 物理删除权限分组（设置 isDelete = 1）
+	sqlite3_stmt* stmt_del;
+	sqlite3_prepare_v3(G_DB->objDB,
+		"UPDATE auth SET isDelete = 1, updateTime = ? WHERE name = ?",
+		-1, 0, &stmt_del, NULL);
+	sqlite3_bind_int64(stmt_del, 1, xrtNow());
+	sqlite3_bind_text(stmt_del, 2, sAuthName, -1, SQLITE_STATIC);
+	sqlite3_step(stmt_del);
+	sqlite3_finalize(stmt_del);
+	
+	xrtFree(sAuthName);
 }
 
 
@@ -1432,8 +1984,11 @@ int Model_CreateMenu(ModelInstance* pModel)
 			"VALUES (?, ?, ?, 1, '_iframe', ?, ?, 1, ?, ?, ?, 0)",
 			-1, 0, &stmt_insert, NULL);
 		
-		// 父级菜单，默认为顶级菜单
-		int iParent = pModel->iMenuParent > 0 ? pModel->iMenuParent : 0;
+		// 父级菜单，默认放到"内容管理"目录下
+		int iParent = pModel->iMenuParent;
+		if ( iParent <= 0 ) {
+			iParent = Model_GetOrCreateContentMenuId();
+		}
 		sqlite3_bind_int(stmt_insert, 1, iParent);
 		
 		str sTitle = pModel->sTitle ? pModel->sTitle : pModel->sName;
@@ -1466,10 +2021,88 @@ int Model_CreateMenu(ModelInstance* pModel)
 }
 
 
-// 删除模型的后台菜单
+// 隐藏模型的后台菜单（禁用时调用）
+void Model_HideMenu(ModelInstance* pModel)
+{
+	printf("        [Model] Hiding menu for %s...\n", pModel->sName);
+	
+	// 构建菜单href
+	str sHref = NULL;
+	if ( pModel->sNamespace && strlen(pModel->sNamespace) > 0 ) {
+		sHref = xrtFormat("/admin/view/model/data/%s/%s", pModel->sNamespace, pModel->sName);
+	} else {
+		sHref = xrtFormat("/admin/view/model/data/%s", pModel->sName);
+	}
+	
+	sqlite3_stmt* stmt_upd;
+	sqlite3_prepare_v3(G_DB->objDB,
+		"UPDATE menu SET visible = 0, updateTime = ? WHERE href = ? AND isDelete = 0",
+		-1, 0, &stmt_upd, NULL);
+	sqlite3_bind_int64(stmt_upd, 1, xrtNow());
+	sqlite3_bind_text(stmt_upd, 2, sHref, -1, SQLITE_STATIC);
+	sqlite3_step(stmt_upd);
+	sqlite3_finalize(stmt_upd);
+	
+	xrtFree(sHref);
+}
+
+
+// 显示模型的后台菜单（启用时调用）
+void Model_ShowMenu(ModelInstance* pModel)
+{
+	printf("        [Model] Showing menu for %s...\n", pModel->sName);
+	
+	// 构建菜单href
+	str sHref = NULL;
+	if ( pModel->sNamespace && strlen(pModel->sNamespace) > 0 ) {
+		sHref = xrtFormat("/admin/view/model/data/%s/%s", pModel->sNamespace, pModel->sName);
+	} else {
+		sHref = xrtFormat("/admin/view/model/data/%s", pModel->sName);
+	}
+	
+	sqlite3_stmt* stmt_upd;
+	sqlite3_prepare_v3(G_DB->objDB,
+		"UPDATE menu SET visible = 1, updateTime = ? WHERE href = ? AND isDelete = 0",
+		-1, 0, &stmt_upd, NULL);
+	sqlite3_bind_int64(stmt_upd, 1, xrtNow());
+	sqlite3_bind_text(stmt_upd, 2, sHref, -1, SQLITE_STATIC);
+	sqlite3_step(stmt_upd);
+	sqlite3_finalize(stmt_upd);
+	
+	xrtFree(sHref);
+}
+
+
+// 删除模型的后台菜单（老函数，用于以前的删除逻辑，已经过时）
 void Model_RemoveMenu(ModelInstance* pModel)
 {
 	printf("        [Model] Removing menu for %s...\n", pModel->sName);
+	
+	// 构建菜单href
+	str sHref = NULL;
+	if ( pModel->sNamespace && strlen(pModel->sNamespace) > 0 ) {
+		sHref = xrtFormat("/admin/view/model/data/%s/%s", pModel->sNamespace, pModel->sName);
+	} else {
+		sHref = xrtFormat("/admin/view/model/data/%s", pModel->sName);
+	}
+	
+	sqlite3_stmt* stmt_del;
+	sqlite3_prepare_v3(G_DB->objDB,
+		"UPDATE menu SET isDelete = 1, updateTime = ? WHERE href = ?",
+		-1, 0, &stmt_del, NULL);
+	sqlite3_bind_int64(stmt_del, 1, xrtNow());
+	sqlite3_bind_text(stmt_del, 2, sHref, -1, SQLITE_STATIC);
+	sqlite3_step(stmt_del);
+	sqlite3_finalize(stmt_del);
+	
+	xrtFree(sHref);
+}
+
+
+// 永久删除模型的后台菜单（删除模型时调用）
+void Model_DeleteMenu(ModelInstance* pModel)
+{
+	printf("        [Model] Deleting menu for %s...\n", pModel->sName);
 	
 	// 构建菜单href
 	str sHref = NULL;
@@ -1693,26 +2326,38 @@ bool Model_Enable(ModelInstance* pModel)
 		return TRUE;
 	}
 	
-	// 创建权限分组
-	int iAuthId = Model_CreateAuthGroup(pModel);
-	pModel->iAdminAuthId = iAuthId;
+	// 获取权限分组ID（已在创建模型时创建）
+	int iAuthId = pModel->iAdminAuthId;
+	if ( iAuthId <= 0 ) {
+		// 如果没有权限ID，创建一个（兼容旧模型）
+		iAuthId = Model_CreateAuthGroup(pModel);
+		pModel->iAdminAuthId = iAuthId;
+	}
 	
-	// 创建后台菜单（如果启用了后台管理）
+	// 显示后台菜单（如果启用了后台管理）
 	if ( pModel->bEnableAdmin ) {
+		// 检查菜单是否存在，不存在则创建（兼容旧模型）
 		Model_CreateMenu(pModel);
+		Model_ShowMenu(pModel);
 		
 		// 注册视图路由
 		str sViewUri = NULL;
 		str sAddUri = NULL;
 		str sEditUri = NULL;
+		str sDraftUri = NULL;
+		str sDraftEditUri = NULL;
 		if ( pModel->sNamespace && strlen(pModel->sNamespace) > 0 ) {
 			sViewUri = xrtFormat("/admin/view/model/data/%s/%s", pModel->sNamespace, pModel->sName);
 			sAddUri = xrtFormat("/admin/view/model/data/%s/%s/add", pModel->sNamespace, pModel->sName);
 			sEditUri = xrtFormat("/admin/view/model/data/%s/%s/edit", pModel->sNamespace, pModel->sName);
+			sDraftUri = xrtFormat("/admin/view/model/data/%s/%s/draft", pModel->sNamespace, pModel->sName);
+			sDraftEditUri = xrtFormat("/admin/view/model/data/%s/%s/draft/edit", pModel->sNamespace, pModel->sName);
 		} else {
 			sViewUri = xrtFormat("/admin/view/model/data/%s", pModel->sName);
 			sAddUri = xrtFormat("/admin/view/model/data/%s/add", pModel->sName);
 			sEditUri = xrtFormat("/admin/view/model/data/%s/edit", pModel->sName);
+			sDraftUri = xrtFormat("/admin/view/model/data/%s/draft", pModel->sName);
+			sDraftEditUri = xrtFormat("/admin/view/model/data/%s/draft/edit", pModel->sName);
 		}
 		RouteInfo* pViewRoute = Model_AddRoute(sViewUri, Request_View_Model_Data, TRUE, TRUE, iAuthId, 0);
 		if ( pViewRoute ) {
@@ -1722,39 +2367,55 @@ bool Model_Enable(ModelInstance* pModel)
 		printf("        [Model] Add route registered: %s\n", sAddUri);
 		Model_AddRoute(sEditUri, Request_View_Model_Data_Edit, TRUE, TRUE, iAuthId, 0);
 		printf("        [Model] Edit route registered: %s\n", sEditUri);
+		Model_AddRoute(sDraftUri, Request_View_Model_Data_Draft, TRUE, TRUE, iAuthId, 0);
+		printf("        [Model] Draft route registered: %s\n", sDraftUri);
+		Model_AddRoute(sDraftEditUri, Request_View_Model_Data_Draft_Edit, TRUE, TRUE, iAuthId, 0);
+		printf("        [Model] Draft edit route registered: %s\n", sDraftEditUri);
 		xrtFree(sViewUri);
 		xrtFree(sAddUri);
 		xrtFree(sEditUri);
+		xrtFree(sDraftUri);
+		xrtFree(sDraftEditUri);
 	}
 	
 	// 使用TCC加载模型代码
 	if ( !Model_TccLoad(pModel) ) {
 		printf("        [Model] Failed to load model with TCC\n");
-		// 回滚菜单、权限和视图路由
+		// 回滚视图路由和菜单可见性
 		if ( pModel->bEnableAdmin ) {
 			// 移除视图路由
 			str sViewUri = NULL;
 			str sAddUri = NULL;
 			str sEditUri = NULL;
+			str sDraftUri = NULL;
+			str sDraftEditUri = NULL;
 			if ( pModel->sNamespace && strlen(pModel->sNamespace) > 0 ) {
 				sViewUri = xrtFormat("/admin/view/model/data/%s/%s", pModel->sNamespace, pModel->sName);
 				sAddUri = xrtFormat("/admin/view/model/data/%s/%s/add", pModel->sNamespace, pModel->sName);
 				sEditUri = xrtFormat("/admin/view/model/data/%s/%s/edit", pModel->sNamespace, pModel->sName);
+				sDraftUri = xrtFormat("/admin/view/model/data/%s/%s/draft", pModel->sNamespace, pModel->sName);
+				sDraftEditUri = xrtFormat("/admin/view/model/data/%s/%s/draft/edit", pModel->sNamespace, pModel->sName);
 			} else {
 				sViewUri = xrtFormat("/admin/view/model/data/%s", pModel->sName);
 				sAddUri = xrtFormat("/admin/view/model/data/%s/add", pModel->sName);
 				sEditUri = xrtFormat("/admin/view/model/data/%s/edit", pModel->sName);
+				sDraftUri = xrtFormat("/admin/view/model/data/%s/draft", pModel->sName);
+				sDraftEditUri = xrtFormat("/admin/view/model/data/%s/draft/edit", pModel->sName);
 			}
 			Model_RemoveRoute(sViewUri);
 			Model_RemoveRoute(sAddUri);
 			Model_RemoveRoute(sEditUri);
+			Model_RemoveRoute(sDraftUri);
+			Model_RemoveRoute(sDraftEditUri);
 			xrtFree(sViewUri);
 			xrtFree(sAddUri);
 			xrtFree(sEditUri);
+			xrtFree(sDraftUri);
+			xrtFree(sDraftEditUri);
 			
-			Model_RemoveMenu(pModel);
+			// 隐藏菜单
+			Model_HideMenu(pModel);
 		}
-		Model_RemoveAuthGroup(pModel);
 		return FALSE;
 	}
 	
@@ -1766,6 +2427,7 @@ bool Model_Enable(ModelInstance* pModel)
 	pModel->bEnabled = TRUE;
 	
 	// 更新配置文件
+	int64 iNow = xrtNow();
 	xvalue tblConfig = xrtParseJSON_File(pModel->sConfigPath);
 	if ( tblConfig ) {
 		xvalue tblStatus = xvoTableGetValue(tblConfig, "status", 6);
@@ -1774,7 +2436,8 @@ bool Model_Enable(ModelInstance* pModel)
 			xvoTableSetValue(tblConfig, "status", 6, tblStatus, TRUE);
 		}
 		xvoTableSetBool(tblStatus, "enabled", 7, TRUE);
-		xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
+		// 保存启用时间（用于检测 needUpdate）
+		xvoTableSetInt(tblStatus, "enableTime", 10, iNow);
 		
 		// 保存权限ID
 		xvalue tblAdmin = xvoTableGetValue(tblConfig, "admin", 5);
@@ -1788,8 +2451,13 @@ bool Model_Enable(ModelInstance* pModel)
 		xvoUnref(tblConfig);
 	}
 	
+	// 更新内存中的启用时间
+	pModel->iEnableTime = iNow;
+	
 	// 同步 URI 到数据库并刷新权限缓存
 	Model_SyncUrisToDb(pModel);
+	ReloadCache_Auth_Auth();
+	ReloadCache_Auth_Group();
 	Auth_ReloadCache();
 	
 	printf("        [Model] Model enabled: %s\n", pModel->sName);
@@ -1810,32 +2478,43 @@ bool Model_Disable(ModelInstance* pModel)
 	// 使用TCC卸载模型
 	Model_TccUnload(pModel);
 	
-	// 删除后台菜单和视图路由
+	// 删除后台视图路由并隐藏菜单
 	if ( pModel->bEnableAdmin ) {
 		// 移除视图路由
 		str sViewUri = NULL;
 		str sAddUri = NULL;
 		str sEditUri = NULL;
+		str sDraftUri = NULL;
+		str sDraftEditUri = NULL;
 		if ( pModel->sNamespace && strlen(pModel->sNamespace) > 0 ) {
 			sViewUri = xrtFormat("/admin/view/model/data/%s/%s", pModel->sNamespace, pModel->sName);
 			sAddUri = xrtFormat("/admin/view/model/data/%s/%s/add", pModel->sNamespace, pModel->sName);
 			sEditUri = xrtFormat("/admin/view/model/data/%s/%s/edit", pModel->sNamespace, pModel->sName);
+			sDraftUri = xrtFormat("/admin/view/model/data/%s/%s/draft", pModel->sNamespace, pModel->sName);
+			sDraftEditUri = xrtFormat("/admin/view/model/data/%s/%s/draft/edit", pModel->sNamespace, pModel->sName);
 		} else {
 			sViewUri = xrtFormat("/admin/view/model/data/%s", pModel->sName);
 			sAddUri = xrtFormat("/admin/view/model/data/%s/add", pModel->sName);
 			sEditUri = xrtFormat("/admin/view/model/data/%s/edit", pModel->sName);
+			sDraftUri = xrtFormat("/admin/view/model/data/%s/draft", pModel->sName);
+			sDraftEditUri = xrtFormat("/admin/view/model/data/%s/draft/edit", pModel->sName);
 		}
 		Model_RemoveRoute(sViewUri);
 		Model_RemoveRoute(sAddUri);
 		Model_RemoveRoute(sEditUri);
+		Model_RemoveRoute(sDraftUri);
+		Model_RemoveRoute(sDraftEditUri);
 		xrtFree(sViewUri);
 		xrtFree(sAddUri);
 		xrtFree(sEditUri);
+		xrtFree(sDraftUri);
+		xrtFree(sDraftEditUri);
 		
-		Model_RemoveMenu(pModel);
+		// 隐藏菜单（不删除，以便再次启用时复用）
+		Model_HideMenu(pModel);
 	}
 	
-	// 删除权限分组
+	// 不删除权限分组，以便再次启用时复用
 	Model_RemoveAuthGroup(pModel);
 	
 	// 从已启用列表中移除
@@ -1867,6 +2546,8 @@ bool Model_Disable(ModelInstance* pModel)
 	
 	// 从数据库删除 URI 并刷新权限缓存
 	Model_RemoveUrisFromDb(pModel);
+	ReloadCache_Auth_Auth();
+	ReloadCache_Auth_Group();
 	Auth_ReloadCache();
 	
 	printf("        [Model] Model disabled: %s\n", pModel->sName);
@@ -1911,6 +2592,8 @@ ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 	str sIcon = xvoTableGetText(tblConfig, "icon", 4);
 	if ( sIcon ) pModel->sIcon = xrtCopyStr(sIcon, 0);
 	
+	pModel->iSort = xvoTableGetInt(tblConfig, "sort", 4);
+	
 	// 表名
 	xvalue tblTable = xvoTableGetValue(tblConfig, "table", 5);
 	if ( tblTable ) {
@@ -1923,6 +2606,7 @@ ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 	if ( tblStatus ) {
 		pModel->bEnabled = xvoTableGetBool(tblStatus, "enabled", 7);
 		pModel->bCompiled = xvoTableGetBool(tblStatus, "compiled", 8);
+		pModel->iEnableTime = xvoTableGetInt(tblStatus, "enableTime", 10);
 	}
 	
 	// 功能开关
@@ -1932,6 +2616,31 @@ ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 		pModel->bEnableAdmin = xvoTableGetBool(tblFeatures, "enableAdmin", 11);
 		pModel->bEnableSubmit = xvoTableGetBool(tblFeatures, "enableSubmit", 12);
 		pModel->bEnableReply = xvoTableGetBool(tblFeatures, "enableReply", 11);
+		pModel->bEnableAccessControl = xvoTableGetBool(tblFeatures, "enableAccessControl", 19);
+	}
+	
+	// 访问控制配置
+	xvalue tblAccessControl = xvoTableGetValue(tblConfig, "accessControl", 13);
+	if ( tblAccessControl ) {
+		pModel->iDefaultAccessLevel = xvoTableGetInt(tblAccessControl, "defaultLevel", 12);
+		pModel->bEnablePreview = xvoTableGetBool(tblAccessControl, "enablePreview", 13);
+		pModel->bEnablePurchase = xvoTableGetBool(tblAccessControl, "enablePurchase", 14);
+	} else {
+		// 默认值
+		pModel->iDefaultAccessLevel = 0;
+		pModel->bEnablePreview = TRUE;
+		pModel->bEnablePurchase = FALSE;
+	}
+	
+	// 投稿配置
+	xvalue tblSubmit = xvoTableGetValue(tblConfig, "submit", 6);
+	if ( tblSubmit ) {
+		pModel->bAllowGuestSubmit = xvoTableGetBool(tblSubmit, "allowGuest", 10);
+		pModel->bSubmitNeedReview = xvoTableGetBool(tblSubmit, "needReview", 10);
+	} else {
+		// 默认值
+		pModel->bAllowGuestSubmit = FALSE;
+		pModel->bSubmitNeedReview = TRUE;  // 默认需要审核
 	}
 	
 	// API权限配置
@@ -1989,7 +2698,7 @@ bool ModelMgr_DestroyWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 	if ( ppModel && *ppModel ) {
 		Model_Destroy(*ppModel);
 	}
-	return TRUE;  // 继续遍历
+	return FALSE;  // FALSE = 继续遍历, TRUE = 停止遍历
 }
 
 // 获取模型列表的回调函数
@@ -1997,7 +2706,7 @@ bool ModelMgr_ListWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 {
 	xvalue arrList = (xvalue)pArg;
 	ModelInstance** ppModel = (ModelInstance**)pVal;
-	if ( !ppModel || !(*ppModel) ) return TRUE;
+	if ( !ppModel || !(*ppModel) ) return FALSE;  // 继续遍历下一个
 	
 	ModelInstance* pModel = *ppModel;
 	
@@ -2007,29 +2716,38 @@ bool ModelMgr_ListWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 	xvoTableSetText(tblItem, "desc", 4, pModel->sDesc ? pModel->sDesc : (str)"", 0, FALSE);
 	xvoTableSetText(tblItem, "namespace", 9, pModel->sNamespace ? pModel->sNamespace : (str)"", 0, FALSE);
 	xvoTableSetText(tblItem, "icon", 4, pModel->sIcon ? pModel->sIcon : (str)"", 0, FALSE);
+	xvoTableSetInt(tblItem, "sort", 4, pModel->iSort);
 	xvoTableSetBool(tblItem, "enabled", 7, pModel->bEnabled);
 	xvoTableSetBool(tblItem, "compiled", 8, pModel->bCompiled);
+	
+	// 检测是否需要更新（启用后配置或字段有变化）
+	bool bNeedUpdate = FALSE;
+	if ( pModel->bEnabled && (pModel->iUpdateTime > pModel->iEnableTime) ) {
+		bNeedUpdate = TRUE;
+	}
+	xvoTableSetBool(tblItem, "needUpdate", 10, bNeedUpdate);
+	
 	xvoTableSetText(tblItem, "createTime", 10, xrtTimeToStr(pModel->iCreateTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 	xvoTableSetText(tblItem, "updateTime", 10, xrtTimeToStr(pModel->iUpdateTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 	
 	xvoArrayAppendValue(arrList, tblItem, TRUE);
-	return TRUE;  // 继续遍历
+	return FALSE;  // FALSE = 继续遍历, TRUE = 停止遍历
 }
 
 // 扫描模型目录的回调函数
 int ModelMgr_ScanDirProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iPathSize)
 {
 	// 只处理目录（进入时，bDir=1），跳过文件(0)和离开目录(2)
-	if ( bDir != 1 ) return FALSE;
+	if ( bDir != 1 ) return FALSE;  // FALSE = 继续遍历
 	
 	// 获取目录名
 	str sName = xrtPathGetName(sPath, 0);
-	if ( !sName ) return FALSE;
+	if ( !sName ) return FALSE;  // FALSE = 继续遍历
 	
 	// 跳过隐藏目录和特殊目录
 	if ( sName[0] == '.' || sName[0] == '_' ) {
 		xrtFree(sName);
-		return FALSE;
+		return FALSE;  // FALSE = 继续遍历
 	}
 	
 	// 检查是否存在 config.json
@@ -2037,7 +2755,7 @@ int ModelMgr_ScanDirProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iP
 	if ( !xrtFileExists(sConfigPath) ) {
 		xrtFree(sConfigPath);
 		xrtFree(sName);
-		return FALSE;
+		return FALSE;  // FALSE = 继续遍历
 	}
 	
 	// 加载模型
@@ -2059,7 +2777,7 @@ int ModelMgr_ScanDirProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iP
 		// 启用操作在 ModelMgr_Init 完成后统一执行
 	}
 	
-	return FALSE;  // FALSE表示不递归进入子目录
+	return FALSE;
 }
 
 // 扫描并加载所有模型
@@ -2076,7 +2794,7 @@ void ModelMgr_ScanModels()
 bool ModelMgr_AutoEnableWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 {
 	ModelInstance** ppModel = (ModelInstance**)pVal;
-	if ( !ppModel || !(*ppModel) ) return TRUE;
+	if ( !ppModel || !(*ppModel) ) return FALSE;  // 继续遍历下一个
 	
 	ModelInstance* pModel = *ppModel;
 	
@@ -2088,7 +2806,7 @@ bool ModelMgr_AutoEnableWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 		Model_Enable(pModel);
 	}
 	
-	return TRUE;  // 继续遍历
+	return FALSE;  // FALSE = 继续遍历, TRUE = 停止遍历
 }
 
 void ModelMgr_AutoEnableModels()

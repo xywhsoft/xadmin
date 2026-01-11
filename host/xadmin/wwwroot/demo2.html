@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>wangEditor 快速DEMO</title>
+    <!-- 1. 引入wangEditor样式（替换为你的本地路径） -->
+    <link rel="stylesheet" href="/lib/wangEditor/css/style.css">
+    <!-- 可选：重置页面样式，避免默认样式干扰 -->
+    <style>
+        body {
+            margin: 20px;
+        }
+        #toolbar-container {
+            border: 1px solid #ccc;
+            padding: 5px;
+            margin-bottom: -1px;
+            border-bottom: none;
+        }
+        #editor-container {
+            border: 1px solid #ccc;
+            height: 500px;
+        }
+    </style>
+</head>
+<body>
+    <!-- 2. 编辑器工具栏容器 -->
+    <div id="toolbar-container"></div>
+    <!-- 3. 编辑器内容容器 -->
+    <div id="editor-container">
+        <!-- 初始内容（可选） -->
+    </div>
+
+    <!-- 4. 引入wangEditor核心JS（替换为你的本地路径） -->
+    <script src="/lib/wangEditor/index.js"></script>
+    <!-- 5. 初始化编辑器 -->
+    <script>
+        // 从全局对象中获取创建编辑器的方法
+        const { createEditor, createToolbar } = window.wangEditor
+
+        // 配置编辑器
+        const editorConfig = {
+            placeholder: '请输入内容...',
+            // 自动聚焦编辑器
+            autofocus: true,
+            // 配置图片上传（本地DEMO可先注释，后续对接你的附件系统）
+            // MENU_CONF: {
+            //     uploadImage: {
+            //         server: '/api/attachments/upload', // 你的上传接口
+            //         maxFileSize: 2 * 1024 * 1024, // 2MB
+            //         allowedFileTypes: ['image/jpeg', 'image/png', 'image/gif']
+            //     }
+            // }
+        }
+
+        // 创建编辑器实例
+        const editor = createEditor({
+            selector: '#editor-container',
+            html: '', // 初始内容也可通过这里设置
+            config: editorConfig
+        })
+
+        // 配置工具栏
+        const toolbarConfig = {
+            // 自定义工具栏按钮（默认显示所有，可按需删减）
+            toolbarKeys: [
+                'bold', 'italic', 'underline', 'through', // 基础格式
+                '|', // 分隔线
+                'fontSize', 'fontFamily', 'textColor', 'bgColor', // 字体样式
+                '|',
+                'header1', 'header2', 'header3', // 标题
+                '|',
+                'list OL', 'list UL', 'todo', // 列表
+                '|',
+                'uploadImage', 'insertTable', // 图片/表格
+                '|',
+                'undo', 'redo', 'clearStyle' // 撤销/重做/清除样式
+            ]
+        }
+
+        // 创建工具栏实例
+        const toolbar = createToolbar({
+            editor, // 关联编辑器
+            selector: '#toolbar-container',
+            config: toolbarConfig
+        })
+    </script>
+</body>
+</html>

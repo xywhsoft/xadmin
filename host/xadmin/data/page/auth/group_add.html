@@ -9,8 +9,8 @@
 	<link href="/layui/css/layui.css" rel="stylesheet">
 </head>
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+	<form class="layui-form" lay-filter="AuthGroupAddForm" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-	<form class="layui-form" lay-filter="AuthGroupAddForm">
 		<div class="layui-form-item">
 			<label class="layui-form-label">分类名称</label>
 			<div class="layui-input-block">
@@ -29,12 +29,12 @@
 				<input type="number" name="sort" value="0" placeholder="请输入排序值（数值越小排在前面）" autocomplete="off" class="layui-input">
 			</div>
 		</div>
-	</form>
 	</div>
 	<div style="padding: 10px 20px; border-top: 1px solid #e6e6e6; text-align: right;">
 		<button class="layui-btn layui-bg-blue" lay-submit lay-filter="submit"><i class="layui-icon layui-icon-ok"></i> 保存</button>
 		<button type="button" class="layui-btn layui-btn-primary" id="btnCancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
 	</div>
+	</form>
 	<script src="/layui/layui.js"></script>
 	<script>
 		layui.use('form', function(){

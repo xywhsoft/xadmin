@@ -1,0 +1,62 @@
+{
+	"sort":	0,
+	"namespace":	"cms",
+	"table":	{
+		"name":	"model_cms_article"
+	},
+	"api":	{
+		"authLevel":	0
+	},
+	"accessControl":	{
+		"defaultLevel":	0,
+		"enablePurchase":	true,
+		"enablePreview":	true
+	},
+	"title":	"文章",
+	"status":	{
+		"enableTime":	63935391296,
+		"compiled":	true,
+		"enabled":	true
+	},
+	"reply":	{
+		"authLevel":	0,
+		"needApprove":	false,
+		"quoteMaxLen":	50
+	},
+	"icon":	"layui-icon layui-icon-read",
+	"desc":	"",
+	"features":	{
+		"enableSubmit":	true,
+		"enableReply":	true,
+		"enableAdmin":	true,
+		"enableAccessControl":	false,
+		"enableApi":	true
+	},
+	"submit":	{
+		"allowGuest":	false,
+		"needReview":	false
+	},
+	"fields":	[
+		{
+			"dataType":	0,
+			"title":	"标题",
+			"defaultValue":	"",
+			"formType":	0,
+			"desc":	"",
+			"name":	"title",
+			"required":	true,
+			"showInList":	true
+		}, {
+			"dataType":	0,
+			"title":	"正文",
+			"defaultValue":	"",
+			"formType":	13,
+			"desc":	"",
+			"name":	"text",
+			"required":	true,
+			"showInList":	false
+		}
+	],
+	"updateTime":	63935391296,
+	"createTime":	63935367107
+}

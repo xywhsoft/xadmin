@@ -89,6 +89,7 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/model/compile",						Request_Model_Compile);
 	AddStaticRouteHTTP("/admin/model/enable",						Request_Model_Enable);
 	AddStaticRouteHTTP("/admin/model/disable",						Request_Model_Disable);
+	AddStaticRouteHTTP("/admin/model/sort",							Request_Model_Sort);
 	AddStaticRouteHTTP("/admin/view/model",							Request_View_Model_List);
 	AddStaticRouteHTTP("/admin/view/model/add",						Request_View_Model_Add);
 	AddStaticRouteHTTP("/admin/view/model/edit",					Request_View_Model_Edit);

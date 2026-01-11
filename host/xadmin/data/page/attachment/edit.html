@@ -9,8 +9,8 @@
 <link href="/layui/css/layui.css" rel="stylesheet">
 </head>
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+<form class="layui-form" lay-filter="Form_Attachment_Edit" style="height: 100%; display: flex; flex-direction: column;">
 <div style="flex: 1; overflow-y: auto; padding: 20px;">
-<form class="layui-form" lay-filter="Form_Attachment_Edit">
 	<input type="hidden" name="xid" id="xid">
 	
 	<div class="layui-form-item">
@@ -73,12 +73,12 @@
 			<textarea name="remark" class="layui-textarea" placeholder="请输入备注信息"></textarea>
 		</div>
 	</div>
-</form>
 </div>
 <div style="padding: 10px 20px; border-top: 1px solid #e6e6e6; text-align: right;">
 	<button class="layui-btn layui-bg-blue" lay-submit lay-filter="submit"><i class="layui-icon layui-icon-ok"></i> 保存</button>
 	<button type="button" class="layui-btn layui-btn-primary" id="btnCancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
 </div>
+</form>
 
 <script src="/layui/layui.js"></script>
 <script>

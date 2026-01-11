@@ -24,6 +24,10 @@
 		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Model_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
 	</div>
 	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm layui-btn-warm" lay-event="Model_Draft" style="position: relative;">
+			<i class="layui-icon layui-icon-file"></i> 草稿箱
+			<span id="draftBadge" class="layui-badge" style="position: absolute; top: -8px; right: -8px; display: none;">0</span>
+		</button>
 		<button class="layui-btn layui-btn-sm" lay-event="Model_Add"><i class="layui-icon layui-icon-addition"></i> 添加</button>
 	</div>
 </script>
@@ -45,6 +49,7 @@ layui.use(['table'], function(){
 	
 	// 从 URL 路径解析模型信息
 	var sPath = window.location.pathname;
+	var G_DraftCount = 0;  // 草稿箱数量
 	
 	// 使用正则表达式匹配路径
 	var arrMatch = sPath.match(/\/admin\/view\/model\/data\/([^\/]+)\/([^\/]+)/);
@@ -146,6 +151,8 @@ layui.use(['table'], function(){
 				},
 				cols: [arrCols],
 				done: function(){
+					// 加载草稿箱数量
+					loadDraftCount();
 				},
 				error: function(res, msg){
 					console.log(res, msg);
@@ -172,9 +179,26 @@ layui.use(['table'], function(){
 						var layerIndex = layer.open({
 							title: '添加' + (tblModel.title || sModelName),
 							type: 2,
-							shadeClose: true,
+							shadeClose: false,
 							area: ['700px', '600px'],
 							content: sAddUrl,
+						});
+					break;
+					case 'Model_Draft':
+						var sDraftUrl = sNamespace ? 
+							('/admin/view/model/data/' + sNamespace + '/' + sModelName + '/draft') :
+							('/admin/view/model/data/' + sModelName + '/draft');
+						var layerIndex = layer.open({
+							title: '草稿箱 - ' + (tblModel.title || sModelName),
+							type: 2,
+							shadeClose: false,
+							area: ['900px', '600px'],
+							content: sDraftUrl,
+							end: function(){
+								// 关闭草稿箱后刷新列表和草稿数量
+								table.reloadData('Table_Model_Data');
+								loadDraftCount();
+							}
 						});
 					break;
 				};
@@ -190,7 +214,7 @@ layui.use(['table'], function(){
 					var layerIndex = layer.open({
 						title: '编辑' + (tblModel.title || sModelName),
 						type: 2,
-						shadeClose: true,
+						shadeClose: false,
 						area: ['700px', '600px'],
 						content: sEditUrl,
 					});
@@ -226,6 +250,39 @@ layui.use(['table'], function(){
 		layer.msg('获取模型配置出错', {icon: 2});
 		console.error('Error:', error);
 	});
+	
+	// 加载草稿箱数量
+	function loadDraftCount()
+	{
+		var sCountUrl = sNamespace ? 
+			('/admin/' + sNamespace + '/' + sModelName + '/draft/count') :
+			('/admin/' + sModelName + '/draft/count');
+		fetch(sCountUrl)
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( result && result.result ) {
+				G_DraftCount = result.count || 0;
+				updateDraftBadge();
+			}
+		})
+		.catch(function(error){
+			console.error('Error loading draft count:', error);
+		});
+	}
+	
+	// 更新草稿箱徽章
+	function updateDraftBadge()
+	{
+		var badge = document.getElementById('draftBadge');
+		if ( !badge ) return;
+		
+		if ( G_DraftCount > 0 ) {
+			badge.style.display = 'inline-block';
+			badge.textContent = G_DraftCount > 99 ? '99+' : G_DraftCount;
+		} else {
+			badge.style.display = 'none';
+		}
+	}
 	
 });
 </script>

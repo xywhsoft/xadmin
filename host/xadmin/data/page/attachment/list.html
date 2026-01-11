@@ -45,10 +45,9 @@
 
 <!-- 文件名模板 -->
 <script type="text/html" id="Tpl_Attachment_Filename">
-	{{# var ext = (d.ext || '').toLowerCase(); }}
-	{{# var imageExts = ['jpg','jpeg','png','gif','bmp','webp','svg','ico']; }}
-	{{# var textExts = ['txt','md','json','xml','html','css','js','c','h','py','log','ini','yml','yaml','csv','sh','bat','sql','java','go','rs','ts','vue']; }}
-	{{# if(imageExts.indexOf(ext) >= 0 || textExts.indexOf(ext) >= 0) { }}
+	{{# var icon = window.getFileIcon(d.ext); }}
+	<i class="layui-icon {{= icon.cls }}" style="color:{{= icon.color }}; margin-right:5px;"></i>
+	{{# if(icon.viewable) { }}
 		<a href="javascript:;" lay-event="view" style="color:#1E9FFF;">{{d.filename}}</a>
 	{{# } else { }}
 		<a href="javascript:;" lay-event="download" style="color:#1E9FFF;">{{d.filename}}</a>
@@ -154,14 +153,38 @@
 
 <!-- 页面逻辑处理 -->
 <script>
+// 文件类型分类（全局，供模板调用）
+var FILE_TYPES = {
+	image: ['jpg','jpeg','png','gif','bmp','webp','svg','ico'],
+	text: ['txt','md','json','xml','html','css','js','c','h','py','log','ini','yml','yaml','csv','sh','bat','sql','java','go','rs','ts','vue'],
+	video: ['mp4','avi','mkv','mov','wmv','flv','webm','m4v'],
+	audio: ['mp3','wav','ogg','flac','aac','wma','m4a'],
+	archive: ['zip','rar','7z','tar','gz','bz2','xz'],
+	doc: ['doc','docx','odt','rtf'],
+	excel: ['xls','xlsx','ods'],
+	ppt: ['ppt','pptx','odp']
+};
+
+// 获取文件图标信息
+window.getFileIcon = function(ext)
+{
+	ext = (ext || '').toLowerCase();
+	if ( FILE_TYPES.image.indexOf(ext) >= 0 ) return {cls: 'layui-icon-picture', color: '#52c41a', viewable: true};
+	if ( FILE_TYPES.video.indexOf(ext) >= 0 ) return {cls: 'layui-icon-video', color: '#f5222d', viewable: false};
+	if ( FILE_TYPES.audio.indexOf(ext) >= 0 ) return {cls: 'layui-icon-speaker', color: '#fa8c16', viewable: false};
+	if ( FILE_TYPES.archive.indexOf(ext) >= 0 ) return {cls: 'layui-icon-file-b', color: '#722ed1', viewable: false};
+	if ( ext === 'pdf' ) return {cls: 'layui-icon-file', color: '#f5222d', viewable: false};
+	if ( FILE_TYPES.doc.indexOf(ext) >= 0 ) return {cls: 'layui-icon-file', color: '#1890ff', viewable: false};
+	if ( FILE_TYPES.excel.indexOf(ext) >= 0 ) return {cls: 'layui-icon-table', color: '#52c41a', viewable: false};
+	if ( FILE_TYPES.ppt.indexOf(ext) >= 0 ) return {cls: 'layui-icon-file', color: '#fa541c', viewable: false};
+	if ( FILE_TYPES.text.indexOf(ext) >= 0 ) return {cls: 'layui-icon-code-circle', color: '#13c2c2', viewable: true};
+	return {cls: 'layui-icon-file', color: '#999', viewable: false};
+};
+
 layui.use(['table'], function(){
 	var table = layui.table;
 	var layer = layui.layer;
 	var $ = layui.$;
-	
-	// 文件类型分类
-	var imageExts = ['jpg','jpeg','png','gif','bmp','webp','svg','ico'];
-	var textExts = ['txt','md','json','xml','html','css','js','c','h','py','log','ini','yml','yaml','csv','sh','bat','sql','java','go','rs','ts','vue'];
 	
 	// 创建渲染实例
 	table.render({
@@ -410,9 +433,9 @@ layui.use(['table'], function(){
 		
 		if ( obj.event === 'view' ) {
 			var url = '/attachment?xid=' + data.xid;
-			if ( imageExts.indexOf(ext) >= 0 ) {
+			if ( FILE_TYPES.image.indexOf(ext) >= 0 ) {
 				openImageViewer(url, data.filename);
-			} else if ( textExts.indexOf(ext) >= 0 ) {
+			} else if ( FILE_TYPES.text.indexOf(ext) >= 0 ) {
 				openTextViewer(url, data.filename);
 			}
 		} else if ( obj.event === 'download' ) {

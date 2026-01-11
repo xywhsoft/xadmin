@@ -114,6 +114,10 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 		treeTable.render({
 			elem: '#Table_Menu',
 			toolbar: '#Toolbar_Menu',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			skin: 'line',
+			cellMinWidth: 60,
 			data: arrMenuData,
 			tree: {
 				customName: {
@@ -148,8 +152,7 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 				}},
 				{field: 'visible', title: '状态', width: 80, align: 'center', templet: '#statusTpl'},
 				{fixed: 'right', title: '操作', width: 120, align: 'center', toolbar: '#Tool_Menu'}
-			]],
-			page: false
+			]]
 		});
 	}
 	
