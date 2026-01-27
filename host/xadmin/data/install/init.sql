@@ -404,6 +404,9 @@ VALUES (19, 15, '菜单管理', 'layui-icon layui-icon-spread-left', 1, '_compon
 INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
 VALUES (20, 15, '接口管理', 'layui-icon layui-icon-website', 1, '_component', '/admin/view/auth/uris', 500500, 1, '管理API接口', 63933640350, 63936000000, 0);
 
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (22, 15, '插件管理', 'layui-icon layui-icon-app', 1, '_component', '/admin/view/plugin', 500600, 1, '管理系统插件', 63936000000, 63936000000, 0);
+
 -- 系统日志 (sort=600000)
 INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
 VALUES (21, 0, '系统日志', 'layui-icon layui-icon-log', 1, '_component', '/admin/view/logs', 600000, 1, '查看系统日志', 63933640350, 63936000000, 0);

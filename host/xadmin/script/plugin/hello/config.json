@@ -1,0 +1,14 @@
+{
+	"sort":	999,
+	"title":	"Hello World 示例插件",
+	"desc":	"用于测试插件系统的示例插件",
+	"name":	"hello",
+	"version":	"1.0.0",
+	"exports":	[],
+	"settings":	{
+		"showTime":	true,
+		"welcomeMessage":	"Hello from Plugin!"
+	},
+	"enabled":	true,
+	"author":	"xAdmin"
+}

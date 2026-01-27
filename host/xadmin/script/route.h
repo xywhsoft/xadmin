@@ -160,6 +160,19 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/api/v1/attachment/my",						Request_Api_Attachment_MyList);
 	AddStaticRouteHTTP("/api/v1/attachment/purchased",				Request_Api_Attachment_Purchased);
 	
+	// ==================== 插件管理路由 ====================
+	
+	// 插件管理后台页面
+	AddStaticRouteHTTP("/admin/view/plugin",						Request_View_Plugin_List);
+	
+	// 插件管理 API
+	AddStaticRouteHTTP("/admin/plugin/list",						Request_Plugin_List);
+	AddStaticRouteHTTP("/admin/plugin/get",							Request_Plugin_Get);
+	AddStaticRouteHTTP("/admin/plugin/enable",						Request_Plugin_Enable);
+	AddStaticRouteHTTP("/admin/plugin/disable",						Request_Plugin_Disable);
+	AddStaticRouteHTTP("/admin/plugin/reload",						Request_Plugin_Reload);
+	AddStaticRouteHTTP("/admin/plugin/settings",					Request_Plugin_Settings);
+	
 }
 
 

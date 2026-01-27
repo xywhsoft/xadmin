@@ -64,6 +64,12 @@
 // 附件管理模块
 #include "module/attachment.h"
 
+// 插件上下文定义
+#include "module/plugin_ctx.h"
+
+// 插件管理器
+#include "module/plugin_mgr.h"
+
 
 
 // 路由调用 - HTTP
@@ -79,6 +85,7 @@
 #include "route_http/model.h"
 #include "route_http/attachment.h"
 #include "route_http/attachment_api.h"
+#include "route_http/plugin.h"
 
 
 
@@ -147,6 +154,9 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	// 同步 URI 表（在所有路由注册完成后）
 	Auth_SyncURIS();
 	
+	// 初始化插件管理器（在所有核心模块初始化完成后）
+	PluginMgr_Init();
+	
 }
 
 
@@ -154,6 +164,9 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 // 服务卸载
 void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 {
+	
+	// 卸载插件管理器（最先卸载）
+	PluginMgr_Unit();
 	
 	// 卸载附件管理模块
 	Attachment_Unit();

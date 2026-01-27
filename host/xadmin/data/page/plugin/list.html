@@ -1,0 +1,290 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Plugin_List" lay-filter="Table_Plugin_List"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Plugin_List">
+	<div class="layui-inline">
+		<input type="text" id="searchPlugin" placeholder="搜索插件..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Plugin_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Plugin_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+</script>
+
+<!-- 状态列模板 -->
+<script type="text/html" id="Tpl_Plugin_Status">
+	{{# if(d.enabled && d.loaded){ }}
+		<span class="layui-badge layui-bg-green">运行中</span>
+	{{# } else if(d.enabled && !d.loaded){ }}
+		<span class="layui-badge layui-bg-orange">加载失败</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-gray">已禁用</span>
+	{{# } }}
+</script>
+
+<!-- 信息列模板 -->
+<script type="text/html" id="Tpl_Plugin_Info">
+	<div style="line-height: 1.6;">
+		<div><strong>{{= d.title }}</strong></div>
+		<div style="color: #666; font-size: 12px;">{{= d.desc || '暂无描述' }}</div>
+	</div>
+</script>
+
+<!-- 版本列模板 -->
+<script type="text/html" id="Tpl_Plugin_Version">
+	<div style="line-height: 1.6;">
+		<div><code>v{{= d.version }}</code></div>
+		<div style="color: #999; font-size: 12px;">{{= d.author }}</div>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Plugin_List">
+	<div class="layui-clear-space">
+		{{# if(d.enabled){ }}
+			<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="reload">重载</a>
+			<a class="layui-btn layui-btn-xs layui-bg-gray" lay-event="disable">禁用</a>
+		{{# } else { }}
+			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="enable">启用</a>
+		{{# } }}
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="settings">设置</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		var $ = layui.$;
+		
+		// 创建渲染实例
+		table.render({
+			elem: '#Table_Plugin_List',
+			toolbar: '#Toolbar_Plugin_List',
+			url: '/admin/plugin/list',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			cellMinWidth: 60,
+			skin: "line",
+			page: false,
+			cols: [[
+				{field:'sort', width:80, title: '排序', sort: true},
+				{field:'name', width:120, title: '标识', templet: '<code>{{= d.name }}</code>'},
+				{width:300, title: '插件信息', templet: '#Tpl_Plugin_Info'},
+				{width:130, title: '版本/作者', templet: '#Tpl_Plugin_Version'},
+				{width:100, title: '状态', templet: '#Tpl_Plugin_Status'},
+				{width:200, title: '操作', templet: '#Tool_Plugin_List'},
+			]],
+			done: function(){
+			},
+			error: function(res, msg){
+				console.log(res, msg)
+			}
+		});
+		
+		// 工具栏事件
+		table.on('toolbar(Table_Plugin_List)', function(obj){
+			switch ( obj.event ) {
+				case 'Plugin_Search':
+					var keyword = document.getElementById('searchPlugin').value.toLowerCase();
+					table.reloadData('Table_Plugin_List', {
+						where: { search: keyword },
+					});
+				break;
+				case 'Plugin_Refresh':
+					table.reloadData('Table_Plugin_List');
+				break;
+			};
+		});
+		
+		// 触发单元格工具事件
+		table.on('tool(Table_Plugin_List)', function(obj){
+			var data = obj.data;
+			
+			if ( obj.event == 'enable' ) {
+				// 启用插件
+				layer.confirm('确定要启用插件 "' + data.title + '" 吗？', {
+					icon: 3,
+					title: '启用确认'
+				}, function(index){
+					fetch('/admin/plugin/enable', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ name: data.name })
+					})
+					.then(response => response.json())
+					.then(result => {
+						if ( result && result.result === true ) {
+							layer.msg('插件已启用', {icon: 1});
+							table.reloadData('Table_Plugin_List');
+							// 刷新后台页面以显示插件菜单
+							if ( parent && parent.location ) {
+								parent.location.reload();
+							}
+						} else {
+							layer.msg(result.message || '启用失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+					layer.close(index);
+				});
+				
+			} else if ( obj.event == 'disable' ) {
+				// 禁用插件
+				layer.confirm('确定要禁用插件 "' + data.title + '" 吗？<br><span style="color:#ff5722;">插件注册的菜单和路由将被移除！</span>', {
+					icon: 3,
+					title: '禁用确认'
+				}, function(index){
+					fetch('/admin/plugin/disable', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ name: data.name })
+					})
+					.then(response => response.json())
+					.then(result => {
+						if ( result && result.result === true ) {
+							layer.msg('插件已禁用', {icon: 1});
+							table.reloadData('Table_Plugin_List');
+							// 刷新后台页面以隐藏插件菜单
+							if ( parent && parent.location ) {
+								parent.location.reload();
+							}
+						} else {
+							layer.msg(result.message || '禁用失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+					layer.close(index);
+				});
+				
+			} else if ( obj.event == 'reload' ) {
+				// 重载插件
+				layer.confirm('确定要重载插件 "' + data.title + '" 吗？<br>这将卸载并重新加载插件代码。', {
+					icon: 3,
+					title: '重载确认'
+				}, function(index){
+					fetch('/admin/plugin/reload', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ name: data.name })
+					})
+					.then(response => response.json())
+					.then(result => {
+						if ( result && result.result === true ) {
+							layer.msg('插件已重载', {icon: 1});
+							table.reloadData('Table_Plugin_List');
+						} else {
+							layer.msg(result.message || '重载失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+					layer.close(index);
+				});
+				
+			} else if ( obj.event == 'settings' ) {
+				// 插件设置
+				layer.open({
+					title: '插件设置 - ' + data.title,
+					type: 1,
+					area: ['500px', '400px'],
+					shadeClose: true,
+					content: '<div style="padding:20px;" id="plugin_settings_container"><div style="text-align:center;padding:50px;"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size:30px;"></i></div></div>',
+					success: function(layero, index){
+						// 加载插件设置
+						fetch('/admin/plugin/settings?name=' + data.name)
+						.then(response => response.json())
+						.then(result => {
+							if ( result && result.result ) {
+								var settings = result.data || {};
+								var html = '<form class="layui-form" style="padding:10px;">';
+								
+								// 动态生成设置表单
+								var hasSettings = false;
+								for ( var key in settings ) {
+									hasSettings = true;
+									var value = settings[key];
+									var valueType = typeof value;
+									
+									html += '<div class="layui-form-item">';
+									html += '<label class="layui-form-label">' + key + '</label>';
+									html += '<div class="layui-input-block">';
+									
+									if ( valueType === 'boolean' ) {
+										html += '<input type="checkbox" name="' + key + '" lay-skin="switch" lay-text="是|否"' + (value ? ' checked' : '') + '>';
+									} else if ( valueType === 'number' ) {
+										html += '<input type="number" name="' + key + '" value="' + value + '" class="layui-input">';
+									} else {
+										html += '<input type="text" name="' + key + '" value="' + value + '" class="layui-input">';
+									}
+									
+									html += '</div></div>';
+								}
+								
+								if ( !hasSettings ) {
+									html += '<div style="text-align:center;color:#999;padding:30px;">该插件暂无可配置项</div>';
+								}
+								
+								html += '<div class="layui-form-item" style="margin-top:30px;text-align:center;">';
+								html += '<button type="button" class="layui-btn" id="btn_save_settings">保存设置</button>';
+								html += '</div></form>';
+								
+								$('#plugin_settings_container').html(html);
+								layui.form.render();
+								
+								// 保存按钮事件
+								$('#btn_save_settings').on('click', function(){
+									var formData = {};
+									$('#plugin_settings_container').find('input').each(function(){
+										var $input = $(this);
+										var name = $input.attr('name');
+										if ( !name ) return;
+										
+										if ( $input.attr('type') === 'checkbox' ) {
+											formData[name] = $input.is(':checked');
+										} else if ( $input.attr('type') === 'number' ) {
+											formData[name] = parseFloat($input.val()) || 0;
+										} else {
+											formData[name] = $input.val();
+										}
+									});
+									
+									fetch('/admin/plugin/settings', {
+										method: 'POST',
+										headers: { 'Content-Type': 'application/json' },
+										body: JSON.stringify({ name: data.name, settings: formData })
+									})
+									.then(response => response.json())
+									.then(result => {
+										if ( result && result.result ) {
+											layer.msg('设置已保存', {icon: 1});
+											layer.close(index);
+										} else {
+											layer.msg(result.message || '保存失败', {icon: 2});
+										}
+									});
+								});
+							} else {
+								$('#plugin_settings_container').html('<div style="text-align:center;color:#f00;padding:50px;">加载设置失败</div>');
+							}
+						});
+					}
+				});
+			}
+		});
+	
+	});
+
+</script>
