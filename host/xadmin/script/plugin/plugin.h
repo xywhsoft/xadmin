@@ -1,6 +1,5 @@
 
 
-
 // ============================================
 // xAdmin 插件公共头文件
 // 所有插件都应包含此头文件
@@ -73,34 +72,40 @@ typedef struct {
 
 
 
+// ==================== 类型定义 ====================
+
+typedef bool (*DirScanCallback)(str path, size_t size, int type, ptr data, size_t pathSize);
+
+
+
 // ==================== 插件上下文结构 ====================
 
 typedef struct {
-	
+
 	// ===== 核心数据 =====
 	XDO_Connect pDB;                    // 数据库连接
 	xvalue* pAdminSession;              // 后台 Session 表指针
 	xvalue* pMemberSession;             // 前台 Session 表指针
 	xvalue* pOption;                    // 全局配置表指针
-	
+
 	// ===== 路径信息 =====
 	str sAppPath;                       // 应用根目录
 	str sWebPath;                       // Web 根目录
 	str sDataPath;                      // 数据目录
 	str sPluginPath;                    // 插件目录
 	str sPagePath;                      // 页面模板目录
-	
+
 	// ===== 路由操作 =====
 	RouteInfo* (*AddRoute)(str uri, void* proc, bool bAuth, bool bAdmin, int authId, int authLevel);
 	void (*RemoveRoute)(str uri);
 	RouteInfo* (*GetRoute)(str uri);
-	
+
 	// ===== 菜单操作 =====
 	int (*AddMenu)(int parent, str title, str icon, int type, str openType, str href, int sort, bool visible);
 	bool (*RemoveMenu)(int menuId);
 	bool (*ShowMenu)(int menuId);
 	bool (*HideMenu)(int menuId);
-	
+
 	// ===== 权限操作 =====
 	int (*AddAuthGroup)(str name, str desc, int sort);          // 添加权限分类
 	int (*AddAuth)(int groupId, str name, str desc, int sort);  // 添加权限分组
@@ -108,7 +113,7 @@ typedef struct {
 	bool (*RemoveAuth)(int authId);
 	void (*SyncUriAuth)(str uri, int authId, str desc, bool isBackend, bool needAuth, bool needLog);
 	void (*ReloadAuthCache)();                                  // 刷新权限缓存
-	
+
 	// ===== Session 操作 =====
 	xvalue (*GetAdminSession)(str token);
 	xvalue (*GetMemberSession)(str token);
@@ -117,24 +122,24 @@ typedef struct {
 	void (*DestroyAdminSession)(str token);
 	void (*DestroyMemberSession)(str token);
 	void (*ExtendSession)(bool isAdmin, str token, int timeout);
-	
+
 	// ===== HTTP 响应 =====
 	void (*SendJson)(struct mg_connection* c, int code, str json, size_t len);
 	void (*SendHtml)(struct mg_connection* c, int code, str html);
 	void (*SendPage)(struct mg_connection* c, str pagePath, xvalue data);
 	void (*SendFile)(struct mg_connection* c, str filePath, str mimeType);
 	void (*SendError)(struct mg_connection* c, int code, str message);
-	
+
 	// ===== 配置操作 =====
 	xvalue (*GetOption)(str group, str key);
 	bool (*SetOption)(str group, str key, xvalue value);
 	void (*ReloadOption)(str group);
-	
+
 	// ===== JSON 操作 =====
 	xvalue (*JsonParse)(str json, size_t len);
 	str (*JsonStringify)(xvalue val, size_t* outLen);
 	void (*JsonFree)(xvalue val);
-	
+
 	// ===== 工具函数 =====
 	int64 (*TimeNow)();
 	str (*Format)(str fmt, ...);
@@ -142,21 +147,93 @@ typedef struct {
 	str (*HashPassword)(str user, str salt, str clientHash);
 	str (*GenerateSalt)();
 	str (*GenerateToken)(int length);
-	
+
 	// ===== 日志 =====
 	void (*Log)(int level, str format, ...);
 	void (*LogAccess)(str user, str uri, str method, str param, str body);
-	
+
 	// ===== 插件间通信 =====
 	void* (*GetPluginExport)(str pluginName, str exportName);
 	bool (*SetPluginExport)(str pluginName, str exportName, void* ptr);
-	
+
 	// ===== 事件系统 =====
 	bool (*EmitEvent)(str eventName, xvalue eventData);
 	bool (*OnEvent)(str eventName, void* callback);
 	void (*OffEvent)(str eventName, void* callback);
-	
+
+	// ===== 插件自身信息 =====
+	str (*GetPluginId)();
+	str (*GetPluginName)();
+	str (*GetPluginPath)();
+
+	// ===== 文件操作 =====
+	bool (*WriteFile)(str filePath, str content, size_t len);
+	bool (*ReadFile)(str filePath, str* outContent, size_t* outLen);
+	bool (*DeleteFile)(str filePath);
+	bool (*FileExists)(str filePath);
+	bool (*CreateDir)(str dirPath);
+	bool (*DeleteDir)(str dirPath, bool bRecursive);
+	bool (*DirExists)(str dirPath);
+	bool (*ScanDir)(str dirPath, bool bRecursive, DirScanCallback callback, ptr userData);
+	bool (*CopyFile)(str srcPath, str destPath);
+	bool (*MoveFile)(str srcPath, str destPath);
+
+	// ===== xPack 集成 =====
+	int (*CreateXpkg)(str outputPath, str* fileList, int fileCount, int compressLevel);
+	int (*ExtractXpkg)(str xpkgPath, str outputDir);
+	xvalue (*GetXpkgInfo)(str xpkgPath);
+
+	// ===== 代码生成 =====
+	bool (*GenerateModel)(str modelName, xvalue modelConfig);
+	bool (*CompilePlugin)(str pluginName);
+	bool (*ReloadPlugin)(str pluginName);
+	xvalue (*GetPluginConfig)(str pluginName);
+	bool (*SetPluginConfig)(str pluginName, xvalue config);
+
+	// ===== 数据库操作 =====
+	bool (*CreateTable)(str tableName, str sql);
+	bool (*DropTable)(str tableName);
+	bool (*ExecuteSQL)(str sql);
+	xvalue (*QuerySQL)(str sql);
+	sqlite3_stmt* (*PrepareSQL)(str sql);
+	bool (*ExecuteStmt)(sqlite3_stmt* stmt);
+	void (*FinalizeStmt)(sqlite3_stmt* stmt);
+
+	// ===== 插件管理 =====
+	bool (*InstallPlugin)(str xpkgPath);
+	bool (*UninstallPlugin)(str pluginName);
+	bool (*UpgradePlugin)(str pluginName, str newXpkgPath);
+
+	// ===== 模板渲染 =====
+	str (*RenderTemplate)(str templatePath, xvalue data);
+	str (*RenderString)(str templateString, xvalue data);
+
 } PluginContext;
+
+
+
+// ==================== 事件回调函数类型 ====================
+
+typedef void (*PluginEventCallback)(str eventName, xvalue eventData);
+
+
+
+// ==================== 事件监听器结构 ====================
+
+typedef struct {
+	str sEventName;                     // 事件名称
+	xlist lstCallbacks;                 // 回调函数列表
+} EventListener;
+
+
+
+// ==================== 插件导出项结构 ====================
+
+typedef struct {
+	str sPluginName;                    // 插件名称
+	str sExportName;                    // 导出名称
+	void* pPtr;                         // 导出指针
+} PluginExport;
 
 
 
@@ -212,4 +289,3 @@ typedef struct {
 
 
 #endif // XADMIN_PLUGIN_H
-

@@ -1,6 +1,5 @@
 
 
-
 // ============================================
 // 插件上下文定义
 // ============================================
@@ -39,6 +38,12 @@
 #define LOG_INFO    1
 #define LOG_WARN    2
 #define LOG_ERROR   3
+
+
+
+// ==================== 类型定义 ====================
+
+typedef bool (*DirScanCallback)(str path, size_t size, int type, ptr data, size_t pathSize);
 
 
 
@@ -115,16 +120,63 @@ typedef struct {
 	// ===== 日志 =====
 	void (*Log)(int level, str format, ...);
 	void (*LogAccess)(str user, str uri, str method, str param, str body);
-	
+
 	// ===== 插件间通信 =====
 	void* (*GetPluginExport)(str pluginName, str exportName);
 	bool (*SetPluginExport)(str pluginName, str exportName, void* ptr);
-	
+
 	// ===== 事件系统 =====
 	bool (*EmitEvent)(str eventName, xvalue eventData);
 	bool (*OnEvent)(str eventName, void* callback);
 	void (*OffEvent)(str eventName, void* callback);
-	
+
+	// ===== 插件自身信息 =====
+	str (*GetPluginId)();
+	str (*GetPluginName)();
+	str (*GetPluginPath)();
+
+	// ===== 文件操作 =====
+	bool (*WriteFile)(str filePath, str content, size_t len);
+	bool (*ReadFile)(str filePath, str* outContent, size_t* outLen);
+	bool (*DeleteFile)(str filePath);
+	bool (*FileExists)(str filePath);
+	bool (*CreateDir)(str dirPath);
+	bool (*DeleteDir)(str dirPath, bool bRecursive);
+	bool (*DirExists)(str dirPath);
+	bool (*ScanDir)(str dirPath, bool bRecursive, DirScanCallback callback, ptr userData);
+	bool (*CopyFile)(str srcPath, str destPath);
+	bool (*MoveFile)(str srcPath, str destPath);
+
+	// ===== xPack 集成 =====
+	int (*CreateXpkg)(str outputPath, str* fileList, int fileCount, int compressLevel);
+	int (*ExtractXpkg)(str xpkgPath, str outputDir);
+	xvalue (*GetXpkgInfo)(str xpkgPath);
+
+	// ===== 代码生成 =====
+	bool (*GenerateModel)(str modelName, xvalue modelConfig);
+	bool (*CompilePlugin)(str pluginName);
+	bool (*ReloadPlugin)(str pluginName);
+	xvalue (*GetPluginConfig)(str pluginName);
+	bool (*SetPluginConfig)(str pluginName, xvalue config);
+
+	// ===== 数据库操作 =====
+	bool (*CreateTable)(str tableName, str sql);
+	bool (*DropTable)(str tableName);
+	bool (*ExecuteSQL)(str sql);
+	xvalue (*QuerySQL)(str sql);
+	sqlite3_stmt* (*PrepareSQL)(str sql);
+	bool (*ExecuteStmt)(sqlite3_stmt* stmt);
+	void (*FinalizeStmt)(sqlite3_stmt* stmt);
+
+	// ===== 插件管理 =====
+	bool (*InstallPlugin)(str xpkgPath);
+	bool (*UninstallPlugin)(str pluginName);
+	bool (*UpgradePlugin)(str pluginName, str newXpkgPath);
+
+	// ===== 模板渲染 =====
+	str (*RenderTemplate)(str templatePath, xvalue data);
+	str (*RenderString)(str templateString, xvalue data);
+
 } PluginContext;
 
 
@@ -151,5 +203,3 @@ typedef struct {
 	str sExportName;                    // 导出名称
 	void* pPtr;                         // 导出指针
 } PluginExport;
-
-

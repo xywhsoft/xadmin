@@ -172,7 +172,7 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/plugin/disable",						Request_Plugin_Disable);
 	AddStaticRouteHTTP("/admin/plugin/reload",						Request_Plugin_Reload);
 	AddStaticRouteHTTP("/admin/plugin/settings",					Request_Plugin_Settings);
-	
+
 }
 
 

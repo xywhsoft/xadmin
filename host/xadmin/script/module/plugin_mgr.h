@@ -6,6 +6,10 @@
 // ============================================
 
 
+// 前向声明：模板相关全局变量
+extern xvalue tblENV;
+extern xdict G_Template;
+
 
 // ==================== 数据结构定义 ====================
 
@@ -76,6 +80,10 @@ PluginContext* G_PluginCtx = NULL;
 str PluginPath = NULL;
 str PluginDataPath = NULL;
 
+// 当前正在处理的插件
+str G_CurrentPluginId = NULL;
+PluginInstance* G_CurrentPlugin = NULL;
+
 
 
 // ==================== 前向声明 ====================
@@ -83,6 +91,47 @@ str PluginDataPath = NULL;
 void PluginCtx_Log(int level, str format, ...);
 bool Plugin_Enable(PluginInstance* pPlugin);
 bool Plugin_Disable(PluginInstance* pPlugin);
+void Plugin_CleanupResources(str pluginId);
+
+str PluginCtx_GetPluginId();
+str PluginCtx_GetPluginName();
+str PluginCtx_GetPluginPath();
+
+bool PluginCtx_WriteFile(str filePath, str content, size_t len);
+bool PluginCtx_ReadFile(str filePath, str* outContent, size_t* outLen);
+bool PluginCtx_DeleteFile(str filePath);
+bool PluginCtx_FileExists(str filePath);
+bool PluginCtx_CreateDir(str dirPath);
+bool PluginCtx_DeleteDir(str dirPath, bool bRecursive);
+bool PluginCtx_DirExists(str dirPath);
+bool PluginCtx_ScanDir(str dirPath, bool bRecursive, DirScanCallback callback, ptr userData);
+bool PluginCtx_CopyFile(str srcPath, str destPath);
+bool PluginCtx_MoveFile(str srcPath, str destPath);
+
+int PluginCtx_CreateXpkg(str outputPath, str* fileList, int fileCount, int compressLevel);
+int PluginCtx_ExtractXpkg(str xpkgPath, str outputDir);
+xvalue PluginCtx_GetXpkgInfo(str xpkgPath);
+
+bool PluginCtx_GenerateModel(str modelName, xvalue modelConfig);
+bool PluginCtx_CompilePlugin(str pluginName);
+bool PluginCtx_ReloadPlugin(str pluginName);
+xvalue PluginCtx_GetPluginConfig(str pluginName);
+bool PluginCtx_SetPluginConfig(str pluginName, xvalue config);
+
+bool PluginCtx_CreateTable(str tableName, str sql);
+bool PluginCtx_DropTable(str tableName);
+bool PluginCtx_ExecuteSQL(str sql);
+xvalue PluginCtx_QuerySQL(str sql);
+sqlite3_stmt* PluginCtx_PrepareSQL(str sql);
+bool PluginCtx_ExecuteStmt(sqlite3_stmt* stmt);
+void PluginCtx_FinalizeStmt(sqlite3_stmt* stmt);
+
+bool PluginCtx_InstallPlugin(str xpkgPath);
+bool PluginCtx_UninstallPlugin(str pluginName);
+bool PluginCtx_UpgradePlugin(str pluginName, str newXpkgPath);
+
+str PluginCtx_RenderTemplate(str templatePath, xvalue data);
+str PluginCtx_RenderString(str templateString, xvalue data);
 
 
 
@@ -100,7 +149,37 @@ RouteInfo* PluginCtx_AddRoute(str uri, void* proc, bool bAuth, bool bAdmin, int 
 		pInfo->bActive = FALSE;
 		pInfo->AuthID = authId;
 		pInfo->AuthLevel = authLevel;
-		printf("        [Plugin] Route added: %s\n", uri);
+
+		if ( G_CurrentPluginId ) {
+			int64 iNow = xrtNow();
+			str sCheckSQL = xrtFormat("SELECT id FROM uris WHERE uri = '%s'", uri);
+			sqlite3_stmt* stmtCheck;
+			sqlite3_prepare_v3(G_DB->objDB, sCheckSQL, -1, 0, &stmtCheck, NULL);
+			xrtFree(sCheckSQL);
+
+			if ( sqlite3_step(stmtCheck) == SQLITE_ROW ) {
+				int iId = sqlite3_column_int(stmtCheck, 0);
+				sqlite3_finalize(stmtCheck);
+				str sUpdateSQL = xrtFormat(
+					"UPDATE uris SET plugin_id = '%s', updateTime = %lld WHERE id = %d",
+					G_CurrentPluginId, iNow, iId
+				);
+				sqlite3_exec(G_DB->objDB, sUpdateSQL, NULL, NULL, NULL);
+				xrtFree(sUpdateSQL);
+			} else {
+				sqlite3_finalize(stmtCheck);
+				str sInsertSQL = xrtFormat(
+					"INSERT INTO uris (authID, uri, desc, isBackend, needAuth, needLog, putLog, putData, createTime, updateTime, plugin_id) "
+					"VALUES (%d, '%s', '', %d, %d, %d, 0, 0, %lld, %lld, '%s')",
+					authId, uri, bAdmin ? 1 : 0, bAuth ? 1 : 0, 0, iNow, iNow, G_CurrentPluginId
+				);
+				sqlite3_exec(G_DB->objDB, sInsertSQL, NULL, NULL, NULL);
+				xrtFree(sInsertSQL);
+			}
+			printf("        [Plugin] Route added: %s (plugin_id=%s)\n", uri, G_CurrentPluginId);
+		} else {
+			printf("        [Plugin] Route added: %s\n", uri);
+		}
 	}
 	return pInfo;
 }
@@ -132,10 +211,17 @@ int PluginCtx_AddMenu(int parent, str title, str icon, int type, str openType, s
 	sqlite3_bind_text(stmt_menu_add, 9, "", -1, NULL);
 	sqlite3_bind_int64(stmt_menu_add, 10, iNow);
 	sqlite3_bind_int64(stmt_menu_add, 11, iNow);
+
+	if ( G_CurrentPluginId ) {
+		sqlite3_bind_text(stmt_menu_add, 12, G_CurrentPluginId, -1, NULL);
+	} else {
+		sqlite3_bind_null(stmt_menu_add, 12);
+	}
+
 	sqlite3_step(stmt_menu_add);
 	int iMenuId = sqlite3_last_insert_rowid(G_DB->objDB);
 	sqlite3_reset(stmt_menu_add);
-	printf("        [Plugin] Menu added: %s (id=%d)\n", title, iMenuId);
+	printf("        [Plugin] Menu added: %s (id=%d, plugin_id=%s)\n", title, iMenuId, G_CurrentPluginId ? G_CurrentPluginId : "NULL");
 	return iMenuId;
 }
 
@@ -803,31 +889,35 @@ bool Plugin_TccUnload(PluginInstance* pPlugin)
 bool Plugin_Enable(PluginInstance* pPlugin)
 {
 	printf("        [Plugin] Enabling %s...\n", pPlugin->sName);
-	
+
 	if ( pPlugin->bLoaded ) {
 		printf("        [Plugin] Plugin is already loaded\n");
 		return TRUE;
 	}
-	
-	// 使用 TCC 加载插件代码
+
+	G_CurrentPlugin = pPlugin;
+	G_CurrentPluginId = pPlugin->sName;
+
 	if ( !Plugin_TccLoad(pPlugin) ) {
 		printf("        [Plugin] Failed to load plugin with TCC\n");
+		G_CurrentPlugin = NULL;
+		G_CurrentPluginId = NULL;
 		return FALSE;
 	}
-	
-	// 添加到已加载列表
+
 	int iIdx = xrtListCount(G_PluginMgr->lstLoadedPlugins);
 	xrtListSetPtr(G_PluginMgr->lstLoadedPlugins, iIdx, pPlugin, NULL);
 	pPlugin->iLoadOrder = iIdx;
-	
-	// 更新状态
+
 	pPlugin->bLoaded = TRUE;
 	pPlugin->bEnabled = TRUE;
 	pPlugin->iEnableTime = xrtNow();
-	
-	// 保存配置
+
 	Plugin_SaveConfig(pPlugin);
-	
+
+	G_CurrentPlugin = NULL;
+	G_CurrentPluginId = NULL;
+
 	printf("        [Plugin] Plugin enabled: %s\n", pPlugin->sName);
 	return TRUE;
 }
@@ -837,16 +927,19 @@ bool Plugin_Enable(PluginInstance* pPlugin)
 bool Plugin_Disable(PluginInstance* pPlugin)
 {
 	printf("        [Plugin] Disabling %s...\n", pPlugin->sName);
-	
+
 	if ( !pPlugin->bLoaded ) {
 		printf("        [Plugin] Plugin is not loaded\n");
 		return TRUE;
 	}
-	
-	// 使用 TCC 卸载插件
+
+	G_CurrentPlugin = pPlugin;
+	G_CurrentPluginId = pPlugin->sName;
+
 	Plugin_TccUnload(pPlugin);
-	
-	// 从已加载列表移除
+
+	Plugin_CleanupResources(pPlugin->sName);
+
 	int iCount = xrtListCount(G_PluginMgr->lstLoadedPlugins);
 	for ( int i = 0; i < iCount; i++ ) {
 		if ( xrtListGetPtr(G_PluginMgr->lstLoadedPlugins, i) == pPlugin ) {
@@ -854,16 +947,69 @@ bool Plugin_Disable(PluginInstance* pPlugin)
 			break;
 		}
 	}
-	
-	// 更新状态
+
 	pPlugin->bLoaded = FALSE;
 	pPlugin->bEnabled = FALSE;
-	
-	// 保存配置
+
 	Plugin_SaveConfig(pPlugin);
-	
+
+	G_CurrentPlugin = NULL;
+	G_CurrentPluginId = NULL;
+
 	printf("        [Plugin] Plugin disabled: %s\n", pPlugin->sName);
 	return TRUE;
+}
+
+
+// 清理插件关联的资源
+void Plugin_CleanupResources(str pluginId)
+{
+	if ( !pluginId ) return;
+
+	printf("        [Plugin] Cleaning up resources for plugin_id: %s\n", pluginId);
+
+	str sSQL = xrtFormat(
+		"UPDATE menu SET isDelete = 1, updateTime = %lld WHERE plugin_id = '%s'",
+		xrtNow(), pluginId
+	);
+	sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, NULL);
+	xrtFree(sSQL);
+
+	sSQL = xrtFormat("DELETE FROM uris WHERE plugin_id = '%s'", pluginId);
+	sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, NULL);
+	xrtFree(sSQL);
+
+	sSQL = xrtFormat("UPDATE authGroup SET isDelete = 1 WHERE plugin_id = '%s'", pluginId);
+	sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, NULL);
+	xrtFree(sSQL);
+
+	sSQL = xrtFormat("UPDATE auth SET isDelete = 1 WHERE plugin_id = '%s'", pluginId);
+	sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, NULL);
+	xrtFree(sSQL);
+
+	sSQL = xrtFormat("SELECT table_name FROM plugin_table WHERE plugin_id = '%s'", pluginId);
+	sqlite3_stmt* stmt;
+	sqlite3_prepare_v3(G_DB->objDB, sSQL, -1, 0, &stmt, NULL);
+	xrtFree(sSQL);
+
+	while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+		str sTableName = (str)sqlite3_column_text(stmt, 0);
+		str sDropSQL = xrtFormat("DROP TABLE IF EXISTS %s", sTableName);
+		sqlite3_exec(G_DB->objDB, sDropSQL, NULL, NULL, NULL);
+		xrtFree(sDropSQL);
+		printf("        [Plugin] Dropped table: %s\n", sTableName);
+	}
+	sqlite3_finalize(stmt);
+
+	sSQL = xrtFormat("DELETE FROM plugin_table WHERE plugin_id = '%s'", pluginId);
+	sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, NULL);
+	xrtFree(sSQL);
+
+	sSQL = xrtFormat("DELETE FROM plugin_dependency WHERE plugin_name = '%s'", pluginId);
+	sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, NULL);
+	xrtFree(sSQL);
+
+	printf("        [Plugin] Cleanup completed for plugin_id: %s\n", pluginId);
 }
 
 
@@ -954,6 +1100,53 @@ void PluginCtx_Init()
 	G_PluginCtx->EmitEvent = PluginCtx_EmitEvent;
 	G_PluginCtx->OnEvent = PluginCtx_OnEvent;
 	G_PluginCtx->OffEvent = PluginCtx_OffEvent;
+
+	// 插件自身信息
+	G_PluginCtx->GetPluginId = PluginCtx_GetPluginId;
+	G_PluginCtx->GetPluginName = PluginCtx_GetPluginName;
+	G_PluginCtx->GetPluginPath = PluginCtx_GetPluginPath;
+
+	// 文件操作
+	G_PluginCtx->WriteFile = PluginCtx_WriteFile;
+	G_PluginCtx->ReadFile = PluginCtx_ReadFile;
+	G_PluginCtx->DeleteFile = PluginCtx_DeleteFile;
+	G_PluginCtx->FileExists = PluginCtx_FileExists;
+	G_PluginCtx->CreateDir = PluginCtx_CreateDir;
+	G_PluginCtx->DeleteDir = PluginCtx_DeleteDir;
+	G_PluginCtx->DirExists = PluginCtx_DirExists;
+	G_PluginCtx->ScanDir = PluginCtx_ScanDir;
+	G_PluginCtx->CopyFile = PluginCtx_CopyFile;
+	G_PluginCtx->MoveFile = PluginCtx_MoveFile;
+
+	// xPack 集成
+	G_PluginCtx->CreateXpkg = PluginCtx_CreateXpkg;
+	G_PluginCtx->ExtractXpkg = PluginCtx_ExtractXpkg;
+	G_PluginCtx->GetXpkgInfo = PluginCtx_GetXpkgInfo;
+
+	// 代码生成
+	G_PluginCtx->GenerateModel = PluginCtx_GenerateModel;
+	G_PluginCtx->CompilePlugin = PluginCtx_CompilePlugin;
+	G_PluginCtx->ReloadPlugin = PluginCtx_ReloadPlugin;
+	G_PluginCtx->GetPluginConfig = PluginCtx_GetPluginConfig;
+	G_PluginCtx->SetPluginConfig = PluginCtx_SetPluginConfig;
+
+	// 数据库操作
+	G_PluginCtx->CreateTable = PluginCtx_CreateTable;
+	G_PluginCtx->DropTable = PluginCtx_DropTable;
+	G_PluginCtx->ExecuteSQL = PluginCtx_ExecuteSQL;
+	G_PluginCtx->QuerySQL = PluginCtx_QuerySQL;
+	G_PluginCtx->PrepareSQL = PluginCtx_PrepareSQL;
+	G_PluginCtx->ExecuteStmt = PluginCtx_ExecuteStmt;
+	G_PluginCtx->FinalizeStmt = PluginCtx_FinalizeStmt;
+
+	// 插件管理
+	G_PluginCtx->InstallPlugin = PluginCtx_InstallPlugin;
+	G_PluginCtx->UninstallPlugin = PluginCtx_UninstallPlugin;
+	G_PluginCtx->UpgradePlugin = PluginCtx_UpgradePlugin;
+
+	// 模板渲染
+	G_PluginCtx->RenderTemplate = PluginCtx_RenderTemplate;
+	G_PluginCtx->RenderString = PluginCtx_RenderString;
 }
 
 
@@ -1316,11 +1509,443 @@ bool PluginMgr_ReloadPlugin(str sName)
 	if ( !pPlugin ) {
 		return FALSE;
 	}
-	
+
 	if ( pPlugin->bLoaded ) {
 		Plugin_Disable(pPlugin);
 	}
 	return Plugin_Enable(pPlugin);
+}
+
+
+// ==================== 扩展接口实现 ====================
+
+// ===== 插件自身信息 =====
+
+str PluginCtx_GetPluginId()
+{
+	if ( G_CurrentPlugin ) {
+		return G_CurrentPlugin->sName;
+	}
+	return NULL;
+}
+
+str PluginCtx_GetPluginName()
+{
+	if ( G_CurrentPlugin ) {
+		return G_CurrentPlugin->sTitle;
+	}
+	return NULL;
+}
+
+str PluginCtx_GetPluginPath()
+{
+	if ( G_CurrentPlugin ) {
+		return G_CurrentPlugin->sPath;
+	}
+	return PluginPath;
+}
+
+
+// ===== 文件操作 =====
+
+bool PluginCtx_WriteFile(str filePath, str content, size_t len)
+{
+	if ( !filePath || !content ) {
+		return FALSE;
+	}
+
+	str sDir = xrtPathGetDir(filePath, 0);
+	if ( sDir ) {
+		xrtDirCreate(sDir);
+		xrtFree(sDir);
+	}
+
+	size_t iLen = len > 0 ? len : strlen(content);
+	int iResult = xrtFileWriteAll(filePath, content, iLen, XRT_CP_UTF8);
+	return iResult >= 0;
+}
+
+bool PluginCtx_ReadFile(str filePath, str* outContent, size_t* outLen)
+{
+	if ( !filePath || !outContent ) {
+		return FALSE;
+	}
+
+	str sContent = xrtFileReadAll(filePath, XRT_CP_UTF8, outLen);
+	if ( !sContent ) {
+		return FALSE;
+	}
+
+	*outContent = sContent;
+	return TRUE;
+}
+
+bool PluginCtx_DeleteFile(str filePath)
+{
+	if ( !xrtFileExists(filePath) ) {
+		return FALSE;
+	}
+	return xrtFileDelete(filePath);
+}
+
+bool PluginCtx_FileExists(str filePath)
+{
+	return xrtFileExists(filePath);
+}
+
+bool PluginCtx_CreateDir(str dirPath)
+{
+	if ( xrtDirExists(dirPath) ) {
+		return TRUE;
+	}
+	return xrtDirCreate(dirPath);
+}
+
+bool PluginCtx_DeleteDir(str dirPath, bool bRecursive)
+{
+	if ( !xrtDirExists(dirPath) ) {
+		return FALSE;
+	}
+	return xrtDirDelete(dirPath) >= 0;
+}
+
+bool PluginCtx_DirExists(str dirPath)
+{
+	return xrtDirExists(dirPath);
+}
+
+bool PluginCtx_ScanDir(str dirPath, bool bRecursive, DirScanCallback callback, ptr userData)
+{
+	return xrtDirScan(dirPath, bRecursive, callback, userData);
+}
+
+bool PluginCtx_CopyFile(str srcPath, str destPath)
+{
+	if ( !xrtFileExists(srcPath) ) {
+		return FALSE;
+	}
+
+	str sDestDir = xrtPathGetDir(destPath, 0);
+	if ( sDestDir ) {
+		xrtDirCreate(sDestDir);
+		xrtFree(sDestDir);
+	}
+
+	size_t iLen = 0;
+	str sContent = xrtFileReadAll(srcPath, XRT_CP_UTF8, &iLen);
+	if ( !sContent ) {
+		return FALSE;
+	}
+
+	int iResult = xrtFileWriteAll(destPath, sContent, iLen, XRT_CP_UTF8);
+	xrtFree(sContent);
+	return iResult >= 0;
+}
+
+bool PluginCtx_MoveFile(str srcPath, str destPath)
+{
+	if ( !xrtFileExists(srcPath) ) {
+		return FALSE;
+	}
+
+	str sDestDir = xrtPathGetDir(destPath, 0);
+	if ( sDestDir ) {
+		xrtDirCreate(sDestDir);
+		xrtFree(sDestDir);
+	}
+
+	bool bResult = xrtFileMove(srcPath, destPath, TRUE);
+	if ( !bResult ) {
+		bResult = PluginCtx_CopyFile(srcPath, destPath);
+		if ( bResult ) {
+			xrtFileDelete(srcPath);
+		}
+	}
+	return bResult;
+}
+
+
+// ===== xPack 集成 =====
+
+int PluginCtx_CreateXpkg(str outputPath, str* fileList, int fileCount, int compressLevel)
+{
+	printf("        [Plugin] CreateXpkg: NOT IMPLEMENTED\n");
+	return -1;
+}
+
+int PluginCtx_ExtractXpkg(str xpkgPath, str outputDir)
+{
+	printf("        [Plugin] ExtractXpkg: NOT IMPLEMENTED\n");
+	return -1;
+}
+
+xvalue PluginCtx_GetXpkgInfo(str xpkgPath)
+{
+	printf("        [Plugin] GetXpkgInfo: NOT IMPLEMENTED\n");
+	return NULL;
+}
+
+
+// ===== 代码生成 =====
+
+bool PluginCtx_GenerateModel(str modelName, xvalue modelConfig)
+{
+	printf("        [Plugin] GenerateModel: %s - NOT FULLY IMPLEMENTED\n", modelName);
+	return FALSE;
+}
+
+bool PluginCtx_CompilePlugin(str pluginName)
+{
+	return PluginMgr_ReloadPlugin(pluginName);
+}
+
+bool PluginCtx_ReloadPlugin(str pluginName)
+{
+	return PluginMgr_ReloadPlugin(pluginName);
+}
+
+xvalue PluginCtx_GetPluginConfig(str pluginName)
+{
+	PluginInstance* pPlugin = PluginMgr_GetPlugin(pluginName);
+	if ( !pPlugin || !pPlugin->tblSettings ) {
+		return NULL;
+	}
+	xvoAddRef(pPlugin->tblSettings);
+	return pPlugin->tblSettings;
+}
+
+bool PluginCtx_SetPluginConfig(str pluginName, xvalue config)
+{
+	PluginInstance* pPlugin = PluginMgr_GetPlugin(pluginName);
+	if ( !pPlugin || !config ) {
+		return FALSE;
+	}
+
+	if ( pPlugin->tblSettings ) {
+		xvoUnref(pPlugin->tblSettings);
+	}
+
+	xvoAddRef(config);
+	pPlugin->tblSettings = config;
+	Plugin_SaveConfig(pPlugin);
+	return TRUE;
+}
+
+
+// ===== 数据库操作 =====
+
+bool PluginCtx_CreateTable(str tableName, str sql)
+{
+	if ( !tableName || !sql ) {
+		return FALSE;
+	}
+
+	char* sErr = NULL;
+	int iRet = sqlite3_exec(G_DB->objDB, sql, NULL, NULL, &sErr);
+
+	if ( iRet != SQLITE_OK ) {
+		printf("        [Plugin] CreateTable failed: %s, error: %s\n", tableName, sErr);
+		if ( sErr ) sqlite3_free(sErr);
+		return FALSE;
+	}
+
+	if ( G_CurrentPluginId ) {
+		str sInsertSQL = xrtFormat(
+			"INSERT INTO plugin_table (plugin_id, table_name, table_type, description, create_time) "
+			"VALUES ('%s', '%s', 'data', '', %lld)",
+			G_CurrentPluginId, tableName, xrtNow()
+		);
+		sqlite3_exec(G_DB->objDB, sInsertSQL, NULL, NULL, NULL);
+		xrtFree(sInsertSQL);
+	}
+
+	return TRUE;
+}
+
+bool PluginCtx_DropTable(str tableName)
+{
+	if ( !tableName ) {
+		return FALSE;
+	}
+
+	str sSQL = xrtFormat("DROP TABLE IF EXISTS %s", tableName);
+	char* sErr = NULL;
+	int iRet = sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, &sErr);
+	xrtFree(sSQL);
+
+	if ( iRet != SQLITE_OK ) {
+		printf("        [Plugin] DropTable failed: %s\n", sErr);
+		if ( sErr ) sqlite3_free(sErr);
+		return FALSE;
+	}
+
+	str sDeleteSQL = xrtFormat("DELETE FROM plugin_table WHERE table_name = '%s'", tableName);
+	sqlite3_exec(G_DB->objDB, sDeleteSQL, NULL, NULL, NULL);
+	xrtFree(sDeleteSQL);
+
+	return TRUE;
+}
+
+bool PluginCtx_ExecuteSQL(str sql)
+{
+	if ( !sql ) {
+		return FALSE;
+	}
+
+	char* sErr = NULL;
+	int iRet = sqlite3_exec(G_DB->objDB, sql, NULL, NULL, &sErr);
+
+	if ( iRet != SQLITE_OK ) {
+		printf("        [Plugin] ExecuteSQL failed: %s\n", sErr);
+		if ( sErr ) sqlite3_free(sErr);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+xvalue PluginCtx_QuerySQL(str sql)
+{
+	if ( !sql ) {
+		return NULL;
+	}
+
+	sqlite3_stmt* stmt;
+	int iRet = sqlite3_prepare_v3(G_DB->objDB, sql, -1, 0, &stmt, NULL);
+	if ( iRet != SQLITE_OK ) {
+		return NULL;
+	}
+
+	xvalue arrResult = xvoCreateArray();
+
+	while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+		int iColCount = sqlite3_column_count(stmt);
+		xvalue tblRow = xvoCreateTable();
+
+		for ( int i = 0; i < iColCount; i++ ) {
+			str sColName = (str)sqlite3_column_name(stmt, i);
+			int iType = sqlite3_column_type(stmt, i);
+
+			switch ( iType ) {
+				case SQLITE_INTEGER:
+					xvoTableSetValue(tblRow, sColName, strlen(sColName), xvoCreateInt(sqlite3_column_int64(stmt, i)), TRUE);
+					break;
+				case SQLITE_FLOAT:
+					xvoTableSetValue(tblRow, sColName, strlen(sColName), xvoCreateFloat(sqlite3_column_double(stmt, i)), TRUE);
+					break;
+				case SQLITE_TEXT:
+					xvoTableSetText(tblRow, sColName, strlen(sColName), (str)sqlite3_column_text(stmt, i), 0, FALSE);
+					break;
+				case SQLITE_NULL:
+					xvoTableSetNull(tblRow, sColName, strlen(sColName));
+					break;
+			}
+		}
+
+		xvoArrayAppendValue(arrResult, tblRow, TRUE);
+	}
+
+	sqlite3_finalize(stmt);
+	return arrResult;
+}
+
+sqlite3_stmt* PluginCtx_PrepareSQL(str sql)
+{
+	if ( !sql ) return NULL;
+
+	sqlite3_stmt* stmt;
+	int iRet = sqlite3_prepare_v3(G_DB->objDB, sql, -1, 0, &stmt, NULL);
+
+	if ( iRet != SQLITE_OK ) {
+		return NULL;
+	}
+
+	return stmt;
+}
+
+bool PluginCtx_ExecuteStmt(sqlite3_stmt* stmt)
+{
+	if ( !stmt ) return FALSE;
+
+	int iRet = sqlite3_step(stmt);
+	sqlite3_reset(stmt);
+
+	return iRet == SQLITE_DONE || iRet == SQLITE_ROW;
+}
+
+void PluginCtx_FinalizeStmt(sqlite3_stmt* stmt)
+{
+	if ( stmt ) {
+		sqlite3_finalize(stmt);
+	}
+}
+
+
+// ===== 插件管理 =====
+
+bool PluginCtx_InstallPlugin(str xpkgPath)
+{
+	printf("        [Plugin] InstallPlugin: NOT IMPLEMENTED\n");
+	return FALSE;
+}
+
+bool PluginCtx_UninstallPlugin(str pluginName)
+{
+	PluginInstance* pPlugin = PluginMgr_GetPlugin(pluginName);
+	if ( !pPlugin ) {
+		return FALSE;
+	}
+
+	if ( pPlugin->bLoaded ) {
+		Plugin_Disable(pPlugin);
+	}
+
+	str sPluginPath = pPlugin->sPath;
+	if ( xrtDirExists(sPluginPath) ) {
+		xrtDirDelete(sPluginPath);
+	}
+
+	xrtDictRemove(G_PluginMgr->tblPlugins, pluginName, strlen(pluginName));
+	Plugin_Destroy(pPlugin);
+
+	return TRUE;
+}
+
+bool PluginCtx_UpgradePlugin(str pluginName, str newXpkgPath)
+{
+	printf("        [Plugin] UpgradePlugin: NOT IMPLEMENTED\n");
+	return FALSE;
+}
+
+
+// ===== 模板渲染 =====
+
+str PluginCtx_RenderTemplate(str templatePath, xvalue data)
+{
+	if ( !templatePath ) {
+		return NULL;
+	}
+
+	size_t iRetSize = 0;
+	str sHtml = MakePageWithTemplate(templatePath, data, &iRetSize);
+	return sHtml;
+}
+
+str PluginCtx_RenderString(str templateString, xvalue data)
+{
+	if ( !templateString || !data ) {
+		return NULL;
+	}
+
+	XTE_LiteObject objTemplate = xteParse(templateString, strlen(templateString), NULL);
+	if ( !objTemplate || !objTemplate->Success ) {
+		return xrtFormat("Template parse error");
+	}
+
+	size_t iRetSize = 0;
+	str sResult = xteMake(objTemplate, data, tblENV, G_Template, &iRetSize);
+	xteParseFree(objTemplate);
+	return sResult;
 }
 
 

@@ -28,13 +28,13 @@ void Menu_CompileSQL()
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)", -1, SQL_PREPARE_DEFAULT, &stmt_menu_add, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, plugin_id, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)", -1, SQL_PREPARE_DEFAULT, &stmt_menu_add, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE menu SET parent = ?, title = ?, icon = ?, type = ?, openType = ?, href = ?, sort = ?, visible = ?, remark = ?, updateTime = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_put, NULL);
+	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE menu SET parent = ?, title = ?, icon = ?, type = ?, openType = ?, href = ?, sort = ?, visible = ?, remark = ?, updateTime = ?, plugin_id = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_put, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_put] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
 		exit(0);

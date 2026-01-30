@@ -120,7 +120,7 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	
 	// 连接到主数据库
 	DB_Init();
-	
+
 	// 初始化 HTTP 路由表
 	RouteHTTP_Init();
 	
