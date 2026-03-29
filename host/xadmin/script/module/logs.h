@@ -1,7 +1,6 @@
 
 
-
-// 编译好的 SQL 语句
+// prepared sql
 sqlite3_stmt* stmt_logs_all = NULL;
 sqlite3_stmt* stmt_logs_sel = NULL;
 sqlite3_stmt* stmt_logs_add = NULL;
@@ -9,90 +8,88 @@ sqlite3_stmt* stmt_logs_clear = NULL;
 
 
 
-// 日志模块初始化
+// init logs module
 void Logs_Init()
 {
 	printf("        Logs_Init \n");
-	
-	// 编译 logs 表的 SQL 语句
-	int iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT *, COUNT(*) OVER() AS total_count FROM logs ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_all, NULL);
+
+	int iRet = sqlite3_prepare_v3(G_DB, "SELECT *, COUNT(*) OVER() AS total_count FROM logs ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_all, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Logs_Init [stmt_logs_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Logs_Init [stmt_logs_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT *, COUNT(*) OVER() AS total_count FROM logs WHERE uri LIKE ? ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT *, COUNT(*) OVER() AS total_count FROM logs WHERE uri LIKE ? ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Logs_Init [stmt_logs_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Logs_Init [stmt_logs_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO logs (user, ip, uri, method, param, body, createTime) VALUES (?, ?, ?, ?, ?, ?, ?);", -1, SQL_PREPARE_DEFAULT, &stmt_logs_add, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "INSERT INTO logs (user, ip, uri, method, param, body, createTime) VALUES (?, ?, ?, ?, ?, ?, ?);", -1, SQL_PREPARE_DEFAULT, &stmt_logs_add, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Logs_Init [stmt_logs_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Logs_Init [stmt_logs_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	
-	// 编译清理日志的 SQL 语句
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "DELETE FROM logs WHERE createTime < ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_clear, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "DELETE FROM logs WHERE createTime < ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_clear, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Logs_Init [stmt_logs_clear] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Logs_Init [stmt_logs_clear] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
 }
 
 
 
-// 记录访问日志
-void Logs_Add(struct mg_connection* c, struct mg_http_message* hm)
+// add access log
+void Logs_Add(XS_RequestObject objReq, xvalue objSession)
 {
-	// 获取用户名
-	str user = "(guest)";
-	if ( hm->session && (hm->session->Type == XVO_DT_TABLE) ) {
-		user = xvoTableGetText(hm->session, "user", 4);
-		if ( !user ) user = "(unknown)";
-	}
-	
-	// 获取 IP 地址（存储为字符串）
-	char ip_str[64];
-    mg_snprintf(ip_str, sizeof(ip_str), "%M", mg_print_ip, &c->rem);
-	
-	// 获取 URI
-	str uri = "";
-	if ( hm->uri.len > 0 ) {
-		uri = hm->uri.buf;
-	}
-	
-	// 获取 URL 参数
-	str param = "";
-	if ( hm->query.len > 0 ) {
-		param = hm->query.buf;
-	}
-	
-	// 获取请求体
-	str body = "";
-	if ( ((hm->methodCode == HTTP_POST) || (hm->methodCode == HTTP_PUT)) && hm->body.len > 0 ) {
-		body = hm->body.buf;
-	}
-	
-	// 获取当前时间
+	const char* sUser = "(guest)";
+	const char* sIP = xsReqRemote(objReq);
+	const char* sURI = xsReqPath(objReq);
+	const char* sQuery = xsReqQuery(objReq);
+	const char* sMethod = xsReqMethod(objReq);
+	const char* pBody = NULL;
+	size_t iBodyLen = 0;
 	xtime now = xrtNow();
-	
-	// 绑定参数并执行
-	sqlite3_bind_text(stmt_logs_add, 1, user, strlen(user), SQLITE_STATIC);
-	sqlite3_bind_text(stmt_logs_add, 2, ip_str, strlen(ip_str), SQLITE_STATIC);
-	sqlite3_bind_text(stmt_logs_add, 3, uri, hm->uri.len, SQLITE_STATIC);
-	sqlite3_bind_text(stmt_logs_add, 4, hm->method.buf, hm->method.len, SQLITE_STATIC);
-	sqlite3_bind_text(stmt_logs_add, 5, param, hm->query.len, SQLITE_STATIC);
-	sqlite3_bind_text(stmt_logs_add, 6, body, hm->body.len, SQLITE_STATIC);
+
+	if ( objSession && (objSession->Type == XVO_DT_TABLE) ) {
+		sUser = xvoTableGetText(objSession, "user", 4);
+		if ( !sUser ) {
+			sUser = "(unknown)";
+		}
+	}
+	if ( sIP == NULL || sIP[0] == '\0' ) {
+		sIP = "(unknown)";
+	}
+	if ( sURI == NULL ) {
+		sURI = "";
+	}
+	if ( sQuery == NULL ) {
+		sQuery = "";
+	}
+	if ( sMethod == NULL ) {
+		sMethod = "";
+	}
+	if ( HttpMethodIs(objReq, "POST") || HttpMethodIs(objReq, "PUT") ) {
+		pBody = (const char*)xsReqBody(objReq);
+		iBodyLen = xsReqBodyLen(objReq);
+	}
+	if ( pBody == NULL ) {
+		pBody = "";
+		iBodyLen = 0;
+	}
+
+	sqlite3_bind_text(stmt_logs_add, 1, sUser, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt_logs_add, 2, sIP, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt_logs_add, 3, sURI, (int)HttpPathLen(objReq), SQLITE_STATIC);
+	sqlite3_bind_text(stmt_logs_add, 4, sMethod, (int)HttpMethodLen(objReq), SQLITE_STATIC);
+	sqlite3_bind_text(stmt_logs_add, 5, sQuery, (int)HttpQueryLen(objReq), SQLITE_STATIC);
+	sqlite3_bind_text(stmt_logs_add, 6, pBody, (int)iBodyLen, SQLITE_STATIC);
 	sqlite3_bind_int64(stmt_logs_add, 7, now);
-	
-	// 执行并重置
 	sqlite3_step(stmt_logs_add);
 	sqlite3_reset(stmt_logs_add);
 }
 
 
 
-// 日志模块卸载
+// free logs module
 void Logs_Unit()
 {
 	printf("        Logs_Unit \n");
@@ -101,5 +98,3 @@ void Logs_Unit()
 	sqlite3_finalize(stmt_logs_add);
 	sqlite3_finalize(stmt_logs_clear);
 }
-
-

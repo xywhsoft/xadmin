@@ -1,78 +1,81 @@
 
 
 
-// XS 基础服务库
-#include <xsbase.h>
+// XS 鍩虹鏈嶅姟搴?
+#include <xs_vnext_full.h>
 #if defined(_WIN32) || defined(_WIN64)
-	// windows 方案
+	// windows 鏂规
 #else
-	// 其他平台方案
+	// 鍏朵粬骞冲彴鏂规
 	#include <pthread.h>
 	#include <sys/utsname.h>
 #endif
 
 
 
-// 全局定义
+// 鍏ㄥ眬瀹氫箟
 #include "module/define.h"
 
-// 安全防护模块
+// 瀹夊叏闃叉姢妯″潡
 #include "module/guard.h"
 
-// 独立页面 API
+// 鐙珛椤甸潰 API
 #include "module/page.h"
 
-// 模板相关功能
+// 妯℃澘鐩稿叧鍔熻兘
 #include "module/template.h"
 
-// 安装相关功能
+// 瀹夎鐩稿叧鍔熻兘
 #include "module/install.h"
 
-// Session 相关功能
+// Session 鐩稿叧鍔熻兘
 #include "module/session.h"
 
-// 数据库相关功能
+// 鏁版嵁搴撶浉鍏冲姛鑳?
 #include "module/db.h"
 
-// 权限管理模块
+// 鏉冮檺绠＄悊妯″潡
 #include "module/auth.h"
 
-// 日志记录模块
+// 鏃ュ織璁板綍妯″潡
 #include "module/logs.h"
 
-// 后台功能模块
+// 鍚庡彴鍔熻兘妯″潡
 #include "module/admin.h"
 
-// 配置管理模块
+// 閰嶇疆绠＄悊妯″潡
 #include "module/option.h"
 
-// 菜单管理模块
+// 鑿滃崟绠＄悊妯″潡
 #include "module/menu.h"
 
-// 前台用户模块
+// 鍓嶅彴鐢ㄦ埛妯″潡
 #include "module/member.h"
 
-// 前台权限缓存模块
+// 鍓嶅彴鏉冮檺缂撳瓨妯″潡
 #include "module/member_auth.h"
 
-// 模型字段类型定义
+// 妯″瀷瀛楁绫诲瀷瀹氫箟
 #include "module/model_field.h"
 
-// 模型管理器
+// 妯″瀷绠＄悊鍣?
 #include "module/model_mgr.h"
 
-// 附件管理模块
+// 闄勪欢绠＄悊妯″潡
 #include "module/attachment.h"
 
-// 插件上下文定义
+// 鎻掍欢涓婁笅鏂囧畾涔?
 #include "module/plugin_ctx.h"
 
-// 插件管理器
+// 鎻掍欢椤甸潰鍜屾ā鏉垮姞杞?
+#include "module/plugin_page.h"
+
+// 鎻掍欢绠＄悊鍣?
 #include "module/plugin_mgr.h"
 
 
 
-// 路由调用 - HTTP
+// 璺敱璋冪敤 - HTTP
 #include "route_http/index.h"
 #include "route_http/login.h"
 #include "route_http/logs.h"
@@ -89,131 +92,192 @@
 
 
 
-// 全局静态路由表
+// 鍏ㄥ眬闈欐€佽矾鐢辫〃
 #include "route.h"
 
-// HTTP 协议处理
+// HTTP 鍗忚澶勭悊
 #include "module/http.h"
 
 
 
 
 
-// 服务初始化
+// 鏈嶅姟鍒濆鍖?
 void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 {
-	
-	// 初始化全局定义
+	printf("[xadmin:init] Define_Init begin\n");
+	fflush(stdout);
 	Define_Init(objServer, objHost);
-	
-	// 初始化安全防护模块
-	Guard_Init();
-	
-	// 初始化模板渲染功能
-	Template_Init();
-	
-	// 安装相关功能初始化
-	Install_Init();
-	
-	// 创建全局 Session 表
-	Session_Init();
-	
-	// 连接到主数据库
-	DB_Init();
+	printf("[xadmin:init] Define_Init done\n");
+	fflush(stdout);
 
-	// 初始化 HTTP 路由表
+	printf("[xadmin:init] Guard_Init begin\n");
+	fflush(stdout);
+	Guard_Init();
+	printf("[xadmin:init] Guard_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Template_Init begin\n");
+	fflush(stdout);
+	Template_Init();
+	printf("[xadmin:init] Template_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] PluginTemplate_Init begin\n");
+	fflush(stdout);
+	PluginTemplate_Init();
+	printf("[xadmin:init] PluginTemplate_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Install_Init begin\n");
+	fflush(stdout);
+	Install_Init();
+	printf("[xadmin:init] Install_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Session_Init begin\n");
+	fflush(stdout);
+	Session_Init();
+	printf("[xadmin:init] Session_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] DB_Init begin\n");
+	fflush(stdout);
+	DB_Init();
+	printf("[xadmin:init] DB_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] RouteHTTP_Init begin\n");
+	fflush(stdout);
 	RouteHTTP_Init();
-	
-	// 初始化后台功能模块
+	printf("[xadmin:init] RouteHTTP_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Admin_Init begin\n");
+	fflush(stdout);
 	Admin_Init();
-	
-	// 初始化权限管理模块
+	printf("[xadmin:init] Admin_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Auth_Init begin\n");
+	fflush(stdout);
 	Auth_Init();
-	
-	// 初始化日志记录模块
+	printf("[xadmin:init] Auth_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Logs_Init begin\n");
+	fflush(stdout);
 	Logs_Init();
-	
-	// 初始化配置管理模块
+	printf("[xadmin:init] Logs_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Option_Init begin\n");
+	fflush(stdout);
 	Option_Init();
-	
-	// 初始化菜单管理模块
+	printf("[xadmin:init] Option_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Menu_Init begin\n");
+	fflush(stdout);
 	Menu_Init();
-	
-	// 初始化前台用户模块（SQL预编译）
+	printf("[xadmin:init] Menu_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Member_Init begin\n");
+	fflush(stdout);
 	Member_Init();
-	
-	// 初始化前台权限缓存模块
+	printf("[xadmin:init] Member_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] MemberAuth_Init begin\n");
+	fflush(stdout);
 	MemberAuth_Init();
-	
-	// 初始化模型管理器
+	printf("[xadmin:init] MemberAuth_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] ModelMgr_Init begin\n");
+	fflush(stdout);
 	ModelMgr_Init();
-	
-	// 初始化附件管理模块
+	printf("[xadmin:init] ModelMgr_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Attachment_Init begin\n");
+	fflush(stdout);
 	Attachment_Init();
-	
-	// 同步 URI 表（在所有路由注册完成后）
+	printf("[xadmin:init] Attachment_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] Auth_SyncURIS begin\n");
+	fflush(stdout);
 	Auth_SyncURIS();
-	
-	// 初始化插件管理器（在所有核心模块初始化完成后）
+	printf("[xadmin:init] Auth_SyncURIS done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] PluginMgr_Init begin\n");
+	fflush(stdout);
 	PluginMgr_Init();
-	
+	printf("[xadmin:init] PluginMgr_Init done\n");
+	fflush(stdout);
 }
 
 
 
-// 服务卸载
+// 鏈嶅姟鍗歌浇
 void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 {
-	
-	// 卸载插件管理器（最先卸载）
+
+	// 鍗歌浇鎻掍欢妯℃澘绯荤粺
+	PluginTemplate_Unit();
+
+	// 鍗歌浇鎻掍欢绠＄悊鍣紙鏈€鍏堝嵏杞斤級
 	PluginMgr_Unit();
 	
-	// 卸载附件管理模块
+	// 鍗歌浇闄勪欢绠＄悊妯″潡
 	Attachment_Unit();
 	
-	// 卸载模型管理器
+	// 鍗歌浇妯″瀷绠＄悊鍣?
 	ModelMgr_Unit();
 	
-	// 卸载前台权限缓存模块
+	// 鍗歌浇鍓嶅彴鏉冮檺缂撳瓨妯″潡
 	MemberAuth_Unit();
 	
-	// 卸载前台用户模块
+	// 鍗歌浇鍓嶅彴鐢ㄦ埛妯″潡
 	Member_Unit();
 	
-	// 卸载菜单管理模块
+	// 鍗歌浇鑿滃崟绠＄悊妯″潡
 	Menu_Unit();
 	
-	// 卸载配置管理模块
+	// 鍗歌浇閰嶇疆绠＄悊妯″潡
 	Option_Unit();
 	
-	// 卸载后台功能模块
+	// 鍗歌浇鍚庡彴鍔熻兘妯″潡
 	Admin_Unit();
 	
-	// 卸载日志记录模块
+	// 鍗歌浇鏃ュ織璁板綍妯″潡
 	Logs_Unit();
 	
-	// 卸载权限管理模块
+	// 鍗歌浇鏉冮檺绠＄悊妯″潡
 	Auth_Unit();
 	
-	// 卸载 HTTP 路由表
+	// 鍗歌浇 HTTP 璺敱琛?
 	RouteHTTP_Unit();
 	
-	// 释放数据库
+	// 閲婃斁鏁版嵁搴?
 	DB_Unit();
 	
-	// 卸载 Session 模块
+	// 鍗歌浇 Session 妯″潡
 	Session_Unit();
 	
-	// 卸载安装模块
+	// 鍗歌浇瀹夎妯″潡
 	Install_Unit();
 	
-	// 卸载模板模块
+	// 鍗歌浇妯℃澘妯″潡
 	Template_Unit();
 	
-	// 卸载防护模块
+	// 鍗歌浇闃叉姢妯″潡
 	Guard_Unit();
 	
-	// 卸载全局数据
+	// 鍗歌浇鍏ㄥ眬鏁版嵁
 	Define_Unit();
 	
 }

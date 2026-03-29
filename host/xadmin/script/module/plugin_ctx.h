@@ -1,29 +1,29 @@
 
 
 // ============================================
-// 插件上下文定义
+// 插件上下文定�?
 // ============================================
 
 
 
-// ==================== 预定义事件 ====================
+// ==================== 预定义事�?====================
 
 // 系统事件
 #define EVENT_SYSTEM_READY          "system.ready"           // 系统启动完成
-#define EVENT_SYSTEM_SHUTDOWN       "system.shutdown"        // 系统关闭前
+#define EVENT_SYSTEM_SHUTDOWN       "system.shutdown"        // 系统关闭�?
 
-// 用户事件（由 member 插件触发）
+// 用户事件（由 member 插件触发�?
 #define EVENT_MEMBER_LOGIN          "member.login"           // 前台用户登录
 #define EVENT_MEMBER_LOGOUT         "member.logout"          // 前台用户登出
 #define EVENT_MEMBER_REGISTER       "member.register"        // 前台用户注册
 #define EVENT_MEMBER_BALANCE_CHANGE "member.balance.change"  // 余额变动
 
-// 附件事件（由 attachment 插件触发）
+// 附件事件（由 attachment 插件触发�?
 #define EVENT_ATTACHMENT_UPLOAD     "attachment.upload"      // 附件上传
 #define EVENT_ATTACHMENT_DELETE     "attachment.delete"      // 附件删除
 #define EVENT_ATTACHMENT_PURCHASE   "attachment.purchase"    // 附件购买
 
-// 模型事件（由 model 插件触发）
+// 模型事件（由 model 插件触发�?
 #define EVENT_MODEL_ENABLE          "model.enable"           // 模型启用
 #define EVENT_MODEL_DISABLE         "model.disable"          // 模型禁用
 #define EVENT_MODEL_DATA_ADD        "model.data.add"         // 模型数据添加
@@ -47,19 +47,19 @@ typedef bool (*DirScanCallback)(str path, size_t size, int type, ptr data, size_
 
 
 
-// ==================== 插件上下文结构 ====================
+// ==================== 插件上下文结�?====================
 
 typedef struct {
 	
 	// ===== 核心数据 =====
-	XDO_Connect pDB;                    // 数据库连接
-	xvalue* pAdminSession;              // 后台 Session 表指针
-	xvalue* pMemberSession;             // 前台 Session 表指针
-	xvalue* pOption;                    // 全局配置表指针
+	sqlite3* pDB;                    // 数据库连�?
+	xvalue* pAdminSession;              // 后台 Session 表指�?
+	xvalue* pMemberSession;             // 前台 Session 表指�?
+	xvalue* pOption;                    // 全局配置表指�?
 	
 	// ===== 路径信息 =====
-	str sAppPath;                       // 应用根目录
-	str sWebPath;                       // Web 根目录
+	str sAppPath;                       // 应用根目�?
+	str sWebPath;                       // Web 根目�?
 	str sDataPath;                      // 数据目录
 	str sPluginPath;                    // 插件目录
 	str sPagePath;                      // 页面模板目录
@@ -96,6 +96,7 @@ typedef struct {
 	void (*SendJson)(struct mg_connection* c, int code, str json, size_t len);
 	void (*SendHtml)(struct mg_connection* c, int code, str html);
 	void (*SendPage)(struct mg_connection* c, str pagePath, xvalue data);
+	void (*LoadPage)(struct mg_connection* c, int code, str head, str pagePath);
 	void (*SendFile)(struct mg_connection* c, str filePath, str mimeType);
 	void (*SendError)(struct mg_connection* c, int code, str message);
 	
@@ -159,7 +160,7 @@ typedef struct {
 	xvalue (*GetPluginConfig)(str pluginName);
 	bool (*SetPluginConfig)(str pluginName, xvalue config);
 
-	// ===== 数据库操作 =====
+	// ===== 数据库操�?=====
 	bool (*CreateTable)(str tableName, str sql);
 	bool (*DropTable)(str tableName);
 	bool (*ExecuteSQL)(str sql);
@@ -187,7 +188,7 @@ typedef void (*PluginEventCallback)(str eventName, xvalue eventData);
 
 
 
-// ==================== 事件监听器结构 ====================
+// ==================== 事件监听器结�?====================
 
 typedef struct {
 	str sEventName;                     // 事件名称
@@ -196,7 +197,7 @@ typedef struct {
 
 
 
-// ==================== 插件导出项结构 ====================
+// ==================== 插件导出项结�?====================
 
 typedef struct {
 	str sPluginName;                    // 插件名称

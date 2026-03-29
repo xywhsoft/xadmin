@@ -1,13 +1,13 @@
 {
 	"sort":	50,
-	"title":	"模型生成器",
-	"desc":	"通过配置模板快速创建内容管理模型",
+	"title":	"Model Generator",
+	"desc":	"Create models from predefined templates",
 	"name":	"model_generator",
 	"version":	"1.0.0",
 	"exports":	[],
 	"settings":	{
 		"defaultNamespace":	"cms"
 	},
-	"enabled":	true,
+	"enabled":	false,
 	"author":	"xAdmin"
 }

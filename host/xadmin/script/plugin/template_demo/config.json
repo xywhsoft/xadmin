@@ -1,0 +1,11 @@
+{
+	"sort":	0,
+	"title":	"Template Demo",
+	"desc":	"Demo pages for template rendering",
+	"name":	"template_demo",
+	"version":	"1.0.0",
+	"exports":	null,
+	"settings":	null,
+	"enabled":	false,
+	"author":	"xAdmin"
+}

@@ -2,38 +2,38 @@
 
 
 // ============================================
-// 模型管理器
+// 模型管理�?
 // ============================================
 
 
 
 // ==================== 数据结构定义 ====================
 
-// 模型实例结构体
+// 模型实例结构�?
 typedef struct {
 	
 	// ===== 基础信息 =====
 	str sName;					// 模型标识（英文，目录名）
 	str sTitle;					// 模型显示名称
 	str sDesc;					// 模型描述
-	str sNamespace;				// 命名空间（API路径前缀）
+	str sNamespace;				// 命名空间（API路径前缀�?
 	str sIcon;					// 图标
-	int iSort;					// 排序值（值越小越靠前）
-	str sTableName;				// 数据表名（model_{namespace}_{name}）
+	int iSort;					// 排序值（值越小越靠前�?
+	str sTableName;				// 数据表名（model_{namespace}_{name}�?
 	str sConfigPath;			// 配置文件路径
-	str sCodePath;				// 生成的代码路径
+	str sCodePath;				// 生成的代码路�?
 	
-	// ===== 状态 =====
+	// ===== 状�?=====
 	bool bEnabled;				// 是否启用
-	bool bCompiled;				// 是否已编译
+	bool bCompiled;				// 是否已编�?
 	
 	// ===== TCC状态机 =====
-	TCCState* pTccState;		// TCC编译状态
+	TCCState* pTccState;		// TCC编译状�?
 	
 	// ===== 路由列表 =====
 	xlist lstRoutes;			// 该模型注册的所有路由URI
 	
-	// ===== 功能开关 =====
+	// ===== 功能开�?=====
 	bool bEnableApi;			// 启用前台API
 	bool bEnableAdmin;			// 启用后台管理
 	bool bEnableSubmit;			// 启用前台投稿
@@ -45,7 +45,7 @@ typedef struct {
 	bool bSubmitNeedReview;		// 前台会员投稿需审核
 	
 	// ===== 访问控制配置 =====
-	int iDefaultAccessLevel;	// 默认访问级别（0=公开）
+	int iDefaultAccessLevel;	// 默认访问级别�?=公开�?
 	bool bEnablePreview;		// 启用预览功能
 	bool bEnablePurchase;		// 启用付费功能
 	
@@ -61,12 +61,12 @@ typedef struct {
 	// ===== 评论配置 =====
 	bool bReplyNeedApprove;		// 评论需审核
 	int iReplyAuthLevel;		// 评论所需权限级别
-	int iReplyQuoteMaxLen;		// 引用摘要最大长度
+	int iReplyQuoteMaxLen;		// 引用摘要最大长�?
 	
 	// ===== 字段列表 =====
 	xvalue arrFields;			// 字段配置数组
 	
-	// ===== 时间戳 =====
+	// ===== 时间�?=====
 	int64 iCreateTime;
 	int64 iUpdateTime;
 	int64 iEnableTime;				// 启用时间（用于检测是否需要更新）
@@ -78,7 +78,7 @@ typedef struct {
 // 模型管理器结构体
 typedef struct {
 	
-	xdict tblModels;			// 模型实例表（key: name）
+	xdict tblModels;			// 模型实例表（key: name�?
 	xdict tblNamespaces;		// 命名空间占用表（key: namespace/name，用于唯一性检查）
 	xlist lstEnabledModels;		// 已启用的模型列表
 	
@@ -86,18 +86,18 @@ typedef struct {
 
 
 
-// 全局模型管理器
+// 全局模型管理�?
 ModelManager* G_ModelMgr = NULL;
 
 
 
-// ==================== 模型上下文接口 ====================
+// ==================== 模型上下文接�?====================
 
-// 暴露给TCC状态机的接口结构
+// 暴露给TCC状态机的接口结�?
 typedef struct {
 	
-	// ===== 数据库 =====
-	XDO_Connect pDB;						// 全局数据库对象
+	// ===== 数据�?=====
+	sqlite3* pDB;						// 全局数据库对�?
 	
 	// ===== 路由操作 =====
 	RouteInfo* (*AddRoute)(str uri, void* proc, bool bAuth, bool bAdmin, int authId, int authLevel);
@@ -129,20 +129,20 @@ typedef struct {
 
 
 
-// 全局模型上下文
+// 全局模型上下�?
 ModelContext* G_ModelCtx = NULL;
 
 
 
-// ==================== 条件块处理 ====================
+// ==================== 条件块处�?====================
 
-// 处理条件块（支持 IF/ELSE/ENDIF）
-// 参数：
-//   sCode: 源代码
+// 处理条件块（支持 IF/ELSE/ENDIF�?
+// 参数�?
+//   sCode: 源代�?
 //   sIfTag: IF 标签，如 "{{#IF_ENABLE_ACCESS_CONTROL}}"
-//   sElseTag: ELSE 标签，如 "{{#ELSE}}"（可以为 NULL 表示没有 ELSE 分支）
+//   sElseTag: ELSE 标签，如 "{{#ELSE}}"（可以为 NULL 表示没有 ELSE 分支�?
 //   sEndifTag: ENDIF 标签，如 "{{#ENDIF_ENABLE_ACCESS_CONTROL}}"
-//   bCondition: 条件值
+//   bCondition: 条件�?
 // 返回：处理后的代码（需要释放）
 str Model_ProcessCondBlock(str sCode, str sIfTag, str sElseTag, str sEndifTag, bool bCondition)
 {
@@ -153,11 +153,11 @@ str Model_ProcessCondBlock(str sCode, str sIfTag, str sElseTag, str sEndifTag, b
 		char* pIfPos = strstr((char*)sResult, (char*)sIfTag);
 		if ( !pIfPos ) break;
 		
-		// 查找对应的 ENDIF 标签
+		// 查找对应�?ENDIF 标签
 		char* pEndifPos = strstr(pIfPos + strlen((char*)sIfTag), (char*)sEndifTag);
 		if ( !pEndifPos ) break;
 		
-		// 查找中间是否有 ELSE 标签
+		// 查找中间是否�?ELSE 标签
 		char* pElsePos = NULL;
 		if ( sElseTag ) {
 			char* pSearch = pIfPos + strlen((char*)sIfTag);
@@ -184,7 +184,7 @@ str Model_ProcessCondBlock(str sCode, str sIfTag, str sElseTag, str sEndifTag, b
 			int iElseEnd = iElseStart + strlen((char*)sElseTag);
 			
 			if ( bCondition ) {
-				// 保留 IF 块，删除 ELSE 块
+				// 保留 IF 块，删除 ELSE �?
 				// 结果 = [0, iIfStart) + [iIfEnd, iElseStart) + [iEndifEnd, end)
 				int iIfBlockLen = iElseStart - iIfEnd;
 				int iAfterLen = strlen((char*)sResult) - iEndifEnd;
@@ -193,7 +193,7 @@ str Model_ProcessCondBlock(str sCode, str sIfTag, str sElseTag, str sEndifTag, b
 				memcpy(sNew + iIfStart, sResult + iIfEnd, iIfBlockLen);
 				memcpy(sNew + iIfStart + iIfBlockLen, sResult + iEndifEnd, iAfterLen + 1);
 			} else {
-				// 保留 ELSE 块，删除 IF 块
+				// 保留 ELSE 块，删除 IF �?
 				// 结果 = [0, iIfStart) + [iElseEnd, iEndifStart) + [iEndifEnd, end)
 				int iElseBlockLen = iEndifStart - iElseEnd;
 				int iAfterLen = strlen((char*)sResult) - iEndifEnd;
@@ -203,9 +203,9 @@ str Model_ProcessCondBlock(str sCode, str sIfTag, str sElseTag, str sEndifTag, b
 				memcpy(sNew + iIfStart + iElseBlockLen, sResult + iEndifEnd, iAfterLen + 1);
 			}
 		} else {
-			// 没有 ELSE 块
+			// 没有 ELSE �?
 			if ( bCondition ) {
-				// 保留 IF 块内容
+				// 保留 IF 块内�?
 				// 结果 = [0, iIfStart) + [iIfEnd, iEndifStart) + [iEndifEnd, end)
 				int iIfBlockLen = iEndifStart - iIfEnd;
 				int iAfterLen = strlen((char*)sResult) - iEndifEnd;
@@ -214,7 +214,7 @@ str Model_ProcessCondBlock(str sCode, str sIfTag, str sElseTag, str sEndifTag, b
 				memcpy(sNew + iIfStart, sResult + iIfEnd, iIfBlockLen);
 				memcpy(sNew + iIfStart + iIfBlockLen, sResult + iEndifEnd, iAfterLen + 1);
 			} else {
-				// 删除整个 IF 块
+				// 删除整个 IF �?
 				// 结果 = [0, iIfStart) + [iEndifEnd, end)
 				int iAfterLen = strlen((char*)sResult) - iEndifEnd;
 				sNew = xrtMalloc(iIfStart + iAfterLen + 1);
@@ -232,7 +232,7 @@ str Model_ProcessCondBlock(str sCode, str sIfTag, str sElseTag, str sEndifTag, b
 
 
 
-// ==================== 动态路由管理 ====================
+// ==================== 动态路由管�?====================
 
 // 动态添加路由（返回 RouteInfo* 以便进一步配置）
 RouteInfo* Model_AddRoute(str uri, void* proc, bool bAuth, bool bAdmin, int authId, int authLevel)
@@ -255,58 +255,58 @@ RouteInfo* Model_AddRoute(str uri, void* proc, bool bAuth, bool bAdmin, int auth
 }
 
 
-// 模型数据视图处理函数（通用）
-void Request_View_Model_Data(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+// 模型数据视图处理函数（通用�?
+void Request_View_Model_Data(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
-		LoadPage(c, 200, HTTP_CT_HTML, "model/data.html");
+	if ( HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data.html");
 	} else {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 	}
 }
 
 // 模型数据添加页面
-void Request_View_Model_Data_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Model_Data_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
-		LoadPage(c, 200, HTTP_CT_HTML, "model/data_add.html");
+	if ( HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data_add.html");
 	} else {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 	}
 }
 
 // 模型数据编辑页面
-void Request_View_Model_Data_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Model_Data_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
-		LoadPage(c, 200, HTTP_CT_HTML, "model/data_edit.html");
+	if ( HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data_edit.html");
 	} else {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 	}
 }
 
-// 模型数据草稿箱页面
-void Request_View_Model_Data_Draft(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+// 模型数据草稿箱页�?
+void Request_View_Model_Data_Draft(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
-		LoadPage(c, 200, HTTP_CT_HTML, "model/data_draft.html");
+	if ( HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data_draft.html");
 	} else {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 	}
 }
 
 // 模型数据草稿编辑页面
-void Request_View_Model_Data_Draft_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Model_Data_Draft_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
-		LoadPage(c, 200, HTTP_CT_HTML, "model/data_draft_edit.html");
+	if ( HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data_draft_edit.html");
 	} else {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 	}
 }
 
 
-// 动态移除路由
+// 动态移除路�?
 void Model_RemoveRoute(str uri)
 {
 	if ( xrtDictRemove(G_StaticRouteTableHTTP, uri, strlen(uri)) ) {
@@ -315,14 +315,14 @@ void Model_RemoveRoute(str uri)
 }
 
 
-// 将 URI 添加到数据库 uris 表
+// �?URI 添加到数据库 uris �?
 bool Model_AddUriToDb(str uri, int authId, bool isBackend)
 {
 	printf("        [Model] Adding URI to DB: %s (authId=%d, isBackend=%d)\n", uri, authId, isBackend);
 	
 	// 检查是否已存在
 	sqlite3_stmt* stmt_check;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"SELECT id FROM uris WHERE uri = ?",
 		-1, 0, &stmt_check, NULL);
 	sqlite3_bind_text(stmt_check, 1, uri, -1, SQLITE_STATIC);
@@ -336,9 +336,9 @@ bool Model_AddUriToDb(str uri, int authId, bool isBackend)
 	xtime now = xrtNow();
 	
 	if ( iExistId > 0 ) {
-		// 已存在，更新 authID 和 isBackend
+		// 已存在，更新 authID �?isBackend
 		sqlite3_stmt* stmt_update;
-		sqlite3_prepare_v3(G_DB->objDB,
+		sqlite3_prepare_v3(G_DB,
 			"UPDATE uris SET authID = ?, isBackend = ?, needAuth = 1, updateTime = ? WHERE id = ?",
 			-1, 0, &stmt_update, NULL);
 		sqlite3_bind_int(stmt_update, 1, authId);
@@ -349,9 +349,9 @@ bool Model_AddUriToDb(str uri, int authId, bool isBackend)
 		sqlite3_finalize(stmt_update);
 		printf("        [Model] URI updated in DB: %s\n", uri);
 	} else {
-		// 不存在，插入新记录
+		// 不存在，插入新记�?
 		sqlite3_stmt* stmt_insert;
-		sqlite3_prepare_v3(G_DB->objDB,
+		sqlite3_prepare_v3(G_DB,
 			"INSERT INTO uris (authID, uri, desc, sort, isBackend, needAuth, needLog, keepActive, createTime, updateTime) "
 			"VALUES (?, ?, '', 0, ?, 1, 0, 0, ?, ?)",
 			-1, 0, &stmt_insert, NULL);
@@ -365,7 +365,7 @@ bool Model_AddUriToDb(str uri, int authId, bool isBackend)
 		printf("        [Model] URI inserted to DB: %s\n", uri);
 	}
 	
-	// 同步更新路由表中的 AuthID
+	// 同步更新路由表中�?AuthID
 	RouteInfo* pInfo = xrtDictGet(G_StaticRouteTableHTTP, uri, strlen(uri));
 	if ( pInfo ) {
 		pInfo->AuthID = authId;
@@ -377,13 +377,13 @@ bool Model_AddUriToDb(str uri, int authId, bool isBackend)
 }
 
 
-// 从数据库 uris 表删除 URI
+// 从数据库 uris 表删�?URI
 bool Model_RemoveUriFromDb(str uri)
 {
 	printf("        [Model] Removing URI from DB: %s\n", uri);
 	
 	sqlite3_stmt* stmt_del;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"DELETE FROM uris WHERE uri = ?",
 		-1, 0, &stmt_del, NULL);
 	sqlite3_bind_text(stmt_del, 1, uri, -1, SQLITE_STATIC);
@@ -403,7 +403,7 @@ extern void ReloadCache_Auth_Group();
 
 // ==================== 命名空间管理 ====================
 
-// 生成命名空间键
+// 生成命名空间�?
 str Model_MakeNamespaceKey(str sNamespace, str sName)
 {
 	if ( sNamespace && strlen(sNamespace) > 0 ) {
@@ -414,12 +414,12 @@ str Model_MakeNamespaceKey(str sNamespace, str sName)
 }
 
 
-// 检查命名空间是否可用
+// 检查命名空间是否可�?
 bool Model_CheckNamespace(str sNamespace, str sName, str sExcludeName)
 {
 	str sKey = Model_MakeNamespaceKey(sNamespace, sName);
 	
-	// 排除当前正在编辑的模型
+	// 排除当前正在编辑的模�?
 	if ( sExcludeName ) {
 		ModelInstance* pExclude = xrtDictGet(G_ModelMgr->tblModels, sExcludeName, strlen(sExcludeName));
 		if ( pExclude ) {
@@ -459,7 +459,7 @@ void Model_UnregisterNamespace(ModelInstance* pModel)
 
 
 
-// ==================== 上下文接口实现 ====================
+// ==================== 上下文接口实�?====================
 
 // JSON解析包装
 xvalue ModelCtx_JsonParse(str json)
@@ -467,7 +467,7 @@ xvalue ModelCtx_JsonParse(str json)
 	return xrtParseJSON(json, strlen(json));
 }
 
-// JSON序列化包装
+// JSON序列化包�?
 str ModelCtx_JsonStringify(xvalue val)
 {
 	return xrtStringifyJSON(val, FALSE, NULL);
@@ -491,7 +491,7 @@ xvalue ModelCtx_GetMemberSession(str token)
 	return xvoTableGetValue(G_MemberSession, token, strlen(token));
 }
 
-// 获取当前时间戳
+// 获取当前时间�?
 int64 ModelCtx_TimeNow()
 {
 	return xrtNow();
@@ -518,13 +518,13 @@ ModelInstance* Model_Create(str sName)
 	memset(pModel, 0, sizeof(ModelInstance));
 	
 	pModel->sName = xrtCopyStr(sName, 0);
-	pModel->lstRoutes = xrtListCreate(sizeof(ptr));
+	pModel->lstRoutes = xrtListCreate(sizeof(ptr), 0);
 	pModel->arrFields = NULL;
 	pModel->pTccState = NULL;
 	pModel->bEnabled = FALSE;
 	pModel->bCompiled = FALSE;
 	
-	// 设置默认值
+	// 设置默认�?
 	pModel->bEnableApi = TRUE;
 	pModel->bEnableAdmin = TRUE;
 	pModel->bEnableSubmit = FALSE;
@@ -535,12 +535,12 @@ ModelInstance* Model_Create(str sName)
 }
 
 
-// 销毁模型实例
+// 销毁模型实�?
 void Model_Destroy(ModelInstance* pModel)
 {
 	if ( !pModel ) return;
 	
-	// 如果已启用，先禁用
+	// 如果已启用，先禁�?
 	if ( pModel->bEnabled ) {
 		// TODO: Model_Disable(pModel);
 	}
@@ -561,7 +561,7 @@ void Model_Destroy(ModelInstance* pModel)
 		xvoUnref(pModel->arrFields);
 	}
 	
-	// 释放字符串
+	// 释放字符�?
 	if ( pModel->sName ) xrtFree(pModel->sName);
 	if ( pModel->sTitle ) xrtFree(pModel->sTitle);
 	if ( pModel->sDesc ) xrtFree(pModel->sDesc);
@@ -578,7 +578,7 @@ void Model_Destroy(ModelInstance* pModel)
 
 // ==================== 代码生成 ====================
 
-// 根据字段类型生成读取代码（列表用，使用 tblRow 和 stmt_*_all）
+// 根据字段类型生成读取代码（列表用，使�?tblRow �?stmt_*_all�?
 str Model_GenFieldReadCode(str sFieldName, str sFieldType)
 {
 	int iNameLen = strlen(sFieldName);
@@ -600,7 +600,7 @@ str Model_GenFieldReadCode(str sFieldName, str sFieldType)
 	}
 }
 
-// 根据字段类型生成读取代码（详情用，使用 tblData 和 stmt_*_get）
+// 根据字段类型生成读取代码（详情用，使�?tblData �?stmt_*_get�?
 str Model_GenFieldReadCodeGet(str sFieldName, str sFieldType)
 {
 	int iNameLen = strlen(sFieldName);
@@ -666,7 +666,7 @@ str Model_GenFieldBindUpdateCode(str sFieldName, str sFieldType)
 	}
 }
 
-// 根据字段类型生成草稿发布绑定代码（从 sqlite3_column 读取并绑定到 add 语句）
+// 根据字段类型生成草稿发布绑定代码（从 sqlite3_column 读取并绑定到 add 语句�?
 str Model_GenFieldBindDraftPublishCode(str sFieldName, str sFieldType)
 {
 	if ( strcmp(sFieldType, "text") == 0 || strcmp(sFieldType, "textarea") == 0 || 
@@ -682,7 +682,7 @@ str Model_GenFieldBindDraftPublishCode(str sFieldName, str sFieldType)
 	}
 }
 
-// 根据字段类型生成草稿添加绑定代码（从 tblForm 读取并绑定到 draft_add 语句）
+// 根据字段类型生成草稿添加绑定代码（从 tblForm 读取并绑定到 draft_add 语句�?
 str Model_GenFieldBindDraftAddCode(str sFieldName, str sFieldType)
 {
 	int iNameLen = strlen(sFieldName);
@@ -704,7 +704,7 @@ str Model_GenFieldBindDraftAddCode(str sFieldName, str sFieldType)
 	}
 }
 
-// 根据字段类型生成草稿列表读取代码（使用 stmt_*_draft_all）
+// 根据字段类型生成草稿列表读取代码（使�?stmt_*_draft_all�?
 str Model_GenFieldReadCodeDraftList(str sFieldName, str sFieldType)
 {
 	int iNameLen = strlen(sFieldName);
@@ -726,7 +726,7 @@ str Model_GenFieldReadCodeDraftList(str sFieldName, str sFieldType)
 	}
 }
 
-// 根据字段类型生成草稿详情读取代码（使用 stmt_*_draft_get）
+// 根据字段类型生成草稿详情读取代码（使�?stmt_*_draft_get�?
 str Model_GenFieldReadCodeDraftGet(str sFieldName, str sFieldType)
 {
 	int iNameLen = strlen(sFieldName);
@@ -748,7 +748,7 @@ str Model_GenFieldReadCodeDraftGet(str sFieldName, str sFieldType)
 	}
 }
 
-// 根据字段类型生成草稿更新绑定代码（从 tblForm 读取并绑定到 draft_put 语句）
+// 根据字段类型生成草稿更新绑定代码（从 tblForm 读取并绑定到 draft_put 语句�?
 str Model_GenFieldBindDraftUpdateCode(str sFieldName, str sFieldType)
 {
 	int iNameLen = strlen(sFieldName);
@@ -818,7 +818,7 @@ bool Model_GenerateCode(ModelInstance* pModel)
 			sFieldNames = xrtCopyStr(sFieldName, 0);
 		}
 		
-		// 占位符
+		// 占位�?
 		if ( i > 0 ) {
 			str sTemp = xrtFormat("%s, ?", sFieldPlaceholders);
 			xrtFree(sFieldPlaceholders);
@@ -839,14 +839,14 @@ bool Model_GenerateCode(ModelInstance* pModel)
 			sFieldUpdateSet = sTemp;
 		}
 		
-		// 读取代码（列表用）
+		// 读取代码（列表用�?
 		str sReadCode = Model_GenFieldReadCode(sFieldName, sFieldType);
 		str sTemp = xrtFormat("%s%s", sFieldReadCode, sReadCode);
 		xrtFree(sFieldReadCode);
 		sFieldReadCode = sTemp;
 		xrtFree(sReadCode);
 		
-		// 读取代码（详情用）
+		// 读取代码（详情用�?
 		str sReadCodeGet = Model_GenFieldReadCodeGet(sFieldName, sFieldType);
 		sTemp = xrtFormat("%s%s", sFieldReadCodeGet, sReadCodeGet);
 		xrtFree(sFieldReadCodeGet);
@@ -903,14 +903,14 @@ bool Model_GenerateCode(ModelInstance* pModel)
 		xrtFree(sBindDraftUpdateCode);
 	}
 	
-	// 如果没有字段，设置默认值
+	// 如果没有字段，设置默认�?
 	if ( iFieldCount == 0 ) {
 		xrtFree(sFieldNames);
 		sFieldNames = xrtCopyStr("id", 0);  // 至少有id字段
 		xrtFree(sFieldPlaceholders);
 		sFieldPlaceholders = xrtCopyStr("", 0);
 		xrtFree(sFieldUpdateSet);
-		sFieldUpdateSet = xrtCopyStr("id = id", 0);  // 空操作
+		sFieldUpdateSet = xrtCopyStr("id = id", 0);  // 空操�?
 	}
 	
 	// 命名空间路径
@@ -978,7 +978,7 @@ bool Model_GenerateCode(ModelInstance* pModel)
 	sTemp = xrtReplace(sCode, 0, "{{FIELD_BIND_DRAFT_UPDATE_CODE}}", 0, sFieldBindDraftUpdateCode, 0, NULL);
 	xrtFree(sCode); sCode = sTemp;
 	
-	// 第二次 MODEL_NAME 替换（处理字段代码中的模板变量）
+	// 第二�?MODEL_NAME 替换（处理字段代码中的模板变量）
 	sTemp = xrtReplace(sCode, 0, "{{MODEL_NAME}}", 0, pModel->sName, 0, NULL);
 	xrtFree(sCode); sCode = sTemp;
 	
@@ -993,7 +993,7 @@ bool Model_GenerateCode(ModelInstance* pModel)
 	sTemp = xrtReplace(sCode, 0, "{{ADMIN_AUTH_ID}}", 0, sAdminAuthId, 0, NULL);
 	xrtFree(sCode); sCode = sTemp;
 	
-	// 处理条件块
+	// 处理条件�?
 	if ( pModel->bEnableApi ) {
 		sTemp = xrtReplace(sCode, 0, "{{#IF_ENABLE_API}}", 0, "", 0, NULL);
 		xrtFree(sCode); sCode = sTemp;
@@ -1058,11 +1058,11 @@ bool Model_GenerateCode(ModelInstance* pModel)
 		xrtFree(sCode); sCode = sTemp;
 	}
 	
-	// 访问控制功能（使用新的条件块处理函数，支持 ELSE）
+	// 访问控制功能（使用新的条件块处理函数，支�?ELSE�?
 	sTemp = Model_ProcessCondBlock(sCode, "{{#IF_ENABLE_ACCESS_CONTROL}}", "{{#ELSE}}", "{{#ENDIF_ENABLE_ACCESS_CONTROL}}", pModel->bEnableAccessControl);
 	xrtFree(sCode); sCode = sTemp;
 	
-	// 草稿箱功能（后台管理或前台投稿启用时）
+	// 草稿箱功能（后台管理或前台投稿启用时�?
 	if ( pModel->bEnableAdmin || pModel->bEnableSubmit ) {
 		sTemp = xrtReplace(sCode, 0, "{{#IF_ENABLE_DRAFT}}", 0, "", 0, NULL);
 		xrtFree(sCode); sCode = sTemp;
@@ -1087,7 +1087,7 @@ bool Model_GenerateCode(ModelInstance* pModel)
 		xrtFree(sCode); sCode = sTemp;
 	}
 	
-	// 保存生成的代码
+	// 保存生成的代�?
 	str sCodePath = xrtFormat("%s/%s/code.h", ModelPath, pModel->sName);
 	
 	// 确保目录存在
@@ -1142,7 +1142,7 @@ str Model_GetSqliteType(str sFieldType)
 bool Model_TableExists(str sTableName)
 {
 	sqlite3_stmt* stmt;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"SELECT name FROM sqlite_master WHERE type='table' AND name=?",
 		-1, 0, &stmt, NULL);
 	sqlite3_bind_text(stmt, 1, sTableName, -1, SQLITE_STATIC);
@@ -1152,16 +1152,16 @@ bool Model_TableExists(str sTableName)
 }
 
 
-// 获取表的现有列信息（返回列名数组）
+// 获取表的现有列信息（返回列名数组�?
 xvalue Model_GetTableColumns(str sTableName)
 {
 	xvalue arrColumns = xvoCreateArray();
 	
 	str sSQL = xrtFormat("PRAGMA table_info(%s)", sTableName);
 	sqlite3_stmt* stmt;
-	if ( sqlite3_prepare_v3(G_DB->objDB, sSQL, -1, 0, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v3(G_DB, sSQL, -1, 0, &stmt, NULL) == SQLITE_OK ) {
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
-			str sColName = (str)sqlite3_column_text(stmt, 1);  // 第2列是列名
+			str sColName = (str)sqlite3_column_text(stmt, 1);  // �?列是列名
 			if ( sColName ) {
 				xvalue tblCol = xvoCreateTable();
 				xvoTableSetText(tblCol, "name", 4, sColName, 0, FALSE);
@@ -1176,7 +1176,7 @@ xvalue Model_GetTableColumns(str sTableName)
 }
 
 
-// 检查列名是否在数组中存在
+// 检查列名是否在数组中存�?
 bool Model_ColumnInArray(xvalue arrColumns, str sColName)
 {
 	int iCount = xvoArrayItemCount(arrColumns);
@@ -1196,7 +1196,7 @@ xvalue Model_GetModelColumns(ModelInstance* pModel)
 {
 	xvalue arrColumns = xvoCreateArray();
 	
-	// 添加系统列
+	// 添加系统�?
 	xvalue tblId = xvoCreateTable();
 	xvoTableSetText(tblId, "name", 4, "id", 0, FALSE);
 	xvoArrayAppendValue(arrColumns, tblId, TRUE);
@@ -1214,7 +1214,7 @@ xvalue Model_GetModelColumns(ModelInstance* pModel)
 		}
 	}
 	
-	// 添加访问控制系统列（如果启用）
+	// 添加访问控制系统列（如果启用�?
 	if ( pModel->bEnableAccessControl ) {
 		xvalue tblAccessLevel = xvoCreateTable();
 		xvoTableSetText(tblAccessLevel, "name", 4, "accessLevel", 0, FALSE);
@@ -1242,7 +1242,7 @@ xvalue Model_GetModelColumns(ModelInstance* pModel)
 	xvoTableSetText(tblAuthorName, "name", 4, "authorName", 0, FALSE);
 	xvoArrayAppendValue(arrColumns, tblAuthorName, TRUE);
 	
-	// 添加系统列
+	// 添加系统�?
 	xvalue tblCreate = xvoCreateTable();
 	xvoTableSetText(tblCreate, "name", 4, "createTime", 0, FALSE);
 	xvoArrayAppendValue(arrColumns, tblCreate, TRUE);
@@ -1259,23 +1259,23 @@ xvalue Model_GetModelColumns(ModelInstance* pModel)
 }
 
 
-// 检查表结构是否需要迁移
+// 检查表结构是否需要迁�?
 bool Model_NeedsMigration(xvalue arrTableCols, xvalue arrModelCols)
 {
 	int iTableCount = xvoArrayItemCount(arrTableCols);
 	int iModelCount = xvoArrayItemCount(arrModelCols);
 	
-	// 列数不同，需要迁移
+	// 列数不同，需要迁�?
 	if ( iTableCount != iModelCount ) {
 		return TRUE;
 	}
 	
-	// 检查表中每一列是否在模型中存在
+	// 检查表中每一列是否在模型中存�?
 	for ( int i = 0; i < iTableCount; i++ ) {
 		xvalue tblCol = xvoArrayGetValue(arrTableCols, i);
 		str sName = xvoTableGetText(tblCol, "name", 4);
 		if ( !Model_ColumnInArray(arrModelCols, sName) ) {
-			return TRUE;  // 表中有模型没有的列
+			return TRUE;  // 表中有模型没有的�?
 		}
 	}
 	
@@ -1284,7 +1284,7 @@ bool Model_NeedsMigration(xvalue arrTableCols, xvalue arrModelCols)
 		xvalue tblCol = xvoArrayGetValue(arrModelCols, i);
 		str sName = xvoTableGetText(tblCol, "name", 4);
 		if ( !Model_ColumnInArray(arrTableCols, sName) ) {
-			return TRUE;  // 模型中有表没有的列
+			return TRUE;  // 模型中有表没有的�?
 		}
 	}
 	
@@ -1292,7 +1292,7 @@ bool Model_NeedsMigration(xvalue arrTableCols, xvalue arrModelCols)
 }
 
 
-// 执行表结构迁移
+// 执行表结构迁�?
 bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrModelCols)
 {
 	printf("        [Model] Migrating table structure for %s...\n", pModel->sName);
@@ -1322,7 +1322,7 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 	// 2. 创建临时表（新结构）
 	str sCreateSQL;
 	if ( pModel->bEnableAccessControl ) {
-		// 含访问控制字段
+		// 含访问控制字�?
 		sCreateSQL = xrtFormat(
 			"CREATE TABLE %s (\n"
 			"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
@@ -1356,7 +1356,7 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 	xrtFree(sColumns);
 	
 	printf("        [Model] Creating temp table: %s\n", sTempTable);
-	iResult = sqlite3_exec(G_DB->objDB, sCreateSQL, NULL, NULL, &sErr);
+	iResult = sqlite3_exec(G_DB, sCreateSQL, NULL, NULL, &sErr);
 	xrtFree(sCreateSQL);
 	
 	if ( iResult != SQLITE_OK ) {
@@ -1366,7 +1366,7 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 		return FALSE;
 	}
 	
-	// 3. 构建共同列列表（既在旧表又在新表的列）
+	// 3. 构建共同列列表（既在旧表又在新表的列�?
 	str sCommonCols = xrtCopyStr("", 0);
 	int iCommonCount = 0;
 	int iModelCount = xvoArrayItemCount(arrModelCols);
@@ -1392,15 +1392,15 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 		str sCopySQL = xrtFormat("INSERT INTO %s (%s) SELECT %s FROM %s",
 			sTempTable, sCommonCols, sCommonCols, sTableName);
 		printf("        [Model] Copying data: %s\n", sCopySQL);
-		iResult = sqlite3_exec(G_DB->objDB, sCopySQL, NULL, NULL, &sErr);
+		iResult = sqlite3_exec(G_DB, sCopySQL, NULL, NULL, &sErr);
 		xrtFree(sCopySQL);
 		
 		if ( iResult != SQLITE_OK ) {
 			printf("        [Model] Failed to copy data: %s\n", sErr ? sErr : "unknown");
 			if ( sErr ) sqlite3_free(sErr);
-			// 清理临时表
+			// 清理临时�?
 			str sDropTemp = xrtFormat("DROP TABLE %s", sTempTable);
-			sqlite3_exec(G_DB->objDB, sDropTemp, NULL, NULL, NULL);
+			sqlite3_exec(G_DB, sDropTemp, NULL, NULL, NULL);
 			xrtFree(sDropTemp);
 			xrtFree(sCommonCols);
 			xrtFree(sTempTable);
@@ -1412,7 +1412,7 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 	// 5. 删除旧表
 	str sDropSQL = xrtFormat("DROP TABLE %s", sTableName);
 	printf("        [Model] Dropping old table: %s\n", sTableName);
-	iResult = sqlite3_exec(G_DB->objDB, sDropSQL, NULL, NULL, &sErr);
+	iResult = sqlite3_exec(G_DB, sDropSQL, NULL, NULL, &sErr);
 	xrtFree(sDropSQL);
 	
 	if ( iResult != SQLITE_OK ) {
@@ -1425,7 +1425,7 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 	// 6. 重命名临时表为原表名
 	str sRenameSQL = xrtFormat("ALTER TABLE %s RENAME TO %s", sTempTable, sTableName);
 	printf("        [Model] Renaming temp table to: %s\n", sTableName);
-	iResult = sqlite3_exec(G_DB->objDB, sRenameSQL, NULL, NULL, &sErr);
+	iResult = sqlite3_exec(G_DB, sRenameSQL, NULL, NULL, &sErr);
 	xrtFree(sRenameSQL);
 	xrtFree(sTempTable);
 	
@@ -1443,7 +1443,7 @@ bool Model_MigrateTable(ModelInstance* pModel, xvalue arrTableCols, xvalue arrMo
 // 前向声明
 bool Model_CreateDraftTable(ModelInstance* pModel);
 
-// 创建或同步数据库表
+// 创建或同步数据库�?
 bool Model_CreateTable(ModelInstance* pModel)
 {
 	printf("        [Model] Syncing table for %s...\n", pModel->sName);
@@ -1455,7 +1455,7 @@ bool Model_CreateTable(ModelInstance* pModel)
 	
 	// 检查表是否存在
 	if ( !Model_TableExists(pModel->sTableName) ) {
-		// 表不存在，直接创建
+		// 表不存在，直接创�?
 		printf("        [Model] Table does not exist, creating...\n");
 		
 		str sColumns = xrtCopyStr("", 0);
@@ -1476,7 +1476,7 @@ bool Model_CreateTable(ModelInstance* pModel)
 		
 		str sSQL;
 		if ( pModel->bEnableAccessControl ) {
-			// 含访问控制字段
+			// 含访问控制字�?
 			sSQL = xrtFormat(
 				"CREATE TABLE %s (\n"
 				"    id INTEGER PRIMARY KEY AUTOINCREMENT%s,\n"
@@ -1512,7 +1512,7 @@ bool Model_CreateTable(ModelInstance* pModel)
 		printf("        [Model] SQL: %s\n", sSQL);
 		
 		char* sErr = NULL;
-		int iResult = sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, &sErr);
+		int iResult = sqlite3_exec(G_DB, sSQL, NULL, NULL, &sErr);
 		xrtFree(sSQL);
 		
 		if ( iResult != SQLITE_OK ) {
@@ -1530,7 +1530,7 @@ bool Model_CreateTable(ModelInstance* pModel)
 		return TRUE;
 	}
 	
-	// 表已存在，检查是否需要迁移
+	// 表已存在，检查是否需要迁�?
 	printf("        [Model] Table exists, checking structure...\n");
 	
 	xvalue arrTableCols = Model_GetTableColumns(pModel->sTableName);
@@ -1556,7 +1556,7 @@ bool Model_CreateTable(ModelInstance* pModel)
 }
 
 
-// 创建草稿表
+// 创建草稿�?
 bool Model_CreateDraftTable(ModelInstance* pModel)
 {
 	str sDraftTable = xrtFormat("%s_draft", pModel->sTableName);
@@ -1570,7 +1570,7 @@ bool Model_CreateDraftTable(ModelInstance* pModel)
 	
 	printf("        [Model] Creating draft table: %s\n", sDraftTable);
 	
-	// 构建字段列定义
+	// 构建字段列定�?
 	str sColumns = xrtCopyStr("", 0);
 	xvalue arrFields = pModel->arrFields;
 	int iFieldCount = arrFields ? xvoArrayItemCount(arrFields) : 0;
@@ -1587,7 +1587,7 @@ bool Model_CreateDraftTable(ModelInstance* pModel)
 		sColumns = sTemp;
 	}
 	
-	// 草稿表结构：与主表相同，但不需要 isDelete 字段（草稿硬删除）
+	// 草稿表结构：与主表相同，但不需�?isDelete 字段（草稿硬删除�?
 	str sSQL;
 	if ( pModel->bEnableAccessControl ) {
 		sSQL = xrtFormat(
@@ -1620,7 +1620,7 @@ bool Model_CreateDraftTable(ModelInstance* pModel)
 	xrtFree(sColumns);
 	
 	char* sErr = NULL;
-	int iResult = sqlite3_exec(G_DB->objDB, sSQL, NULL, NULL, &sErr);
+	int iResult = sqlite3_exec(G_DB, sSQL, NULL, NULL, &sErr);
 	xrtFree(sSQL);
 	
 	if ( iResult != SQLITE_OK ) {
@@ -1636,7 +1636,7 @@ bool Model_CreateDraftTable(ModelInstance* pModel)
 }
 
 
-// 更新 model.h 主引用文件
+// 更新 model.h 主引用文�?
 void Model_UpdateModelHeader()
 {
 	printf("        [Model] Updating model.h...\n");
@@ -1652,7 +1652,7 @@ void Model_UpdateModelHeader()
 		0
 	);
 	
-	// 遍历所有已启用的模型
+	// 遍历所有已启用的模�?
 	int iCount = xrtListCount(G_ModelMgr->lstEnabledModels);
 	for ( int i = 0; i < iCount; i++ ) {
 		ModelInstance* pModel = xrtListGetPtr(G_ModelMgr->lstEnabledModels, i);
@@ -1664,7 +1664,7 @@ void Model_UpdateModelHeader()
 	}
 	
 	if ( iCount == 0 ) {
-		str sTemp = xrtFormat("%s// (当前没有启用的模型)\n", sHeader);
+		str sTemp = xrtFormat("%s// (当前没有启用的模�?\n", sHeader);
 		xrtFree(sHeader);
 		sHeader = sTemp;
 	}
@@ -1692,7 +1692,7 @@ bool Model_Compile(ModelInstance* pModel)
 		return FALSE;
 	}
 	
-	// 3. 更新编译状态
+	// 3. 更新编译状�?
 	pModel->bCompiled = TRUE;
 	
 	// 4. 更新配置文件
@@ -1740,7 +1740,7 @@ bool Model_TccLoad(ModelInstance* pModel)
 		return FALSE;
 	}
 	
-	// 创建TCC状态机（使用 xsCreateTCC 自动配置路径和导入运行时函数）
+	// 创建TCC状态机（使�?xsCreateTCC 自动配置路径和导入运行时函数�?
 	TCCState* pTcc = xsCreateTCC(ModelPath);
 	if ( !pTcc ) {
 		printf("        [TCC] Failed to create TCC state\n");
@@ -1764,8 +1764,12 @@ bool Model_TccLoad(ModelInstance* pModel)
 	tcc_add_symbol(pTcc, "Model_AddRoute", Model_AddRoute);
 	tcc_add_symbol(pTcc, "Model_RemoveRoute", Model_RemoveRoute);
 	tcc_add_symbol(pTcc, "G_ModelCtx", &G_ModelCtx);
+	tcc_add_symbol(pTcc, "HttpMethodIs", HttpMethodIs);
+	tcc_add_symbol(pTcc, "http_reply", http_reply);
+	tcc_add_symbol(pTcc, "HttpGetQueryVar", HttpGetQueryVar);
+	tcc_add_symbol(pTcc, "mg_http_reply", mg_http_reply);
 	
-	// 地址重定向
+	// 地址重定�?
 	if ( tcc_relocate(pTcc) < 0 ) {
 		printf("        [TCC] Relocate failed\n");
 		xsDestroyTCC(pTcc);
@@ -1775,13 +1779,13 @@ bool Model_TccLoad(ModelInstance* pModel)
 	// 保存TCC状态机
 	pModel->pTccState = pTcc;
 	
-	// 获取并调用全局数据传递函数（参考 xserver 的 DynLoad_C_GlobalData）
+	// 获取并调用全局数据传递函数（参�?xserver �?DynLoad_C_GlobalData�?
 	void (*procSetGlobalData)(int, void*) = tcc_get_symbol(pTcc, "Model_SetGlobalData");
 	if ( procSetGlobalData ) {
 		procSetGlobalData(1, G_DB);  // 传递数据库连接
 	}
 	
-	// 获取初始化函数
+	// 获取初始化函�?
 	str sInitFuncName = xrtFormat("Model_%s_Init", pModel->sName);
 	void (*procInit)() = tcc_get_symbol(pTcc, sInitFuncName);
 	xrtFree(sInitFuncName);
@@ -1793,7 +1797,7 @@ bool Model_TccLoad(ModelInstance* pModel)
 		return FALSE;
 	}
 	
-	// 调用初始化函数
+	// 调用初始化函�?
 	procInit();
 	
 	printf("        [TCC] Model loaded: %s\n", pModel->sName);
@@ -1829,14 +1833,14 @@ bool Model_TccUnload(ModelInstance* pModel)
 
 
 
-// ==================== 菜单与权限管理 ====================
+// ==================== 菜单与权限管�?====================
 
-// 获取或创建"内容管理"目录菜单的ID
+// 获取或创�?内容管理"目录菜单的ID
 int Model_GetOrCreateContentMenuId()
 {
 	// 查找"内容管理"目录菜单
 	sqlite3_stmt* stmt_check;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"SELECT id FROM menu WHERE title = '内容管理' AND parent = 0 AND type = 0 AND isDelete = 0",
 		-1, 0, &stmt_check, NULL);
 	
@@ -1851,7 +1855,7 @@ int Model_GetOrCreateContentMenuId()
 		xtime now = xrtNow();
 		
 		sqlite3_stmt* stmt_insert;
-		sqlite3_prepare_v3(G_DB->objDB,
+		sqlite3_prepare_v3(G_DB,
 			"INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete) "
 			"VALUES (0, '内容管理', 'layui-icon layui-icon-read', 0, '', '', 150000, 1, '内容模型数据管理目录', ?, ?, 0)",
 			-1, 0, &stmt_insert, NULL);
@@ -1860,7 +1864,7 @@ int Model_GetOrCreateContentMenuId()
 		sqlite3_bind_int64(stmt_insert, 2, now);
 		
 		sqlite3_step(stmt_insert);
-		iMenuId = sqlite3_last_insert_rowid(G_DB->objDB);
+		iMenuId = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_finalize(stmt_insert);
 		
 		printf("        [Model] Content menu directory created: %d\n", iMenuId);
@@ -1870,7 +1874,7 @@ int Model_GetOrCreateContentMenuId()
 }
 
 
-// 为模型创建权限分组
+// 为模型创建权限分�?
 int Model_CreateAuthGroup(ModelInstance* pModel)
 {
 	printf("        [Model] Creating auth group for %s...\n", pModel->sName);
@@ -1879,7 +1883,7 @@ int Model_CreateAuthGroup(ModelInstance* pModel)
 	str sAuthName = xrtFormat("模型:%s", pModel->sTitle ? pModel->sTitle : pModel->sName);
 	
 	sqlite3_stmt* stmt_check;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"SELECT id FROM auth WHERE name = ? AND isDelete = 0",
 		-1, 0, &stmt_check, NULL);
 	sqlite3_bind_text(stmt_check, 1, sAuthName, -1, SQLITE_STATIC);
@@ -1897,7 +1901,7 @@ int Model_CreateAuthGroup(ModelInstance* pModel)
 		str sAuthDesc = xrtFormat("[%s] 模型管理权限", pModel->sTitle ? pModel->sTitle : pModel->sName);
 		
 		sqlite3_stmt* stmt_insert;
-		sqlite3_prepare_v3(G_DB->objDB,
+		sqlite3_prepare_v3(G_DB,
 			"INSERT INTO auth (groupID, name, desc, sort, createTime, updateTime, isDelete) VALUES (1, ?, ?, 900000, ?, ?, 0)",
 			-1, 0, &stmt_insert, NULL);
 		sqlite3_bind_text(stmt_insert, 1, sAuthName, -1, SQLITE_STATIC);
@@ -1905,7 +1909,7 @@ int Model_CreateAuthGroup(ModelInstance* pModel)
 		sqlite3_bind_int64(stmt_insert, 3, now);
 		sqlite3_bind_int64(stmt_insert, 4, now);
 		sqlite3_step(stmt_insert);
-		iAuthId = sqlite3_last_insert_rowid(G_DB->objDB);
+		iAuthId = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_finalize(stmt_insert);
 		
 		xrtFree(sAuthDesc);
@@ -1917,11 +1921,11 @@ int Model_CreateAuthGroup(ModelInstance* pModel)
 }
 
 
-// 删除模型的权限分组（禁用时不删除，保留权限组以便复用）
+// 删除模型的权限分组（禁用时不删除，保留权限组以便复用�?
 void Model_RemoveAuthGroup(ModelInstance* pModel)
 {
-	// 不再删除权限组，这样用户分配的权限不会因为模型禁用/启用而失效
-	// 权限组会在下次启用时被复用
+	// 不再删除权限组，这样用户分配的权限不会因为模型禁�?启用而失�?
+	// 权限组会在下次启用时被复�?
 	printf("        [Model] Keeping auth group for %s (will be reused on next enable)\n", pModel->sName);
 }
 
@@ -1933,9 +1937,9 @@ void Model_DeleteAuthGroup(ModelInstance* pModel)
 	
 	str sAuthName = xrtFormat("模型:%s", pModel->sTitle ? pModel->sTitle : pModel->sName);
 	
-	// 物理删除权限分组（设置 isDelete = 1）
+	// 物理删除权限分组（设�?isDelete = 1�?
 	sqlite3_stmt* stmt_del;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"UPDATE auth SET isDelete = 1, updateTime = ? WHERE name = ?",
 		-1, 0, &stmt_del, NULL);
 	sqlite3_bind_int64(stmt_del, 1, xrtNow());
@@ -1947,7 +1951,7 @@ void Model_DeleteAuthGroup(ModelInstance* pModel)
 }
 
 
-// 为模型创建后台菜单
+// 为模型创建后台菜�?
 int Model_CreateMenu(ModelInstance* pModel)
 {
 	printf("        [Model] Creating menu for %s...\n", pModel->sName);
@@ -1962,7 +1966,7 @@ int Model_CreateMenu(ModelInstance* pModel)
 	
 	// 检查菜单是否已存在
 	sqlite3_stmt* stmt_check;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"SELECT id FROM menu WHERE href = ? AND isDelete = 0",
 		-1, 0, &stmt_check, NULL);
 	sqlite3_bind_text(stmt_check, 1, sHref, -1, SQLITE_STATIC);
@@ -1979,12 +1983,12 @@ int Model_CreateMenu(ModelInstance* pModel)
 		xtime now = xrtNow();
 		
 		sqlite3_stmt* stmt_insert;
-		sqlite3_prepare_v3(G_DB->objDB,
+		sqlite3_prepare_v3(G_DB,
 			"INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete) "
 			"VALUES (?, ?, ?, 1, '_iframe', ?, ?, 1, ?, ?, ?, 0)",
 			-1, 0, &stmt_insert, NULL);
 		
-		// 父级菜单，默认放到"内容管理"目录下
+		// 父级菜单，默认放�?内容管理"目录�?
 		int iParent = pModel->iMenuParent;
 		if ( iParent <= 0 ) {
 			iParent = Model_GetOrCreateContentMenuId();
@@ -2009,7 +2013,7 @@ int Model_CreateMenu(ModelInstance* pModel)
 		sqlite3_bind_int64(stmt_insert, 8, now);
 		
 		sqlite3_step(stmt_insert);
-		iMenuId = sqlite3_last_insert_rowid(G_DB->objDB);
+		iMenuId = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_finalize(stmt_insert);
 		
 		xrtFree(sRemark);
@@ -2035,7 +2039,7 @@ void Model_HideMenu(ModelInstance* pModel)
 	}
 	
 	sqlite3_stmt* stmt_upd;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"UPDATE menu SET visible = 0, updateTime = ? WHERE href = ? AND isDelete = 0",
 		-1, 0, &stmt_upd, NULL);
 	sqlite3_bind_int64(stmt_upd, 1, xrtNow());
@@ -2061,7 +2065,7 @@ void Model_ShowMenu(ModelInstance* pModel)
 	}
 	
 	sqlite3_stmt* stmt_upd;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"UPDATE menu SET visible = 1, updateTime = ? WHERE href = ? AND isDelete = 0",
 		-1, 0, &stmt_upd, NULL);
 	sqlite3_bind_int64(stmt_upd, 1, xrtNow());
@@ -2087,7 +2091,7 @@ void Model_RemoveMenu(ModelInstance* pModel)
 	}
 	
 	sqlite3_stmt* stmt_del;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"UPDATE menu SET isDelete = 1, updateTime = ? WHERE href = ?",
 		-1, 0, &stmt_del, NULL);
 	sqlite3_bind_int64(stmt_del, 1, xrtNow());
@@ -2113,7 +2117,7 @@ void Model_DeleteMenu(ModelInstance* pModel)
 	}
 	
 	sqlite3_stmt* stmt_del;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"UPDATE menu SET isDelete = 1, updateTime = ? WHERE href = ?",
 		-1, 0, &stmt_del, NULL);
 	sqlite3_bind_int64(stmt_del, 1, xrtNow());
@@ -2125,7 +2129,7 @@ void Model_DeleteMenu(ModelInstance* pModel)
 }
 
 
-// 将模型的所有 URI 同步到数据库
+// 将模型的所�?URI 同步到数据库
 void Model_SyncUrisToDb(ModelInstance* pModel)
 {
 	printf("        [Model] Syncing URIs to DB for %s...\n", pModel->sName);
@@ -2157,7 +2161,7 @@ void Model_SyncUrisToDb(ModelInstance* pModel)
 		Model_AddUriToDb(sUri, iAuthId, TRUE);
 		xrtFree(sUri);
 		
-		// 添加和编辑视图路由
+		// 添加和编辑视图路�?
 		if ( sNs && strlen(sNs) > 0 ) {
 			sUri = xrtFormat("/admin/view/model/data/%s/%s/add", sNs, sName);
 		} else {
@@ -2200,7 +2204,7 @@ void Model_SyncUrisToDb(ModelInstance* pModel)
 	if ( pModel->bEnableApi ) {
 		// 前台 API 不需要后台权限，设置 isBackend=FALSE
 		sUri = xrtFormat("%s/all", sApiPrefix);
-		Model_AddUriToDb(sUri, 0, FALSE);  // 前台接口，无权限组
+		Model_AddUriToDb(sUri, 0, FALSE);  // 前台接口，无权限�?
 		xrtFree(sUri);
 		
 		sUri = xrtFormat("%s/get", sApiPrefix);
@@ -2222,7 +2226,7 @@ void Model_SyncUrisToDb(ModelInstance* pModel)
 }
 
 
-// 从数据库删除模型的所有 URI
+// 从数据库删除模型的所�?URI
 void Model_RemoveUrisFromDb(ModelInstance* pModel)
 {
 	printf("        [Model] Removing URIs from DB for %s...\n", pModel->sName);
@@ -2252,7 +2256,7 @@ void Model_RemoveUrisFromDb(ModelInstance* pModel)
 	Model_RemoveUriFromDb(sUri);
 	xrtFree(sUri);
 	
-	// 添加和编辑视图路由
+	// 添加和编辑视图路�?
 	if ( sNs && strlen(sNs) > 0 ) {
 		sUri = xrtFormat("/admin/view/model/data/%s/%s/add", sNs, sName);
 	} else {
@@ -2326,7 +2330,7 @@ bool Model_Enable(ModelInstance* pModel)
 		return TRUE;
 	}
 	
-	// 获取权限分组ID（已在创建模型时创建）
+	// 获取权限分组ID（已在创建模型时创建�?
 	int iAuthId = pModel->iAdminAuthId;
 	if ( iAuthId <= 0 ) {
 		// 如果没有权限ID，创建一个（兼容旧模型）
@@ -2334,9 +2338,9 @@ bool Model_Enable(ModelInstance* pModel)
 		pModel->iAdminAuthId = iAuthId;
 	}
 	
-	// 显示后台菜单（如果启用了后台管理）
+	// 显示后台菜单（如果启用了后台管理�?
 	if ( pModel->bEnableAdmin ) {
-		// 检查菜单是否存在，不存在则创建（兼容旧模型）
+		// 检查菜单是否存在，不存在则创建（兼容旧模型�?
 		Model_CreateMenu(pModel);
 		Model_ShowMenu(pModel);
 		
@@ -2381,7 +2385,7 @@ bool Model_Enable(ModelInstance* pModel)
 	// 使用TCC加载模型代码
 	if ( !Model_TccLoad(pModel) ) {
 		printf("        [Model] Failed to load model with TCC\n");
-		// 回滚视图路由和菜单可见性
+		// 回滚视图路由和菜单可见�?
 		if ( pModel->bEnableAdmin ) {
 			// 移除视图路由
 			str sViewUri = NULL;
@@ -2423,7 +2427,7 @@ bool Model_Enable(ModelInstance* pModel)
 	int iIdx = xrtListCount(G_ModelMgr->lstEnabledModels);
 	xrtListSetPtr(G_ModelMgr->lstEnabledModels, iIdx, pModel, NULL);
 	
-	// 更新状态
+	// 更新状�?
 	pModel->bEnabled = TRUE;
 	
 	// 更新配置文件
@@ -2436,7 +2440,7 @@ bool Model_Enable(ModelInstance* pModel)
 			xvoTableSetValue(tblConfig, "status", 6, tblStatus, TRUE);
 		}
 		xvoTableSetBool(tblStatus, "enabled", 7, TRUE);
-		// 保存启用时间（用于检测 needUpdate）
+		// 保存启用时间（用于检�?needUpdate�?
 		xvoTableSetInt(tblStatus, "enableTime", 10, iNow);
 		
 		// 保存权限ID
@@ -2454,7 +2458,7 @@ bool Model_Enable(ModelInstance* pModel)
 	// 更新内存中的启用时间
 	pModel->iEnableTime = iNow;
 	
-	// 同步 URI 到数据库并刷新权限缓存
+	// 同步 URI 到数据库并刷新权限缓�?
 	Model_SyncUrisToDb(pModel);
 	ReloadCache_Auth_Auth();
 	ReloadCache_Auth_Group();
@@ -2478,7 +2482,7 @@ bool Model_Disable(ModelInstance* pModel)
 	// 使用TCC卸载模型
 	Model_TccUnload(pModel);
 	
-	// 删除后台视图路由并隐藏菜单
+	// 删除后台视图路由并隐藏菜�?
 	if ( pModel->bEnableAdmin ) {
 		// 移除视图路由
 		str sViewUri = NULL;
@@ -2510,14 +2514,14 @@ bool Model_Disable(ModelInstance* pModel)
 		xrtFree(sDraftUri);
 		xrtFree(sDraftEditUri);
 		
-		// 隐藏菜单（不删除，以便再次启用时复用）
+		// 隐藏菜单（不删除，以便再次启用时复用�?
 		Model_HideMenu(pModel);
 	}
 	
-	// 不删除权限分组，以便再次启用时复用
+	// 不删除权限分组，以便再次启用时复�?
 	Model_RemoveAuthGroup(pModel);
 	
-	// 从已启用列表中移除
+	// 从已启用列表中移�?
 	int iCount = xrtListCount(G_ModelMgr->lstEnabledModels);
 	for ( int i = 0; i < iCount; i++ ) {
 		ModelInstance* pItem = xrtListGetPtr(G_ModelMgr->lstEnabledModels, i);
@@ -2527,7 +2531,7 @@ bool Model_Disable(ModelInstance* pModel)
 		}
 	}
 	
-	// 更新状态
+	// 更新状�?
 	pModel->bEnabled = FALSE;
 	
 	// 更新配置文件
@@ -2544,7 +2548,7 @@ bool Model_Disable(ModelInstance* pModel)
 		xvoUnref(tblConfig);
 	}
 	
-	// 从数据库删除 URI 并刷新权限缓存
+	// 从数据库删除 URI 并刷新权限缓�?
 	Model_RemoveUrisFromDb(pModel);
 	ReloadCache_Auth_Auth();
 	ReloadCache_Auth_Group();
@@ -2556,7 +2560,7 @@ bool Model_Disable(ModelInstance* pModel)
 
 
 
-// 从配置文件加载模型实例
+// 从配置文件加载模型实�?
 ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 {
 	// 读取配置文件
@@ -2601,7 +2605,7 @@ ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 		if ( sTableName ) pModel->sTableName = xrtCopyStr(sTableName, 0);
 	}
 	
-	// 状态
+	// 状�?
 	xvalue tblStatus = xvoTableGetValue(tblConfig, "status", 6);
 	if ( tblStatus ) {
 		pModel->bEnabled = xvoTableGetBool(tblStatus, "enabled", 7);
@@ -2609,7 +2613,7 @@ ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 		pModel->iEnableTime = xvoTableGetInt(tblStatus, "enableTime", 10);
 	}
 	
-	// 功能开关
+	// 功能开�?
 	xvalue tblFeatures = xvoTableGetValue(tblConfig, "features", 8);
 	if ( tblFeatures ) {
 		pModel->bEnableApi = xvoTableGetBool(tblFeatures, "enableApi", 9);
@@ -2626,7 +2630,7 @@ ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 		pModel->bEnablePreview = xvoTableGetBool(tblAccessControl, "enablePreview", 13);
 		pModel->bEnablePurchase = xvoTableGetBool(tblAccessControl, "enablePurchase", 14);
 	} else {
-		// 默认值
+		// 默认�?
 		pModel->iDefaultAccessLevel = 0;
 		pModel->bEnablePreview = TRUE;
 		pModel->bEnablePurchase = FALSE;
@@ -2638,9 +2642,9 @@ ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 		pModel->bAllowGuestSubmit = xvoTableGetBool(tblSubmit, "allowGuest", 10);
 		pModel->bSubmitNeedReview = xvoTableGetBool(tblSubmit, "needReview", 10);
 	} else {
-		// 默认值
+		// 默认�?
 		pModel->bAllowGuestSubmit = FALSE;
-		pModel->bSubmitNeedReview = TRUE;  // 默认需要审核
+		pModel->bSubmitNeedReview = TRUE;  // 默认需要审�?
 	}
 	
 	// API权限配置
@@ -2674,10 +2678,10 @@ ModelInstance* Model_LoadFromConfig(str sName, str sConfigPath)
 		xvoAddRef(arrFields);  // 增加引用计数
 	}
 	
-	// 设置代码文件路径（用于TCC加载）
+	// 设置代码文件路径（用于TCC加载�?
 	pModel->sCodePath = xrtFormat("%s/%s/code.h", ModelPath, sName);
 	
-	// 时间戳
+	// 时间�?
 	pModel->iCreateTime = xvoTableGetInt(tblConfig, "createTime", 10);
 	pModel->iUpdateTime = xvoTableGetInt(tblConfig, "updateTime", 10);
 	
@@ -2701,12 +2705,12 @@ bool ModelMgr_DestroyWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 	return FALSE;  // FALSE = 继续遍历, TRUE = 停止遍历
 }
 
-// 获取模型列表的回调函数
+// 获取模型列表的回调函�?
 bool ModelMgr_ListWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 {
 	xvalue arrList = (xvalue)pArg;
 	ModelInstance** ppModel = (ModelInstance**)pVal;
-	if ( !ppModel || !(*ppModel) ) return FALSE;  // 继续遍历下一个
+	if ( !ppModel || !(*ppModel) ) return FALSE;  // 继续遍历下一�?
 	
 	ModelInstance* pModel = *ppModel;
 	
@@ -2734,23 +2738,23 @@ bool ModelMgr_ListWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 	return FALSE;  // FALSE = 继续遍历, TRUE = 停止遍历
 }
 
-// 扫描模型目录的回调函数
+// 扫描模型目录的回调函�?
 int ModelMgr_ScanDirProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iPathSize)
 {
 	// 只处理目录（进入时，bDir=1），跳过文件(0)和离开目录(2)
 	if ( bDir != 1 ) return FALSE;  // FALSE = 继续遍历
 	
-	// 获取目录名
+	// 获取目录�?
 	str sName = xrtPathGetName(sPath, 0);
 	if ( !sName ) return FALSE;  // FALSE = 继续遍历
 	
-	// 跳过隐藏目录和特殊目录
+	// 跳过隐藏目录和特殊目�?
 	if ( sName[0] == '.' || sName[0] == '_' ) {
 		xrtFree(sName);
 		return FALSE;  // FALSE = 继续遍历
 	}
 	
-	// 检查是否存在 config.json
+	// 检查是否存�?config.json
 	str sConfigPath = xrtFormat("%s/config.json", sPath);
 	if ( !xrtFileExists(sConfigPath) ) {
 		xrtFree(sConfigPath);
@@ -2773,14 +2777,14 @@ int ModelMgr_ScanDirProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iP
 		// 注册命名空间
 		Model_RegisterNamespace(pModel);
 		
-		// 此时只加载配置，不在扫描时启用
-		// 启用操作在 ModelMgr_Init 完成后统一执行
+		// 此时只加载配置，不在扫描时启�?
+		// 启用操作�?ModelMgr_Init 完成后统一执行
 	}
 	
 	return FALSE;
 }
 
-// 扫描并加载所有模型
+// 扫描并加载所有模�?
 void ModelMgr_ScanModels()
 {
 	printf("        [Model] Scanning models in: %s\n", ModelPath);
@@ -2790,18 +2794,18 @@ void ModelMgr_ScanModels()
 }
 
 
-// 自动启用状态为启用的模型
+// 自动启用状态为启用的模�?
 bool ModelMgr_AutoEnableWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 {
 	ModelInstance** ppModel = (ModelInstance**)pVal;
-	if ( !ppModel || !(*ppModel) ) return FALSE;  // 继续遍历下一个
+	if ( !ppModel || !(*ppModel) ) return FALSE;  // 继续遍历下一�?
 	
 	ModelInstance* pModel = *ppModel;
 	
-	// 只启用已编译且状态为启用的模型
+	// 只启用已编译且状态为启用的模�?
 	if ( pModel->bCompiled && pModel->bEnabled ) {
 		printf("        [Model] Auto-enabling: %s\n", pModel->sName);
-		// 先置为未启用，然后调用 Model_Enable 执行完整启用流程
+		// 先置为未启用，然后调�?Model_Enable 执行完整启用流程
 		pModel->bEnabled = FALSE;
 		Model_Enable(pModel);
 	}
@@ -2823,7 +2827,7 @@ void ModelMgr_InitContext()
 	G_ModelCtx = xrtMalloc(sizeof(ModelContext));
 	memset(G_ModelCtx, 0, sizeof(ModelContext));
 	
-	// 数据库
+	// 数据�?
 	G_ModelCtx->pDB = G_DB;
 	
 	// 路由操作
@@ -2854,7 +2858,7 @@ void ModelMgr_EnsureMenu()
 {
 	// 检查菜单是否已存在
 	sqlite3_stmt* stmt_check;
-	sqlite3_prepare_v3(G_DB->objDB, 
+	sqlite3_prepare_v3(G_DB, 
 		"SELECT id FROM menu WHERE href = '/admin/view/model' AND isDelete = 0",
 		-1, 0, &stmt_check, NULL);
 	
@@ -2864,14 +2868,14 @@ void ModelMgr_EnsureMenu()
 	}
 	sqlite3_finalize(stmt_check);
 	
-	// 如果菜单不存在，则创建
+	// 如果菜单不存在，则创�?
 	if ( !bExists ) {
 		printf("        [Model] Creating menu item...\n");
 		
 		sqlite3_stmt* stmt_insert;
-		sqlite3_prepare_v3(G_DB->objDB,
+		sqlite3_prepare_v3(G_DB,
 			"INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete) "
-			"VALUES (0, '内容模型', 'layui-icon layui-icon-component', 1, '_component', '/admin/view/model', 200000, 1, '内容模型管理，可定义自定义内容结构', ?, ?, 0)",
+			"VALUES (0, '内容模型', 'layui-icon layui-icon-component', 1, '_component', '/admin/view/model', 200000, 1, '内容模型管理，可定义自定义内容结�?, ?, ?, 0)",
 			-1, 0, &stmt_insert, NULL);
 		
 		xtime now = xrtNow();
@@ -2890,14 +2894,14 @@ void ModelMgr_Init()
 {
 	printf("        ModelMgr_Init \n");
 	
-	// 创建管理器
+	// 创建管理�?
 	G_ModelMgr = xrtMalloc(sizeof(ModelManager));
 	memset(G_ModelMgr, 0, sizeof(ModelManager));
 	
-	// 初始化数据结构
-	G_ModelMgr->tblModels = xrtDictCreate(sizeof(ModelInstance*));
-	G_ModelMgr->tblNamespaces = xrtDictCreate(0);
-	G_ModelMgr->lstEnabledModels = xrtListCreate(sizeof(ptr));
+	// 初始化数据结�?
+	G_ModelMgr->tblModels = xrtDictCreate(sizeof(ModelInstance*), 0);
+	G_ModelMgr->tblNamespaces = xrtDictCreate(0, 0);
+	G_ModelMgr->lstEnabledModels = xrtListCreate(sizeof(ptr), 0);
 	
 	// 初始化上下文
 	ModelMgr_InitContext();
@@ -2905,36 +2909,36 @@ void ModelMgr_Init()
 	// 确保菜单存在
 	ModelMgr_EnsureMenu();
 	
-	// 扫描并加载模型
+	// 扫描并加载模�?
 	ModelMgr_ScanModels();
 	
-	// 自动启用状态为启用的模型
+	// 自动启用状态为启用的模�?
 	ModelMgr_AutoEnableModels();
 }
 
 
-// 卸载模型管理器
+// 卸载模型管理�?
 void ModelMgr_Unit()
 {
 	printf("        ModelMgr_Unit \n");
 	
 	if ( !G_ModelMgr ) return;
 	
-	// 遍历并销毁所有模型
+	// 遍历并销毁所有模�?
 	xrtDictWalk(G_ModelMgr->tblModels, ModelMgr_DestroyWalkProc, NULL);
 	
-	// 销毁数据结构
+	// 销毁数据结�?
 	xrtDictDestroy(G_ModelMgr->tblModels);
 	xrtDictDestroy(G_ModelMgr->tblNamespaces);
 	xrtListDestroy(G_ModelMgr->lstEnabledModels);
 	
-	// 释放上下文
+	// 释放上下�?
 	if ( G_ModelCtx ) {
 		xrtFree(G_ModelCtx);
 		G_ModelCtx = NULL;
 	}
 	
-	// 释放管理器
+	// 释放管理�?
 	xrtFree(G_ModelMgr);
 	G_ModelMgr = NULL;
 }
@@ -2943,7 +2947,7 @@ void ModelMgr_Unit()
 
 // ==================== 模型列表查询 ====================
 
-// 获取所有模型列表
+// 获取所有模型列�?
 xvalue ModelMgr_GetModelList()
 {
 	xvalue arrList = xvoCreateArray();

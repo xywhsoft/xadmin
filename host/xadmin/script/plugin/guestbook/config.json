@@ -1,11 +1,11 @@
 {
 	"sort":	100,
-	"title":	"留言板",
-	"desc":	"支持多实例的留言板系统",
+	"title":	"Guestbook",
+	"desc":	"Multi-instance guestbook plugin",
 	"name":	"guestbook",
 	"version":	"1.0.0",
 	"exports":	[],
 	"settings":	{},
-	"enabled":	true,
+	"enabled":	false,
 	"author":	"xAdmin"
 }

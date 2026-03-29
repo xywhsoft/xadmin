@@ -6,10 +6,10 @@
 
 
 // 获取全局缓存概览
-void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
 	
@@ -18,7 +18,7 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, st
 	
 	xvalue tblData = xvoCreateTable();
 	
-	// Session 缓存信息 - 后台管理员
+	// Session 缓存信息 - 后台管理�?
 	xvalue tblSession = xvoCreateTable();
 	xvoTableSetBool(tblSession, "exists", 6, G_AdminSession != NULL);
 	if ( G_AdminSession != NULL ) {
@@ -54,7 +54,7 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, st
 	}
 	xvoTableSetValue(tblData, "auth", 4, tblAuth, TRUE);
 	
-	// 路由表信息
+	// 路由表信�?
 	xvalue tblRoute = xvoCreateTable();
 	xvoTableSetBool(tblRoute, "exists", 6, G_StaticRouteTableHTTP != NULL);
 	if ( G_StaticRouteTableHTTP != NULL ) {
@@ -62,19 +62,19 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, st
 	}
 	xvoTableSetValue(tblData, "route", 5, tblRoute, TRUE);
 	
-	// 数据库连接信息
+	// 数据库连接信�?
 	xvalue tblDB = xvoCreateTable();
 	xvoTableSetBool(tblDB, "connected", 9, G_DB != NULL);
 	xvoTableSetValue(tblData, "database", 8, tblDB, TRUE);
 	
-	// 安装状态
+	// 安装状�?
 	xvoTableSetBool(tblData, "installed", 9, G_Install);
 	
 	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
 	
 	size_t iRetSize = 0;
 	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(c, 200, HTTP_CT_JSON, sRet, iRetSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 	xrtFree(sRet);
 	xvoUnref(tblRet);
 }
@@ -82,10 +82,10 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, st
 
 
 // 获取 Session 缓存数据
-void Request_Trace_Session(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Trace_Session(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
 	
@@ -93,7 +93,7 @@ void Request_Trace_Session(XS_ServerObject objServer, XS_HostObject objHost, str
 	
 	if ( G_AdminSession == NULL ) {
 		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "AdminSession 缓存不存在", 0, FALSE);
+		xvoTableSetText(tblRet, "message", 7, "AdminSession ���治����", 0, FALSE);
 	} else {
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
 		xvoAddRef(G_AdminSession);
@@ -102,7 +102,7 @@ void Request_Trace_Session(XS_ServerObject objServer, XS_HostObject objHost, str
 	
 	size_t iRetSize = 0;
 	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(c, 200, HTTP_CT_JSON, sRet, iRetSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 	xrtFree(sRet);
 	xvoUnref(tblRet);
 }
@@ -110,10 +110,10 @@ void Request_Trace_Session(XS_ServerObject objServer, XS_HostObject objHost, str
 
 
 // 获取 Option 缓存数据
-void Request_Trace_Option(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Trace_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
 	
@@ -121,7 +121,7 @@ void Request_Trace_Option(XS_ServerObject objServer, XS_HostObject objHost, stru
 	
 	if ( G_Option == NULL ) {
 		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "Option 缓存不存在", 0, FALSE);
+		xvoTableSetText(tblRet, "message", 7, "Option ���治����", 0, FALSE);
 	} else {
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
 		xvoAddRef(G_Option);
@@ -130,7 +130,7 @@ void Request_Trace_Option(XS_ServerObject objServer, XS_HostObject objHost, stru
 	
 	size_t iRetSize = 0;
 	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(c, 200, HTTP_CT_JSON, sRet, iRetSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 	xrtFree(sRet);
 	xvoUnref(tblRet);
 }
@@ -138,16 +138,16 @@ void Request_Trace_Option(XS_ServerObject objServer, XS_HostObject objHost, stru
 
 
 // 获取权限相关缓存数据
-void Request_Trace_Auth(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Trace_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
 	
 	// 获取类型参数
 	char sType[32];
-	int iSize = mg_http_get_var(&hm->query, "type", sType, sizeof(sType));
+	int iSize = HttpGetQueryVar(objReq, "type", sType, sizeof(sType));
 	if ( iSize <= 0 ) {
 		strcpy(sType, "all");
 	}
@@ -189,14 +189,14 @@ void Request_Trace_Auth(XS_ServerObject objServer, XS_HostObject objHost, struct
 	
 	size_t iRetSize = 0;
 	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(c, 200, HTTP_CT_JSON, sRet, iRetSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 	xrtFree(sRet);
 	xvoUnref(tblRet);
 }
 
 
 
-// 路由表遍历回调函数
+// 路由表遍历回调函�?
 bool TraceRouteWalkProc(Dict_Key* pKey, RouteInfo* pInfo, xvalue arrRoutes)
 {
 	if ( pInfo ) {
@@ -210,11 +210,11 @@ bool TraceRouteWalkProc(Dict_Key* pKey, RouteInfo* pInfo, xvalue arrRoutes)
 	return FALSE;
 }
 
-// 获取路由表数据
-void Request_Trace_Route(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+// 获取路由表数�?
+void Request_Trace_Route(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
 	
@@ -226,7 +226,7 @@ void Request_Trace_Route(XS_ServerObject objServer, XS_HostObject objHost, struc
 	} else {
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
 		
-		// 遍历路由表
+		// 遍历路由�?
 		xvalue arrRoutes = xvoCreateArray();
 		xrtDictWalk(G_StaticRouteTableHTTP, (Dict_EachProc)TraceRouteWalkProc, arrRoutes);
 		xvoTableSetValue(tblRet, "data", 4, arrRoutes, TRUE);
@@ -234,7 +234,7 @@ void Request_Trace_Route(XS_ServerObject objServer, XS_HostObject objHost, struc
 	
 	size_t iRetSize = 0;
 	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(c, 200, HTTP_CT_JSON, sRet, iRetSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 	xrtFree(sRet);
 	xvoUnref(tblRet);
 }

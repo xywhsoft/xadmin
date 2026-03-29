@@ -1,67 +1,43 @@
-
-
-// ============================================
-// xAdmin 插件公共头文件
-// 所有插件都应包含此头文件
-// ============================================
-
 #ifndef XADMIN_PLUGIN_H
 #define XADMIN_PLUGIN_H
 
+#include <xs_vnext_full.h>
 
+#define EVENT_SYSTEM_READY			"system.ready"
+#define EVENT_SYSTEM_SHUTDOWN			"system.shutdown"
+#define EVENT_MEMBER_LOGIN			"member.login"
+#define EVENT_MEMBER_LOGOUT			"member.logout"
+#define EVENT_MEMBER_REGISTER			"member.register"
+#define EVENT_MEMBER_BALANCE_CHANGE		"member.balance.change"
+#define EVENT_ATTACHMENT_UPLOAD			"attachment.upload"
+#define EVENT_ATTACHMENT_DELETE			"attachment.delete"
+#define EVENT_ATTACHMENT_PURCHASE		"attachment.purchase"
+#define EVENT_MODEL_ENABLE			"model.enable"
+#define EVENT_MODEL_DISABLE			"model.disable"
+#define EVENT_MODEL_DATA_ADD			"model.data.add"
+#define EVENT_MODEL_DATA_UPDATE			"model.data.update"
+#define EVENT_MODEL_DATA_DELETE			"model.data.delete"
 
-// 引入 xserver 基础库
-#include <xsbase.h>
+#define LOG_DEBUG	0
+#define LOG_INFO	1
+#define LOG_WARN	2
+#define LOG_ERROR	3
 
+#define HTTP_CT_HTML	"Content-Type: text/html\r\n"
+#define HTTP_CT_TEXT	"Content-Type: text/plain\r\n"
+#define HTTP_CT_JSON	"Content-Type: application/json\r\n"
 
-
-// ==================== 预定义事件 ====================
-
-// 系统事件
-#define EVENT_SYSTEM_READY          "system.ready"           // 系统启动完成
-#define EVENT_SYSTEM_SHUTDOWN       "system.shutdown"        // 系统关闭前
-
-// 用户事件（由 member 插件触发）
-#define EVENT_MEMBER_LOGIN          "member.login"           // 前台用户登录
-#define EVENT_MEMBER_LOGOUT         "member.logout"          // 前台用户登出
-#define EVENT_MEMBER_REGISTER       "member.register"        // 前台用户注册
-#define EVENT_MEMBER_BALANCE_CHANGE "member.balance.change"  // 余额变动
-
-// 附件事件（由 attachment 插件触发）
-#define EVENT_ATTACHMENT_UPLOAD     "attachment.upload"      // 附件上传
-#define EVENT_ATTACHMENT_DELETE     "attachment.delete"      // 附件删除
-#define EVENT_ATTACHMENT_PURCHASE   "attachment.purchase"    // 附件购买
-
-// 模型事件（由 model 插件触发）
-#define EVENT_MODEL_ENABLE          "model.enable"           // 模型启用
-#define EVENT_MODEL_DISABLE         "model.disable"          // 模型禁用
-#define EVENT_MODEL_DATA_ADD        "model.data.add"         // 模型数据添加
-#define EVENT_MODEL_DATA_UPDATE     "model.data.update"      // 模型数据更新
-#define EVENT_MODEL_DATA_DELETE     "model.data.delete"      // 模型数据删除
-
-
-
-// ==================== 日志级别 ====================
-
-#define LOG_DEBUG   0
-#define LOG_INFO    1
-#define LOG_WARN    2
-#define LOG_ERROR   3
-
-
-
-// ==================== HTTP 响应常量 ====================
-
-#define HTTP_CT_HTML "Content-Type: text/html\r\n"
-#define HTTP_CT_TEXT "Content-Type: text/plain\r\n"
-#define HTTP_CT_JSON "Content-Type: application/json\r\n"
-
-
-
-// ==================== 路由信息结构 ====================
+typedef struct HttpMultipartPart {
+	const char* sName;
+	size_t iNameLen;
+	const char* sFileName;
+	size_t iFileNameLen;
+	const char* pBody;
+	size_t iBodyLen;
+} HttpMultipartPart;
 
 typedef struct {
-	void (*Proc)(void*, void*, struct mg_connection*, struct mg_http_message*);
+	void (*Proc)(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession);
 	bool bAuth;
 	bool bAdmin;
 	bool bPutLog;
@@ -70,51 +46,36 @@ typedef struct {
 	uint32 AuthLevel;
 } RouteInfo;
 
-
-
-// ==================== 类型定义 ====================
-
 typedef bool (*DirScanCallback)(str path, size_t size, int type, ptr data, size_t pathSize);
 
-
-
-// ==================== 插件上下文结构 ====================
-
 typedef struct {
+	sqlite3* pDB;
+	xvalue* pAdminSession;
+	xvalue* pMemberSession;
+	xvalue* pOption;
 
-	// ===== 核心数据 =====
-	XDO_Connect pDB;                    // 数据库连接
-	xvalue* pAdminSession;              // 后台 Session 表指针
-	xvalue* pMemberSession;             // 前台 Session 表指针
-	xvalue* pOption;                    // 全局配置表指针
+	str sAppPath;
+	str sWebPath;
+	str sDataPath;
+	str sPluginPath;
+	str sPagePath;
 
-	// ===== 路径信息 =====
-	str sAppPath;                       // 应用根目录
-	str sWebPath;                       // Web 根目录
-	str sDataPath;                      // 数据目录
-	str sPluginPath;                    // 插件目录
-	str sPagePath;                      // 页面模板目录
-
-	// ===== 路由操作 =====
 	RouteInfo* (*AddRoute)(str uri, void* proc, bool bAuth, bool bAdmin, int authId, int authLevel);
 	void (*RemoveRoute)(str uri);
 	RouteInfo* (*GetRoute)(str uri);
 
-	// ===== 菜单操作 =====
 	int (*AddMenu)(int parent, str title, str icon, int type, str openType, str href, int sort, bool visible);
 	bool (*RemoveMenu)(int menuId);
 	bool (*ShowMenu)(int menuId);
 	bool (*HideMenu)(int menuId);
 
-	// ===== 权限操作 =====
-	int (*AddAuthGroup)(str name, str desc, int sort);          // 添加权限分类
-	int (*AddAuth)(int groupId, str name, str desc, int sort);  // 添加权限分组
+	int (*AddAuthGroup)(str name, str desc, int sort);
+	int (*AddAuth)(int groupId, str name, str desc, int sort);
 	bool (*RemoveAuthGroup)(int groupId);
 	bool (*RemoveAuth)(int authId);
 	void (*SyncUriAuth)(str uri, int authId, str desc, bool isBackend, bool needAuth, bool needLog);
-	void (*ReloadAuthCache)();                                  // 刷新权限缓存
+	void (*ReloadAuthCache)();
 
-	// ===== Session 操作 =====
 	xvalue (*GetAdminSession)(str token);
 	xvalue (*GetMemberSession)(str token);
 	str (*CreateAdminSession)(int64 userId, str userName, int roleId, int timeout);
@@ -123,24 +84,21 @@ typedef struct {
 	void (*DestroyMemberSession)(str token);
 	void (*ExtendSession)(bool isAdmin, str token, int timeout);
 
-	// ===== HTTP 响应 =====
-	void (*SendJson)(struct mg_connection* c, int code, str json, size_t len);
-	void (*SendHtml)(struct mg_connection* c, int code, str html);
-	void (*SendPage)(struct mg_connection* c, str pagePath, xvalue data);
-	void (*SendFile)(struct mg_connection* c, str filePath, str mimeType);
-	void (*SendError)(struct mg_connection* c, int code, str message);
+	void (*SendJson)(XS_ResponseObject objResp, int code, str json, size_t len);
+	void (*SendHtml)(XS_ResponseObject objResp, int code, str html);
+	void (*SendPage)(XS_ResponseObject objResp, str pagePath, xvalue data);
+	void (*LoadPage)(XS_ResponseObject objResp, int code, str head, str pagePath);
+	void (*SendFile)(XS_ResponseObject objResp, str filePath, str mimeType);
+	void (*SendError)(XS_ResponseObject objResp, int code, str message);
 
-	// ===== 配置操作 =====
 	xvalue (*GetOption)(str group, str key);
 	bool (*SetOption)(str group, str key, xvalue value);
 	void (*ReloadOption)(str group);
 
-	// ===== JSON 操作 =====
 	xvalue (*JsonParse)(str json, size_t len);
 	str (*JsonStringify)(xvalue val, size_t* outLen);
 	void (*JsonFree)(xvalue val);
 
-	// ===== 工具函数 =====
 	int64 (*TimeNow)();
 	str (*Format)(str fmt, ...);
 	void (*Free)(void* ptr);
@@ -148,25 +106,20 @@ typedef struct {
 	str (*GenerateSalt)();
 	str (*GenerateToken)(int length);
 
-	// ===== 日志 =====
 	void (*Log)(int level, str format, ...);
 	void (*LogAccess)(str user, str uri, str method, str param, str body);
 
-	// ===== 插件间通信 =====
 	void* (*GetPluginExport)(str pluginName, str exportName);
 	bool (*SetPluginExport)(str pluginName, str exportName, void* ptr);
 
-	// ===== 事件系统 =====
 	bool (*EmitEvent)(str eventName, xvalue eventData);
 	bool (*OnEvent)(str eventName, void* callback);
 	void (*OffEvent)(str eventName, void* callback);
 
-	// ===== 插件自身信息 =====
 	str (*GetPluginId)();
 	str (*GetPluginName)();
 	str (*GetPluginPath)();
 
-	// ===== 文件操作 =====
 	bool (*WriteFile)(str filePath, str content, size_t len);
 	bool (*ReadFile)(str filePath, str* outContent, size_t* outLen);
 	bool (*DeleteFile)(str filePath);
@@ -178,19 +131,16 @@ typedef struct {
 	bool (*CopyFile)(str srcPath, str destPath);
 	bool (*MoveFile)(str srcPath, str destPath);
 
-	// ===== xPack 集成 =====
 	int (*CreateXpkg)(str outputPath, str* fileList, int fileCount, int compressLevel);
 	int (*ExtractXpkg)(str xpkgPath, str outputDir);
 	xvalue (*GetXpkgInfo)(str xpkgPath);
 
-	// ===== 代码生成 =====
 	bool (*GenerateModel)(str modelName, xvalue modelConfig);
 	bool (*CompilePlugin)(str pluginName);
 	bool (*ReloadPlugin)(str pluginName);
 	xvalue (*GetPluginConfig)(str pluginName);
 	bool (*SetPluginConfig)(str pluginName, xvalue config);
 
-	// ===== 数据库操作 =====
 	bool (*CreateTable)(str tableName, str sql);
 	bool (*DropTable)(str tableName);
 	bool (*ExecuteSQL)(str sql);
@@ -199,93 +149,69 @@ typedef struct {
 	bool (*ExecuteStmt)(sqlite3_stmt* stmt);
 	void (*FinalizeStmt)(sqlite3_stmt* stmt);
 
-	// ===== 插件管理 =====
 	bool (*InstallPlugin)(str xpkgPath);
 	bool (*UninstallPlugin)(str pluginName);
 	bool (*UpgradePlugin)(str pluginName, str newXpkgPath);
 
-	// ===== 模板渲染 =====
 	str (*RenderTemplate)(str templatePath, xvalue data);
 	str (*RenderString)(str templateString, xvalue data);
-
 } PluginContext;
-
-
-
-// ==================== 事件回调函数类型 ====================
 
 typedef void (*PluginEventCallback)(str eventName, xvalue eventData);
 
-
-
-// ==================== 事件监听器结构 ====================
-
 typedef struct {
-	str sEventName;                     // 事件名称
-	xlist lstCallbacks;                 // 回调函数列表
+	str sEventName;
+	xlist lstCallbacks;
 } EventListener;
 
-
-
-// ==================== 插件导出项结构 ====================
-
 typedef struct {
-	str sPluginName;                    // 插件名称
-	str sExportName;                    // 导出名称
-	void* pPtr;                         // 导出指针
+	str sPluginName;
+	str sExportName;
+	void* pPtr;
 } PluginExport;
 
+bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
+int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
+bool HttpMultipartNameIs(const HttpMultipartPart* pPart, const char* sName);
+bool HttpMultipartNext(XS_RequestObject objReq, size_t* pOffset, HttpMultipartPart* pPart);
+int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
+int mg_http_reply(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 
+#define SQL_PREPARE_DEFAULT	(SQLITE_PREPARE_PERSISTENT | SQLITE_PREPARE_DONT_LOG)
 
-// ==================== 插件必须实现的函数 ====================
+#define SEND_JSON_OK(objResp, msg) \
+	ctx->SendJson(objResp, 200, "{\"result\":true,\"message\":\"" msg "\"}", 0)
 
-// 全局上下文变量（由 Plugin_SetGlobalData 传入）
-// 插件代码中需要声明: PluginContext* ctx;
+#define SEND_JSON_ERR(objResp, msg) \
+	ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"" msg "\"}", 0)
 
-// 接收主系统传递的全局数据
-// 插件代码中需要实现:
-// void Plugin_SetGlobalData(int idx, void* ptr)
-// {
-//     if ( idx == 1 ) {
-//         ctx = (PluginContext*)ptr;
-//     }
-// }
-
-// 插件初始化函数（启用时调用）
-// 命名格式: Plugin_{插件名}_Init
-// 例如: void Plugin_member_Init()
-
-// 插件卸载函数（禁用时调用）
-// 命名格式: Plugin_{插件名}_Unit
-// 例如: void Plugin_member_Unit()
-
-
-
-// ==================== 便捷宏定义 ====================
-
-// SQL 预编译默认选项
-#define SQL_PREPARE_DEFAULT  SQLITE_PREPARE_PERSISTENT | SQLITE_PREPARE_DONT_LOG
-
-// 快速发送 JSON 响应
-#define SEND_JSON_OK(c, msg) \
-	ctx->SendJson(c, 200, "{\"result\":true,\"message\":\"" msg "\"}", 0)
-
-#define SEND_JSON_ERR(c, msg) \
-	ctx->SendJson(c, 200, "{\"result\":false,\"message\":\"" msg "\"}", 0)
-
-// HTTP 方法检查
-#define CHECK_METHOD_GET(c, hm) \
-	if ( hm->methodCode != HTTP_GET ) { \
-		SEND_JSON_ERR(c, "Method not allowed"); \
+#define CHECK_METHOD_GET(objResp, hm) \
+	if ( !HttpMethodIs(objReq, "GET") ) { \
+		SEND_JSON_ERR(objResp, "Method not allowed"); \
 		return; \
 	}
 
-#define CHECK_METHOD_POST(c, hm) \
-	if ( hm->methodCode != HTTP_POST ) { \
-		SEND_JSON_ERR(c, "Method not allowed"); \
+#define CHECK_METHOD_POST(objResp, hm) \
+	if ( !HttpMethodIs(objReq, "POST") ) { \
+		SEND_JSON_ERR(objResp, "Method not allowed"); \
 		return; \
 	}
 
+#define RENDER_SEND_TEMPLATE(objResp, templatePath, data) \
+	do { \
+		str _html = ctx->RenderTemplate(templatePath, data); \
+		if ( _html ) { \
+			ctx->SendHtml(objResp, 200, _html); \
+			ctx->Free(_html); \
+		} else { \
+			ctx->SendHtml(objResp, 500, "<h1>Template render failed</h1>"); \
+		} \
+	} while (0)
 
+#define LOAD_SEND_PAGE(objResp, pagePath) \
+	ctx->LoadPage(objResp, 200, HTTP_CT_HTML, pagePath)
 
-#endif // XADMIN_PLUGIN_H
+#define LOAD_SEND_PAGE_CODE(objResp, code, pagePath) \
+	ctx->LoadPage(objResp, code, HTTP_CT_HTML, pagePath)
+
+#endif

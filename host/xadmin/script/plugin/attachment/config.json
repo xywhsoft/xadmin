@@ -1,0 +1,11 @@
+{
+	"sort":	100,
+	"title":	"附件系统",
+	"desc":	"附件上传、下载、防盗链、付费附件等功能",
+	"name":	"attachment",
+	"version":	"1.0.0",
+	"exports":	null,
+	"settings":	null,
+	"enabled":	true,
+	"author":	"xAdmin"
+}
