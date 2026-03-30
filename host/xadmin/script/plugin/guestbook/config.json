@@ -1,0 +1,11 @@
+{
+	"sort":	100,
+	"title":	"Guestbook",
+	"desc":	"Multi-instance guestbook plugin",
+	"name":	"guestbook",
+	"version":	"1.0.0",
+	"exports":	[],
+	"settings":	{},
+	"enabled":	false,
+	"author":	"xAdmin"
+}

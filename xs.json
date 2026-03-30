@@ -3,25 +3,30 @@
 		"enabled": true,
 		"class": "http",
 		"name": "xywhsoft Server",
-		"desc": "星月软件服务器",
+		"desc": "xywhsoft server",
 		"param": "",
-		"addr": "http://0.0.0.0:80",
+		"backlog": 128,
+		"recv_limit": 1048576,
+		"path_limit": 200,
+		"header_limit": 32,
+		"body_limit": 262144,
+		"ip": "0.0.0.0",
+		"port": 80,
 		"tls": true,
-		"addr_tls": "https://0.0.0.0:443",
+		"port_tls": 443,
 		"host_default": {
 			"enabled": true,
 			"name": "xAdmin",
-			"desc": "通用网站后台",
+			"desc": "xadmin host",
 			"param": "",
-			"debug": true,
-			"path": "host/xAdmin/wwwroot",
-			"tls_ca": "host/xAdmin/tls/ca.pem",
-			"tls_cert": "host/xAdmin/tls/cert.pem",
-			"tls_key": "host/xAdmin/tls/key.pem",
+			"debug": false,
+			"path": "host/xadmin/wwwroot",
+			"tls_ca": "host/xadmin/tls/ca.pem",
+			"tls_cert": "host/xadmin/tls/cert.pem",
+			"tls_key": "host/xadmin/tls/key.pem",
 			"devlang": "c",
-			"devfile": "host/xAdmin/script/main.c"
+			"devfile": "host/xadmin/script/main.c"
 		},
-		"hosts": [
-		]
+		"hosts": []
 	}
 ]

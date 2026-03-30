@@ -1,15 +1,19 @@
 
 
-
-// 加载独立页面 ( 独立页面就是无法直接通过 URL 访问的页面，只能通过代码返回，和模板类似，但是没有渲染过程 )
-void LoadPage(struct mg_connection* c, int iCode, str sHead, str sPage)
+// load static page from data/page
+void LoadPage(XS_ResponseObject objResp, int iCode, str sHead, str sPage)
 {
 	str sFile = xrtPathJoin(2, PagePath, sPage);
 	size_t iRetSize = 0;
 	str sHTML = xrtFileGetAll(sFile, &iRetSize);
-	http_reply(c, iCode, sHead, sHTML, iRetSize);
+
+	if ( sHTML == NULL ) {
+		http_reply(objResp, 404, HTTP_CT_HTML, "<h1>404</h1>", 0);
+		xrtFree(sFile);
+		return;
+	}
+
+	http_reply(objResp, iCode, sHead, sHTML, iRetSize);
 	xrtFree(sHTML);
 	xrtFree(sFile);
 }
-
-

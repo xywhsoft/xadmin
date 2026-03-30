@@ -1,0 +1,82 @@
+{
+    "templateId": "download",
+    "templateTitle": "下载系统",
+    "templateDesc": "软件资源下载管理",
+    "templateIcon": "layui-icon layui-icon-download-circle",
+    "config": {
+        "namespace": "resource",
+        "modelName": "download",
+        "modelTitle": "下载资源",
+        "features": {
+            "enableApi": true,
+            "enableAdmin": true,
+            "enableSubmit": false,
+            "enableReply": true,
+            "enableAccessControl": false
+        },
+        "fields": [
+            {
+                "name": "title",
+                "type": "TEXT",
+                "label": "资源名称",
+                "required": true,
+                "maxLength": 200,
+                "searchable": true,
+                "showInList": true,
+                "showInForm": true
+            },
+            {
+                "name": "description",
+                "type": "TEXT",
+                "label": "描述",
+                "widget": "textarea",
+                "showInList": true,
+                "showInForm": true
+            },
+            {
+                "name": "fileUrl",
+                "type": "TEXT",
+                "label": "文件地址",
+                "required": true,
+                "widget": "file",
+                "showInList": false,
+                "showInForm": true
+            },
+            {
+                "name": "fileSize",
+                "type": "INTEGER",
+                "label": "文件大小（字节）",
+                "showInList": true,
+                "showInForm": false
+            },
+            {
+                "name": "version",
+                "type": "TEXT",
+                "label": "版本号",
+                "showInList": true,
+                "showInForm": true
+            },
+            {
+                "name": "downloads",
+                "type": "INTEGER",
+                "label": "下载次数",
+                "defaultValue": 0,
+                "showInList": true,
+                "showInForm": false
+            },
+            {
+                "name": "status",
+                "type": "INTEGER",
+                "label": "状态",
+                "widget": "radio",
+                "defaultValue": 0,
+                "options": [
+                    {"value": 0, "label": "草稿"},
+                    {"value": 1, "label": "发布"}
+                ],
+                "showInList": true,
+                "showInForm": true
+            }
+        ]
+    }
+}

@@ -2,17 +2,17 @@
 
 
 // 框架主页
-void Request_Index(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Index(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		
 		// 后台主页
-		LoadPage(c, 200, HTTP_CT_HTML, "admin/index.html");
+		LoadPage(objResp, 200, HTTP_CT_HTML, "admin/index.html");
 		
 	} else {
 		
 		// 其他请求方法返回 404 页面
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		
 	}
 }
@@ -20,42 +20,42 @@ void Request_Index(XS_ServerObject objServer, XS_HostObject objHost, struct mg_c
 
 
 // 主页视图
-void Request_View_Home(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Home(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		
 		// 加载主页页面
-		LoadPage(c, 200, HTTP_CT_HTML, "admin/home.html");
+		LoadPage(objResp, 200, HTTP_CT_HTML, "admin/home.html");
 		
 	} else {
 		
 		// 其他请求方法返回 404 页面
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		
 	}
 }
 
 
 
-// 动态菜单接口
-void Request_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+// 动态菜单接�?
+void Request_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		
 		// 从数据库动态获取菜单树
 		xvalue arrMenu = Menu_BuildTree();
 		
-		// 生成 JSON 并返回
+		// 生成 JSON 并返�?
 		size_t iRetSize = 0;
 		char* sRet = xrtStringifyJSON(arrMenu, FALSE, &iRetSize);
-		http_reply(c, 200, HTTP_CT_JSON, sRet, iRetSize);
+		http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
 		xvoUnref(arrMenu);
 		
 	} else {
 		
 		// 其他请求方法返回 404 页面
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		
 	}
 }

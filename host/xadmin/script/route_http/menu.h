@@ -2,15 +2,15 @@
 
 
 // 菜单管理页面视图
-void Request_View_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		
-		LoadPage(c, 200, HTTP_CT_HTML, "option/menu.html");
+		LoadPage(objResp, 200, HTTP_CT_HTML, "option/menu.html");
 		
 	} else {
 		
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		
 	}
 }
@@ -18,15 +18,15 @@ void Request_View_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, 
 
 
 // 添加分类页面视图
-void Request_View_Option_Menu_Add_Category(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Option_Menu_Add_Category(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		
-		LoadPage(c, 200, HTTP_CT_HTML, "option/menu_add_category.html");
+		LoadPage(objResp, 200, HTTP_CT_HTML, "option/menu_add_category.html");
 		
 	} else {
 		
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		
 	}
 }
@@ -34,15 +34,15 @@ void Request_View_Option_Menu_Add_Category(XS_ServerObject objServer, XS_HostObj
 
 
 // 添加菜单页面视图
-void Request_View_Option_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Option_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		
-		LoadPage(c, 200, HTTP_CT_HTML, "option/menu_add.html");
+		LoadPage(objResp, 200, HTTP_CT_HTML, "option/menu_add.html");
 		
 	} else {
 		
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		
 	}
 }
@@ -50,16 +50,16 @@ void Request_View_Option_Menu_Add(XS_ServerObject objServer, XS_HostObject objHo
 
 
 // 编辑菜单/分类页面视图
-void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		
 		// 获取菜单 ID
 		char sID[32];
-		int iSize = mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+		int iSize = HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
 		
 		if ( iSize <= 0 ) {
-			LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 			return;
 		}
 		
@@ -69,14 +69,14 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 		sqlite3_bind_int(stmt_menu_get, 1, iID);
 		if ( sqlite3_step(stmt_menu_get) != SQLITE_ROW ) {
 			sqlite3_reset(stmt_menu_get);
-			LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 			return;
 		}
 		
 		// 获取类型
 		int iType = sqlite3_column_int(stmt_menu_get, 4);
 		
-		// 构建数据表
+		// 构建数据�?
 		xvalue tblMenu = xvoCreateTable();
 		xvoTableSetInt(tblMenu, "id", 2, sqlite3_column_int(stmt_menu_get, 0));
 		xvoTableSetInt(tblMenu, "parent", 6, sqlite3_column_int(stmt_menu_get, 1));
@@ -93,16 +93,16 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 		// 根据类型选择模板
 		str sTemplate = (iType == 0) ? "option/menu_edit_category.html" : "option/menu_edit.html";
 		
-		// 构建页面并返回
+		// 构建页面并返�?
 		size_t iRetSize = 0;
 		str sPage = MakePageWithTemplate(sTemplate, tblMenu, &iRetSize);
 		xvoUnref(tblMenu);
-		http_reply(c, 200, HTTP_CT_HTML, sPage, iRetSize);
+		http_reply(objResp, 200, HTTP_CT_HTML, sPage, iRetSize);
 		xrtFree(sPage);
 		
 	} else {
 		
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		
 	}
 }
@@ -110,11 +110,11 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 
 
 // 菜单数据接口
-void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		
-		// 获取所有菜单数据
+		// 获取所有菜单数�?
 		xvalue arrData = xvoCreateArray();
 		
 		while ( sqlite3_step(stmt_menu_all) == SQLITE_ROW ) {
@@ -133,7 +133,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		}
 		sqlite3_reset(stmt_menu_all);
 		
-		// 构建返回值
+		// 构建返回�?
 		xvalue tblRet = xvoCreateTable();
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
 		xvoTableSetText(tblRet, "message", 7, "菜单数据获取成功", 0, FALSE);
@@ -141,16 +141,16 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		
 		size_t iRetSize = 0;
 		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-		http_reply(c, 200, HTTP_CT_JSON, sRet, iRetSize);
+		http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
 		xvoUnref(tblRet);
 		
-	} else if ( hm->methodCode == HTTP_POST ) {
+	} else if ( HttpMethodIs(objReq, "POST") ) {
 		
-		// 解析请求体
-		xvalue tblBody = xrtParseJSON(hm->body.buf, hm->body.len);
+		// 解析请求�?
+		xvalue tblBody = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
 			return;
 		}
 		
@@ -168,7 +168,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		// 验证必填参数
 		if ( !sTitle || (strlen(sTitle) == 0) ) {
 			xvoUnref(tblBody);
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单标题不能为空\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单标题不能为空\"}", 0);
 			return;
 		}
 		
@@ -191,17 +191,17 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		xvoUnref(tblBody);
 		
 		if ( iRet == SQLITE_DONE ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单添加成功\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单添加成功\"}", 0);
 		} else {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单添加失败\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单添加失败\"}", 0);
 		}
 		
-	} else if ( hm->methodCode == HTTP_PUT ) {
+	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		
-		// 解析请求体
-		xvalue tblBody = xrtParseJSON(hm->body.buf, hm->body.len);
+		// 解析请求�?
+		xvalue tblBody = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
 			return;
 		}
 		
@@ -220,20 +220,20 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		// 验证参数
 		if ( iID <= 0 ) {
 			xvoUnref(tblBody);
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单ID无效\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单ID无效\"}", 0);
 			return;
 		}
 		
 		if ( !sTitle || (strlen(sTitle) == 0) ) {
 			xvoUnref(tblBody);
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单标题不能为空\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单标题不能为空\"}", 0);
 			return;
 		}
 		
 		// 防止将菜单设置为自己的子菜单
 		if ( iParent == iID ) {
 			xvoUnref(tblBody);
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能将菜单设置为自己的子菜单\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能将菜单设置为自己的子菜单\"}", 0);
 			return;
 		}
 		
@@ -256,27 +256,27 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		xvoUnref(tblBody);
 		
 		if ( iRet == SQLITE_DONE ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单更新成功\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单更新成功\"}", 0);
 		} else {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单更新失败\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单更新失败\"}", 0);
 		}
 		
-	} else if ( hm->methodCode == HTTP_DELETE ) {
+	} else if ( HttpMethodIs(objReq, "DELETE") ) {
 		
 		// 获取菜单 ID
 		char sID[32];
-		int iSize = mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+		int iSize = HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
 		
 		if ( iSize <= 0 ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"缺少菜单ID参数\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"缺少菜单ID参数\"}", 0);
 			return;
 		}
 		
 		int iID = atoi(sID);
 		
-		// 检查是否有子菜单
+		// 检查是否有子菜�?
 		if ( Menu_HasChildren(iID) > 0 ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"该菜单下存在子菜单，请先删除子菜单\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"该菜单下存在子菜单，请先删除子菜单\"}", 0);
 			return;
 		}
 		
@@ -289,14 +289,14 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, struc
 		sqlite3_reset(stmt_menu_del);
 		
 		if ( iRet == SQLITE_DONE ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单删除成功\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单删除成功\"}", 0);
 		} else {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单删除失败\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单删除失败\"}", 0);
 		}
 		
 	} else {
 		
-		LoadPage(c, 404, HTTP_CT_HTML, "status/404.html");
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		
 	}
 }

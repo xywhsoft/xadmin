@@ -2,7 +2,7 @@
 
 
 
-// 菜单管理预编译 SQL 语句句柄
+// 菜单管理预编�?SQL 语句句柄
 sqlite3_stmt* stmt_menu_all = NULL;
 sqlite3_stmt* stmt_menu_get = NULL;
 sqlite3_stmt* stmt_menu_add = NULL;
@@ -13,55 +13,55 @@ sqlite3_stmt* stmt_menu_tree = NULL;
 
 
 
-// 预编译菜单管理 SQL 语句
+// 预编译菜单管�?SQL 语句
 void Menu_CompileSQL()
 {
-	int iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime FROM menu WHERE isDelete = 0 ORDER BY sort ASC", -1, SQL_PREPARE_DEFAULT, &stmt_menu_all, NULL);
+	int iRet = sqlite3_prepare_v3(G_DB, "SELECT id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime FROM menu WHERE isDelete = 0 ORDER BY sort ASC", -1, SQL_PREPARE_DEFAULT, &stmt_menu_all, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime FROM menu WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_get, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime FROM menu WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_get, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_get] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_get] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)", -1, SQL_PREPARE_DEFAULT, &stmt_menu_add, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, plugin_id, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)", -1, SQL_PREPARE_DEFAULT, &stmt_menu_add, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE menu SET parent = ?, title = ?, icon = ?, type = ?, openType = ?, href = ?, sort = ?, visible = ?, remark = ?, updateTime = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_put, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "UPDATE menu SET parent = ?, title = ?, icon = ?, type = ?, openType = ?, href = ?, sort = ?, visible = ?, remark = ?, updateTime = ?, plugin_id = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_put, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_put] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_put] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "UPDATE menu SET isDelete = 1, updateTime = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_del, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "UPDATE menu SET isDelete = 1, updateTime = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt_menu_del, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_del] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_del] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT COUNT(*) as cnt FROM menu WHERE parent = ? AND isDelete = 0", -1, SQL_PREPARE_DEFAULT, &stmt_menu_chk, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) as cnt FROM menu WHERE parent = ? AND isDelete = 0", -1, SQL_PREPARE_DEFAULT, &stmt_menu_chk, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_chk] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_chk] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
 	
-	iRet = sqlite3_prepare_v3(G_DB->objDB, "SELECT id, parent, title, icon, type, openType, href, sort FROM menu WHERE isDelete = 0 AND visible = 1 ORDER BY sort ASC", -1, SQL_PREPARE_DEFAULT, &stmt_menu_tree, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT id, parent, title, icon, type, openType, href, sort FROM menu WHERE isDelete = 0 AND visible = 1 ORDER BY sort ASC", -1, SQL_PREPARE_DEFAULT, &stmt_menu_tree, NULL);
 	if ( iRet != SQLITE_OK ) {
-		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_tree] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB->objDB));
+		printf("!!! ERROR !!! Menu_CompileSQL [stmt_menu_tree] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
 }
 
 
 
-// 构建菜单树（递归）
+// 构建菜单树（递归�?
 void Menu_BuildTree_Recursive(xvalue arrResult, xvalue arrAll, int iParentID)
 {
 	uint32 iCount = xvoArrayItemCount(arrAll);
@@ -93,7 +93,7 @@ void Menu_BuildTree_Recursive(xvalue arrResult, xvalue arrAll, int iParentID)
 				xvoTableSetText(tblMenu, "href", 4, sHref, 0, FALSE);
 			}
 			
-			// 递归获取子菜单
+			// 递归获取子菜�?
 			xvalue arrChildren = xvoCreateArray();
 			Menu_BuildTree_Recursive(arrChildren, arrAll, iID);
 			
@@ -110,19 +110,19 @@ void Menu_BuildTree_Recursive(xvalue arrResult, xvalue arrAll, int iParentID)
 
 
 
-// 构建菜单树（入口函数，只返回可见且启用的菜单）
+// 构建菜单树（入口函数，只返回可见且启用的菜单�?
 xvalue Menu_BuildTree()
 {
 	xvalue arrAll = xvoCreateArray();
 	
-	// 查询所有可见且启用的菜单
+	// 查询所有可见且启用的菜�?
 	while ( sqlite3_step(stmt_menu_tree) == SQLITE_ROW ) {
 		xvalue tblRow = xvoCreateTable();
 		xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int(stmt_menu_tree, 0));
 		xvoTableSetInt(tblRow, "parent", 6, sqlite3_column_int(stmt_menu_tree, 1));
 		xvoTableSetText(tblRow, "title", 5, (char*)sqlite3_column_text(stmt_menu_tree, 2), 0, FALSE);
 		
-		// 确保 icon 字段始终有值
+		// 确保 icon 字段始终有�?
 		str sIcon = (str)sqlite3_column_text(stmt_menu_tree, 3);
 		xvoTableSetText(tblRow, "icon", 4, sIcon ? sIcon : (str)"", 0, FALSE);
 		
@@ -137,7 +137,7 @@ xvalue Menu_BuildTree()
 	// 构建树形结构
 	xvalue arrResult = xvoCreateArray();
 	
-	// 添加主页菜单（与 pear.config.json 中的默认页面关联，避免重复标签页）
+	// 添加主页菜单（与 pear.config.json 中的默认页面关联，避免重复标签页�?
 	xvalue tblHome = xvoCreateTable();
 	xvoTableSetText(tblHome, "id", 2, "home", 0, FALSE);
 	xvoTableSetText(tblHome, "title", 5, "主页", 0, FALSE);
@@ -155,7 +155,7 @@ xvalue Menu_BuildTree()
 
 
 
-// 检查菜单是否有子菜单
+// 检查菜单是否有子菜�?
 int Menu_HasChildren(int iID)
 {
 	sqlite3_bind_int(stmt_menu_chk, 1, iID);
@@ -169,7 +169,7 @@ int Menu_HasChildren(int iID)
 
 
 
-// 初始化菜单模块
+// 初始化菜单模�?
 void Menu_Init()
 {
 	printf("        Menu_Init \n");

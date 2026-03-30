@@ -4,7 +4,7 @@
 
 // 前台 API 路由处理 - /api/v1/*
 // Cookie 名称: MSID
-// Session 表: G_MemberSession
+// Session �? G_MemberSession
 // 权限缓存: G_CACHE_MemberGroupAuth
 
 
@@ -12,43 +12,43 @@
 // ==================== 前台登录接口 ====================
 
 // POST /api/v1/login - 前台用户登录
-void API_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 	
-	// step 1 : 暴力破解防火墙
-	xtime tCD = Guard_Check(&c->rem);
+	// step 1 : 暴力破解防火�?
+	xtime tCD = Guard_Check(xsReqRemote(objReq));
 	if ( tCD ) {
 		str sTime = xrtTimeToStr(tCD, XRT_TIME_FORMAT_DATETIME);
-		mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":429,\"msg\":\"登录失败尝试次数过多，请于 %s 后再试\"}", sTime);
+		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":429,\"msg\":\"登录失败尝试次数过多，请�?%s 后再试\"}", sTime);
 		xrtFree(sTime);
 		return;
 	}
 	
 	// step 2 : 解析请求数据
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	str sUsername = xvoTableGetText(tblForm, "username", 8);
 	if ( !sUsername || (strlen(sUsername) == 0) ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名不能为空\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名不能为空\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	str sClientHash = xvoTableGetText(tblForm, "password", 8);
 	if ( !sClientHash || (strlen(sClientHash) == 0) ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"密码不能为空\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"密码不能为空\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	
-	// step 3 : 查询用户并验证密码
+	// step 3 : 查询用户并验证密�?
 	bool bOK = FALSE;
 	str MSID = NULL;
 	xvalue tblSession = NULL;
@@ -57,17 +57,17 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_conne
 		// id, username, salt, pwd, groupId, authLevel, balance, nickname, status
 		int64 iStatus = sqlite3_column_int64(stmt_member_login, 8);
 		if ( iStatus != 1 ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"code\":403,\"msg\":\"账号已被禁用\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":403,\"msg\":\"账号已被禁用\"}", 0);
 			sqlite3_reset(stmt_member_login);
 			xvoUnref(tblForm);
 			return;
 		}
 		
-		// 获取用户的 salt 和 pwd
+		// 获取用户�?salt �?pwd
 		str sSalt = (str)sqlite3_column_text(stmt_member_login, 2);
 		str sStoredPwd = (str)sqlite3_column_text(stmt_member_login, 3);
 		
-		// 服务端二次 SHA-256 哈希
+		// 服务端二�?SHA-256 哈希
 		str sPwdHash = ServerHashPassword(sUsername, sSalt, sClientHash);
 		
 		// 比对密码
@@ -83,12 +83,12 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_conne
 				MSID = xrtMakeXIDS();
 				tblSession = Session_CreateMember(MSID);
 				
-				// 获取 authLevel（用户级别 > 用户组级别取较大值）
+				// 获取 authLevel（用户级�?> 用户组级别取较大值）
 				int64 iLvUser = sqlite3_column_int64(stmt_member_login, 5);
 				int64 iLvGroup = xvoTableGetInt(tblGroup, "__authLevel__", 13);
 				int64 iAuthLevel = iLvUser > iLvGroup ? iLvUser : iLvGroup;
 				
-				// step 6 : 将用户信息填入 Session 表
+				// step 6 : 将用户信息填�?Session �?
 				xvoTableSetText(tblSession, "msid", 4, MSID, 0, TRUE);
 				xvoTableSetInt(tblSession, "id", 2, sqlite3_column_int64(stmt_member_login, 0));
 				xvoTableSetInt(tblSession, "groupId", 7, iGroupId);
@@ -98,7 +98,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_conne
 				xvoTableSetText(tblSession, "nickname", 8, (str)sqlite3_column_text(stmt_member_login, 7), 0, FALSE);
 				
 			} else {
-				http_reply(c, 200, HTTP_CT_JSON, "{\"code\":403,\"msg\":\"用户组配置异常，请联系管理员\"}", 0);
+				http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":403,\"msg\":\"用户组配置异常，请联系管理员\"}", 0);
 				xvoUnref(tblForm);
 				xrtFree(sPwdHash);
 				sqlite3_reset(stmt_member_login);
@@ -111,9 +111,9 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_conne
 	
 	if ( bOK ) {
 		// step 7 : 重置防护模块信息
-		Guard_Reset(&c->rem);
+		Guard_Reset(xsReqRemote(objReq));
 		
-		// step 8 : 返回响应，附带 cookie 信息
+		// step 8 : 返回响应，附�?cookie 信息
 		str sHeader;
 		if ( xvoTableItemType(tblForm, "remember", 8) == XVO_DT_TEXT ) {
 			sHeader = xrtFormat("%sSet-Cookie: MSID=%s; Path=/; HttpOnly; Max-Age=604800\r\n", HTTP_CT_JSON, MSID);
@@ -122,7 +122,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_conne
 		}
 		
 		// 构建用户信息响应
-		mg_http_reply(c, 200, sHeader, 
+		mg_http_reply(objResp, 200, sHeader, 
 			"{\"code\":0,\"msg\":\"登录成功\",\"data\":{\"id\":%lld,\"username\":\"%s\",\"nickname\":\"%s\",\"balance\":%lld}}",
 			xvoTableGetInt(tblSession, "id", 2),
 			xvoTableGetText(tblSession, "username", 8),
@@ -133,8 +133,8 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_conne
 		
 	} else {
 		// 登录失败
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":401,\"msg\":\"用户名或密码错误\"}", 0);
-		Guard_Failed(&c->rem);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":401,\"msg\":\"用户名或密码错误\"}", 0);
+		Guard_Failed(xsReqRemote(objReq));
 	}
 	
 	// step 9 : 释放表单
@@ -146,17 +146,17 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, struct mg_conne
 // ==================== 前台注册接口 ====================
 
 // POST /api/v1/register - 前台用户注册
-void API_Register(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 	
 	// step 1 : 解析请求数据
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
@@ -167,22 +167,22 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, struct mg_co
 	
 	// step 2 : 验证必填字段
 	if ( !sUsername || (strlen(sUsername) < 3) ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名至少3个字符\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名至�?个字符\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	if ( strlen(sUsername) > 32 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名最多32个字符\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名最�?2个字符\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	if ( !sPassword || (strlen(sPassword) == 0) ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"密码不能为空\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"密码不能为空\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	
-	// step 3 : 检查用户名是否已存在
+	// step 3 : 检查用户名是否已存�?
 	sqlite3_bind_text(stmt_member_chk, 1, sUsername, -1, NULL);
 	int iCount = 0;
 	if ( sqlite3_step(stmt_member_chk) == SQLITE_ROW ) {
@@ -191,21 +191,21 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, struct mg_co
 	sqlite3_reset(stmt_member_chk);
 	
 	if ( iCount > 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":409,\"msg\":\"用户名已存在\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":409,\"msg\":\"用户名已存在\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	
-	// step 4 : 生成 salt 和密码哈希
+	// step 4 : 生成 salt 和密码哈�?
 	str sSalt = xrtMakeXIDS();
 	str sPwdHash = ServerHashPassword(sUsername, sSalt, sPassword);
 	
-	// step 5 : 插入新用户
+	// step 5 : 插入新用�?
 	int64 now = xrtNow();
 	sqlite3_bind_text(stmt_member_add, 1, sUsername, -1, NULL);
 	sqlite3_bind_text(stmt_member_add, 2, sSalt, -1, NULL);
 	sqlite3_bind_text(stmt_member_add, 3, sPwdHash, -1, NULL);
-	sqlite3_bind_int64(stmt_member_add, 4, 1);  // 默认用户组 ID = 1
+	sqlite3_bind_int64(stmt_member_add, 4, 1);  // 默认用户�?ID = 1
 	sqlite3_bind_int64(stmt_member_add, 5, 0);  // authLevel = 0
 	sqlite3_bind_int64(stmt_member_add, 6, 0);  // balance = 0
 	sqlite3_bind_text(stmt_member_add, 7, sNickname && strlen(sNickname) > 0 ? sNickname : sUsername, -1, NULL);
@@ -223,10 +223,10 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, struct mg_co
 	xrtFree(sPwdHash);
 	
 	if ( rc == SQLITE_DONE ) {
-		int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
-		mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"注册成功\",\"data\":{\"id\":%lld}}", newId);
+		int64 newId = sqlite3_last_insert_rowid(G_DB);
+		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"注册成功\",\"data\":{\"id\":%lld}}", newId);
 	} else {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":500,\"msg\":\"注册失败，请稍后重试\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":500,\"msg\":\"注册失败，请稍后重试\"}", 0);
 	}
 	
 	xvoUnref(tblForm);
@@ -237,17 +237,17 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, struct mg_co
 // ==================== 前台登出接口 ====================
 
 // POST /api/v1/logout - 前台用户登出
-void API_Logout(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_Logout(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// 删除 Session
-	if ( hm->session->Type == XVO_DT_TABLE ) {
-		str sID = xvoTableGetText(hm->session, "msid", 4);
+	if ( objSession->Type == XVO_DT_TABLE ) {
+		str sID = xvoTableGetText(objSession, "msid", 4);
 		xvoTableRemove(G_MemberSession, sID, 0);
 	}
 	
 	// 清除 Cookie
 	str sHeader = xrtFormat("%sSet-Cookie: MSID=; Path=/; HttpOnly; Max-Age=0\r\n", HTTP_CT_JSON);
-	http_reply(c, 200, sHeader, "{\"code\":0,\"msg\":\"登出成功\"}", 0);
+	http_reply(objResp, 200, sHeader, "{\"code\":0,\"msg\":\"登出成功\"}", 0);
 	xrtFree(sHeader);
 }
 
@@ -257,16 +257,16 @@ void API_Logout(XS_ServerObject objServer, XS_HostObject objHost, struct mg_conn
 
 // GET /api/v1/profile - 获取当前用户信息
 // PUT /api/v1/profile - 更新当前用户信息
-void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode == HTTP_GET ) {
+	if ( HttpMethodIs(objReq, "GET") ) {
 		// 获取当前用户信息
-		int64 iMemberId = xvoTableGetInt(hm->session, "id", 2);
+		int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 		
 		sqlite3_bind_int64(stmt_member_get, 1, iMemberId);
 		if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
 			// id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime
-			mg_http_reply(c, 200, HTTP_CT_JSON, 
+			mg_http_reply(objResp, 200, HTTP_CT_JSON, 
 				"{\"code\":0,\"msg\":\"success\",\"data\":{"
 				"\"id\":%lld,"
 				"\"username\":\"%s\","
@@ -293,22 +293,22 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, struct mg_con
 				sqlite3_column_int64(stmt_member_get, 10)
 			);
 		} else {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"code\":404,\"msg\":\"用户不存在\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":404,\"msg\":\"用户不存在\"}", 0);
 		}
 		sqlite3_reset(stmt_member_get);
 		
-	} else if ( hm->methodCode == HTTP_PUT ) {
+	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		// 更新当前用户信息（仅允许修改昵称、邮箱、电话、头像）
-		xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 			xvoUnref(tblForm);
 			return;
 		}
 		
-		int64 iMemberId = xvoTableGetInt(hm->session, "id", 2);
-		int64 iGroupId = xvoTableGetInt(hm->session, "groupId", 7);
-		int64 iAuthLevel = xvoTableGetInt(hm->session, "authLevel", 9);
+		int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
+		int64 iGroupId = xvoTableGetInt(objSession, "groupId", 7);
+		int64 iAuthLevel = xvoTableGetInt(objSession, "authLevel", 9);
 		int64 now = xrtNow();
 		
 		str sNickname = xvoTableGetText(tblForm, "nickname", 8);
@@ -333,17 +333,17 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, struct mg_con
 		if ( rc == SQLITE_DONE ) {
 			// 更新 Session 中的昵称
 			if ( sNickname ) {
-				xvoTableSetText(hm->session, "nickname", 8, sNickname, 0, FALSE);
+				xvoTableSetText(objSession, "nickname", 8, sNickname, 0, FALSE);
 			}
-			http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"更新成功\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"更新成功\"}", 0);
 		} else {
-			http_reply(c, 200, HTTP_CT_JSON, "{\"code\":500,\"msg\":\"更新失败\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":500,\"msg\":\"更新失败\"}", 0);
 		}
 		
 		xvoUnref(tblForm);
 		
 	} else {
-		http_reply(c, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 	}
 }
 
@@ -352,16 +352,16 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, struct mg_con
 // ==================== 修改密码接口 ====================
 
 // POST /api/v1/profile/password - 修改当前用户密码
-void API_Password(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_Password(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
@@ -370,20 +370,20 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, struct mg_co
 	str sNewPassword = xvoTableGetText(tblForm, "newPassword", 11);
 	
 	if ( !sOldPassword || (strlen(sOldPassword) == 0) ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"原密码不能为空\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"原密码不能为空\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	if ( !sNewPassword || (strlen(sNewPassword) == 0) ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"新密码不能为空\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"新密码不能为空\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	
-	int64 iMemberId = xvoTableGetInt(hm->session, "id", 2);
-	str sUsername = xvoTableGetText(hm->session, "username", 8);
+	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
+	str sUsername = xvoTableGetText(objSession, "username", 8);
 	
-	// 验证原密码
+	// 验证原密�?
 	sqlite3_bind_text(stmt_member_login, 1, sUsername, -1, NULL);
 	bool bOldPwdOK = FALSE;
 	while ( sqlite3_step(stmt_member_login) == SQLITE_ROW ) {
@@ -398,12 +398,12 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, struct mg_co
 	sqlite3_reset(stmt_member_login);
 	
 	if ( !bOldPwdOK ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":401,\"msg\":\"原密码错误\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":401,\"msg\":\"原密码错误\"}", 0);
 		xvoUnref(tblForm);
 		return;
 	}
 	
-	// 生成新 salt 和密码哈希
+	// 生成�?salt 和密码哈�?
 	str sNewSalt = xrtMakeXIDS();
 	str sNewPwdHash = ServerHashPassword(sUsername, sNewSalt, sNewPassword);
 	
@@ -421,9 +421,9 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, struct mg_co
 	xrtFree(sNewPwdHash);
 	
 	if ( rc == SQLITE_DONE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"密码修改成功\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"密码修改成功\"}", 0);
 	} else {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":500,\"msg\":\"密码修改失败\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":500,\"msg\":\"密码修改失败\"}", 0);
 	}
 	
 	xvoUnref(tblForm);
@@ -434,24 +434,24 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, struct mg_co
 // ==================== 余额查询接口 ====================
 
 // GET /api/v1/balance - 获取当前用户余额
-void API_Balance(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_Balance(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		http_reply(c, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 	
-	int64 iMemberId = xvoTableGetInt(hm->session, "id", 2);
+	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 	
-	// 从数据库获取最新余额
+	// 从数据库获取最新余�?
 	sqlite3_bind_int64(stmt_member_get, 1, iMemberId);
 	if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
 		int64 iBalance = sqlite3_column_int64(stmt_member_get, 4);
 		// 更新 Session 中的余额
-		xvoTableSetInt(hm->session, "balance", 7, iBalance);
-		mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":{\"balance\":%lld}}", iBalance);
+		xvoTableSetInt(objSession, "balance", 7, iBalance);
+		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":{\"balance\":%lld}}", iBalance);
 	} else {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"code\":404,\"msg\":\"用户不存在\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":404,\"msg\":\"用户不存在\"}", 0);
 	}
 	sqlite3_reset(stmt_member_get);
 }
@@ -459,23 +459,23 @@ void API_Balance(XS_ServerObject objServer, XS_HostObject objHost, struct mg_con
 
 
 // GET /api/v1/balance/log - 获取余额变动日志
-void API_BalanceLog(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_BalanceLog(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		http_reply(c, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 	
-	int64 iMemberId = xvoTableGetInt(hm->session, "id", 2);
+	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 	
 	// 解析分页参数
 	int64 iPage = 1;
 	int64 iLimit = 20;
 	char sParam[64];
-	if ( mg_http_get_var(&hm->query, "page", sParam, sizeof(sParam)) > 0 ) {
+	if ( HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam)) > 0 ) {
 		iPage = atoll(sParam);
 	}
-	if ( mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam)) > 0 ) {
+	if ( HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam)) > 0 ) {
 		iLimit = atoll(sParam);
 	}
 	if ( iPage < 1 ) iPage = 1;
@@ -507,7 +507,7 @@ void API_BalanceLog(XS_ServerObject objServer, XS_HostObject objHost, struct mg_
 	// 返回 JSON 响应
 	size_t iJSONSize = 0;
 	str sJSON = xrtStringifyJSON(arrRet, FALSE, &iJSONSize);
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":%s}", sJSON);
+	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":%s}", sJSON);
 	xrtFree(sJSON);
 	xvoUnref(arrRet);
 }

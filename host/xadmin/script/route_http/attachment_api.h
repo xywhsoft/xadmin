@@ -3,24 +3,24 @@
 
 // ==================== 前台附件上传 ====================
 
-void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 405, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method Not Allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 405, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 	
-	// 检查登录状态
-	if ( !hm->session || hm->session->Type != XVO_DT_TABLE ) {
-		http_reply(c, 401, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
+	// 检查登录状�?
+	if ( !objSession || objSession->Type != XVO_DT_TABLE ) {
+		http_reply(objResp, 401, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
 		return;
 	}
 	
-	int64 iUploaderId = xvoTableGetInt(hm->session, "id", 2);
+	int64 iUploaderId = xvoTableGetInt(objSession, "id", 2);
 	int iUploaderType = 2;  // 前台会员
 	
 	// 解析 multipart
-	struct mg_http_part part;
+	HttpMultipartPart part;
 	size_t ofs = 0;
 	str sFilename = NULL;
 	str sExt = NULL;
@@ -34,12 +34,12 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 	int64 iPrice = 0;
 	int iPriceType = 0;
 	
-	while ( (ofs = mg_http_next_multipart(hm->body, ofs, &part)) > 0 ) {
-		if ( mg_match(part.name, mg_str("file"), NULL) ) {
-			pFileData = (ptr)part.body.buf;
-			iFileSize = part.body.len;
-			if ( part.filename.len > 0 ) {
-				sFilename = xrtCopyStr(part.filename.buf, part.filename.len);
+	while ( HttpMultipartNext(objReq, &ofs, &part) ) {
+		if ( HttpMultipartNameIs(&part, "file") ) {
+			pFileData = (ptr)part.pBody;
+			iFileSize = part.iBodyLen;
+			if ( part.iFileNameLen > 0 ) {
+				sFilename = xrtCopyStr(part.sFileName, part.iFileNameLen);
 				sExt = xrtPathGetExt(sFilename, 0);
 				if ( sExt ) {
 					for ( str p = sExt; *p; p++ ) {
@@ -47,34 +47,34 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 					}
 				}
 			}
-		} else if ( mg_match(part.name, mg_str("modelName"), NULL) ) {
-			sModelName = xrtCopyStr(part.body.buf, part.body.len);
-		} else if ( mg_match(part.name, mg_str("recordId"), NULL) ) {
+		} else if ( HttpMultipartNameIs(&part, "modelName") ) {
+			sModelName = xrtCopyStr(part.pBody, part.iBodyLen);
+		} else if ( HttpMultipartNameIs(&part, "recordId") ) {
 			char sTmp[24] = {0};
-			size_t iLen = part.body.len < 23 ? part.body.len : 23;
-			memcpy(sTmp, part.body.buf, iLen);
+			size_t iLen = part.iBodyLen < 23 ? part.iBodyLen : 23;
+			memcpy(sTmp, part.pBody, iLen);
 			iRecordId = xrtStrToI64(sTmp);
-		} else if ( mg_match(part.name, mg_str("allowHotlink"), NULL) ) {
-			iAllowHotlink = (part.body.len > 0 && part.body.buf[0] == '1') ? 1 : 0;
-		} else if ( mg_match(part.name, mg_str("accessType"), NULL) ) {
+		} else if ( HttpMultipartNameIs(&part, "allowHotlink") ) {
+			iAllowHotlink = (part.iBodyLen > 0 && part.pBody[0] == '1') ? 1 : 0;
+		} else if ( HttpMultipartNameIs(&part, "accessType") ) {
 			char sTmp[8] = {0};
-			size_t iLen = part.body.len < 7 ? part.body.len : 7;
-			memcpy(sTmp, part.body.buf, iLen);
+			size_t iLen = part.iBodyLen < 7 ? part.iBodyLen : 7;
+			memcpy(sTmp, part.pBody, iLen);
 			iAccessType = atoi(sTmp);
-		} else if ( mg_match(part.name, mg_str("accessLevel"), NULL) ) {
+		} else if ( HttpMultipartNameIs(&part, "accessLevel") ) {
 			char sTmp[8] = {0};
-			size_t iLen = part.body.len < 7 ? part.body.len : 7;
-			memcpy(sTmp, part.body.buf, iLen);
+			size_t iLen = part.iBodyLen < 7 ? part.iBodyLen : 7;
+			memcpy(sTmp, part.pBody, iLen);
 			iAccessLevel = atoi(sTmp);
-		} else if ( mg_match(part.name, mg_str("price"), NULL) ) {
+		} else if ( HttpMultipartNameIs(&part, "price") ) {
 			char sTmp[24] = {0};
-			size_t iLen = part.body.len < 23 ? part.body.len : 23;
-			memcpy(sTmp, part.body.buf, iLen);
+			size_t iLen = part.iBodyLen < 23 ? part.iBodyLen : 23;
+			memcpy(sTmp, part.pBody, iLen);
 			iPrice = xrtStrToI64(sTmp);
-		} else if ( mg_match(part.name, mg_str("priceType"), NULL) ) {
+		} else if ( HttpMultipartNameIs(&part, "priceType") ) {
 			char sTmp[8] = {0};
-			size_t iLen = part.body.len < 7 ? part.body.len : 7;
-			memcpy(sTmp, part.body.buf, iLen);
+			size_t iLen = part.iBodyLen < 7 ? part.iBodyLen : 7;
+			memcpy(sTmp, part.pBody, iLen);
 			iPriceType = atoi(sTmp);
 		}
 	}
@@ -84,7 +84,7 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 		if ( sFilename ) xrtFree(sFilename);
 		if ( sExt ) xrtFree(sExt);
 		if ( sModelName ) xrtFree(sModelName);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"No file uploaded\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"No file uploaded\"}", 0);
 		return;
 	}
 	
@@ -93,21 +93,21 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 		xrtFree(sFilename);
 		xrtFree(sExt);
 		if ( sModelName ) xrtFree(sModelName);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"File type not allowed\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"File type not allowed\"}", 0);
 		return;
 	}
 	
-	// 检查文件大小
+	// 检查文件大�?
 	int64 iMaxSize = Attachment_GetMaxSize();
 	if ( iMaxSize > 0 && (int64)iFileSize > iMaxSize ) {
 		xrtFree(sFilename);
 		xrtFree(sExt);
 		if ( sModelName ) xrtFree(sModelName);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"File too large\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"File too large\"}", 0);
 		return;
 	}
 	
-	// 检查用户配额
+	// 检查用户配�?
 	int64 iQuota = Attachment_GetUserQuota();
 	if ( iQuota > 0 ) {
 		int64 iUsage = Attachment_GetUserUsage(iUploaderId, iUploaderType);
@@ -115,7 +115,7 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 			xrtFree(sFilename);
 			xrtFree(sExt);
 			if ( sModelName ) xrtFree(sModelName);
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Storage quota exceeded\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Storage quota exceeded\"}", 0);
 			return;
 		}
 	}
@@ -139,7 +139,7 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 		xrtFree(sFilename);
 		xrtFree(sExt);
 		if ( sModelName ) xrtFree(sModelName);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Failed to save file\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Failed to save file\"}", 0);
 		return;
 	}
 	fwrite(pFileData, 1, iFileSize, fp);
@@ -150,7 +150,7 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 	MimeMapping* pMime = Attachment_GetMime(sExt);
 	str sMime = pMime ? pMime->mime : (str)"application/octet-stream";
 	
-	// 添加数据库记录
+	// 添加数据库记�?
 	bool bOK = Attachment_Add(sXID, sFilename, sExt, sMime, iFileSize, sPath,
 							  sModelName, iRecordId, iUploaderId, iUploaderType,
 							  iAllowHotlink, iAccessType, iAccessLevel, iPrice, iPriceType);
@@ -158,10 +158,10 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 	if ( bOK ) {
 		str sJson = xrtFormat("{\"result\":true,\"data\":{\"xid\":\"%s\",\"filename\":\"%s\",\"ext\":\"%s\",\"size\":%lld,\"url\":\"/attachment?xid=%s\"}}",
 							  sXID, sFilename, sExt, (int64)iFileSize, sXID);
-		http_reply(c, 200, HTTP_CT_JSON, sJson, 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, sJson, 0);
 		xrtFree(sJson);
 	} else {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Failed to save record\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Failed to save record\"}", 0);
 	}
 	
 	xrtFree(sPath);
@@ -175,33 +175,33 @@ void Request_Api_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objH
 
 // ==================== 附件购买 ====================
 
-void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 405, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method Not Allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 405, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 	
-	// 检查登录状态
-	if ( !hm->session || hm->session->Type != XVO_DT_TABLE ) {
-		http_reply(c, 401, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
+	// 检查登录状�?
+	if ( !objSession || objSession->Type != XVO_DT_TABLE ) {
+		http_reply(objResp, 401, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
 		return;
 	}
 	
-	int64 iMemberId = xvoTableGetInt(hm->session, "id", 2);
+	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 	
 	// 解析请求
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		return;
 	}
 	
 	str sXID = xvoTableGetText(tblForm, "xid", 3);
 	if ( !sXID || !*sXID ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing xid\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing xid\"}", 0);
 		return;
 	}
 	
@@ -210,7 +210,7 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 	if ( sqlite3_step(stmt_attachment_get) != SQLITE_ROW ) {
 		sqlite3_reset(stmt_attachment_get);
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Attachment not found\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Attachment not found\"}", 0);
 		return;
 	}
 	
@@ -225,28 +225,28 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 	// 检查是否为付费附件
 	if ( iAccessType != 2 ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Attachment is free\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Attachment is free\"}", 0);
 		return;
 	}
 	
-	// 检查是否为上传者
+	// 检查是否为上传�?
 	if ( iUploaderType == 2 && iUploaderId == iMemberId ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Cannot purchase own attachment\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Cannot purchase own attachment\"}", 0);
 		return;
 	}
 	
 	// 检查是否已购买
 	if ( Attachment_CheckPurchased(sXID, iMemberId) ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Already purchased\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Already purchased\"}", 0);
 		return;
 	}
 	
-	// 检查余额（priceType=0 使用余额）
+	// 检查余额（priceType=0 使用余额�?
 	if ( iPriceType == 0 ) {
 		sqlite3_stmt* stmt;
-		sqlite3_prepare_v3(G_DB->objDB, "SELECT balance FROM member WHERE id = ?", -1, 0, &stmt, NULL);
+		sqlite3_prepare_v3(G_DB, "SELECT balance FROM member WHERE id = ?", -1, 0, &stmt, NULL);
 		sqlite3_bind_int64(stmt, 1, iMemberId);
 		
 		int64 iBalance = 0;
@@ -257,7 +257,7 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 		
 		if ( iBalance < iPrice ) {
 			xvoUnref(tblForm);
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Insufficient balance\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Insufficient balance\"}", 0);
 			return;
 		}
 		
@@ -266,11 +266,11 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 		int iPlatformFeeRate = tblAttachment ? (int)xvoTableGetInt(tblAttachment, "platformFeeRate", 15) : 10;
 		int64 iSellerIncome = iPrice * (100 - iPlatformFeeRate) / 100;
 		
-		// 开始事务
-		sqlite3_exec(G_DB->objDB, "BEGIN TRANSACTION", NULL, NULL, NULL);
+		// 开始事�?
+		sqlite3_exec(G_DB, "BEGIN TRANSACTION", NULL, NULL, NULL);
 		
 		// 扣除买家余额
-		sqlite3_prepare_v3(G_DB->objDB, "UPDATE member SET balance = balance - ? WHERE id = ?", -1, 0, &stmt, NULL);
+		sqlite3_prepare_v3(G_DB, "UPDATE member SET balance = balance - ? WHERE id = ?", -1, 0, &stmt, NULL);
 		sqlite3_bind_int64(stmt, 1, iPrice);
 		sqlite3_bind_int64(stmt, 2, iMemberId);
 		int rc1 = sqlite3_step(stmt);
@@ -279,7 +279,7 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 		// 增加卖家余额（如果是会员上传的）
 		int rc2 = SQLITE_DONE;
 		if ( iUploaderType == 2 && iSellerIncome > 0 ) {
-			sqlite3_prepare_v3(G_DB->objDB, "UPDATE member SET balance = balance + ? WHERE id = ?", -1, 0, &stmt, NULL);
+			sqlite3_prepare_v3(G_DB, "UPDATE member SET balance = balance + ? WHERE id = ?", -1, 0, &stmt, NULL);
 			sqlite3_bind_int64(stmt, 1, iSellerIncome);
 			sqlite3_bind_int64(stmt, 2, iUploaderId);
 			rc2 = sqlite3_step(stmt);
@@ -290,22 +290,22 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 		bool bOrderOK = Attachment_AddOrder(sXID, iMemberId, iPrice, iPriceType, 
 										   (iUploaderType == 2) ? iUploaderId : 0, iSellerIncome);
 		
-		// 更新销量
+		// 更新销�?
 		Attachment_UpdateSales(sXID);
 		
 		if ( rc1 == SQLITE_DONE && rc2 == SQLITE_DONE && bOrderOK ) {
-			sqlite3_exec(G_DB->objDB, "COMMIT", NULL, NULL, NULL);
+			sqlite3_exec(G_DB, "COMMIT", NULL, NULL, NULL);
 			xvoUnref(tblForm);
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Purchase successful\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Purchase successful\"}", 0);
 		} else {
-			sqlite3_exec(G_DB->objDB, "ROLLBACK", NULL, NULL, NULL);
+			sqlite3_exec(G_DB, "ROLLBACK", NULL, NULL, NULL);
 			xvoUnref(tblForm);
-			http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Transaction failed\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Transaction failed\"}", 0);
 		}
 	} else {
 		// 其他货币类型暂不支持
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Currency type not supported\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Currency type not supported\"}", 0);
 	}
 }
 
@@ -313,20 +313,20 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 
 // ==================== 我的附件列表 ====================
 
-void Request_Api_Attachment_MyList(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Api_Attachment_MyList(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	// 检查登录状态
-	if ( !hm->session || hm->session->Type != XVO_DT_TABLE ) {
-		http_reply(c, 401, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
+	// 检查登录状�?
+	if ( !objSession || objSession->Type != XVO_DT_TABLE ) {
+		http_reply(objResp, 401, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
 		return;
 	}
 	
-	int64 iMemberId = xvoTableGetInt(hm->session, "id", 2);
+	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 	
 	// 获取分页参数
 	char sPage[12], sLimit[12];
-	mg_http_get_var(&hm->query, "page", sPage, sizeof(sPage));
-	mg_http_get_var(&hm->query, "limit", sLimit, sizeof(sLimit));
+	HttpGetQueryVar(objReq, "page", sPage, sizeof(sPage));
+	HttpGetQueryVar(objReq, "limit", sLimit, sizeof(sLimit));
 	int iPage = atoi(sPage);
 	int iLimit = atoi(sLimit);
 	if ( iPage < 1 ) iPage = 1;
@@ -336,7 +336,7 @@ void Request_Api_Attachment_MyList(XS_ServerObject objServer, XS_HostObject objH
 	
 	// 查询
 	sqlite3_stmt* stmt;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"SELECT xid, filename, ext, size, accessType, price, priceType, salesCount, downloadCount, createTime "
 		"FROM attachment WHERE uploaderId = ? AND uploaderType = 2 AND isDelete = 0 "
 		"ORDER BY createTime DESC LIMIT ? OFFSET ?",
@@ -369,7 +369,7 @@ void Request_Api_Attachment_MyList(XS_ServerObject objServer, XS_HostObject objH
 	sqlite3_finalize(stmt);
 	
 	// 统计总数
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"SELECT COUNT(*) FROM attachment WHERE uploaderId = ? AND uploaderType = 2 AND isDelete = 0",
 		-1, 0, &stmt, NULL);
 	sqlite3_bind_int64(stmt, 1, iMemberId);
@@ -387,29 +387,29 @@ void Request_Api_Attachment_MyList(XS_ServerObject objServer, XS_HostObject objH
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
 
 
 
-// ==================== 已购买附件列表 ====================
+// ==================== 已购买附件列�?====================
 
-void Request_Api_Attachment_Purchased(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Api_Attachment_Purchased(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	// 检查登录状态
-	if ( !hm->session || hm->session->Type != XVO_DT_TABLE ) {
-		http_reply(c, 401, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
+	// 检查登录状�?
+	if ( !objSession || objSession->Type != XVO_DT_TABLE ) {
+		http_reply(objResp, 401, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
 		return;
 	}
 	
-	int64 iMemberId = xvoTableGetInt(hm->session, "id", 2);
+	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 	
 	// 获取分页参数
 	char sPage[12], sLimit[12];
-	mg_http_get_var(&hm->query, "page", sPage, sizeof(sPage));
-	mg_http_get_var(&hm->query, "limit", sLimit, sizeof(sLimit));
+	HttpGetQueryVar(objReq, "page", sPage, sizeof(sPage));
+	HttpGetQueryVar(objReq, "limit", sLimit, sizeof(sLimit));
 	int iPage = atoi(sPage);
 	int iLimit = atoi(sLimit);
 	if ( iPage < 1 ) iPage = 1;
@@ -419,7 +419,7 @@ void Request_Api_Attachment_Purchased(XS_ServerObject objServer, XS_HostObject o
 	
 	// 查询
 	sqlite3_stmt* stmt;
-	sqlite3_prepare_v3(G_DB->objDB,
+	sqlite3_prepare_v3(G_DB,
 		"SELECT o.attachmentXid, a.filename, a.ext, a.size, o.price, o.priceType, o.createTime "
 		"FROM attachmentOrder o "
 		"LEFT JOIN attachment a ON o.attachmentXid = a.xid "
@@ -450,7 +450,7 @@ void Request_Api_Attachment_Purchased(XS_ServerObject objServer, XS_HostObject o
 	sqlite3_finalize(stmt);
 	
 	// 统计总数
-	sqlite3_prepare_v3(G_DB->objDB, "SELECT COUNT(*) FROM attachmentOrder WHERE memberId = ?", -1, 0, &stmt, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM attachmentOrder WHERE memberId = ?", -1, 0, &stmt, NULL);
 	sqlite3_bind_int64(stmt, 1, iMemberId);
 	int64 iCount = 0;
 	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
@@ -466,7 +466,7 @@ void Request_Api_Attachment_Purchased(XS_ServerObject objServer, XS_HostObject o
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }

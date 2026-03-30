@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>留言板管理</title>
+    <link rel="stylesheet" href="/assets/layui/css/layui.css">
+    <style>
+        body { padding: 20px; background: #f2f2f2; }
+        .layui-card { margin-bottom: 20px; }
+        .guestbook-list { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <div class="layui-container">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h2>留言板管理</h2>
+            </div>
+            <div class="layui-card-body">
+                <table class="layui-table" id="guestbookTable" lay-filter="guestbookTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>昵称</th>
+                            <th>邮箱</th>
+                            <th>内容</th>
+                            <th>时间</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="guestbookList">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="/assets/layui/layui.js"></script>
+    <script>
+    layui.use(['layer', 'jquery', 'table'], function(){
+        var $ = layui.jquery;
+        var layer = layui.layer;
+        var table = layui.table;
+        
+        function loadGuestbooks(){
+            $.ajax({
+                url: '/admin/api/guestbook/list',
+                type: 'GET',
+                success: function(res){
+                    if(res.result){
+                        var html = '';
+                        if(res.data && res.data.length > 0){
+                            res.data.forEach(function(item){
+                                html += '<tr>';
+                                html += '<td>' + (item.id || '') + '</td>';
+                                html += '<td>' + (item.nickname || '') + '</td>';
+                                html += '<td>' + (item.email || '') + '</td>';
+                                html += '<td>' + (item.content || '') + '</td>';
+                                html += '<td>' + (item.createTime || '') + '</td>';
+                                html += '<td>' + (item.status === 1 ? '已审核' : '待审核') + '</td>';
+                                html += '<td>';
+                                html += '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteGuestbook(\'' + item.id + '\')">删除</button>';
+                                html += '</td>';
+                                html += '</tr>';
+                            });
+                        } else {
+                            html = '<tr><td colspan="7" style="text-align:center;color:#999;">暂无数据</td></tr>';
+                        }
+                        $('#guestbookList').html(html);
+                    }
+                },
+                error: function(){
+                    layer.msg('加载失败', {icon: 2});
+                }
+            });
+        }
+        
+        window.deleteGuestbook = function(id){
+            layer.confirm('确定要删除这条留言吗？', function(index){
+                $.ajax({
+                    url: '/admin/api/guestbook/delete',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({id: id}),
+                    success: function(res){
+                        layer.close(index);
+                        if(res.result){
+                            layer.msg('删除成功', {icon: 1});
+                            loadGuestbooks();
+                        } else {
+                            layer.msg('删除失败：' + res.message, {icon: 2});
+                        }
+                    },
+                    error: function(){
+                        layer.close(index);
+                        layer.msg('删除失败', {icon: 2});
+                    }
+                });
+            });
+        };
+        
+        loadGuestbooks();
+    });
+    </script>
+</body>
+</html>

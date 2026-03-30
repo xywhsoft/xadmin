@@ -1,0 +1,13 @@
+{
+	"sort":	50,
+	"title":	"Model Generator",
+	"desc":	"Create models from predefined templates",
+	"name":	"model_generator",
+	"version":	"1.0.0",
+	"exports":	[],
+	"settings":	{
+		"defaultNamespace":	"cms"
+	},
+	"enabled":	false,
+	"author":	"xAdmin"
+}

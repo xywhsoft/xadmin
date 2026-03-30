@@ -1,28 +1,34 @@
 
 
-
-// 初始化数据库模块
+// init db
 void DB_Init()
 {
+	int iRet;
+	str sFile;
+
 	printf("        DB_Init \n");
-	str sFile = xrtPathJoin(2, DBPath, "main.db");
-	G_DB = xdoConnectSQLite(sFile);
+	sFile = xrtPathJoin(2, DBPath, "main.db");
+	iRet = sqlite3_open(sFile, &G_DB);
 	xrtFree(sFile);
-	if ( G_DB == NULL ) {
-		printf("!!! ERROR !!! ServiceInit - xdoConnectSQLite error.\n");
+	if ( iRet != SQLITE_OK ) {
+		printf("!!! ERROR !!! ServiceInit - sqlite3_open error.\n");
+		if ( G_DB ) {
+			printf("%s\n", sqlite3_errmsg(G_DB));
+			sqlite3_close(G_DB);
+			G_DB = NULL;
+		}
 		exit(1);
 	}
 }
 
 
 
-// 卸载数据库模块
+// free db
 void DB_Unit()
 {
 	printf("        DB_Unit \n");
 	if ( G_DB ) {
-		xdoDisconnect(G_DB);
+		sqlite3_close(G_DB);
+		G_DB = NULL;
 	}
 }
-
-

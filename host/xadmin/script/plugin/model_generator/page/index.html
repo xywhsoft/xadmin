@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型生成器</title>
+    <link rel="stylesheet" href="/assets/layui/css/layui.css">
+    <style>
+        body { padding: 20px; background: #f2f2f2; }
+        .layui-card { margin-bottom: 20px; }
+        .template-item { padding: 15px; margin: 10px 0; border: 1px solid #e6e6e6; border-radius: 4px; background: #fff; cursor: pointer; transition: all 0.3s; }
+        .template-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-color: #16baaa; }
+        .template-title { font-size: 16px; font-weight: bold; margin-bottom: 8px; }
+        .template-desc { color: #666; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="layui-container">
+        <div class="layui-card">
+            <div class="layui-card-header">
+                <h2>模型生成器</h2>
+            </div>
+            <div class="layui-card-body">
+                <div id="templateList">
+                    <div class="template-item" data-template="article">
+                        <div class="template-title">文章模型</div>
+                        <div class="template-desc">适用于博客、新闻等内容管理系统</div>
+                    </div>
+                    <div class="template-item" data-template="news">
+                        <div class="template-title">新闻模型</div>
+                        <div class="template-desc">适用于新闻资讯发布系统</div>
+                    </div>
+                    <div class="template-item" data-template="download">
+                        <div class="template-title">下载模型</div>
+                        <div class="template-desc">适用于软件下载、资源分享系统</div>
+                    </div>
+                    <div class="template-item" data-template="product">
+                        <div class="template-title">产品模型</div>
+                        <div class="template-desc">适用于商品展示、产品管理系统</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/assets/layui/layui.js"></script>
+    <script>
+    layui.use(['layer', 'jquery'], function(){
+        var $ = layui.jquery;
+        var layer = layui.layer;
+        
+        $('.template-item').on('click', function(){
+            var templateId = $(this).data('template');
+            layer.prompt({
+                title: '请输入模型名称',
+                formType: 0
+            }, function(value, index, elem){
+                if(value){
+                    layer.confirm('确定要创建 "' + value + '" 模型吗？', function(i){
+                        $.ajax({
+                            url: '/admin/api/model_generator/create',
+                            type: 'POST',
+                            contentType: 'application/json',
+                            data: JSON.stringify({
+                                templateId: templateId,
+                                modelName: value,
+                                modelTitle: value
+                            }),
+                            success: function(res){
+                                layer.close(i);
+                                layer.close(index);
+                                if(res.result){
+                                    layer.msg('模型创建成功！', {icon: 1});
+                                } else {
+                                    layer.msg('创建失败：' + res.message, {icon: 2});
+                                }
+                            },
+                            error: function(){
+                                layer.close(i);
+                                layer.msg('请求失败', {icon: 2});
+                            }
+                        });
+                    });
+                }
+            });
+        });
+    });
+    </script>
+</body>
+</html>
