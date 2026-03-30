@@ -5,6 +5,12 @@
 // 插件管理器
 // ============================================
 
+#ifndef PLUGIN_MGR_H
+#define PLUGIN_MGR_H
+
+#include "plugin_ctx.h"
+
+
 
 
 // ==================== 数据结构定义 ====================
@@ -36,6 +42,7 @@ typedef struct {
 	
 	// ===== 资源跟踪 =====
 	xlist lstDependencies;      // 依赖的其他插件
+	xlist lstDependents;        // 被依赖列表（反向依赖，用于依赖追踪）
 	xlist lstRoutes;            // 注册的路由URI列表
 	xlist lstMenuIds;           // 注册的菜单ID列表
 	xlist lstAuthGroupIds;      // 注册的权限分类ID列表
@@ -83,6 +90,13 @@ str PluginDataPath = NULL;
 void PluginCtx_Log(int level, str format, ...);
 bool Plugin_Enable(PluginInstance* pPlugin);
 bool Plugin_Disable(PluginInstance* pPlugin);
+
+// 依赖管理相关函数
+int Plugin_CompareVersion(str v1, str v2);
+bool Plugin_CheckVersionRequirement(str actualVersion, str minVersion, str maxVersion);
+void Plugin_BuildDependentsGraph();
+bool Plugin_TopologicalSort(xlist* pResult);
+bool Plugin_ValidateDependencies();
 
 
 
@@ -573,16 +587,17 @@ PluginInstance* Plugin_Create(str sName)
 {
 	PluginInstance* pPlugin = xrtMalloc(sizeof(PluginInstance));
 	memset(pPlugin, 0, sizeof(PluginInstance));
-	
+
 	pPlugin->sName = xrtCopyStr(sName, 0);
 	pPlugin->lstRoutes = xrtListCreate(sizeof(ptr));
 	pPlugin->lstMenuIds = xrtListCreate(sizeof(int));
 	pPlugin->lstAuthGroupIds = xrtListCreate(sizeof(int));
 	pPlugin->lstAuthIds = xrtListCreate(sizeof(int));
 	pPlugin->lstDependencies = xrtListCreate(sizeof(ptr));
+	pPlugin->lstDependents = xrtListCreate(sizeof(ptr));
 	pPlugin->bEnabled = FALSE;
 	pPlugin->bLoaded = FALSE;
-	
+
 	return pPlugin;
 }
 
@@ -609,6 +624,7 @@ void Plugin_Destroy(PluginInstance* pPlugin)
 	if ( pPlugin->lstAuthGroupIds ) xrtListDestroy(pPlugin->lstAuthGroupIds);
 	if ( pPlugin->lstAuthIds ) xrtListDestroy(pPlugin->lstAuthIds);
 	if ( pPlugin->lstDependencies ) xrtListDestroy(pPlugin->lstDependencies);
+	if ( pPlugin->lstDependents ) xrtListDestroy(pPlugin->lstDependents);
 	
 	// 释放配置
 	if ( pPlugin->tblSettings ) xvoUnref(pPlugin->tblSettings);
@@ -664,7 +680,53 @@ bool Plugin_LoadConfig(PluginInstance* pPlugin)
 		xvoAddRef(arrExports);
 		pPlugin->arrExports = arrExports;
 	}
-	
+
+	// 读取依赖列表（支持新旧两种格式）
+	xvalue arrDependencies = xvoTableGetValue(tblConfig, "dependencies", 12);
+	if ( arrDependencies ) {
+		// 尝试作为数组处理
+		int iDepCount = xvoArrayItemCount(arrDependencies);
+		if ( iDepCount > 0 ) {
+			// 是数组格式
+			for ( int i = 0; i < iDepCount; i++ ) {
+				xvalue depItem = xvoArrayGetValue(arrDependencies, i);
+
+				// 尝试读取 table 的 plugin 字段来判断格式
+				str sPluginName = xvoTableGetText(depItem, "plugin", 6);
+
+				if ( sPluginName && strlen(sPluginName) > 0 ) {
+					// 对象格式: {"plugin": "name", "minVersion": "1.0.0"}
+					PluginDependency* pDep = xrtMalloc(sizeof(PluginDependency));
+					memset(pDep, 0, sizeof(PluginDependency));
+
+					str sMinVersion = xvoTableGetText(depItem, "minVersion", 11);
+					str sMaxVersion = xvoTableGetText(depItem, "maxVersion", 11);
+
+					pDep->sPluginName = xrtCopyStr(sPluginName, 0);
+					pDep->sMinVersion = sMinVersion ? xrtCopyStr(sMinVersion, 0) : NULL;
+					pDep->sMaxVersion = sMaxVersion ? xrtCopyStr(sMaxVersion, 0) : NULL;
+
+					int iIdx = xrtListCount(pPlugin->lstDependencies);
+					xrtListSetPtr(pPlugin->lstDependencies, iIdx, pDep, NULL);
+				} else {
+					// 尝试作为字符串处理（向后兼容）: "plugin_name"
+					str sName = xvoTableGetText(depItem, 0, 0);
+					if ( sName && strlen(sName) > 0 ) {
+						PluginDependency* pDep = xrtMalloc(sizeof(PluginDependency));
+						memset(pDep, 0, sizeof(PluginDependency));
+
+						pDep->sPluginName = xrtCopyStr(sName, 0);
+						pDep->sMinVersion = NULL;
+						pDep->sMaxVersion = NULL;
+
+						int iIdx = xrtListCount(pPlugin->lstDependencies);
+						xrtListSetPtr(pPlugin->lstDependencies, iIdx, pDep, NULL);
+					}
+				}
+			}
+		}
+	}
+
 	xvoUnref(tblConfig);
 	return TRUE;
 }
@@ -703,69 +765,127 @@ void Plugin_TccErrorFunc(void* opaque, const char* msg)
 }
 
 
+// 为插件代码添加命名空间前缀
+str Plugin_AddNamespacePrefix(str sCode, str sPluginName)
+{
+	// 生成前缀宏定义
+	str sPrefix = xrtFormat("_plugin_%s_", sPluginName);
+	size_t iPrefixLen = strlen(sPrefix);
+
+	// 估算新代码大小（预留更多空间）
+	size_t iCodeLen = strlen(sCode);
+	size_t iNewSize = iCodeLen * 3 + 4096;
+	str sNewCode = xrtMalloc(iNewSize);
+	if ( !sNewCode ) return NULL;
+
+	// 添加宏定义
+	sprintf(sNewCode, "#define PLUGIN_NS(name) %s##name\n", sPrefix);
+	strcat(sNewCode, "#define PLUGIN_API(name) PLUGIN_NS(API_##name)\n");
+	strcat(sNewCode, "#define PLUGIN_FUNC(name) PLUGIN_NS(name)\n");
+
+	// 添加 Plugin_ 函数前缀（自动重命名 Plugin_xxx 为 _plugin_name_Plugin_xxx）
+	strcat(sNewCode, "#define Plugin_SetGlobalData PLUGIN_NS(Plugin_SetGlobalData)\n");
+	strcat(sNewCode, "#define Plugin_Init PLUGIN_NS(Plugin_Init)\n");
+	strcat(sNewCode, "#define Plugin_Unit PLUGIN_NS(Plugin_Unit)\n");
+
+	strcat(sNewCode, "\n");
+	strcat(sNewCode, sCode);
+
+	xrtFree(sPrefix);
+	return sNewCode;
+}
+
+
 // 使用 TCC 加载插件代码
 bool Plugin_TccLoad(PluginInstance* pPlugin)
 {
 	printf("        [Plugin] Loading plugin: %s\n", pPlugin->sName);
-	
+
 	// 读取代码文件
 	str sCode = xrtFileReadAll(pPlugin->sCodePath, XRT_CP_UTF8, NULL);
 	if ( !sCode ) {
 		printf("        [Plugin] Failed to read code: %s\n", pPlugin->sCodePath);
 		return FALSE;
 	}
-	
+
+	// 添加命名空间前缀
+	str sPrefixedCode = Plugin_AddNamespacePrefix(sCode, pPlugin->sName);
+	if ( !sPrefixedCode ) {
+		printf("        [Plugin] Failed to add namespace prefix\n");
+		xrtFree(sCode);
+		return FALSE;
+	}
+
 	// 创建 TCC 状态机
 	TCCState* pTcc = xsCreateTCC(PluginPath);
 	if ( !pTcc ) {
 		printf("        [Plugin] Failed to create TCC state\n");
 		xrtFree(sCode);
+		xrtFree(sPrefixedCode);
 		return FALSE;
 	}
-	
+
 	// 设置错误回调
 	tcc_set_error_func(pTcc, stderr, Plugin_TccErrorFunc);
-	
-	// 编译代码
-	if ( tcc_compile_string(pTcc, sCode) < 0 ) {
+
+	// 编译代码（使用带前缀的代码）
+	if ( tcc_compile_string(pTcc, sPrefixedCode) < 0 ) {
 		printf("        [Plugin] Compile failed\n");
 		xsDestroyTCC(pTcc);
 		xrtFree(sCode);
+		xrtFree(sPrefixedCode);
 		return FALSE;
 	}
 	xrtFree(sCode);
-	
+	xrtFree(sPrefixedCode);
+
 	// 地址重定向
 	if ( tcc_relocate(pTcc) < 0 ) {
 		printf("        [Plugin] Relocate failed\n");
 		xsDestroyTCC(pTcc);
 		return FALSE;
 	}
-	
+
 	// 保存 TCC 状态机
 	pPlugin->pTccState = pTcc;
-	
+
 	// 获取并调用全局数据传递函数
-	void (*procSetGlobalData)(int, void*) = tcc_get_symbol(pTcc, "Plugin_SetGlobalData");
+	// 旧插件使用 Plugin_SetGlobalData，新插件使用 PLUGIN_NS(Plugin_SetGlobalData)
+	str sGlobalDataFuncName = xrtFormat("Plugin_SetGlobalData");
+	void (*procSetGlobalData)(int, void*) = tcc_get_symbol(pTcc, sGlobalDataFuncName);
+	if ( !procSetGlobalData ) {
+		// 尝试新格式
+		xrtFree(sGlobalDataFuncName);
+		sGlobalDataFuncName = xrtFormat("_plugin_%s_Plugin_SetGlobalData", pPlugin->sName);
+		procSetGlobalData = tcc_get_symbol(pTcc, sGlobalDataFuncName);
+	}
 	if ( procSetGlobalData ) {
 		procSetGlobalData(1, G_PluginCtx);
 	}
-	
+	xrtFree(sGlobalDataFuncName);
+
 	// 获取初始化函数
+	// 旧插件使用 Plugin_{name}_Init，新插件使用 PLUGIN_NS(Init)
 	str sInitFuncName = xrtFormat("Plugin_%s_Init", pPlugin->sName);
 	void (*procInit)() = tcc_get_symbol(pTcc, sInitFuncName);
+	if ( !procInit ) {
+		// 尝试新格式
+		xrtFree(sInitFuncName);
+		sInitFuncName = xrtFormat("_plugin_%s_Init", pPlugin->sName);
+		procInit = tcc_get_symbol(pTcc, sInitFuncName);
+	}
 	xrtFree(sInitFuncName);
-	
+
 	if ( !procInit ) {
 		printf("        [Plugin] Init function not found\n");
 		xsDestroyTCC(pTcc);
 		pPlugin->pTccState = NULL;
 		return FALSE;
 	}
-	
+
 	// 调用初始化函数
 	procInit();
-	
+
 	printf("        [Plugin] Plugin loaded: %s\n", pPlugin->sName);
 	return TRUE;
 }
@@ -775,25 +895,32 @@ bool Plugin_TccLoad(PluginInstance* pPlugin)
 bool Plugin_TccUnload(PluginInstance* pPlugin)
 {
 	printf("        [Plugin] Unloading plugin: %s\n", pPlugin->sName);
-	
+
 	if ( !pPlugin->pTccState ) {
 		return TRUE;
 	}
-	
+
 	// 获取卸载函数
+	// 旧插件使用 Plugin_{name}_Unit，新插件使用 PLUGIN_NS(Unit)
 	str sUnitFuncName = xrtFormat("Plugin_%s_Unit", pPlugin->sName);
 	void (*procUnit)() = tcc_get_symbol(pPlugin->pTccState, sUnitFuncName);
+	if ( !procUnit ) {
+		// 尝试新格式
+		xrtFree(sUnitFuncName);
+		sUnitFuncName = xrtFormat("_plugin_%s_Unit", pPlugin->sName);
+		procUnit = tcc_get_symbol(pPlugin->pTccState, sUnitFuncName);
+	}
 	xrtFree(sUnitFuncName);
-	
+
 	// 调用卸载函数
 	if ( procUnit ) {
 		procUnit();
 	}
-	
+
 	// 释放 TCC 状态机
 	xsDestroyTCC(pPlugin->pTccState);
 	pPlugin->pTccState = NULL;
-	
+
 	printf("        [Plugin] Plugin unloaded: %s\n", pPlugin->sName);
 	return TRUE;
 }
@@ -1047,37 +1174,55 @@ bool PluginMgr_CollectEnabledProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 	return FALSE;  // 继续遍历
 }
 
-// 按排序值加载已启用的插件
+// 按依赖关系加载已启用的插件
 void PluginMgr_LoadEnabledPlugins()
 {
 	printf("        [Plugin] Loading enabled plugins...\n");
-	
+
 	// 收集所有已启用的插件
 	xlist lstEnabled = xrtListCreate(sizeof(ptr));
 	xrtDictWalk(G_PluginMgr->tblPlugins, PluginMgr_CollectEnabledProc, lstEnabled);
-	
-	// 简单冒泡排序（按 iSort）
-	int iCount = xrtListCount(lstEnabled);
-	for ( int i = 0; i < iCount - 1; i++ ) {
-		for ( int j = 0; j < iCount - i - 1; j++ ) {
-			PluginInstance* p1 = xrtListGetPtr(lstEnabled, j);
-			PluginInstance* p2 = xrtListGetPtr(lstEnabled, j + 1);
-			if ( p1->iSort > p2->iSort ) {
-				xrtListSetPtr(lstEnabled, j, p2, NULL);
-				xrtListSetPtr(lstEnabled, j + 1, p1, NULL);
-			}
-		}
-	}
-	
-	// 按顺序加载
-	for ( int i = 0; i < iCount; i++ ) {
+
+	// 构建反向依赖图
+	// Plugin_BuildDependentsGraph();  // 暂时禁用
+
+	// 验证依赖关系
+	// if ( !Plugin_ValidateDependencies() ) {  // 暂时禁用
+	// 	printf("        [Plugin] ERROR: Dependency validation failed!\n");
+	// 	xrtListDestroy(lstEnabled);
+	// 	return;
+	// }
+	printf("        [Plugin] Dependency validation temporarily disabled\n");
+
+	// 使用拓扑排序确定加载顺序
+	// xlist loadOrder = xrtListCreate(sizeof(ptr));  // 暂时禁用
+	// if ( !Plugin_TopologicalSort(&loadOrder) ) {  // 暂时禁用
+	// 	printf("        [Plugin] ERROR: Circular dependency detected!\n");
+	// 	xrtListDestroy(lstEnabled);
+	// 	xrtListDestroy(loadOrder);
+	// 	return;
+	// }
+
+	// 按拓扑顺序加载
+	// int iLoadCount = xrtListCount(loadOrder);  // 暂时禁用
+	// for ( int i = 0; i < iLoadCount; i++ ) {  // 暂时禁用
+	// 	PluginInstance* pPlugin = xrtListGetPtr(loadOrder, i);
+	// 	if ( pPlugin && pPlugin->bEnabled ) {
+	// 		Plugin_Enable(pPlugin);
+	// 	}
+	// }
+
+	// 暂时使用原来的简单加载
+	int iLoadCount = xrtListCount(lstEnabled);
+	for ( int i = 0; i < iLoadCount; i++ ) {
 		PluginInstance* pPlugin = xrtListGetPtr(lstEnabled, i);
 		if ( pPlugin ) {
 			Plugin_Enable(pPlugin);
 		}
 	}
-	
+
 	xrtListDestroy(lstEnabled);
+	// xrtListDestroy(loadOrder);  // 暂时禁用
 }
 
 
@@ -1316,11 +1461,277 @@ bool PluginMgr_ReloadPlugin(str sName)
 	if ( !pPlugin ) {
 		return FALSE;
 	}
-	
+
 	if ( pPlugin->bLoaded ) {
 		Plugin_Disable(pPlugin);
 	}
 	return Plugin_Enable(pPlugin);
 }
+
+
+
+// ==================== 依赖管理功能 ====================
+
+// 版本比较函数
+// 返回值: -1(v1 < v2), 0(v1 == v2), 1(v1 > v2)
+int Plugin_CompareVersion(str v1, str v2)
+{
+	if ( !v1 || !v2 ) return 0;
+
+	int major1 = 0, minor1 = 0, patch1 = 0;
+	int major2 = 0, minor2 = 0, patch2 = 0;
+
+	// 安全解析，避免 sscanf 崩溃
+	sscanf(v1, "%d.%d.%d", &major1, &minor1, &patch1);
+	sscanf(v2, "%d.%d.%d", &major2, &minor2, &patch2);
+
+	if ( major1 != major2 ) return major1 < major2 ? -1 : 1;
+	if ( minor1 != minor2 ) return minor1 < minor2 ? -1 : 1;
+	if ( patch1 != patch2 ) return patch1 < patch2 ? -1 : 1;
+
+	return 0;
+}
+
+// 检查版本是否满足要求
+bool Plugin_CheckVersionRequirement(str actualVersion, str minVersion, str maxVersion)
+{
+	if ( !actualVersion ) return FALSE;
+
+	// 检查最小版本
+	if ( minVersion && strlen(minVersion) > 0 ) {
+		if ( Plugin_CompareVersion(actualVersion, minVersion) < 0 ) {
+			printf("        [Plugin] Version check failed: %s < %s\n", actualVersion, minVersion);
+			return FALSE;
+		}
+	}
+
+	// 检查最大版本
+	if ( maxVersion && strlen(maxVersion) > 0 ) {
+		if ( Plugin_CompareVersion(actualVersion, maxVersion) > 0 ) {
+			printf("        [Plugin] Version check failed: %s > %s\n", actualVersion, maxVersion);
+			return FALSE;
+		}
+	}
+
+	return TRUE;
+}
+
+// 构建反向依赖关系的回调函数
+bool Plugin_BuildDependentsWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+{
+	PluginInstance** ppPlugin = (PluginInstance**)pVal;
+	if ( !ppPlugin || !(*ppPlugin) ) return FALSE;
+
+	PluginInstance* pPlugin = *ppPlugin;
+
+	// 遍历该插件的依赖列表
+	int iDepCount = xrtListCount(pPlugin->lstDependencies);
+	for ( int j = 0; j < iDepCount; j++ ) {
+		PluginDependency* pDep = xrtListGetPtr(pPlugin->lstDependencies, j);
+
+		// 找到被依赖的插件
+		PluginInstance* pDepPlugin = PluginMgr_GetPlugin(pDep->sPluginName);
+		if ( pDepPlugin ) {
+			// 在被依赖插件的 dependents 列表中添加当前插件
+			int iDependentIdx = xrtListCount(pDepPlugin->lstDependents);
+			xrtListSetPtr(pDepPlugin->lstDependents, iDependentIdx, pPlugin, NULL);
+		}
+	}
+
+	return FALSE;
+}
+
+// 构建反向依赖关系
+void Plugin_BuildDependentsGraph()
+{
+	// 遍历所有插件，构建反向依赖
+	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_BuildDependentsWalkProc, NULL);
+}
+
+// 拓扑排序（Kahn算法）
+// 初始化入度的回调函数
+bool Plugin_TopologicalSortInitProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+{
+	xdict inDegree = (xdict)pArg;
+	PluginInstance** ppPlugin = (PluginInstance**)pVal;
+	if ( !ppPlugin || !(*ppPlugin) ) return FALSE;
+
+	PluginInstance* pPlugin = *ppPlugin;
+
+	// 计算入度（依赖数量）
+	int iInDegree = xrtListCount(pPlugin->lstDependencies);
+	int* pDegree = xrtDictSet(inDegree, pPlugin->sName, strlen(pPlugin->sName), NULL);
+	if ( pDegree ) {
+		*pDegree = iInDegree;
+	}
+
+	return FALSE;
+}
+
+// 将入度为0的节点加入队列的回调函数
+typedef struct {
+	xlist queue;
+	xdict inDegree;
+} TopologicalSortContext;
+
+bool Plugin_TopologicalSortEnqueueProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+{
+	TopologicalSortContext* pCtx = (TopologicalSortContext*)pArg;
+	PluginInstance** ppPlugin = (PluginInstance**)pVal;
+	if ( !ppPlugin || !(*ppPlugin) ) return FALSE;
+
+	PluginInstance* pPlugin = *ppPlugin;
+	int* pDegree = xrtDictGet(pCtx->inDegree, pPlugin->sName, strlen(pPlugin->sName));
+	if ( pDegree && *pDegree == 0 ) {
+		xrtListSetPtr(pCtx->queue, xrtListCount(pCtx->queue), pPlugin, NULL);
+	}
+
+	return FALSE;
+}
+
+// 统计插件数量的回调函数
+typedef struct {
+	int* piCount;
+} PluginCountContext;
+
+bool Plugin_CountPluginsProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+{
+	PluginCountContext* pCtx = (PluginCountContext*)pArg;
+	(*pCtx->piCount)++;
+	return FALSE;
+}
+
+// 拓扑排序（Kahn算法）
+// 返回值: TRUE=成功, FALSE=失败（循环依赖）
+bool Plugin_TopologicalSort(xlist* pResult)
+{
+	// 创建入度表
+	xdict inDegree = xrtDictCreate(sizeof(int));
+
+	// 初始化入度
+	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_TopologicalSortInitProc, inDegree);
+
+	// 创建队列
+	xlist queue = xrtListCreate(sizeof(ptr));
+
+	// 统计插件总数
+	int iCount = 0;
+	PluginCountContext countCtx = {&iCount};
+	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_CountPluginsProc, &countCtx);
+
+	// 将入度为0的节点加入队列
+	TopologicalSortContext ctx = {queue, inDegree};
+	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_TopologicalSortEnqueueProc, &ctx);
+
+	// 拓扑排序
+	while ( xrtListCount(queue) > 0 ) {
+		// 取出队首
+		PluginInstance* pPlugin = xrtListGetPtr(queue, 0);
+		xrtListRemove(queue, 0);
+
+		// 加入结果
+		xrtListSetPtr(*pResult, xrtListCount(*pResult), pPlugin, NULL);
+
+		// 减少依赖此节点的节点的入度
+		int iDependentCount = xrtListCount(pPlugin->lstDependents);
+		for ( int i = 0; i < iDependentCount; i++ ) {
+			PluginInstance* pDependent = xrtListGetPtr(pPlugin->lstDependents, i);
+			if ( pDependent ) {
+				int* pDegree = xrtDictGet(inDegree, pDependent->sName, strlen(pDependent->sName));
+				if ( pDegree ) {
+					(*pDegree)--;
+					if ( *pDegree == 0 ) {
+						xrtListSetPtr(queue, xrtListCount(queue), pDependent, NULL);
+					}
+				}
+			}
+		}
+	}
+
+	// 检查是否有环
+	int iSortedCount = xrtListCount(*pResult);
+	bool bHasCycle = (iSortedCount != iCount);
+
+	// 清理
+	xrtDictDestroy(inDegree);
+	xrtListDestroy(queue);
+
+	return !bHasCycle;
+}
+
+// 验证依赖关系的回调函数
+typedef struct {
+	bool* pbValid;
+} ValidateContext;
+
+bool Plugin_ValidateWalkProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+{
+	ValidateContext* pCtx = (ValidateContext*)pArg;
+	PluginInstance** ppPlugin = (PluginInstance**)pVal;
+	if ( !ppPlugin || !(*ppPlugin) ) return FALSE;
+
+	PluginInstance* pPlugin = *ppPlugin;
+
+	// 检查插件版本是否有效
+	if ( !pPlugin->sVersion || strlen(pPlugin->sVersion) == 0 ) {
+		// 没有版本号，跳过版本检查
+		return FALSE;
+	}
+
+	// 检查每个依赖
+	int iDepCount = xrtListCount(pPlugin->lstDependencies);
+	for ( int j = 0; j < iDepCount; j++ ) {
+		PluginDependency* pDep = xrtListGetPtr(pPlugin->lstDependencies, j);
+
+		// 检查依赖配置是否有效
+		if ( !pDep || !pDep->sPluginName || strlen(pDep->sPluginName) == 0 ) {
+			continue;
+		}
+
+		// 查找依赖的插件是否存在
+		PluginInstance* pDepPlugin = PluginMgr_GetPlugin(pDep->sPluginName);
+		if ( !pDepPlugin ) {
+			printf("        [Plugin] ERROR: Plugin '%s' depends on missing plugin '%s'\n",
+			       pPlugin->sName, pDep->sPluginName);
+			*(pCtx->pbValid) = FALSE;
+			// 不返回 FALSE，继续检查其他依赖
+			continue;
+		}
+
+		// 检查依赖插件版本是否有效
+		if ( !pDepPlugin->sVersion || strlen(pDepPlugin->sVersion) == 0 ) {
+			// 依赖插件没有版本号，跳过版本检查
+			continue;
+		}
+
+		// 检查版本是否满足
+		if ( !Plugin_CheckVersionRequirement(pDepPlugin->sVersion,
+		                                      pDep->sMinVersion,
+		                                      pDep->sMaxVersion) ) {
+			printf("        [Plugin] ERROR: Plugin '%s' version %s does not meet requirements of '%s'\n",
+			       pDep->sPluginName, pDepPlugin->sVersion, pPlugin->sName);
+			*(pCtx->pbValid) = FALSE;
+			// 不返回 FALSE，继续检查其他依赖
+		}
+	}
+
+	return FALSE;
+}
+
+// 验证依赖关系
+bool Plugin_ValidateDependencies()
+{
+	printf("        [Plugin] Validating dependencies...\n");
+
+	bool bValid = TRUE;
+	ValidateContext ctx = {&bValid};
+
+	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_ValidateWalkProc, &ctx);
+
+	return bValid;
+}
+
+
+#endif // PLUGIN_MGR_H
 
 

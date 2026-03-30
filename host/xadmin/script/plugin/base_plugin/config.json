@@ -1,0 +1,13 @@
+{
+	"sort":	10,
+	"title":	"基础插件",
+	"desc":	"演示依赖管理和命名空间的基类插件",
+	"name":	"base_plugin",
+	"version":	"1.0.0",
+	"exports":	["Calculate", "GetData"],
+	"settings":	{
+		"maxItems":	100
+	},
+	"enabled":	true,
+	"author":	"xAdmin"
+}

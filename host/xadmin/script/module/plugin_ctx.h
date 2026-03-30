@@ -5,6 +5,10 @@
 // 插件上下文定义
 // ============================================
 
+#ifndef PLUGIN_CTX_H
+#define PLUGIN_CTX_H
+
+
 
 
 // ==================== 预定义事件 ====================
@@ -151,5 +155,19 @@ typedef struct {
 	str sExportName;                    // 导出名称
 	void* pPtr;                         // 导出指针
 } PluginExport;
+
+
+
+// ==================== 插件依赖项结构 ====================
+
+typedef struct {
+	str sPluginName;                    // 依赖的插件名称
+	str sMinVersion;                    // 最小版本（如 "1.0.0"）
+	str sMaxVersion;                    // 最大版本（NULL=不限）
+} PluginDependency;
+
+
+#endif // PLUGIN_CTX_H
+
 
 

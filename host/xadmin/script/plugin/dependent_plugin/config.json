@@ -1,0 +1,13 @@
+{
+	"sort":	20,
+	"title":	"依赖插件",
+	"desc":	"演示依赖base_plugin的插件",
+	"name":	"dependent_plugin",
+	"version":	"1.0.0",
+	"exports":	[],
+	"settings":	{
+		"multiplier":	2
+	},
+	"enabled":	true,
+	"author":	"xAdmin"
+}

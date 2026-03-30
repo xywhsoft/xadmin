@@ -177,10 +177,34 @@ typedef struct {
 // 插件初始化函数（启用时调用）
 // 命名格式: Plugin_{插件名}_Init
 // 例如: void Plugin_member_Init()
+// 注意: 使用命名空间宏后，无需手动添加前缀
 
 // 插件卸载函数（禁用时调用）
 // 命名格式: Plugin_{插件名}_Unit
 // 例如: void Plugin_member_Unit()
+// 注意: 使用命名空间宏后，无需手动添加前缀
+
+
+
+// ==================== 命名空间宏（V2新增）====================
+
+// 插件命名空间自动添加前缀，避免符号冲突
+// 系统会自动在代码头部注入宏定义：
+// #define PLUGIN_NS(name) _plugin_{plugin_name}_##name
+// #define PLUGIN_API(name) PLUGIN_NS(API_##name)
+// #define PLUGIN_FUNC(name) PLUGIN_NS(name)
+
+// 使用示例:
+// void PLUGIN_FUNC(Init)() { ... }                    // 展开为 void _plugin_hello_Init()
+// void PLUGIN_FUNC(Unit)() { ... }                    // 展开为 void _plugin_hello_Unit()
+// void PLUGIN_API(Greeting)(...) { ... }              // 展开为 void _plugin_hello_API_Greeting()
+// void Plugin_SetGlobalData(int idx, void* ptr) { ... }
+
+// 注意:
+// 1. Plugin_SetGlobalData 函数名保持不变，系统会自动添加前缀
+// 2. 路由处理函数建议使用 PLUGIN_API 宏，例如 PLUGIN_API(MyHandler)
+// 3. 内部函数建议使用 PLUGIN_FUNC 宏，例如 PLUGIN_FUNC(DoSomething)
+// 4. 前缀由插件名自动生成，格式: _plugin_{name}_
 
 
 
