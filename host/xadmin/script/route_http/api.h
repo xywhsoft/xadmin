@@ -23,13 +23,13 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 	xtime tCD = Guard_Check(xsReqRemote(objReq));
 	if ( tCD ) {
 		str sTime = xrtTimeToStr(tCD, XRT_TIME_FORMAT_DATETIME);
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":429,\"msg\":\"登录失败尝试次数过多，请�?%s 后再试\"}", sTime);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":429,\"msg\":\"登录失败尝试次数过多，请�?%s 后再试\"}", sTime);
 		xrtFree(sTime);
 		return;
 	}
 	
 	// step 2 : 解析请求数据
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);
@@ -122,7 +122,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 		}
 		
 		// 构建用户信息响应
-		mg_http_reply(objResp, 200, sHeader, 
+		HttpReplyFormat(objResp, 200, sHeader, 
 			"{\"code\":0,\"msg\":\"登录成功\",\"data\":{\"id\":%lld,\"username\":\"%s\",\"nickname\":\"%s\",\"balance\":%lld}}",
 			xvoTableGetInt(tblSession, "id", 2),
 			xvoTableGetText(tblSession, "username", 8),
@@ -154,7 +154,7 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	}
 	
 	// step 1 : 解析请求数据
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);
@@ -224,7 +224,7 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	
 	if ( rc == SQLITE_DONE ) {
 		int64 newId = sqlite3_last_insert_rowid(G_DB);
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"注册成功\",\"data\":{\"id\":%lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"注册成功\",\"data\":{\"id\":%lld}}", newId);
 	} else {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":500,\"msg\":\"注册失败，请稍后重试\"}", 0);
 	}
@@ -266,7 +266,7 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 		sqlite3_bind_int64(stmt_member_get, 1, iMemberId);
 		if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
 			// id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime
-			mg_http_reply(objResp, 200, HTTP_CT_JSON, 
+			HttpReplyFormat(objResp, 200, HTTP_CT_JSON, 
 				"{\"code\":0,\"msg\":\"success\",\"data\":{"
 				"\"id\":%lld,"
 				"\"username\":\"%s\","
@@ -299,7 +299,7 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 		
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		// 更新当前用户信息（仅允许修改昵称、邮箱、电话、头像）
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 			xvoUnref(tblForm);
@@ -359,7 +359,7 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);
@@ -449,7 +449,7 @@ void API_Balance(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 		int64 iBalance = sqlite3_column_int64(stmt_member_get, 4);
 		// 更新 Session 中的余额
 		xvoTableSetInt(objSession, "balance", 7, iBalance);
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":{\"balance\":%lld}}", iBalance);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":{\"balance\":%lld}}", iBalance);
 	} else {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":404,\"msg\":\"用户不存在\"}", 0);
 	}
@@ -507,7 +507,7 @@ void API_BalanceLog(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	// 返回 JSON 响应
 	size_t iJSONSize = 0;
 	str sJSON = xrtStringifyJSON(arrRet, FALSE, &iJSONSize);
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":%s}", sJSON);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":%s}", sJSON);
 	xrtFree(sJSON);
 	xvoUnref(arrRet);
 }

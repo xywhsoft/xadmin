@@ -224,9 +224,9 @@ int PluginCtx_AddMenu(int parent, str title, str icon, int type, str openType, s
 	int iExistingId = 0;
 
 	if ( G_CurrentPluginId ) {
-		sSQL = "SELECT id FROM menu WHERE href = ? AND pluginId = ? AND isDelete = 0 LIMIT 1";
+		sSQL = "SELECT id FROM menu WHERE href = ? AND plugin_id = ? AND isDelete = 0 LIMIT 1";
 		if ( sqlite3_prepare_v3(G_DB, sSQL, -1, 0, &stmt, NULL) == SQLITE_OK ) {
-			sqlite3_bind_text(stmt, 1, href ? href : "", -1, NULL);
+			sqlite3_bind_text(stmt, 1, href ? href : (str)"", -1, NULL);
 			sqlite3_bind_text(stmt, 2, G_CurrentPluginId, -1, NULL);
 			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 				iExistingId = sqlite3_column_int(stmt, 0);
@@ -250,7 +250,7 @@ int PluginCtx_AddMenu(int parent, str title, str icon, int type, str openType, s
 			sqlite3_bind_int(stmt, 9, iExistingId);
 			sqlite3_step(stmt);
 			sqlite3_finalize(stmt);
-			printf("        [Plugin] Menu updated: %s (id=%d, plugin_id=%s)\n", title, iExistingId, G_CurrentPluginId);
+			printf("        [Plugin] Menu updated: %s (id=%d, plugin_id=%s)\n", title, iExistingId, G_CurrentPluginId ? G_CurrentPluginId : (str)"NULL");
 			return iExistingId;
 		}
 	}
@@ -277,7 +277,7 @@ int PluginCtx_AddMenu(int parent, str title, str icon, int type, str openType, s
 	sqlite3_step(stmt_menu_add);
 	int iMenuId = sqlite3_last_insert_rowid(G_DB);
 	sqlite3_reset(stmt_menu_add);
-	printf("        [Plugin] Menu added: %s (id=%d, plugin_id=%s)\n", title, iMenuId, G_CurrentPluginId ? G_CurrentPluginId : "NULL");
+	printf("        [Plugin] Menu added: %s (id=%d, plugin_id=%s)\n", title, iMenuId, G_CurrentPluginId ? G_CurrentPluginId : (str)"NULL");
 	return iMenuId;
 }
 
@@ -529,7 +529,7 @@ void PluginCtx_SendFile(XS_ResponseObject objResp, str filePath, str mimeType)
 		return;
 	}
 
-	sHead = xrtFormat("Content-Type: %s\r\n", (mimeType && mimeType[0]) ? mimeType : "application/octet-stream");
+	sHead = xrtFormat("Content-Type: %s\r\n", (mimeType && mimeType[0]) ? mimeType : (str)"application/octet-stream");
 	http_reply(objResp, 200, sHead, sData, iFileSize);
 	xrtFree(sHead);
 	xrtFree(sData);
@@ -1048,7 +1048,7 @@ bool Plugin_TccLoad(PluginInstance* pPlugin)
 	tcc_add_symbol(pTcc, "HttpMultipartNext", HttpMultipartNext);
 	tcc_add_symbol(pTcc, "HttpMultipartNameIs", HttpMultipartNameIs);
 	tcc_add_symbol(pTcc, "http_reply", http_reply);
-	tcc_add_symbol(pTcc, "mg_http_reply", mg_http_reply);
+	tcc_add_symbol(pTcc, "HttpReplyFormat", HttpReplyFormat);
 
 	// 闁革附婢樺鍐煂瀹ュ懐鏆伴柛?
 	if ( tcc_relocate(pTcc) < 0 ) {
@@ -1529,11 +1529,11 @@ void PluginMgr_LoadEnabledPlugins()
 
 	for ( int i = 0; i < iCount; i++ ) {
 		PluginInstance* pPlugin = xrtListGetPtr(lstEnabled, i);
-		printf("[xadmin:plugin] enabling index=%d name=%s\n", i, pPlugin ? pPlugin->sName : "(null)");
+		printf("[xadmin:plugin] enabling index=%d name=%s\n", i, pPlugin ? pPlugin->sName : (str)"(null)");
 		fflush(stdout);
 		if ( pPlugin ) {
 			Plugin_Enable(pPlugin);
-			printf("[xadmin:plugin] enable return index=%d name=%s\n", i, pPlugin->sName ? pPlugin->sName : "(null)");
+			printf("[xadmin:plugin] enable return index=%d name=%s\n", i, pPlugin->sName ? pPlugin->sName : (str)"(null)");
 			fflush(stdout);
 		}
 	}
@@ -2193,7 +2193,7 @@ bool Plugin_CountPluginsProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 bool Plugin_TopologicalSort(xlist* pResult)
 {
 	// 创建入度表
-	xdict inDegree = xrtDictCreate(sizeof(int));
+	xdict inDegree = xrtDictCreate(sizeof(int), 0);
 
 	// 初始化入度
 	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_TopologicalSortInitProc, inDegree);

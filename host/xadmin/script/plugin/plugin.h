@@ -175,7 +175,7 @@ int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size
 bool HttpMultipartNameIs(const HttpMultipartPart* pPart, const char* sName);
 bool HttpMultipartNext(XS_RequestObject objReq, size_t* pOffset, HttpMultipartPart* pPart);
 int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
-int mg_http_reply(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
+int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 
 #define SQL_PREPARE_DEFAULT	(SQLITE_PREPARE_PERSISTENT | SQLITE_PREPARE_DONT_LOG)
 

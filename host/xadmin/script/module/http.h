@@ -217,7 +217,7 @@ bool HttpMultipartNext(XS_RequestObject objReq, size_t* pOffset, HttpMultipartPa
 	if ( !xrtMultipartBoundaryFromContentType(sContentType, &tBoundary) ) {
 		return FALSE;
 	}
-	if ( !xrtMultipartNextN((const char*)xsReqBody(objReq), xsReqBodyLen(objReq), tBoundary.sPtr, tBoundary.iLen, pOffset, &tPart) ) {
+	if ( !xrtMultipartNextN((str)xsReqBody(objReq), xsReqBodyLen(objReq), tBoundary.sPtr, tBoundary.iLen, pOffset, &tPart) ) {
 		return FALSE;
 	}
 
@@ -260,7 +260,7 @@ xdict ParseCookies(XS_RequestObject objReq)
 		char** psValue;
 		str sDecoded;
 
-		psValue = xrtDictSet(tblCookie, tCookie.tName.sPtr, tCookie.tName.iLen, NULL);
+		psValue = xrtDictSet(tblCookie, (ptr)tCookie.tName.sPtr, tCookie.tName.iLen, NULL);
 		if ( psValue == NULL ) {
 			continue;
 		}
@@ -400,7 +400,7 @@ int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBod
 
 
 
-int mg_http_reply(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...)
+int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...)
 {
 	va_list objArgs;
 	int iLen;

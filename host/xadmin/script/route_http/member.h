@@ -143,7 +143,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		xvoUnref(tblRet);
 		
 	} else if ( HttpMethodIs(objReq, "POST") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		str username = xvoTableGetText(tblForm, "username", 8);
 		str password = xvoTableGetText(tblForm, "password", 8);
@@ -182,10 +182,10 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		int64 newId = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_reset(stmt_member_add);
 		xrtFree(sSalt); xrtFree(sPwdHash); xvoUnref(tblForm);
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"前台用户添加成功！\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"前台用户添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		int64 id = xvoTableGetInt(tblForm, "id", 2);
 		int64 groupId = xvoTableGetInt(tblForm, "groupId", 7);
@@ -230,7 +230,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	if ( HttpMethodIs(objReq, "POST") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		int64 id = xvoTableGetInt(tblForm, "id", 2);
 		str username = xvoTableGetText(tblForm, "username", 8);
@@ -255,7 +255,7 @@ void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost,
 void Request_Member_User_Balance(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	if ( HttpMethodIs(objReq, "POST") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		int64 memberId = xvoTableGetInt(tblForm, "id", 2);
 		int type = xvoTableGetInt(tblForm, "type", 4);
@@ -432,7 +432,7 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet); xvoUnref(tblRet);
 	} else if ( HttpMethodIs(objReq, "POST") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		str name = xvoTableGetText(tblForm, "name", 4);
 		str desc = xvoTableGetText(tblForm, "desc", 4);
@@ -449,10 +449,10 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		sqlite3_step(stmt_mgroup_add);
 		int64 newId = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_reset(stmt_mgroup_add); xvoUnref(tblForm);
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户组添加成功！\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户组添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		MemberAuth_ReloadCache();
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		int64 id = xvoTableGetInt(tblForm, "id", 2);
 		str name = xvoTableGetText(tblForm, "name", 4);
@@ -579,16 +579,16 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 		size_t iRetSize = 0; char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
 		http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize); xrtFree(sRet); xvoUnref(tblRet);
 	} else if ( HttpMethodIs(objReq, "POST") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		str name = xvoTableGetText(tblForm, "name", 4); str desc = xvoTableGetText(tblForm, "desc", 4); int64 sort = xvoTableGetInt(tblForm, "sort", 4);
 		xtime now = xrtNow(); sqlite3_bind_text(stmt_magroup_add, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_add, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_int64(stmt_magroup_add, 3, sort); sqlite3_bind_int64(stmt_magroup_add, 4, now); sqlite3_bind_int64(stmt_magroup_add, 5, now);
 		sqlite3_step(stmt_magroup_add); int64 newId = sqlite3_last_insert_rowid(G_DB); sqlite3_reset(stmt_magroup_add); xvoUnref(tblForm);
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类添加成功！\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		ReloadCache_MemberAuthGroup();
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		int64 id = xvoTableGetInt(tblForm, "id", 2); str name = xvoTableGetText(tblForm, "name", 4); str desc = xvoTableGetText(tblForm, "desc", 4); int64 sort = xvoTableGetInt(tblForm, "sort", 4);
 		xtime now = xrtNow(); sqlite3_bind_text(stmt_magroup_put, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_put, 2, desc ? desc : (str)"", -1, NULL);
@@ -699,7 +699,7 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		size_t iRetSize = 0; char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
 		http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize); xrtFree(sRet); xvoUnref(tblRet);
 	} else if ( HttpMethodIs(objReq, "POST") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		int64 groupID = xvoTableGetInt(tblForm, "groupID", 7); str name = xvoTableGetText(tblForm, "name", 4);
 		str desc = xvoTableGetText(tblForm, "desc", 4); int64 sort = xvoTableGetInt(tblForm, "sort", 4);
@@ -707,10 +707,10 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_text(stmt_mauth_add, 3, desc ? desc : (str)"", -1, NULL); sqlite3_bind_int64(stmt_mauth_add, 4, sort);
 		sqlite3_bind_int64(stmt_mauth_add, 5, now); sqlite3_bind_int64(stmt_mauth_add, 6, now);
 		sqlite3_step(stmt_mauth_add); int64 newId = sqlite3_last_insert_rowid(G_DB); sqlite3_reset(stmt_mauth_add); xvoUnref(tblForm);
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分组添加成功！\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分组添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		ReloadCache_MemberAuth(); ReloadCache_MemberAuthGroup(); MemberAuth_ReloadCache();
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) { http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xvoUnref(tblForm); return; }
 		int64 id = xvoTableGetInt(tblForm, "id", 2); int64 groupID = xvoTableGetInt(tblForm, "groupID", 7);
 		str name = xvoTableGetText(tblForm, "name", 4); str desc = xvoTableGetText(tblForm, "desc", 4); int64 sort = xvoTableGetInt(tblForm, "sort", 4);

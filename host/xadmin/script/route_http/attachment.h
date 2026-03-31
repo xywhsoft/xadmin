@@ -333,7 +333,7 @@ void Request_Attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, X
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);

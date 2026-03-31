@@ -6,16 +6,22 @@
 // TCC独立状态机编译
 // ============================================
 
-// 引入 xserver 基础�?
+// 引入 xserver 基础�?
 #include <xs_vnext_full.h>
 
-// 全局变量（通过 Model_SetGlobalData 传入�?
+// 全局变量（通过 Model_SetGlobalData 传入�?
 sqlite3* G_DB;
 
-// 模型管理器特有函数声�?
-// 注意：Model_AddRoute 实际返回 RouteInfo*，但模型代码不需要使用返回�?
+// 模型管理器特有函数声�?
+// 注意：Model_AddRoute 实际返回 RouteInfo*，但模型代码不需要使用返回�?
 extern void* Model_AddRoute(str, void*, bool, bool, int, int);
 extern void Model_RemoveRoute(str);
+
+// HTTP helper declarations
+bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
+int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
+int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
+int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 
 // HTTP 响应常量
 #define HTTP_CT_JSON "Content-Type: application/json\r\n"
@@ -30,7 +36,7 @@ void Model_SetGlobalData(int idx, void* ptr)
 
 // ==================== 模型代码 ====================
 
-// 预编译语�?
+// 预编译语�?
 sqlite3_stmt* stmt_article_all;
 sqlite3_stmt* stmt_article_get;
 sqlite3_stmt* stmt_article_add;
@@ -41,7 +47,7 @@ sqlite3_stmt* stmt_article_count;
 
 
 
-// 评论预编译语�?
+// 评论预编译语�?
 sqlite3_stmt* stmt_article_reply_list;
 sqlite3_stmt* stmt_article_reply_add;
 sqlite3_stmt* stmt_article_reply_del;
@@ -50,7 +56,7 @@ sqlite3_stmt* stmt_article_reply_get;
 
 
 
-// 草稿预编译语�?
+// 草稿预编译语�?
 sqlite3_stmt* stmt_article_draft_all;
 sqlite3_stmt* stmt_article_draft_get;
 sqlite3_stmt* stmt_article_draft_add;
@@ -95,7 +101,7 @@ void Model_article_InitStmt()
 
 		-1, 0, &stmt_article_put, NULL);
 	
-	// 删除记录（软删除�?
+	// 删除记录（软删除�?
 	sqlite3_prepare_v3(db,
 		"UPDATE model_cms_article SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, 0, &stmt_article_del, NULL);
@@ -108,7 +114,7 @@ void Model_article_InitStmt()
 
 	
 
-	// 评论列表（根据内容ID�?
+	// 评论列表（根据内容ID�?
 	sqlite3_prepare_v3(db,
 		"SELECT id, userId, userType, content, quoteId, quoteText, status, createTime "
 		"FROM reply WHERE modelName = 'article' AND contentId = ? AND isDelete = 0 "
@@ -127,7 +133,7 @@ void Model_article_InitStmt()
 		"VALUES ('article', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
 		-1, 0, &stmt_article_reply_add, NULL);
 	
-	// 删除评论（软删除�?
+	// 删除评论（软删除�?
 	sqlite3_prepare_v3(db,
 		"UPDATE reply SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, 0, &stmt_article_reply_del, NULL);
@@ -160,7 +166,7 @@ void Model_article_InitStmt()
 		"UPDATE model_cms_article_draft SET title = ?, text = ?, authorType = ?, authorId = ?, authorName = ?, updateTime = ? WHERE id = ?",
 		-1, 0, &stmt_article_draft_put, NULL);
 	
-	// 删除草稿（硬删除�?
+	// 删除草稿（硬删除�?
 	sqlite3_prepare_v3(db,
 		"DELETE FROM model_cms_article_draft WHERE id = ?",
 		-1, 0, &stmt_article_draft_del, NULL);
@@ -170,12 +176,12 @@ void Model_article_InitStmt()
 		"SELECT COUNT(*) FROM model_cms_article_draft",
 		-1, 0, &stmt_article_draft_count, NULL);
 	
-	// 发布草稿（插入主表后删除草稿�? 只删除草稿记�?
+	// 发布草稿（插入主表后删除草稿�? 只删除草稿记�?
 	sqlite3_prepare_v3(db,
 		"DELETE FROM model_cms_article_draft WHERE id = ?",
 		-1, 0, &stmt_article_draft_publish, NULL);
 	
-	// 清空草稿�?
+	// 清空草稿�?
 	sqlite3_prepare_v3(db,
 		"DELETE FROM model_cms_article_draft",
 		-1, 0, &stmt_article_draft_clear, NULL);
@@ -332,7 +338,7 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -347,7 +353,7 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		sMemberNickname = xvoTableGetText(objSession, "nickname", 8);
 	}
 	
-	// 检查是否允许游客投�?
+	// 检查是否允许游客投�?
 	int iAllowGuest = 0;
 	if ( (iMemberId <= 0) && !iAllowGuest ) {
 		xvoUnref(tblForm);
@@ -355,11 +361,11 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 	
-	// 决定数据去向：游客始终进草稿，会员根据配置决�?
+	// 决定数据去向：游客始终进草稿，会员根据配置决�?
 	int iNeedReview = 0;
 	bool bToDraft = (iMemberId <= 0) || iNeedReview;
 	
-	// 作者信�?
+	// 作者信�?
 	int iAuthorType = (iMemberId <= 0) ? 2 : 1;  // 2=游客, 1=前台会员
 	int64 iAuthorId = iMemberId;
 	str sAuthorName = xvoTableGetText(tblForm, "authorName", 10);
@@ -372,7 +378,7 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	int64 newId = 0;
 	
 	if ( bToDraft ) {
-		// 进入草稿�?
+		// 进入草稿�?
 	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 	{ str sVal = xvoTableGetText(tblForm, "text", 4); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
@@ -390,7 +396,7 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	{ str sVal = xvoTableGetText(tblForm, "text", 4); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
 
-		// 作者字�?
+		// 作者字�?
 		sqlite3_bind_int64(stmt_article_add, iIdx++, iAuthorType);
 		sqlite3_bind_int64(stmt_article_add, iIdx++, iAuthorId);
 		sqlite3_bind_text(stmt_article_add, iIdx++, sAuthorName, -1, SQLITE_STATIC);
@@ -404,9 +410,9 @@ void Api_article_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	xvoUnref(tblForm);
 	
 	if ( bToDraft ) {
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Submitted to review\", \"data\": {\"id\": %lld, \"isDraft\": true}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Submitted to review\", \"data\": {\"id\": %lld, \"isDraft\": true}}", newId);
 	} else {
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Published\", \"data\": {\"id\": %lld, \"isDraft\": false}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Published\", \"data\": {\"id\": %lld, \"isDraft\": false}}", newId);
 	}
 }
 
@@ -486,7 +492,7 @@ void Api_article_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -515,7 +521,7 @@ void Api_article_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		// 获取被引用评论的内容摘要
 		sqlite3_bind_int64(stmt_article_reply_get, 1, iQuoteId);
 		if ( sqlite3_step(stmt_article_reply_get) == SQLITE_ROW ) {
-			str sOrigContent = (str)sqlite3_column_text(stmt_article_reply_get, 3);  // content 在第4�?
+			str sOrigContent = (str)sqlite3_column_text(stmt_article_reply_get, 3);  // content 在第4�?
 			if ( sOrigContent ) {
 				int iMaxLen = 50;
 				int iLen = strlen(sOrigContent);
@@ -534,8 +540,8 @@ void Api_article_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	int64 iUserId = xvoTableGetInt(tblForm, "userId", 6);
 	int64 iUserType = xvoTableGetInt(tblForm, "userType", 8);  // 0=会员, 1=后台用户
 	
-	// 状态：是否需要审�?
-	int64 iStatus = 0 ? 0 : 1;  // 0=待审�? 1=已发�?
+	// 状态：是否需要审�?
+	int64 iStatus = 0 ? 0 : 1;  // 0=待审�? 1=已发�?
 	
 	xtime now = xrtNow();
 	int iIdx = 1;
@@ -558,7 +564,7 @@ void Api_article_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	}
 	xvoUnref(tblForm);
 	
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 删除评论（需要校验权限）
@@ -572,7 +578,7 @@ void Api_article_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, 
 		return;
 	}
 	
-	// TODO: 应该校验当前用户是否有权删除该评�?
+	// TODO: 应该校验当前用户是否有权删除该评�?
 	
 	xtime now = xrtNow();
 	sqlite3_bind_int64(stmt_article_reply_del, 1, now);
@@ -625,7 +631,7 @@ void Admin_article_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		xvoTableSetText(tblRow, "text", 4, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
 
 
-		// 作者字�?
+		// 作者字�?
 		xvoTableSetInt(tblRow, "authorType", 10, sqlite3_column_int64(stmt_article_all, iCol++));
 		xvoTableSetInt(tblRow, "authorId", 8, sqlite3_column_int64(stmt_article_all, iCol++));
 		xvoTableSetText(tblRow, "authorName", 10, (str)sqlite3_column_text(stmt_article_all, iCol++), 0, FALSE);
@@ -672,7 +678,7 @@ void Admin_article_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		xvoTableSetText(tblData, "text", 4, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
 
 
-		// 作者字�?
+		// 作者字�?
 		xvoTableSetInt(tblData, "authorType", 10, sqlite3_column_int64(stmt_article_get, iCol++));
 		xvoTableSetInt(tblData, "authorId", 8, sqlite3_column_int64(stmt_article_get, iCol++));
 		xvoTableSetText(tblData, "authorName", 10, (str)sqlite3_column_text(stmt_article_get, iCol++), 0, FALSE);
@@ -707,7 +713,7 @@ void Admin_article_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -725,12 +731,12 @@ void Admin_article_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_draft_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 		{ str sVal = xvoTableGetText(tblForm, "text", 4); sqlite3_bind_text(stmt_article_draft_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
-		// 作者字段（优先使用表单中的authorName，否则使用当前管理员�?
+		// 作者字段（优先使用表单中的authorName，否则使用当前管理员�?
 		int64 iAdminId = xvoTableGetInt(objSession, "id", 2);
 		str sAdminUser = xvoTableGetText(objSession, "user", 4);
 		str sFormAuthor = xvoTableGetText(tblForm, "authorName", 10);
 		str sAuthorName = (sFormAuthor && strlen(sFormAuthor) > 0) ? sFormAuthor : (sAdminUser ? sAdminUser : (str)"");
-		sqlite3_bind_int64(stmt_article_draft_add, iIdx++, 0);  // authorType = 0 (后台管理�?
+		sqlite3_bind_int64(stmt_article_draft_add, iIdx++, 0);  // authorType = 0 (后台管理�?
 		sqlite3_bind_int64(stmt_article_draft_add, iIdx++, iAdminId);
 		sqlite3_bind_text(stmt_article_draft_add, iIdx++, sAuthorName, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_article_draft_add, iIdx++, now);
@@ -740,7 +746,7 @@ void Admin_article_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_reset(stmt_article_draft_add);
 		xvoUnref(tblForm);
 		
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"已保存到草稿箱\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"已保存到草稿箱\", \"data\": {\"id\": %lld}}", newId);
 		return;
 	}
 
@@ -752,12 +758,12 @@ void Admin_article_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	{ str sVal = xvoTableGetText(tblForm, "text", 4); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
 
-	// 作者字段（优先使用表单中的authorName，否则使用当前管理员�?
+	// 作者字段（优先使用表单中的authorName，否则使用当前管理员�?
 	int64 iAdminId = xvoTableGetInt(objSession, "id", 2);
 	str sAdminUser = xvoTableGetText(objSession, "user", 4);
 	str sFormAuthor = xvoTableGetText(tblForm, "authorName", 10);
 	str sAuthorName = (sFormAuthor && strlen(sFormAuthor) > 0) ? sFormAuthor : (sAdminUser ? sAdminUser : (str)"");
-	sqlite3_bind_int64(stmt_article_add, iIdx++, 0);  // authorType = 0 (后台管理�?
+	sqlite3_bind_int64(stmt_article_add, iIdx++, 0);  // authorType = 0 (后台管理�?
 	sqlite3_bind_int64(stmt_article_add, iIdx++, iAdminId);
 	sqlite3_bind_text(stmt_article_add, iIdx++, sAuthorName, -1, SQLITE_STATIC);
 	sqlite3_bind_int64(stmt_article_add, iIdx++, now);
@@ -767,7 +773,7 @@ void Admin_article_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	sqlite3_reset(stmt_article_add);
 	xvoUnref(tblForm);
 	
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 后台更新
@@ -778,7 +784,7 @@ void Admin_article_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -798,7 +804,7 @@ void Admin_article_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	{ str sVal = xvoTableGetText(tblForm, "text", 4); sqlite3_bind_text(stmt_article_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
 
-	// 不更新作者字段，保留原作者信�?
+	// 不更新作者字段，保留原作者信�?
 	sqlite3_bind_int64(stmt_article_put, iIdx++, now);
 	sqlite3_bind_int64(stmt_article_put, iIdx++, iID);
 	sqlite3_step(stmt_article_put);
@@ -948,7 +954,7 @@ void Admin_article_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, 
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -964,12 +970,12 @@ void Admin_article_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, 
 	{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_draft_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 	{ str sVal = xvoTableGetText(tblForm, "text", 4); sqlite3_bind_text(stmt_article_draft_put, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
-		// 作者字段（优先使用表单中的authorName，否则使用当前管理员�?
+		// 作者字段（优先使用表单中的authorName，否则使用当前管理员�?
 		int64 iEditorId = xvoTableGetInt(objSession, "id", 2);
 		str sEditorUser = xvoTableGetText(objSession, "user", 4);
 		str sFormAuthor = xvoTableGetText(tblForm, "authorName", 10);
 		str sAuthorName = (sFormAuthor && strlen(sFormAuthor) > 0) ? sFormAuthor : (sEditorUser ? sEditorUser : (str)"");
-		sqlite3_bind_int64(stmt_article_draft_put, iIdx++, 0);  // authorType = 0 (后台管理�?
+		sqlite3_bind_int64(stmt_article_draft_put, iIdx++, 0);  // authorType = 0 (后台管理�?
 		sqlite3_bind_int64(stmt_article_draft_put, iIdx++, iEditorId);
 		sqlite3_bind_text(stmt_article_draft_put, iIdx++, sAuthorName, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_article_draft_put, iIdx++, now);
@@ -982,12 +988,12 @@ void Admin_article_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, 
 		{ str sVal = xvoTableGetText(tblForm, "title", 5); sqlite3_bind_text(stmt_article_draft_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 		{ str sVal = xvoTableGetText(tblForm, "text", 4); sqlite3_bind_text(stmt_article_draft_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
-		// 作者字段（优先使用表单中的authorName，否则使用当前管理员�?
+		// 作者字段（优先使用表单中的authorName，否则使用当前管理员�?
 		int64 iAdminId = xvoTableGetInt(objSession, "id", 2);
 		str sAdminUser = xvoTableGetText(objSession, "user", 4);
 		str sFormAuthor = xvoTableGetText(tblForm, "authorName", 10);
 		str sAuthorName = (sFormAuthor && strlen(sFormAuthor) > 0) ? sFormAuthor : (sAdminUser ? sAdminUser : (str)"");
-		sqlite3_bind_int64(stmt_article_draft_add, iIdx++, 0);  // authorType = 0 (后台管理�?
+		sqlite3_bind_int64(stmt_article_draft_add, iIdx++, 0);  // authorType = 0 (后台管理�?
 		sqlite3_bind_int64(stmt_article_draft_add, iIdx++, iAdminId);
 		sqlite3_bind_text(stmt_article_draft_add, iIdx++, sAuthorName, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_article_draft_add, iIdx++, now);
@@ -998,7 +1004,7 @@ void Admin_article_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, 
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", iID);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", iID);
 }
 
 // 删除草稿
@@ -1045,7 +1051,7 @@ void Admin_article_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHos
 	{ str sVal = (str)sqlite3_column_text(stmt_article_draft_get, iCol++); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 	{ str sVal = (str)sqlite3_column_text(stmt_article_draft_get, iCol++); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
-	// 作者信�?
+	// 作者信�?
 	int64 iAuthorType = sqlite3_column_int64(stmt_article_draft_get, iCol++);
 	int64 iAuthorId = sqlite3_column_int64(stmt_article_draft_get, iCol++);
 	str sAuthorName = xrtCopyStr((str)sqlite3_column_text(stmt_article_draft_get, iCol++), 0);
@@ -1071,7 +1077,7 @@ void Admin_article_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHos
 	
 	if ( sAuthorName ) xrtFree(sAuthorName);
 	
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 批量发布草稿
@@ -1082,7 +1088,7 @@ void Admin_article_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject o
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -1112,7 +1118,7 @@ void Admin_article_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject o
 	{ str sVal = (str)sqlite3_column_text(stmt_article_draft_get, iCol++); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 	{ str sVal = (str)sqlite3_column_text(stmt_article_draft_get, iCol++); sqlite3_bind_text(stmt_article_add, iIdx++, sVal ? sVal : (str)"", -1, NULL); }
 
-			// 读取作者信�?
+			// 读取作者信�?
 			int64 iAuthorType = sqlite3_column_int64(stmt_article_draft_get, iCol++);
 			int64 iAuthorId = sqlite3_column_int64(stmt_article_draft_get, iCol++);
 			str sTmpAuthorName = (str)sqlite3_column_text(stmt_article_draft_get, iCol++);
@@ -1142,7 +1148,7 @@ void Admin_article_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject o
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
 }
 
 // 批量删除草稿
@@ -1153,7 +1159,7 @@ void Admin_article_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject ob
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -1183,10 +1189,10 @@ void Admin_article_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject ob
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
 }
 
-// 清空草稿�?
+// 清空草稿�?
 void Admin_article_Draft_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	if ( !HttpMethodIs(objReq, "DELETE") ) {
@@ -1194,7 +1200,7 @@ void Admin_article_Draft_Clear(XS_ServerObject objServer, XS_HostObject objHost,
 		return;
 	}
 	
-	// 清空草稿�?
+	// 清空草稿�?
 	sqlite3_step(stmt_article_draft_clear);
 	sqlite3_reset(stmt_article_draft_clear);
 	
@@ -1215,7 +1221,7 @@ void Admin_article_Draft_Count(XS_ServerObject objServer, XS_HostObject objHost,
 	}
 	sqlite3_reset(stmt_article_draft_count);
 	
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"count\": %lld}", iCount);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"count\": %lld}", iCount);
 }
 
 
@@ -1229,7 +1235,7 @@ void Model_article_RegisterRoutes()
 	
 
 	// 前台 API 路由
-	Model_AddRoute("/api/v1/cms/article/list", Api_article_List, FALSE, FALSE, 0, 0);
+	Model_AddRoute("/api/v1/cms/article/all", Api_article_List, FALSE, FALSE, 0, 0);
 	Model_AddRoute("/api/v1/cms/article/get", Api_article_Get, FALSE, FALSE, 0, 0);
 
 
@@ -1240,7 +1246,7 @@ void Model_article_RegisterRoutes()
 
 
 	// 评论路由
-	Model_AddRoute("/api/v1/cms/article/reply/list", Api_article_Reply_List, FALSE, FALSE, 0, 0);
+	Model_AddRoute("/api/v1/cms/article/reply/all", Api_article_Reply_List, FALSE, FALSE, 0, 0);
 	Model_AddRoute("/api/v1/cms/article/reply/add", Api_article_Reply_Add, TRUE, FALSE, 0, 0);
 	Model_AddRoute("/api/v1/cms/article/reply/delete", Api_article_Reply_Delete, TRUE, FALSE, 0, 0);
 
@@ -1273,7 +1279,7 @@ void Model_article_UnregisterRoutes()
 	printf("        [Model] Unregistering routes for article...\n");
 	
 
-	Model_RemoveRoute("/api/v1/cms/article/list");
+	Model_RemoveRoute("/api/v1/cms/article/all");
 	Model_RemoveRoute("/api/v1/cms/article/get");
 
 
@@ -1282,13 +1288,13 @@ void Model_article_UnregisterRoutes()
 
 
 
-	Model_RemoveRoute("/api/v1/cms/article/reply/list");
+	Model_RemoveRoute("/api/v1/cms/article/reply/all");
 	Model_RemoveRoute("/api/v1/cms/article/reply/add");
 	Model_RemoveRoute("/api/v1/cms/article/reply/delete");
 
 
 
-	Model_RemoveRoute("/admin/cms/article/list");
+	Model_RemoveRoute("/admin/cms/article/all");
 	Model_RemoveRoute("/admin/cms/article/get");
 	Model_RemoveRoute("/admin/cms/article/add");
 	Model_RemoveRoute("/admin/cms/article/save");
@@ -1296,7 +1302,7 @@ void Model_article_UnregisterRoutes()
 
 
 
-	Model_RemoveRoute("/admin/cms/article/draft/list");
+	Model_RemoveRoute("/admin/cms/article/draft/all");
 	Model_RemoveRoute("/admin/cms/article/draft/get");
 	Model_RemoveRoute("/admin/cms/article/draft/save");
 	Model_RemoveRoute("/admin/cms/article/draft/delete");

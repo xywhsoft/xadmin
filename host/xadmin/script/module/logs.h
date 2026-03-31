@@ -68,7 +68,7 @@ void Logs_Add(XS_RequestObject objReq, xvalue objSession)
 		sMethod = "";
 	}
 	if ( HttpMethodIs(objReq, "POST") || HttpMethodIs(objReq, "PUT") ) {
-		pBody = (const char*)xsReqBody(objReq);
+		pBody = (str)xsReqBody(objReq);
 		iBodyLen = xsReqBodyLen(objReq);
 	}
 	if ( pBody == NULL ) {

@@ -1,4 +1,4 @@
-﻿#include "plugin.h"
+#include "plugin.h"
 
 PluginContext* ctx;
 str AttachmentPluginPath = NULL;
@@ -93,12 +93,12 @@ void Plugin_attachment_Init()
 
 	int iAuthGroupId = ctx->AddAuthGroup("attachment.manage", "attachment upload, download, manage", 10);
 
-	ctx->AddAuth(iAuthGroupId, "attachment.upload", "涓婁紶闄勪欢", 1);
-	ctx->AddAuth(iAuthGroupId, "attachment.manage", "绠＄悊闄勪欢", 2);
-	ctx->AddAuth(iAuthGroupId, "attachment.delete", "鍒犻櫎闄勪欢", 3);
-	ctx->AddAuth(iAuthGroupId, "attachment.stats", "鏌ョ湅缁熻", 4);
+	ctx->AddAuth(iAuthGroupId, "attachment.upload", "娑撳﹣绱堕梽鍕", 1);
+	ctx->AddAuth(iAuthGroupId, "attachment.manage", "缁狅紕鎮婇梽鍕", 2);
+	ctx->AddAuth(iAuthGroupId, "attachment.delete", "閸掔娀娅庨梽鍕", 3);
+	ctx->AddAuth(iAuthGroupId, "attachment.stats", "閺屻儳婀呯紒鐔活吀", 4);
 
-	g_iMenuId = ctx->AddMenu(0, "闄勪欢绠＄悊", "layui-icon layui-icon-file", 1, "_component", "/admin/view/plugin/attachment/list", 10, TRUE);
+	g_iMenuId = ctx->AddMenu(0, "闂勫嫪娆㈢粻锛勬倞", "layui-icon layui-icon-file", 1, "_component", "/admin/view/plugin/attachment/list", 10, TRUE);
 
 	ctx->Log(LOG_INFO, "Attachment Plugin initialized!");
 }
@@ -347,14 +347,14 @@ void Plugin_attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost, 
 				}
 			}
 		} else if ( HttpMultipartNameIs(&part, "modelName") ) {
-			sModelName = xrtCopyStr(part.pBody, part.iBodyLen);
+			sModelName = xrtCopyStr((str)part.pBody, part.iBodyLen);
 		} else if ( HttpMultipartNameIs(&part, "recordId") ) {
 			char sTmp[24] = {0};
 			size_t iLen = part.iBodyLen < 23 ? part.iBodyLen : 23;
 			memcpy(sTmp, part.pBody, iLen);
 			iRecordId = xrtStrToI64(sTmp);
 		} else if ( HttpMultipartNameIs(&part, "allowHotlink") ) {
-			iAllowHotlink = (part.iBodyLen > 0 && part.pBody[0] == '1') ? 1 : 0;
+			iAllowHotlink = (( part.iBodyLen > 0 ) && (((char)part.pBody[0]) == '1')) ? 1 : 0;
 		} else if ( HttpMultipartNameIs(&part, "accessType") ) {
 			char sTmp[8] = {0};
 			size_t iLen = part.iBodyLen < 7 ? part.iBodyLen : 7;
@@ -574,7 +574,7 @@ void Plugin_attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, XS
 {
 	CHECK_METHOD_POST(objResp, hm);
 
-	xvalue tblForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
 		SEND_JSON_ERR(objResp, "Invalid data");
@@ -602,9 +602,9 @@ void Plugin_attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, XS
 	xvoUnref(tblForm);
 
 	if ( bOK ) {
-		SEND_JSON_OK(objResp, "淇濆瓨鎴愬姛");
+		SEND_JSON_OK(objResp, "娣囨繂鐡ㄩ幋鎰");
 	} else {
-		SEND_JSON_ERR(objResp, "淇濆瓨澶辫触");
+		SEND_JSON_ERR(objResp, "娣囨繂鐡ㄦ径杈Е");
 	}
 }
 
@@ -634,9 +634,9 @@ void Plugin_attachment_Delete(XS_ServerObject objServer, XS_HostObject objHost, 
 	ctx->Free(sSQL);
 
 	if ( bOK ) {
-		SEND_JSON_OK(objResp, "鍒犻櫎鎴愬姛");
+		SEND_JSON_OK(objResp, "閸掔娀娅庨幋鎰");
 	} else {
-		SEND_JSON_ERR(objResp, "鍒犻櫎澶辫触");
+		SEND_JSON_ERR(objResp, "閸掔娀娅庢径杈Е");
 	}
 }
 
@@ -683,7 +683,7 @@ void Plugin_attachment_Purchase(XS_ServerObject objServer, XS_HostObject objHost
 
 	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 
-	xvalue tblForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
 		SEND_JSON_ERR(objResp, "Invalid data");
@@ -878,7 +878,7 @@ void Plugin_attachment_Access(XS_ServerObject objServer, XS_HostObject objHost, 
 	char sXID[64];
 	int iLen = HttpGetQueryVar(objReq, "xid", sXID, sizeof(sXID));
 	if ( iLen <= 0 ) {
-		mg_http_reply(objResp, 400, HTTP_CT_JSON, "{\"error\":\"Missing xid parameter\"}");
+		HttpReplyFormat(objResp, 400, HTTP_CT_JSON, "{\"error\":\"Missing xid parameter\"}");
 		return;
 	}
 
@@ -888,7 +888,7 @@ void Plugin_attachment_Access(XS_ServerObject objServer, XS_HostObject objHost, 
 
 	if ( !arrResult || arrResult->Type != XVO_DT_ARRAY || xvoArrayItemCount(arrResult) == 0 ) {
 		if ( arrResult ) xvoUnref(arrResult);
-		mg_http_reply(objResp, 404, HTTP_CT_JSON, "{\"error\":\"Not found\"}");
+		HttpReplyFormat(objResp, 404, HTTP_CT_JSON, "{\"error\":\"Not found\"}");
 		return;
 	}
 
@@ -908,18 +908,18 @@ void Plugin_attachment_Access(XS_ServerObject objServer, XS_HostObject objHost, 
 	xvoUnref(arrResult);
 
 	if ( !CheckHotlink(objReq, iAllowHotlink) ) {
-		mg_http_reply(objResp, 403, HTTP_CT_JSON, "{\"error\":\"Hotlink not allowed\"}");
+		HttpReplyFormat(objResp, 403, HTTP_CT_JSON, "{\"error\":\"Hotlink not allowed\"}");
 		return;
 	}
 
 	if ( iAccessType == 1 ) {
 		if ( !objSession || objSession->Type != XVO_DT_TABLE ) {
-			mg_http_reply(objResp, 401, HTTP_CT_JSON, "{\"error\":\"Login required\"}");
+			HttpReplyFormat(objResp, 401, HTTP_CT_JSON, "{\"error\":\"Login required\"}");
 			return;
 		}
 	} else if ( iAccessType == 2 ) {
 		if ( !objSession || objSession->Type != XVO_DT_TABLE ) {
-			mg_http_reply(objResp, 401, HTTP_CT_JSON, "{\"error\":\"Login required\"}");
+			HttpReplyFormat(objResp, 401, HTTP_CT_JSON, "{\"error\":\"Login required\"}");
 			return;
 		}
 
@@ -934,21 +934,21 @@ void Plugin_attachment_Access(XS_ServerObject objServer, XS_HostObject objHost, 
 
 			if ( !bPurchased ) {
 				str sJson = xrtFormat("{\"error\":\"Payment required\",\"price\":%lld,\"priceType\":%d}", iPrice, iPriceType);
-				mg_http_reply(objResp, 402, HTTP_CT_JSON, sJson);
+				HttpReplyFormat(objResp, 402, HTTP_CT_JSON, sJson);
 				ctx->Free(sJson);
 				return;
 			}
 		}
 	} else if ( iAccessType == 3 ) {
 		if ( !objSession || objSession->Type != XVO_DT_TABLE ) {
-			mg_http_reply(objResp, 401, HTTP_CT_JSON, "{\"error\":\"Login required\"}");
+			HttpReplyFormat(objResp, 401, HTTP_CT_JSON, "{\"error\":\"Login required\"}");
 			return;
 		}
 		int iUserLevel = xvoTableGetInt(objSession, "authLevel", 9);
 
 		if ( iUserLevel < iAccessLevel ) {
 			str sJson = xrtFormat("{\"error\":\"Insufficient permission level\",\"required\":%d,\"current\":%d}", iAccessLevel, iUserLevel);
-			mg_http_reply(objResp, 403, HTTP_CT_JSON, sJson);
+			HttpReplyFormat(objResp, 403, HTTP_CT_JSON, sJson);
 			ctx->Free(sJson);
 			return;
 		}
@@ -957,7 +957,7 @@ void Plugin_attachment_Access(XS_ServerObject objServer, XS_HostObject objHost, 
 	str sFullPath = xrtPathJoin(2, AttachmentPluginPath, sPath);
 	if ( !xrtFileExists(sFullPath) ) {
 		ctx->Free(sFullPath);
-		mg_http_reply(objResp, 404, HTTP_CT_JSON, "{\"error\":\"File not found\"}");
+		HttpReplyFormat(objResp, 404, HTTP_CT_JSON, "{\"error\":\"File not found\"}");
 		return;
 	}
 
@@ -979,7 +979,7 @@ void Plugin_attachment_Access(XS_ServerObject objServer, XS_HostObject objHost, 
 	str sFileData = xrtFileGetAll(sFullPath, &iFileSize);
 	if ( sFileData == NULL ) {
 		ctx->Free(sFullPath);
-		mg_http_reply(objResp, 500, HTTP_CT_JSON, "{\"error\":\"Failed to read file\"}");
+		HttpReplyFormat(objResp, 500, HTTP_CT_JSON, "{\"error\":\"Failed to read file\"}");
 		return;
 	}
 

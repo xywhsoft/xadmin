@@ -68,7 +68,7 @@ void API_ModelGen_Templates(XS_ServerObject objServer, XS_HostObject objHost, XS
 
 void API_ModelGen_TemplateDetail(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue objForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !objForm ) {
 		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
 		return;
@@ -112,7 +112,7 @@ void API_ModelGen_TemplateDetail(XS_ServerObject objServer, XS_HostObject objHos
 
 void API_ModelGen_Create(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue objForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !objForm ) {
 		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
 		return;

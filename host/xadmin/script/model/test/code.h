@@ -6,16 +6,22 @@
 // TCC独立状态机编译
 // ============================================
 
-// 引入 xserver 基础�?
+// 引入 xserver 基础�?
 #include <xs_vnext_full.h>
 
-// 全局变量（通过 Model_SetGlobalData 传入�?
+// 全局变量（通过 Model_SetGlobalData 传入�?
 sqlite3* G_DB;
 
-// 模型管理器特有函数声�?
-// 注意：Model_AddRoute 实际返回 RouteInfo*，但模型代码不需要使用返回�?
+// 模型管理器特有函数声�?
+// 注意：Model_AddRoute 实际返回 RouteInfo*，但模型代码不需要使用返回�?
 extern void* Model_AddRoute(str, void*, bool, bool, int, int);
 extern void Model_RemoveRoute(str);
+
+// HTTP helper declarations
+bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
+int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
+int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
+int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 
 // HTTP 响应常量
 #define HTTP_CT_JSON "Content-Type: application/json\r\n"
@@ -30,7 +36,7 @@ void Model_SetGlobalData(int idx, void* ptr)
 
 // ==================== 模型代码 ====================
 
-// 预编译语�?
+// 预编译语�?
 sqlite3_stmt* stmt_test_all;
 sqlite3_stmt* stmt_test_get;
 sqlite3_stmt* stmt_test_add;
@@ -40,14 +46,14 @@ sqlite3_stmt* stmt_test_count;
 
 /* ACCESS_CONTROL DISABLED
 
-// 访问控制预编译语�?
+// 访问控制预编译语�?
 sqlite3_stmt* stmt_test_access;
 sqlite3_stmt* stmt_test_member_level;
 */
 
 /* REPLY DISABLED
 
-// 评论预编译语�?
+// 评论预编译语�?
 sqlite3_stmt* stmt_test_reply_list;
 sqlite3_stmt* stmt_test_reply_add;
 sqlite3_stmt* stmt_test_reply_del;
@@ -56,7 +62,7 @@ sqlite3_stmt* stmt_test_reply_get;
 */
 
 
-// 草稿预编译语�?
+// 草稿预编译语�?
 sqlite3_stmt* stmt_test_draft_all;
 sqlite3_stmt* stmt_test_draft_get;
 sqlite3_stmt* stmt_test_draft_add;
@@ -93,7 +99,7 @@ void Model_test_InitStmt()
 		"UPDATE model_test_test SET id = id, authorType = ?, authorId = ?, authorName = ?, updateTime = ? WHERE id = ?",
 		-1, 0, &stmt_test_put, NULL);
 	
-	// 删除记录（软删除�?
+	// 删除记录（软删除�?
 	sqlite3_prepare_v3(db,
 		"UPDATE model_test_test SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, 0, &stmt_test_del, NULL);
@@ -105,12 +111,12 @@ void Model_test_InitStmt()
 	
 /* ACCESS_CONTROL DISABLED
 
-	// 获取内容的访问控制信�?
+	// 获取内容的访问控制信�?
 	sqlite3_prepare_v3(db,
 		"SELECT accessLevel, accessPrice, accessPreview FROM model_test_test WHERE id = ? AND isDelete = 0",
 		-1, 0, &stmt_test_access, NULL);
 	
-	// 获取会员的权限级�?
+	// 获取会员的权限级�?
 	sqlite3_prepare_v3(db,
 		"SELECT g.authLevel FROM member m JOIN memberGroup g ON m.groupId = g.id WHERE m.id = ? AND m.isDelete = 0 AND m.status = 1",
 		-1, 0, &stmt_test_member_level, NULL);
@@ -118,7 +124,7 @@ void Model_test_InitStmt()
 	
 /* REPLY DISABLED
 
-	// 评论列表（根据内容ID�?
+	// 评论列表（根据内容ID�?
 	sqlite3_prepare_v3(db,
 		"SELECT id, userId, userType, content, quoteId, quoteText, status, createTime "
 		"FROM reply WHERE modelName = 'test' AND contentId = ? AND isDelete = 0 "
@@ -137,7 +143,7 @@ void Model_test_InitStmt()
 		"VALUES ('test', ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
 		-1, 0, &stmt_test_reply_add, NULL);
 	
-	// 删除评论（软删除�?
+	// 删除评论（软删除�?
 	sqlite3_prepare_v3(db,
 		"UPDATE reply SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, 0, &stmt_test_reply_del, NULL);
@@ -170,7 +176,7 @@ void Model_test_InitStmt()
 		"UPDATE model_test_test_draft SET id = id, authorType = ?, authorId = ?, authorName = ?, updateTime = ? WHERE id = ?",
 		-1, 0, &stmt_test_draft_put, NULL);
 	
-	// 删除草稿（硬删除�?
+	// 删除草稿（硬删除�?
 	sqlite3_prepare_v3(db,
 		"DELETE FROM model_test_test_draft WHERE id = ?",
 		-1, 0, &stmt_test_draft_del, NULL);
@@ -180,12 +186,12 @@ void Model_test_InitStmt()
 		"SELECT COUNT(*) FROM model_test_test_draft",
 		-1, 0, &stmt_test_draft_count, NULL);
 	
-	// 发布草稿（插入主表后删除草稿�? 只删除草稿记�?
+	// 发布草稿（插入主表后删除草稿�? 只删除草稿记�?
 	sqlite3_prepare_v3(db,
 		"DELETE FROM model_test_test_draft WHERE id = ?",
 		-1, 0, &stmt_test_draft_publish, NULL);
 	
-	// 清空草稿�?
+	// 清空草稿�?
 	sqlite3_prepare_v3(db,
 		"DELETE FROM model_test_test_draft",
 		-1, 0, &stmt_test_draft_clear, NULL);
@@ -299,12 +305,12 @@ void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	
 /* ACCESS_CONTROL DISABLED
 
-	// ========== 访问控制检�?==========
+	// ========== 访问控制检�?==========
 	int iAccessLevel = 0;
 	double fAccessPrice = 0;
 	str sAccessPreview = NULL;
 	
-	// 获取内容的访问控制信�?
+	// 获取内容的访问控制信�?
 	sqlite3_bind_int64(stmt_test_access, 1, iID);
 	if ( sqlite3_step(stmt_test_access) == SQLITE_ROW ) {
 		iAccessLevel = sqlite3_column_int(stmt_test_access, 0);
@@ -316,7 +322,7 @@ void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	}
 	sqlite3_reset(stmt_test_access);
 	
-	// 检查访问权�?
+	// 检查访问权�?
 	bool bAccessDenied = FALSE;
 	str sAccessDeniedMsg = NULL;
 	int iRequiredLevel = 0;
@@ -339,26 +345,26 @@ void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		}
 		
 		if ( iAccessLevel > 0 ) {
-			// 需要指定权限级�?
+			// 需要指定权限级�?
 			if ( iMemberId <= 0 ) {
 				bAccessDenied = TRUE;
 				sAccessDeniedMsg = "请先登录";
 				iRequiredLevel = iAccessLevel;
 			} else if ( iMemberAuthLevel < iAccessLevel ) {
 				bAccessDenied = TRUE;
-				sAccessDeniedMsg = "权限不足，需要更高级别会�?;
+				sAccessDeniedMsg = "权限不足，需要更高级别会�?;
 				iRequiredLevel = iAccessLevel;
 			}
 		} else if ( iAccessLevel == -1 ) {
-			// 付费内容 - 待实现购买记录检�?
+			// 付费内容 - 待实现购买记录检�?
 			// TODO: 检查用户是否已购买
 			bAccessDenied = TRUE;
-			sAccessDeniedMsg = "付费内容，请购买后查�?;
+			sAccessDeniedMsg = "付费内容，请购买后查�?;
 		} else if ( iAccessLevel == -2 ) {
-			// 仅作者可�?- 待实现作者字段检�?
-			// TODO: 检查是否为内容作�?
+			// 仅作者可�?- 待实现作者字段检�?
+			// TODO: 检查是否为内容作�?
 			bAccessDenied = TRUE;
-			sAccessDeniedMsg = "仅作者可�?;
+			sAccessDeniedMsg = "仅作者可�?;
 		}
 	}
 	
@@ -386,7 +392,7 @@ void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	}
 	
 	if ( sAccessPreview ) xrtFree(sAccessPreview);
-	// ========== 访问控制检查结�?==========
+	// ========== 访问控制检查结�?==========
 */
 	
 	xvalue tblData = NULL;
@@ -434,7 +440,7 @@ void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -449,7 +455,7 @@ void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 		sMemberNickname = xvoTableGetText(objSession, "nickname", 8);
 	}
 	
-	// 检查是否允许游客投�?
+	// 检查是否允许游客投�?
 	int iAllowGuest = 0;
 	if ( (iMemberId <= 0) && !iAllowGuest ) {
 		xvoUnref(tblForm);
@@ -457,11 +463,11 @@ void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 		return;
 	}
 	
-	// 决定数据去向：游客始终进草稿，会员根据配置决�?
+	// 决定数据去向：游客始终进草稿，会员根据配置决�?
 	int iNeedReview = 0;
 	bool bToDraft = (iMemberId <= 0) || iNeedReview;
 	
-	// 作者信�?
+	// 作者信�?
 	int iAuthorType = (iMemberId <= 0) ? 2 : 1;  // 2=游客, 1=前台会员
 	int64 iAuthorId = iMemberId;
 	str sAuthorName = xvoTableGetText(tblForm, "authorName", 10);
@@ -474,7 +480,7 @@ void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	int64 newId = 0;
 	
 	if ( bToDraft ) {
-		// 进入草稿�?
+		// 进入草稿�?
 
 		sqlite3_bind_int64(stmt_test_draft_add, iIdx++, iAuthorType);
 		sqlite3_bind_int64(stmt_test_draft_add, iIdx++, iAuthorId);
@@ -500,9 +506,9 @@ void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	xvoUnref(tblForm);
 	
 	if ( bToDraft ) {
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Submitted to review\", \"data\": {\"id\": %lld, \"isDraft\": true}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Submitted to review\", \"data\": {\"id\": %lld, \"isDraft\": true}}", newId);
 	} else {
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Published\", \"data\": {\"id\": %lld, \"isDraft\": false}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Published\", \"data\": {\"id\": %lld, \"isDraft\": false}}", newId);
 	}
 }
 */
@@ -583,7 +589,7 @@ void Api_test_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -612,7 +618,7 @@ void Api_test_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		// 获取被引用评论的内容摘要
 		sqlite3_bind_int64(stmt_test_reply_get, 1, iQuoteId);
 		if ( sqlite3_step(stmt_test_reply_get) == SQLITE_ROW ) {
-			str sOrigContent = (str)sqlite3_column_text(stmt_test_reply_get, 3);  // content 在第4�?
+			str sOrigContent = (str)sqlite3_column_text(stmt_test_reply_get, 3);  // content 在第4�?
 			if ( sOrigContent ) {
 				int iMaxLen = {{REPLY_QUOTE_MAX_LEN}};
 				int iLen = strlen(sOrigContent);
@@ -631,8 +637,8 @@ void Api_test_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	int64 iUserId = xvoTableGetInt(tblForm, "userId", 6);
 	int64 iUserType = xvoTableGetInt(tblForm, "userType", 8);  // 0=会员, 1=后台用户
 	
-	// 状态：是否需要审�?
-	int64 iStatus = {{REPLY_NEED_APPROVE}} ? 0 : 1;  // 0=待审�? 1=已发�?
+	// 状态：是否需要审�?
+	int64 iStatus = {{REPLY_NEED_APPROVE}} ? 0 : 1;  // 0=待审�? 1=已发�?
 	
 	xtime now = xrtNow();
 	int iIdx = 1;
@@ -655,7 +661,7 @@ void Api_test_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	}
 	xvoUnref(tblForm);
 	
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 删除评论（需要校验权限）
@@ -669,7 +675,7 @@ void Api_test_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 	
-	// TODO: 应该校验当前用户是否有权删除该评�?
+	// TODO: 应该校验当前用户是否有权删除该评�?
 	
 	xtime now = xrtNow();
 	sqlite3_bind_int64(stmt_test_reply_del, 1, now);
@@ -796,7 +802,7 @@ void Admin_test_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -806,7 +812,7 @@ void Admin_test_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	xtime now = xrtNow();
 	int iIdx = 1;
 
-	// 作者字�?
+	// 作者字�?
 	sqlite3_bind_int64(stmt_test_add, iIdx++, xvoTableGetInt(tblForm, "authorType", 10));
 	sqlite3_bind_int64(stmt_test_add, iIdx++, xvoTableGetInt(tblForm, "authorId", 8));
 	str sAuthorName = xvoTableGetText(tblForm, "authorName", 10);
@@ -818,7 +824,7 @@ void Admin_test_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	sqlite3_reset(stmt_test_add);
 	xvoUnref(tblForm);
 	
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 后台更新
@@ -829,7 +835,7 @@ void Admin_test_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -846,7 +852,7 @@ void Admin_test_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	xtime now = xrtNow();
 	int iIdx = 1;
 
-	// 作者字�?
+	// 作者字�?
 	sqlite3_bind_int64(stmt_test_put, iIdx++, xvoTableGetInt(tblForm, "authorType", 10));
 	sqlite3_bind_int64(stmt_test_put, iIdx++, xvoTableGetInt(tblForm, "authorId", 8));
 	str sAuthorName = xvoTableGetText(tblForm, "authorName", 10);
@@ -996,7 +1002,7 @@ void Admin_test_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -1034,7 +1040,7 @@ void Admin_test_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", iID);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", iID);
 }
 
 // 删除草稿
@@ -1079,7 +1085,7 @@ void Admin_test_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHost, 
 	int iIdx = 1;
 	int iCol = 1;  // 跳过 id
 
-	// 作者信�?
+	// 作者信�?
 	int64 iAuthorType = sqlite3_column_int64(stmt_test_draft_get, iCol++);
 	int64 iAuthorId = sqlite3_column_int64(stmt_test_draft_get, iCol++);
 	str sAuthorName = xrtCopyStr((str)sqlite3_column_text(stmt_test_draft_get, iCol++), 0);
@@ -1099,7 +1105,7 @@ void Admin_test_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHost, 
 	
 	if ( sAuthorName ) xrtFree(sAuthorName);
 	
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 批量发布草稿
@@ -1110,7 +1116,7 @@ void Admin_test_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject objH
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -1158,7 +1164,7 @@ void Admin_test_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject objH
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
 }
 
 // 批量删除草稿
@@ -1169,7 +1175,7 @@ void Admin_test_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject objHo
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -1199,10 +1205,10 @@ void Admin_test_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject objHo
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
 }
 
-// 清空草稿�?
+// 清空草稿�?
 void Admin_test_Draft_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	if ( !HttpMethodIs(objReq, "DELETE") ) {
@@ -1210,7 +1216,7 @@ void Admin_test_Draft_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS
 		return;
 	}
 	
-	// 清空草稿�?
+	// 清空草稿�?
 	sqlite3_step(stmt_test_draft_clear);
 	sqlite3_reset(stmt_test_draft_clear);
 	
@@ -1231,7 +1237,7 @@ void Admin_test_Draft_Count(XS_ServerObject objServer, XS_HostObject objHost, XS
 	}
 	sqlite3_reset(stmt_test_draft_count);
 	
-	mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"count\": %lld}", iCount);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"count\": %lld}", iCount);
 }
 
 
@@ -1245,7 +1251,7 @@ void Model_test_RegisterRoutes()
 	
 
 	// 前台 API 路由
-	Model_AddRoute("/api/v1/test/test/list", Api_test_List, FALSE, FALSE, 0, 0);
+	Model_AddRoute("/api/v1/test/test/all", Api_test_List, FALSE, FALSE, 0, 0);
 	Model_AddRoute("/api/v1/test/test/get", Api_test_Get, FALSE, FALSE, 0, 0);
 
 
@@ -1258,7 +1264,7 @@ void Model_test_RegisterRoutes()
 /* REPLY DISABLED
 
 	// 评论路由
-	Model_AddRoute("/api/v1/test/test/reply/list", Api_test_Reply_List, FALSE, FALSE, 0, 0);
+	Model_AddRoute("/api/v1/test/test/reply/all", Api_test_Reply_List, FALSE, FALSE, 0, 0);
 	Model_AddRoute("/api/v1/test/test/reply/add", Api_test_Reply_Add, TRUE, FALSE, 0, {{REPLY_AUTH_LEVEL}});
 	Model_AddRoute("/api/v1/test/test/reply/delete", Api_test_Reply_Delete, TRUE, FALSE, 0, {{REPLY_AUTH_LEVEL}});
 */
@@ -1291,7 +1297,7 @@ void Model_test_UnregisterRoutes()
 	printf("        [Model] Unregistering routes for test...\n");
 	
 
-	Model_RemoveRoute("/api/v1/test/test/list");
+	Model_RemoveRoute("/api/v1/test/test/all");
 	Model_RemoveRoute("/api/v1/test/test/get");
 
 
@@ -1302,13 +1308,13 @@ void Model_test_UnregisterRoutes()
 
 /* REPLY DISABLED
 
-	Model_RemoveRoute("/api/v1/test/test/reply/list");
+	Model_RemoveRoute("/api/v1/test/test/reply/all");
 	Model_RemoveRoute("/api/v1/test/test/reply/add");
 	Model_RemoveRoute("/api/v1/test/test/reply/delete");
 */
 
 
-	Model_RemoveRoute("/admin/test/test/list");
+	Model_RemoveRoute("/admin/test/test/all");
 	Model_RemoveRoute("/admin/test/test/get");
 	Model_RemoveRoute("/admin/test/test/add");
 	Model_RemoveRoute("/admin/test/test/save");
@@ -1316,7 +1322,7 @@ void Model_test_UnregisterRoutes()
 
 
 
-	Model_RemoveRoute("/admin/test/test/draft/list");
+	Model_RemoveRoute("/admin/test/test/draft/all");
 	Model_RemoveRoute("/admin/test/test/draft/get");
 	Model_RemoveRoute("/admin/test/test/draft/save");
 	Model_RemoveRoute("/admin/test/test/draft/delete");

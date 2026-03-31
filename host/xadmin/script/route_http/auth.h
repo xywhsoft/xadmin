@@ -168,7 +168,7 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	} else if ( HttpMethodIs(objReq, "POST") ) {
 		
 		// 添加用户
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -242,7 +242,7 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		
 		// 更新用户 - 不更新用户名，只更新角色
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -301,7 +301,7 @@ void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, X
 	if ( HttpMethodIs(objReq, "POST") ) {
 		
 		// 重置密码
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -554,7 +554,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	} else if ( HttpMethodIs(objReq, "POST") ) {
 		
 		// 添加角色
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -582,7 +582,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		xvoUnref(tblForm);
 		
 		// 返回成功信息和新创建的ID
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"角色添加成功！\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"角色添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		
 		// 刷新角色缓存
 		Auth_ReloadCache();
@@ -590,7 +590,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		
 		// 更新角色
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -824,7 +824,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	} else if ( HttpMethodIs(objReq, "POST") ) {
 		
 		// 添加权限分类
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -846,7 +846,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		xvoUnref(tblForm);
 		
 		// 返回成功信息和新创建的ID
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类添加成功！\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		
 		// 刷新权限分类缓存
 		ReloadCache_Auth_Group();
@@ -854,7 +854,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		
 		// 更新权限分类
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -1096,7 +1096,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	} else if ( HttpMethodIs(objReq, "POST") ) {
 		
 		// 添加权限�?
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -1120,7 +1120,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		xvoUnref(tblForm);
 		
 		// 返回成功信息和新创建的ID
-		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限组添加成功！\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限组添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		
 		// 刷新权限分组 + 权限分类缓存
 		ReloadCache_Auth_Auth();
@@ -1129,7 +1129,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		
 		// 更新权限�?
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -1369,7 +1369,7 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		
 		// 更新接口信息
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);

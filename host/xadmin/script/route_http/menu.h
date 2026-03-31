@@ -148,7 +148,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	} else if ( HttpMethodIs(objReq, "POST") ) {
 		
 		// 解析请求�?
-		xvalue tblBody = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
 			return;
@@ -199,7 +199,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		
 		// 解析请求�?
-		xvalue tblBody = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
 			return;

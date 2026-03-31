@@ -104,12 +104,12 @@ typedef struct {
 	void (*RemoveRoute)(str uri);
 	
 	// ===== HTTP响应 =====
-	void (*SendJson)(struct mg_connection* c, int code, str json);
-	void (*SendHtml)(struct mg_connection* c, int code, str html);
-	void (*SendPage)(struct mg_connection* c, str pagePath, xvalue data);
+	void (*SendJson)(XS_ResponseObject objResp, int code, str json, size_t iLen);
+	void (*SendHtml)(XS_ResponseObject objResp, int code, str html);
+	void (*SendPage)(XS_ResponseObject objResp, str pagePath, xvalue data);
 	
 	// ===== JSON操作 =====
-	xvalue (*JsonParse)(str json);
+	xvalue (*JsonParse)(str json, size_t iLen);
 	str (*JsonStringify)(xvalue val);
 	void (*JsonFree)(xvalue val);
 	
@@ -462,9 +462,9 @@ void Model_UnregisterNamespace(ModelInstance* pModel)
 // ==================== 上下文接口实�?====================
 
 // JSON解析包装
-xvalue ModelCtx_JsonParse(str json)
+xvalue ModelCtx_JsonParse(str json, size_t iLen)
 {
-	return xrtParseJSON(json, strlen(json));
+	return xrtParseJSON(json, ( iLen > 0 ) ? iLen : strlen(json));
 }
 
 // JSON序列化包�?
@@ -1767,7 +1767,7 @@ bool Model_TccLoad(ModelInstance* pModel)
 	tcc_add_symbol(pTcc, "HttpMethodIs", HttpMethodIs);
 	tcc_add_symbol(pTcc, "http_reply", http_reply);
 	tcc_add_symbol(pTcc, "HttpGetQueryVar", HttpGetQueryVar);
-	tcc_add_symbol(pTcc, "mg_http_reply", mg_http_reply);
+	tcc_add_symbol(pTcc, "HttpReplyFormat", HttpReplyFormat);
 	
 	// 地址重定�?
 	if ( tcc_relocate(pTcc) < 0 ) {

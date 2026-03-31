@@ -191,7 +191,7 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 	
 	// 解析请求
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);

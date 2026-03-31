@@ -47,7 +47,7 @@ void API_Hello_Info(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 
 void API_Debug_ExecuteSQL(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objReqTbl = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue objReqTbl = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !objReqTbl ) {
 		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
 		return;
@@ -88,7 +88,7 @@ void API_Debug_ExecuteSQL(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 
 void API_Debug_QueryTable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objReqTbl = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue objReqTbl = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !objReqTbl ) {
 		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
 		return;

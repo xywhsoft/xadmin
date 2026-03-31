@@ -25,7 +25,7 @@ void Model_{{MODEL_NAME}}_CompileSQL()
 	int iRet;
 	
 	// 分页获取所有数据
-	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB->objDB, 
+	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB, 
 		"SELECT {{SQL_SELECT_FIELDS}} FROM {{TABLE_NAME}} WHERE isDelete = 0 ORDER BY id DESC LIMIT ? OFFSET ?", 
 		-1, SQL_PREPARE_DEFAULT, &stmt_{{MODEL_NAME}}_all, NULL);
 	if ( iRet != SQLITE_OK ) {
@@ -33,7 +33,7 @@ void Model_{{MODEL_NAME}}_CompileSQL()
 	}
 	
 	// 根据ID获取单条数据
-	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB->objDB, 
+	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB, 
 		"SELECT {{SQL_SELECT_FIELDS}} FROM {{TABLE_NAME}} WHERE id = ? AND isDelete = 0", 
 		-1, SQL_PREPARE_DEFAULT, &stmt_{{MODEL_NAME}}_get, NULL);
 	if ( iRet != SQLITE_OK ) {
@@ -41,7 +41,7 @@ void Model_{{MODEL_NAME}}_CompileSQL()
 	}
 	
 	// 添加数据
-	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB->objDB, 
+	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB, 
 		"INSERT INTO {{TABLE_NAME}} ({{SQL_INSERT_FIELDS}}, createTime, updateTime, isDelete) VALUES ({{SQL_INSERT_VALUES}}, ?, ?, 0)", 
 		-1, SQL_PREPARE_DEFAULT, &stmt_{{MODEL_NAME}}_add, NULL);
 	if ( iRet != SQLITE_OK ) {
@@ -49,7 +49,7 @@ void Model_{{MODEL_NAME}}_CompileSQL()
 	}
 	
 	// 修改数据
-	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB->objDB, 
+	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB, 
 		"UPDATE {{TABLE_NAME}} SET {{SQL_UPDATE_FIELDS}}, updateTime = ? WHERE id = ?", 
 		-1, SQL_PREPARE_DEFAULT, &stmt_{{MODEL_NAME}}_put, NULL);
 	if ( iRet != SQLITE_OK ) {
@@ -57,7 +57,7 @@ void Model_{{MODEL_NAME}}_CompileSQL()
 	}
 	
 	// 删除数据（软删除）
-	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB->objDB, 
+	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB, 
 		"UPDATE {{TABLE_NAME}} SET isDelete = 1, updateTime = ? WHERE id = ?", 
 		-1, SQL_PREPARE_DEFAULT, &stmt_{{MODEL_NAME}}_del, NULL);
 	if ( iRet != SQLITE_OK ) {
@@ -65,7 +65,7 @@ void Model_{{MODEL_NAME}}_CompileSQL()
 	}
 	
 	// 统计总数
-	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB->objDB, 
+	iRet = sqlite3_prepare_v3(G_ModelCtx->pDB, 
 		"SELECT COUNT(*) FROM {{TABLE_NAME}} WHERE isDelete = 0", 
 		-1, SQL_PREPARE_DEFAULT, &stmt_{{MODEL_NAME}}_count, NULL);
 	if ( iRet != SQLITE_OK ) {
@@ -79,38 +79,38 @@ void Model_{{MODEL_NAME}}_CompileSQL()
 
 {{#ENABLE_API}}
 // API: 获取列表
-void API_{{API_PREFIX}}_List(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_{{API_PREFIX}}_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现列表接口
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":[]}");
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":[]}");
 }
 
 // API: 获取详情
-void API_{{API_PREFIX}}_Get(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_{{API_PREFIX}}_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现详情接口
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":{}}");
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":{}}");
 }
 
 // API: 添加数据
-void API_{{API_PREFIX}}_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_{{API_PREFIX}}_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现添加接口
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
 }
 
 // API: 修改数据
-void API_{{API_PREFIX}}_Put(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_{{API_PREFIX}}_Put(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现修改接口
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
 }
 
 // API: 删除数据
-void API_{{API_PREFIX}}_Del(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void API_{{API_PREFIX}}_Del(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现删除接口
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
 }
 {{/ENABLE_API}}
 
@@ -120,53 +120,53 @@ void API_{{API_PREFIX}}_Del(XS_ServerObject objServer, XS_HostObject objHost, st
 
 {{#ENABLE_ADMIN}}
 // 后台: 数据接口
-void Request_Model_{{ADMIN_PREFIX}}(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_Model_{{ADMIN_PREFIX}}(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现后台数据接口
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":[]}");
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":[]}");
 }
 
 // 后台: 列表页面
-void Request_View_Model_{{ADMIN_PREFIX}}(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Model_{{ADMIN_PREFIX}}(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 渲染列表页面
 	str sPagePath = G_ModelCtx->Format("%s/{{MODEL_NAME}}/page/list.html", ModelPath);
 	str sHtml = xrtFileRead(sPagePath);
 	if ( sHtml ) {
-		mg_http_reply(c, 200, HTTP_CT_HTML, "%s", sHtml);
+		HttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
 		xrtFree(sHtml);
 	} else {
-		mg_http_reply(c, 404, HTTP_CT_HTML, "Page not found");
+		HttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
 	}
 	G_ModelCtx->Free(sPagePath);
 }
 
 // 后台: 添加页面
-void Request_View_Model_{{ADMIN_PREFIX}}_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Model_{{ADMIN_PREFIX}}_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 渲染添加页面
 	str sPagePath = G_ModelCtx->Format("%s/{{MODEL_NAME}}/page/add.html", ModelPath);
 	str sHtml = xrtFileRead(sPagePath);
 	if ( sHtml ) {
-		mg_http_reply(c, 200, HTTP_CT_HTML, "%s", sHtml);
+		HttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
 		xrtFree(sHtml);
 	} else {
-		mg_http_reply(c, 404, HTTP_CT_HTML, "Page not found");
+		HttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
 	}
 	G_ModelCtx->Free(sPagePath);
 }
 
 // 后台: 编辑页面
-void Request_View_Model_{{ADMIN_PREFIX}}_Edit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Request_View_Model_{{ADMIN_PREFIX}}_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 渲染编辑页面
 	str sPagePath = G_ModelCtx->Format("%s/{{MODEL_NAME}}/page/edit.html", ModelPath);
 	str sHtml = xrtFileRead(sPagePath);
 	if ( sHtml ) {
-		mg_http_reply(c, 200, HTTP_CT_HTML, "%s", sHtml);
+		HttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
 		xrtFree(sHtml);
 	} else {
-		mg_http_reply(c, 404, HTTP_CT_HTML, "Page not found");
+		HttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
 	}
 	G_ModelCtx->Free(sPagePath);
 }

@@ -7,24 +7,29 @@
 // ============================================
 
 // 引入 xserver 基础库
-#include <xsbase.h>
+#include <xs_vnext_full.h>
 
 // 全局变量（通过 Model_SetGlobalData 传入）
-XDO_Connect G_DB;
+sqlite3* G_DB;
 
 // 模型管理器特有函数声明
 // 注意：Model_AddRoute 实际返回 RouteInfo*，但模型代码不需要使用返回值
 extern void* Model_AddRoute(str, void*, bool, bool, int, int);
 extern void Model_RemoveRoute(str);
 
-// HTTP 响应常量
+// HTTP helper declarations
+bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
+int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
+int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
+int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
+
 #define HTTP_CT_JSON "Content-Type: application/json\r\n"
 
 // 接收主系统传递的全局数据
 void Model_SetGlobalData(int idx, void* ptr)
 {
 	if ( idx == 1 ) {
-		G_DB = (XDO_Connect)ptr;
+		G_DB = (sqlite3*)ptr;
 	}
 }
 
@@ -68,7 +73,7 @@ sqlite3_stmt* stmt_{{MODEL_NAME}}_draft_clear;
 // 初始化预编译语句
 void Model_{{MODEL_NAME}}_InitStmt()
 {
-	sqlite3* db = G_DB->objDB;
+	sqlite3* db = G_DB;
 	
 	// 分页获取列表
 	sqlite3_prepare_v3(db,
@@ -242,18 +247,18 @@ void Model_{{MODEL_NAME}}_FreeStmt()
 // ==================== 前台 API ====================
 
 // 获取列表
-void Api_{{MODEL_NAME}}_List(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Api_{{MODEL_NAME}}_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	char sParam[64];
-	mg_http_get_var(&hm->query, "page", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) iPage = 1;
-	mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) iLimit = 20;
 	if ( iLimit > 100 ) iLimit = 100;
@@ -291,19 +296,19 @@ void Api_{{MODEL_NAME}}_List(XS_ServerObject objServer, XS_HostObject objHost, s
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
 
 // 获取详情
-void Api_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Api_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -335,8 +340,8 @@ void Api_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, st
 		int64 iMemberId = 0;
 		int iMemberAuthLevel = 0;
 		
-		if ( hm->session ) {
-			iMemberId = xvoTableGetInt(hm->session, "id", 2);
+		if ( objSession ) {
+			iMemberId = xvoTableGetInt(objSession, "id", 2);
 			if ( iMemberId > 0 ) {
 				// 获取用户的会员组权限级别
 				sqlite3_bind_int64(stmt_{{MODEL_NAME}}_member_level, 1, iMemberId);
@@ -388,7 +393,7 @@ void Api_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, st
 		
 		size_t iSize = 0;
 		str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-		http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+		http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 		xrtFree(sJson);
 		xvoUnref(tblRet);
 		return;
@@ -413,7 +418,7 @@ void Api_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, st
 	sqlite3_reset(stmt_{{MODEL_NAME}}_get);
 	
 	if ( !tblData ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
 		return;
 	}
 	
@@ -423,7 +428,7 @@ void Api_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, st
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -435,16 +440,16 @@ void Api_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, st
 // ==================== 前台投稿 ====================
 
 // 投稿内容
-void Api_{{MODEL_NAME}}_Submit(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Api_{{MODEL_NAME}}_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -452,16 +457,16 @@ void Api_{{MODEL_NAME}}_Submit(XS_ServerObject objServer, XS_HostObject objHost,
 	// 获取当前用户信息
 	int64 iMemberId = 0;
 	str sMemberNickname = NULL;
-	if ( hm->session ) {
-		iMemberId = xvoTableGetInt(hm->session, "id", 2);
-		sMemberNickname = xvoTableGetText(hm->session, "nickname", 8);
+	if ( objSession ) {
+		iMemberId = xvoTableGetInt(objSession, "id", 2);
+		sMemberNickname = xvoTableGetText(objSession, "nickname", 8);
 	}
 	
 	// 检查是否允许游客投稿
 	int iAllowGuest = {{ALLOW_GUEST_SUBMIT}};
 	if ( (iMemberId <= 0) && !iAllowGuest ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
 		return;
 	}
 	
@@ -490,7 +495,7 @@ void Api_{{MODEL_NAME}}_Submit(XS_ServerObject objServer, XS_HostObject objHost,
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, now);
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, now);
 		sqlite3_step(stmt_{{MODEL_NAME}}_draft_add);
-		newId = sqlite3_last_insert_rowid(G_DB->objDB);
+		newId = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_reset(stmt_{{MODEL_NAME}}_draft_add);
 	} else {
 		// 直接发布
@@ -508,16 +513,16 @@ void Api_{{MODEL_NAME}}_Submit(XS_ServerObject objServer, XS_HostObject objHost,
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, now);
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, now);
 		sqlite3_step(stmt_{{MODEL_NAME}}_add);
-		newId = sqlite3_last_insert_rowid(G_DB->objDB);
+		newId = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_reset(stmt_{{MODEL_NAME}}_add);
 	}
 	
 	xvoUnref(tblForm);
 	
 	if ( bToDraft ) {
-		mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Submitted to review\", \"data\": {\"id\": %lld, \"isDraft\": true}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Submitted to review\", \"data\": {\"id\": %lld, \"isDraft\": true}}", newId);
 	} else {
-		mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Published\", \"data\": {\"id\": %lld, \"isDraft\": false}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Published\", \"data\": {\"id\": %lld, \"isDraft\": false}}", newId);
 	}
 }
 {{#ENDIF_ENABLE_SUBMIT}}
@@ -528,20 +533,20 @@ void Api_{{MODEL_NAME}}_Submit(XS_ServerObject objServer, XS_HostObject objHost,
 // ==================== 评论 API ====================
 
 // 获取评论列表
-void Api_{{MODEL_NAME}}_Reply_List(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Api_{{MODEL_NAME}}_Reply_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sParam[64];
-	mg_http_get_var(&hm->query, "contentId", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "contentId", sParam, sizeof(sParam));
 	int64 iContentId = xrtStrToI64(sParam);
 	if ( iContentId <= 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
 		return;
 	}
 	
-	mg_http_get_var(&hm->query, "page", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) iPage = 1;
-	mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) iLimit = 20;
 	if ( iLimit > 100 ) iLimit = 100;
@@ -584,22 +589,22 @@ void Api_{{MODEL_NAME}}_Reply_List(XS_ServerObject objServer, XS_HostObject objH
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
 
 // 添加评论
-void Api_{{MODEL_NAME}}_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Api_{{MODEL_NAME}}_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -607,14 +612,14 @@ void Api_{{MODEL_NAME}}_Reply_Add(XS_ServerObject objServer, XS_HostObject objHo
 	int64 iContentId = xvoTableGetInt(tblForm, "contentId", 9);
 	if ( iContentId <= 0 ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
 		return;
 	}
 	
 	str sContent = xvoTableGetText(tblForm, "content", 7);
 	if ( !sContent || strlen(sContent) == 0 ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Content is required\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Content is required\"}", 0);
 		return;
 	}
 	
@@ -660,7 +665,7 @@ void Api_{{MODEL_NAME}}_Reply_Add(XS_ServerObject objServer, XS_HostObject objHo
 	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, now);
 	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_reply_add, iIdx++, now);
 	sqlite3_step(stmt_{{MODEL_NAME}}_reply_add);
-	int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
+	int64 newId = sqlite3_last_insert_rowid(G_DB);
 	sqlite3_reset(stmt_{{MODEL_NAME}}_reply_add);
 	
 	// 清理临时内存
@@ -669,17 +674,17 @@ void Api_{{MODEL_NAME}}_Reply_Add(XS_ServerObject objServer, XS_HostObject objHo
 	}
 	xvoUnref(tblForm);
 	
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 删除评论（需要校验权限）
-void Api_{{MODEL_NAME}}_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Api_{{MODEL_NAME}}_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sParam[24];
-	mg_http_get_var(&hm->query, "id", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "id", sParam, sizeof(sParam));
 	int64 iID = xrtStrToI64(sParam);
 	if ( iID <= 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -691,7 +696,7 @@ void Api_{{MODEL_NAME}}_Reply_Delete(XS_ServerObject objServer, XS_HostObject ob
 	sqlite3_step(stmt_{{MODEL_NAME}}_reply_del);
 	sqlite3_reset(stmt_{{MODEL_NAME}}_reply_del);
 	
-	http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 {{#ENDIF_ENABLE_REPLY}}
 
@@ -701,18 +706,18 @@ void Api_{{MODEL_NAME}}_Reply_Delete(XS_ServerObject objServer, XS_HostObject ob
 // ==================== 后台管理 API ====================
 
 // 后台列表
-void Admin_{{MODEL_NAME}}_List(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	char sParam[64];
-	mg_http_get_var(&hm->query, "page", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) iPage = 1;
-	mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) iLimit = 20;
 	int64 iOffset = (iPage - 1) * iLimit;
@@ -760,19 +765,19 @@ void Admin_{{MODEL_NAME}}_List(XS_ServerObject objServer, XS_HostObject objHost,
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
 
 // 后台获取单条
-void Admin_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -801,7 +806,7 @@ void Admin_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, 
 	sqlite3_reset(stmt_{{MODEL_NAME}}_get);
 	
 	if ( !tblData ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
 		return;
 	}
 	
@@ -811,22 +816,22 @@ void Admin_{{MODEL_NAME}}_Get(XS_ServerObject objServer, XS_HostObject objHost, 
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
 
 // 后台添加
-void Admin_{{MODEL_NAME}}_Add(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -841,8 +846,8 @@ void Admin_{{MODEL_NAME}}_Add(XS_ServerObject objServer, XS_HostObject objHost, 
 		int iIdx = 1;
 {{FIELD_BIND_DRAFT_ADD_CODE}}
 		// 作者字段（优先使用表单中的authorName，否则使用当前管理员）
-		int64 iAdminId = xvoTableGetInt(hm->session, "id", 2);
-		str sAdminUser = xvoTableGetText(hm->session, "user", 4);
+		int64 iAdminId = xvoTableGetInt(objSession, "id", 2);
+		str sAdminUser = xvoTableGetText(objSession, "user", 4);
 		str sFormAuthor = xvoTableGetText(tblForm, "authorName", 10);
 		str sAuthorName = (sFormAuthor && strlen(sFormAuthor) > 0) ? sFormAuthor : (sAdminUser ? sAdminUser : (str)"");
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, 0);  // authorType = 0 (后台管理员)
@@ -851,11 +856,11 @@ void Admin_{{MODEL_NAME}}_Add(XS_ServerObject objServer, XS_HostObject objHost, 
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, now);
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, now);
 		sqlite3_step(stmt_{{MODEL_NAME}}_draft_add);
-		int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
+		int64 newId = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_reset(stmt_{{MODEL_NAME}}_draft_add);
 		xvoUnref(tblForm);
 		
-		mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"已保存到草稿箱\", \"data\": {\"id\": %lld}}", newId);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"已保存到草稿箱\", \"data\": {\"id\": %lld}}", newId);
 		return;
 	}
 {{#ENDIF_ENABLE_DRAFT}}
@@ -871,8 +876,8 @@ void Admin_{{MODEL_NAME}}_Add(XS_ServerObject objServer, XS_HostObject objHost, 
 	{ str sPreview = xvoTableGetText(tblForm, "accessPreview", 13); sqlite3_bind_text(stmt_{{MODEL_NAME}}_add, iIdx++, sPreview ? sPreview : (str)"", -1, SQLITE_STATIC); }
 {{#ENDIF_ENABLE_ACCESS_CONTROL}}
 	// 作者字段（优先使用表单中的authorName，否则使用当前管理员）
-	int64 iAdminId = xvoTableGetInt(hm->session, "id", 2);
-	str sAdminUser = xvoTableGetText(hm->session, "user", 4);
+	int64 iAdminId = xvoTableGetInt(objSession, "id", 2);
+	str sAdminUser = xvoTableGetText(objSession, "user", 4);
 	str sFormAuthor = xvoTableGetText(tblForm, "authorName", 10);
 	str sAuthorName = (sFormAuthor && strlen(sFormAuthor) > 0) ? sFormAuthor : (sAdminUser ? sAdminUser : (str)"");
 	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, 0);  // authorType = 0 (后台管理员)
@@ -881,24 +886,24 @@ void Admin_{{MODEL_NAME}}_Add(XS_ServerObject objServer, XS_HostObject objHost, 
 	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, now);
 	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, now);
 	sqlite3_step(stmt_{{MODEL_NAME}}_add);
-	int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
+	int64 newId = sqlite3_last_insert_rowid(G_DB);
 	sqlite3_reset(stmt_{{MODEL_NAME}}_add);
 	xvoUnref(tblForm);
 	
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 后台更新
-void Admin_{{MODEL_NAME}}_Save(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -906,7 +911,7 @@ void Admin_{{MODEL_NAME}}_Save(XS_ServerObject objServer, XS_HostObject objHost,
 	int64 iID = xvoTableGetInt(tblForm, "id", 2);
 	if ( iID <= 0 ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -926,17 +931,17 @@ void Admin_{{MODEL_NAME}}_Save(XS_ServerObject objServer, XS_HostObject objHost,
 	sqlite3_reset(stmt_{{MODEL_NAME}}_put);
 	xvoUnref(tblForm);
 	
-	http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 
 // 后台删除
-void Admin_{{MODEL_NAME}}_Delete(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -946,7 +951,7 @@ void Admin_{{MODEL_NAME}}_Delete(XS_ServerObject objServer, XS_HostObject objHos
 	sqlite3_step(stmt_{{MODEL_NAME}}_del);
 	sqlite3_reset(stmt_{{MODEL_NAME}}_del);
 	
-	http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 {{#ENDIF_ENABLE_ADMIN}}
 
@@ -956,18 +961,18 @@ void Admin_{{MODEL_NAME}}_Delete(XS_ServerObject objServer, XS_HostObject objHos
 // ==================== 草稿管理 API ====================
 
 // 草稿列表
-void Admin_{{MODEL_NAME}}_Draft_List(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_GET ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	char sParam[64];
-	mg_http_get_var(&hm->query, "page", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) iPage = 1;
-	mg_http_get_var(&hm->query, "limit", sParam, sizeof(sParam));
+	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) iLimit = 20;
 	int64 iOffset = (iPage - 1) * iLimit;
@@ -1008,19 +1013,19 @@ void Admin_{{MODEL_NAME}}_Draft_List(XS_ServerObject objServer, XS_HostObject ob
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
 
 // 获取单条草稿
-void Admin_{{MODEL_NAME}}_Draft_Get(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -1042,7 +1047,7 @@ void Admin_{{MODEL_NAME}}_Draft_Get(XS_ServerObject objServer, XS_HostObject obj
 	sqlite3_reset(stmt_{{MODEL_NAME}}_draft_get);
 	
 	if ( !tblData ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
 		return;
 	}
 	
@@ -1052,22 +1057,22 @@ void Admin_{{MODEL_NAME}}_Draft_Get(XS_ServerObject objServer, XS_HostObject obj
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(c, 200, HTTP_CT_JSON, sJson, iSize);
+	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
 
 // 保存草稿
-void Admin_{{MODEL_NAME}}_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -1080,8 +1085,8 @@ void Admin_{{MODEL_NAME}}_Draft_Save(XS_ServerObject objServer, XS_HostObject ob
 		int iIdx = 1;
 {{FIELD_BIND_DRAFT_UPDATE_CODE}}
 		// 作者字段（优先使用表单中的authorName，否则使用当前管理员）
-		int64 iEditorId = xvoTableGetInt(hm->session, "id", 2);
-		str sEditorUser = xvoTableGetText(hm->session, "user", 4);
+		int64 iEditorId = xvoTableGetInt(objSession, "id", 2);
+		str sEditorUser = xvoTableGetText(objSession, "user", 4);
 		str sFormAuthor = xvoTableGetText(tblForm, "authorName", 10);
 		str sAuthorName = (sFormAuthor && strlen(sFormAuthor) > 0) ? sFormAuthor : (sEditorUser ? sEditorUser : (str)"");
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_put, iIdx++, 0);  // authorType = 0 (后台管理员)
@@ -1096,8 +1101,8 @@ void Admin_{{MODEL_NAME}}_Draft_Save(XS_ServerObject objServer, XS_HostObject ob
 		int iIdx = 1;
 {{FIELD_BIND_DRAFT_ADD_CODE}}
 		// 作者字段（优先使用表单中的authorName，否则使用当前管理员）
-		int64 iAdminId = xvoTableGetInt(hm->session, "id", 2);
-		str sAdminUser = xvoTableGetText(hm->session, "user", 4);
+		int64 iAdminId = xvoTableGetInt(objSession, "id", 2);
+		str sAdminUser = xvoTableGetText(objSession, "user", 4);
 		str sFormAuthor = xvoTableGetText(tblForm, "authorName", 10);
 		str sAuthorName = (sFormAuthor && strlen(sFormAuthor) > 0) ? sFormAuthor : (sAdminUser ? sAdminUser : (str)"");
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, 0);  // authorType = 0 (后台管理员)
@@ -1106,22 +1111,22 @@ void Admin_{{MODEL_NAME}}_Draft_Save(XS_ServerObject objServer, XS_HostObject ob
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, now);
 		sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_add, iIdx++, now);
 		sqlite3_step(stmt_{{MODEL_NAME}}_draft_add);
-		iID = sqlite3_last_insert_rowid(G_DB->objDB);
+		iID = sqlite3_last_insert_rowid(G_DB);
 		sqlite3_reset(stmt_{{MODEL_NAME}}_draft_add);
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", iID);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", iID);
 }
 
 // 删除草稿
-void Admin_{{MODEL_NAME}}_Draft_Delete(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -1129,17 +1134,17 @@ void Admin_{{MODEL_NAME}}_Draft_Delete(XS_ServerObject objServer, XS_HostObject 
 	sqlite3_step(stmt_{{MODEL_NAME}}_draft_del);
 	sqlite3_reset(stmt_{{MODEL_NAME}}_draft_del);
 	
-	http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 
 // 发布草稿
-void Admin_{{MODEL_NAME}}_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	mg_http_get_var(&hm->query, "id", sID, sizeof(sID));
+	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -1147,7 +1152,7 @@ void Admin_{{MODEL_NAME}}_Draft_Publish(XS_ServerObject objServer, XS_HostObject
 	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_draft_get, 1, iID);
 	if ( sqlite3_step(stmt_{{MODEL_NAME}}_draft_get) != SQLITE_ROW ) {
 		sqlite3_reset(stmt_{{MODEL_NAME}}_draft_get);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Draft not found\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Draft not found\"}", 0);
 		return;
 	}
 	
@@ -1177,7 +1182,7 @@ void Admin_{{MODEL_NAME}}_Draft_Publish(XS_ServerObject objServer, XS_HostObject
 	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, now);
 	sqlite3_bind_int64(stmt_{{MODEL_NAME}}_add, iIdx++, now);
 	sqlite3_step(stmt_{{MODEL_NAME}}_add);
-	int64 newId = sqlite3_last_insert_rowid(G_DB->objDB);
+	int64 newId = sqlite3_last_insert_rowid(G_DB);
 	sqlite3_reset(stmt_{{MODEL_NAME}}_add);
 	
 	// 删除草稿
@@ -1187,20 +1192,20 @@ void Admin_{{MODEL_NAME}}_Draft_Publish(XS_ServerObject objServer, XS_HostObject
 	
 	if ( sAuthorName ) xrtFree(sAuthorName);
 	
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"id\": %lld}}", newId);
 }
 
 // 批量发布草稿
-void Admin_{{MODEL_NAME}}_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_POST ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -1208,7 +1213,7 @@ void Admin_{{MODEL_NAME}}_Draft_BatchPublish(XS_ServerObject objServer, XS_HostO
 	xvalue arrIds = xvoTableGetValue(tblForm, "ids", 3);
 	if ( !arrIds || arrIds->Type != XVO_DT_ARRAY ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ids\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ids\"}", 0);
 		return;
 	}
 	
@@ -1261,20 +1266,20 @@ void Admin_{{MODEL_NAME}}_Draft_BatchPublish(XS_ServerObject objServer, XS_HostO
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
 }
 
 // 批量删除草稿
-void Admin_{{MODEL_NAME}}_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_DELETE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "DELETE") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON(hm->body.buf, hm->body.len);
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -1282,7 +1287,7 @@ void Admin_{{MODEL_NAME}}_Draft_BatchDelete(XS_ServerObject objServer, XS_HostOb
 	xvalue arrIds = xvoTableGetValue(tblForm, "ids", 3);
 	if ( !arrIds || arrIds->Type != XVO_DT_ARRAY ) {
 		xvoUnref(tblForm);
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ids\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ids\"}", 0);
 		return;
 	}
 	
@@ -1302,14 +1307,14 @@ void Admin_{{MODEL_NAME}}_Draft_BatchDelete(XS_ServerObject objServer, XS_HostOb
 	}
 	
 	xvoUnref(tblForm);
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\", \"data\": {\"count\": %d}}", iSuccess);
 }
 
 // 清空草稿箱
-void Admin_{{MODEL_NAME}}_Draft_Clear(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( hm->methodCode != HTTP_DELETE ) {
-		http_reply(c, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !HttpMethodIs(objReq, "DELETE") ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
@@ -1319,14 +1324,14 @@ void Admin_{{MODEL_NAME}}_Draft_Clear(XS_ServerObject objServer, XS_HostObject o
 	
 	// 重置ID自增序列
 	char* sErr = NULL;
-	sqlite3_exec(G_DB->objDB, "DELETE FROM sqlite_sequence WHERE name='{{DRAFT_TABLE_NAME}}'", NULL, NULL, &sErr);
+	sqlite3_exec(G_DB, "DELETE FROM sqlite_sequence WHERE name='{{DRAFT_TABLE_NAME}}'", NULL, NULL, &sErr);
 	if ( sErr ) sqlite3_free(sErr);
 	
-	http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 
 // 获取草稿数量
-void Admin_{{MODEL_NAME}}_Draft_Count(XS_ServerObject objServer, XS_HostObject objHost, struct mg_connection* c, struct mg_http_message* hm)
+void Admin_{{MODEL_NAME}}_Draft_Count(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	int64 iCount = 0;
 	if ( sqlite3_step(stmt_{{MODEL_NAME}}_draft_count) == SQLITE_ROW ) {
@@ -1334,7 +1339,7 @@ void Admin_{{MODEL_NAME}}_Draft_Count(XS_ServerObject objServer, XS_HostObject o
 	}
 	sqlite3_reset(stmt_{{MODEL_NAME}}_draft_count);
 	
-	mg_http_reply(c, 200, HTTP_CT_JSON, "{\"result\": true, \"count\": %lld}", iCount);
+	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"count\": %lld}", iCount);
 }
 {{#ENDIF_ENABLE_DRAFT}}
 
@@ -1348,7 +1353,7 @@ void Model_{{MODEL_NAME}}_RegisterRoutes()
 	
 {{#IF_ENABLE_API}}
 	// 前台 API 路由
-	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/list", Api_{{MODEL_NAME}}_List, FALSE, FALSE, 0, {{API_AUTH_LEVEL}});
+	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/all", Api_{{MODEL_NAME}}_List, FALSE, FALSE, 0, {{API_AUTH_LEVEL}});
 	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/get", Api_{{MODEL_NAME}}_Get, FALSE, FALSE, 0, {{API_AUTH_LEVEL}});
 {{#ENDIF_ENABLE_API}}
 
@@ -1359,7 +1364,7 @@ void Model_{{MODEL_NAME}}_RegisterRoutes()
 
 {{#IF_ENABLE_REPLY}}
 	// 评论路由
-	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/list", Api_{{MODEL_NAME}}_Reply_List, FALSE, FALSE, 0, 0);
+	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/all", Api_{{MODEL_NAME}}_Reply_List, FALSE, FALSE, 0, 0);
 	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/add", Api_{{MODEL_NAME}}_Reply_Add, TRUE, FALSE, 0, {{REPLY_AUTH_LEVEL}});
 	Model_AddRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/delete", Api_{{MODEL_NAME}}_Reply_Delete, TRUE, FALSE, 0, {{REPLY_AUTH_LEVEL}});
 {{#ENDIF_ENABLE_REPLY}}
@@ -1392,7 +1397,7 @@ void Model_{{MODEL_NAME}}_UnregisterRoutes()
 	printf("        [Model] Unregistering routes for {{MODEL_NAME}}...\n");
 	
 {{#IF_ENABLE_API}}
-	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/list");
+	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/all");
 	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/get");
 {{#ENDIF_ENABLE_API}}
 
@@ -1401,13 +1406,13 @@ void Model_{{MODEL_NAME}}_UnregisterRoutes()
 {{#ENDIF_ENABLE_SUBMIT}}
 
 {{#IF_ENABLE_REPLY}}
-	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/list");
+	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/all");
 	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/add");
 	Model_RemoveRoute("/api/v1/{{NAMESPACE_PATH}}{{MODEL_NAME}}/reply/delete");
 {{#ENDIF_ENABLE_REPLY}}
 
 {{#IF_ENABLE_ADMIN}}
-	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/list");
+	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/all");
 	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/get");
 	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/add");
 	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/save");
@@ -1415,7 +1420,7 @@ void Model_{{MODEL_NAME}}_UnregisterRoutes()
 {{#ENDIF_ENABLE_ADMIN}}
 
 {{#IF_ENABLE_DRAFT}}
-	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/draft/list");
+	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/draft/all");
 	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/draft/get");
 	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/draft/save");
 	Model_RemoveRoute("/admin/{{NAMESPACE_PATH}}{{MODEL_NAME}}/draft/delete");

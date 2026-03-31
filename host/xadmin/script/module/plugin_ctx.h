@@ -97,12 +97,12 @@ typedef struct {
 	void (*ExtendSession)(bool isAdmin, str token, int timeout);
 	
 	// ===== HTTP 响应 =====
-	void (*SendJson)(struct mg_connection* c, int code, str json, size_t len);
-	void (*SendHtml)(struct mg_connection* c, int code, str html);
-	void (*SendPage)(struct mg_connection* c, str pagePath, xvalue data);
-	void (*LoadPage)(struct mg_connection* c, int code, str head, str pagePath);
-	void (*SendFile)(struct mg_connection* c, str filePath, str mimeType);
-	void (*SendError)(struct mg_connection* c, int code, str message);
+	void (*SendJson)(XS_ResponseObject objResp, int code, str json, size_t len);
+	void (*SendHtml)(XS_ResponseObject objResp, int code, str html);
+	void (*SendPage)(XS_ResponseObject objResp, str pagePath, xvalue data);
+	void (*LoadPage)(XS_ResponseObject objResp, int code, str head, str pagePath);
+	void (*SendFile)(XS_ResponseObject objResp, str filePath, str mimeType);
+	void (*SendError)(XS_ResponseObject objResp, int code, str message);
 	
 	// ===== 配置操作 =====
 	xvalue (*GetOption)(str group, str key);
@@ -212,3 +212,11 @@ typedef struct {
 
 
 // ==================== 插件依赖项结构 =============
+
+typedef struct {
+	str sPluginName;
+	str sMinVersion;
+	str sMaxVersion;
+} PluginDependency;
+
+#endif

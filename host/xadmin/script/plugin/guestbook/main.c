@@ -116,7 +116,7 @@ bool Guestbook_InitTable(GuestbookInstance* pInst)
 
 void API_Guestbook_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue objForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !objForm ) {
 		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
 		return;
@@ -169,7 +169,7 @@ void API_Guestbook_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 
 void API_Guestbook_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue objForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !objForm ) {
 		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
 		return;
@@ -212,7 +212,7 @@ void API_Guestbook_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 void API_Guestbook_CreateInstance(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue objForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !objForm ) {
 		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
 		return;
@@ -251,7 +251,7 @@ void API_Guestbook_CreateInstance(XS_ServerObject objServer, XS_HostObject objHo
 
 void API_Guestbook_DeleteInstance(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue objForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !objForm ) {
 		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
 		return;

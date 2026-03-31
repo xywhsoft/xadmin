@@ -146,7 +146,7 @@ size_t HttpPathLen(XS_RequestObject objReq);
 size_t HttpQueryLen(XS_RequestObject objReq);
 int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
 int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
-int mg_http_reply(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
+int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 void LoadPage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
 void XS_ImportScriptAPI(TCCState* s);
 

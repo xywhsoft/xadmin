@@ -47,8 +47,7 @@ int PLUGIN_FUNC(GetData)()
 // ==================== 路由处理 ====================
 
 // API: 获取插件信息
-void PLUGIN_API(GetInfo)(void* objServer, void* objHost,
-                        struct mg_connection* c, struct mg_http_message* hm)
+void PLUGIN_API(GetInfo)(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
     xvalue tblRet = xvoCreateTable();
     xvoTableSetBool(tblRet, "result", 6, TRUE);
@@ -58,14 +57,13 @@ void PLUGIN_API(GetInfo)(void* objServer, void* objHost,
 
     size_t iSize = 0;
     str sJson = ctx->JsonStringify(tblRet, &iSize);
-    ctx->SendJson(c, 200, sJson, iSize);
+    ctx->SendJson(objResp, 200, sJson, iSize);
     ctx->Free(sJson);
     xvoUnref(tblRet);
 }
 
 // API: 增加计数器
-void PLUGIN_API(Increment)(void* objServer, void* objHost,
-                         struct mg_connection* c, struct mg_http_message* hm)
+void PLUGIN_API(Increment)(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
     g_iCounter++;
 
@@ -75,7 +73,7 @@ void PLUGIN_API(Increment)(void* objServer, void* objHost,
 
     size_t iSize = 0;
     str sJson = ctx->JsonStringify(tblRet, &iSize);
-    ctx->SendJson(c, 200, sJson, iSize);
+    ctx->SendJson(objResp, 200, sJson, iSize);
     ctx->Free(sJson);
     xvoUnref(tblRet);
 }
@@ -127,7 +125,7 @@ void Plugin_base_plugin_Init()
 
     // 初始化计数器
     if ( g_tblSettings ) {
-        g_iCounter = xvoTableGetInt(g_tblSettings, "maxItems", 9);
+        g_iCounter = xvoTableGetInt(g_tblSettings, "maxItems", 8);
     } else {
         g_iCounter = 100;
     }

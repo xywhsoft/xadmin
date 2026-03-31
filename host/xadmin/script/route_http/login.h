@@ -21,13 +21,13 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 		xtime tCD = Guard_Check(xsReqRemote(objReq));
 		if ( tCD ) {
 			str sTime = xrtTimeToStr(tCD, XRT_TIME_FORMAT_DATETIME);
-			mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"登录失败尝试次数过多，请�?%s 后再试！\"}", sTime);
+			HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"登录失败尝试次数过多，请�?%s 后再试！\"}", sTime);
 			xrtFree(sTime);
 			return;
 		}
 		
 		// step 2 : 根据用户名查询用户信息（获取 salt �?pwd�?
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
