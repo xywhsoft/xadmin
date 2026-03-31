@@ -287,7 +287,9 @@ void Plugin_guestbook_Init()
 {
 	ctx->Log(LOG_INFO, "[Guestbook] Initializing...");
 
-	g_tblInstances = xrtDictCreate(sizeof(ptr), 0);
+	g_tblInstances = xrtDictCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	xrtOwnerActivateShared(&g_tblInstances->Owner);
+	xrtOwnerActivateShared(&g_tblInstances->AVLT.Owner);
 
 	ctx->AddRoute("/admin/api/guestbook/list", API_Guestbook_List, TRUE, TRUE, 0, 0);
 	ctx->AddRoute("/admin/api/guestbook/add", API_Guestbook_Add, TRUE, TRUE, 0, 0);

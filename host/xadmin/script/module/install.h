@@ -46,7 +46,7 @@ void Request_Install(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 		DB_Init();
 		
 		// step 2 : 创建超管账号（接收客户端哈希，生成随�?salt，进行服务端二次哈希后存储）
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		str sUser = xvoTableGetText(tblForm, "username", 8);
 		str sClientHash = xvoTableGetText(tblForm, "password", 8);
 		

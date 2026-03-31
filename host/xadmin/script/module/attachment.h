@@ -110,8 +110,12 @@ void Attachment_LoadHotlinkWhitelist()
 	if ( G_HotlinkSuffix ) {
 		xrtDictDestroy(G_HotlinkSuffix);
 	}
-	G_HotlinkExact = xrtDictCreate(0, 0);
-	G_HotlinkSuffix = xrtDictCreate(0, 0);
+	G_HotlinkExact = xrtDictCreate(0, XRT_OBJMODE_SHARED);
+	G_HotlinkSuffix = xrtDictCreate(0, XRT_OBJMODE_SHARED);
+	xrtOwnerActivateShared(&G_HotlinkExact->Owner);
+	xrtOwnerActivateShared(&G_HotlinkExact->AVLT.Owner);
+	xrtOwnerActivateShared(&G_HotlinkSuffix->Owner);
+	xrtOwnerActivateShared(&G_HotlinkSuffix->AVLT.Owner);
 	
 	// 读取配置
 	xvalue tblAttachment = xvoTableGetValue(G_Option, "attachment", 10);

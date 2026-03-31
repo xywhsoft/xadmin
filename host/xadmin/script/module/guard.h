@@ -92,7 +92,9 @@ void Guard_Reset(str sRemote)
 void Guard_Init()
 {
 	printf("        Guard_Init \n");
-	G_BruteGuard = xrtDictCreate(sizeof(GuardInfo), 0);
+	G_BruteGuard = xrtDictCreate(sizeof(GuardInfo), XRT_OBJMODE_SHARED);
+	xrtOwnerActivateShared(&G_BruteGuard->Owner);
+	xrtOwnerActivateShared(&G_BruteGuard->AVLT.Owner);
 }
 
 

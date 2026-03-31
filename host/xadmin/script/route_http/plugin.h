@@ -81,7 +81,7 @@ void Request_Plugin_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		return;
@@ -114,7 +114,7 @@ void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		return;
@@ -147,7 +147,7 @@ void Request_Plugin_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		return;
@@ -209,7 +209,7 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 		
 	} else if ( HttpMethodIs(objReq, "POST") ) {
 		// 保存设置
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( !tblForm ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 			return;

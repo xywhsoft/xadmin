@@ -35,12 +35,12 @@ void Plugin_SetGlobalData(int idx, void* ptr)
 
 // API: 使用base_plugin的计算功能
 void PLUGIN_API(Calculate)(void* objServer, void* objHost,
-                           struct mg_connection* c, struct mg_http_message* hm)
+                           XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
     // 解析参数
-    xvalue form = ctx->JsonParse(hm->body.buf, hm->body.len);
+    xvalue form = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
     if ( !form ) {
-        ctx->SendJson(c, 200, "{\"result\":false,\"message\":\"参数错误\"}", 0);
+        ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"参数错误\"}", 0);
         return;
     }
 
@@ -51,7 +51,7 @@ void PLUGIN_API(Calculate)(void* objServer, void* objHost,
     // 获取乘数
     int iMultiplier = 2;
     if ( g_tblSettings ) {
-        iMultiplier = xvoTableGetInt(g_tblSettings, "multiplier", 11);
+        iMultiplier = xvoTableGetInt(g_tblSettings, "multiplier", 10);
     }
 
     // 调用 base_plugin 的导出函数
@@ -71,19 +71,19 @@ void PLUGIN_API(Calculate)(void* objServer, void* objHost,
     xvoTableSetInt(tblRet, "a", 1, iA);
     xvoTableSetInt(tblRet, "b", 1, iB);
     xvoTableSetInt(tblRet, "sum", 3, iSum);
-    xvoTableSetInt(tblRet, "multiplier", 11, iMultiplier);
-    xvoTableSetInt(tblRet, "result_value", 13, iResult);
+    xvoTableSetInt(tblRet, "multiplier", 10, iMultiplier);
+    xvoTableSetInt(tblRet, "result_value", 12, iResult);
 
     size_t iSize = 0;
     str sJson = ctx->JsonStringify(tblRet, &iSize);
-    ctx->SendJson(c, 200, sJson, iSize);
+    ctx->SendJson(objResp, 200, sJson, iSize);
     ctx->Free(sJson);
     xvoUnref(tblRet);
 }
 
 // API: 获取base_plugin的数据
 void PLUGIN_API(GetBaseData)(void* objServer, void* objHost,
-                             struct mg_connection* c, struct mg_http_message* hm)
+                             XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
     // 调用 base_plugin 的导出函数
     int iData = 0;
@@ -100,7 +100,7 @@ void PLUGIN_API(GetBaseData)(void* objServer, void* objHost,
 
     size_t iSize = 0;
     str sJson = ctx->JsonStringify(tblRet, &iSize);
-    ctx->SendJson(c, 200, sJson, iSize);
+    ctx->SendJson(objResp, 200, sJson, iSize);
     ctx->Free(sJson);
     xvoUnref(tblRet);
 }

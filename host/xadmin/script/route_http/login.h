@@ -18,7 +18,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 		// 登录请求
 		
 		// step 1 : 暴力破解防火�?
-		xtime tCD = Guard_Check(xsReqRemote(objReq));
+		xtime tCD = Guard_Check((str)xsReqRemote(objReq));
 		if ( tCD ) {
 			str sTime = xrtTimeToStr(tCD, XRT_TIME_FORMAT_DATETIME);
 			mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"登录失败尝试次数过多，请�?%s 后再试！\"}", sTime);
@@ -27,7 +27,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 		}
 		
 		// step 2 : 根据用户名查询用户信息（获取 salt �?pwd�?
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
 			xvoUnref(tblForm);
@@ -64,8 +64,8 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 				
 				// step 4 : 检查是否有对应�?role 权限�?
 				int64 iRoleID = sqlite3_column_int64(stmt_login_get, 4);
-				xvalue tblRole = xvoListGetValue(G_CACHE_RoleAuth, iRoleID);
-				if ( tblRole && (tblRole->Type == XVO_DT_TABLE) ) {
+				int64 iLvRole = -1;
+				if ( Auth_DBRoleGetAccess(iRoleID, 0, &iLvRole) ) {
 					bOK = TRUE;
 					
 					// step 5 : 创建用户 Session 表（使用新的创建函数，自动设置过期时间）
@@ -74,7 +74,6 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 					
 					// 获取 authLevel
 					int64 iLvUser = sqlite3_column_int64(stmt_login_get, 5);
-					int64 iLvRole = xvoTableGetInt(tblRole, "__authLevel__", 13);
 					int64 iAuthLevel = iLvUser > iLvRole ? iLvUser : iLvRole;
 					
 					// step 6 : 将用户信息填入用�?Session �?
@@ -83,6 +82,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 					xvoTableSetInt(tblSession, "roleID", 6, iRoleID);
 					xvoTableSetInt(tblSession, "authLevel", 9, iAuthLevel);
 					xvoTableSetText(tblSession, "user", 4, sUser, 0, FALSE);
+					Session_StoreAdmin(XID, tblSession);
 					
 				} else {
 					http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户没有被分配到正确的角色！\"}", 0);
@@ -98,7 +98,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 		if ( bOK ) {
 			
 			// step 7 : 重置防护模块信息
-			Guard_Reset(xsReqRemote(objReq));
+			Guard_Reset((str)xsReqRemote(objReq));
 			
 			// step 8 : 返回响应，附�?cookie 信息（remember 字段在勾�?[记住登录状态] 时传递为字符�?on，不勾选时不传递参数）
 			str sHeader;
@@ -113,7 +113,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 		} else {
 			// 登录失败
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"登录失败，请检查用户名密码是否正确！\"}", 0);
-			Guard_Failed(xsReqRemote(objReq));
+			Guard_Failed((str)xsReqRemote(objReq));
 		}
 		
 		// step 9 : 释放表单
@@ -137,7 +137,7 @@ void Request_Logout(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 		// 删除 Session
 		if ( objSession->Type == XVO_DT_TABLE ) {
 			str sID = xvoTableGetText(objSession, "xid", 3);
-			xvoTableRemove(G_AdminSession, sID, 0);
+			Session_RemoveAdminByID(sID);
 		}
 		
 		// 清除 Cookie 并跳转到登录�?

@@ -16,6 +16,10 @@ sqlite3* G_DB;
 // 注意：Model_AddRoute 实际返回 RouteInfo*，但模型代码不需要使用返回�?
 extern void* Model_AddRoute(str, void*, bool, bool, int, int);
 extern void Model_RemoveRoute(str);
+extern bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
+extern int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
+extern int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
+extern int mg_http_reply(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 
 // HTTP 响应常量
 #define HTTP_CT_JSON "Content-Type: application/json\r\n"
@@ -434,7 +438,7 @@ void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -583,7 +587,7 @@ void Api_test_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -796,7 +800,7 @@ void Admin_test_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -829,7 +833,7 @@ void Admin_test_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -996,7 +1000,7 @@ void Admin_test_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -1110,7 +1114,7 @@ void Admin_test_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject objH
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
@@ -1169,7 +1173,7 @@ void Admin_test_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject objHo
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);

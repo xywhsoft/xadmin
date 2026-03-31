@@ -61,9 +61,14 @@ void Template_Init()
 {
 	printf("        Template_Init \n");
 
-	G_Template = xrtDictCreate(sizeof(ptr), 0);
+	G_Template = xrtDictCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	xrtOwnerActivateShared(&G_Template->Owner);
+	xrtOwnerActivateShared(&G_Template->AVLT.Owner);
 	tblENV = xvoCreateTable();
 	xvoTableSetFunc(tblENV, "MakeXID", 7, TemplateProc_Project_MakeXID);
+	xrtOwnerActivateShared(&tblENV->vTable->AVLT.Owner);
+	xrtOwnerActivateShared(&tblENV->vTable->Owner);
+	xvoSetShared_Inline(tblENV);
 }
 
 

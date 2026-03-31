@@ -204,7 +204,7 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	}
 	
 	// 解析JSON
-	xvalue tblData = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblData = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblData ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
 		return;
@@ -357,7 +357,7 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	}
 	
 	// 解析JSON
-	xvalue tblData = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblData = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblData ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
 		return;
@@ -596,7 +596,7 @@ void Request_Model_Fields_Save(XS_ServerObject objServer, XS_HostObject objHost,
 	}
 	
 	// 解析JSON
-	xvalue tblData = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblData = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblData ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
 		return;
@@ -772,7 +772,7 @@ void Request_Model_Sort(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	}
 	
 	// 解析JSON
-	xvalue tblData = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblData = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblData ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
 		return;

@@ -32,7 +32,7 @@ void Request_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost,
 			
 			// 提取文件名
 			if ( part.iFileNameLen > 0 ) {
-				sFilename = xrtCopyStr(part.sFileName, part.iFileNameLen);
+				sFilename = xrtCopyStr((str)part.sFileName, part.iFileNameLen);
 				sExt = xrtPathGetExt(sFilename, 0);
 				if ( sExt ) {
 					// 转小写
@@ -42,7 +42,7 @@ void Request_Attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost,
 				}
 			}
 		} else if ( HttpMultipartNameIs(&part, "modelName") ) {
-			sModelName = xrtCopyStr(part.pBody, part.iBodyLen);
+			sModelName = xrtCopyStr((str)part.pBody, part.iBodyLen);
 		} else if ( HttpMultipartNameIs(&part, "recordId") ) {
 			char sTmp[24] = {0};
 			size_t iLen = part.iBodyLen < 23 ? part.iBodyLen : 23;
@@ -333,7 +333,7 @@ void Request_Attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, X
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);

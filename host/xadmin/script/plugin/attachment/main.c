@@ -145,8 +145,12 @@ void LoadHotlinkWhitelist()
 	if ( G_HotlinkSuffix ) {
 		xrtDictDestroy(G_HotlinkSuffix);
 	}
-	G_HotlinkExact = xrtDictCreate(0, 0);
-	G_HotlinkSuffix = xrtDictCreate(0, 0);
+	G_HotlinkExact = xrtDictCreate(0, XRT_OBJMODE_SHARED);
+	G_HotlinkSuffix = xrtDictCreate(0, XRT_OBJMODE_SHARED);
+	xrtOwnerActivateShared(&G_HotlinkExact->Owner);
+	xrtOwnerActivateShared(&G_HotlinkExact->AVLT.Owner);
+	xrtOwnerActivateShared(&G_HotlinkSuffix->Owner);
+	xrtOwnerActivateShared(&G_HotlinkSuffix->AVLT.Owner);
 
 	xvalue tblAttachment = ctx->GetOption("attachment", "attachment");
 	if ( !tblAttachment || tblAttachment->Type != XVO_DT_TABLE ) return;
@@ -338,7 +342,7 @@ void Plugin_attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost, 
 			pFileData = (ptr)part.pBody;
 			iFileSize = part.iBodyLen;
 			if ( part.iFileNameLen > 0 ) {
-				sFilename = xrtCopyStr(part.sFileName, part.iFileNameLen);
+				sFilename = xrtCopyStr((str)part.sFileName, part.iFileNameLen);
 				sExt = xrtPathGetExt(sFilename, 0);
 				if ( sExt ) {
 					for ( str p = sExt; *p; p++ ) {
@@ -347,7 +351,7 @@ void Plugin_attachment_Upload(XS_ServerObject objServer, XS_HostObject objHost, 
 				}
 			}
 		} else if ( HttpMultipartNameIs(&part, "modelName") ) {
-			sModelName = xrtCopyStr(part.pBody, part.iBodyLen);
+			sModelName = xrtCopyStr((str)part.pBody, part.iBodyLen);
 		} else if ( HttpMultipartNameIs(&part, "recordId") ) {
 			char sTmp[24] = {0};
 			size_t iLen = part.iBodyLen < 23 ? part.iBodyLen : 23;
@@ -512,11 +516,12 @@ void Plugin_attachment_List(XS_ServerObject objServer, XS_HostObject objHost, XS
 		return;
 	}
 
+	str sModelClause = sModelName[0] ? xrtFormat(" AND modelName = '%s'", sModelName) : (str)"";
+	str sExtClause = sExt[0] ? xrtFormat(" AND ext = '%s'", sExt) : (str)"";
+	str sAccessTypeClause = sAccessType[0] ? xrtFormat(" AND accessType = %s", sAccessType) : (str)"";
 	xvalue tblCount = ctx->QuerySQL(xrtFormat(
 		"SELECT COUNT(*) as count FROM attachment WHERE isDelete = 0%s%s%s",
-		sModelName[0] ? xrtFormat(" AND modelName = '%s'", sModelName) : "",
-		sExt[0] ? xrtFormat(" AND ext = '%s'", sExt) : "",
-		sAccessType[0] ? xrtFormat(" AND accessType = %s", sAccessType) : ""));
+		sModelClause, sExtClause, sAccessTypeClause));
 
 	int64 iCount = 0;
 	if ( tblCount && tblCount->Type == XVO_DT_ARRAY && xvoArrayItemCount(tblCount) > 0 ) {
@@ -574,7 +579,7 @@ void Plugin_attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, XS
 {
 	CHECK_METHOD_POST(objResp, hm);
 
-	xvalue tblForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
 		SEND_JSON_ERR(objResp, "Invalid data");
@@ -683,7 +688,7 @@ void Plugin_attachment_Purchase(XS_ServerObject objServer, XS_HostObject objHost
 
 	int64 iMemberId = xvoTableGetInt(objSession, "id", 2);
 
-	xvalue tblForm = ctx->JsonParse((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
 		SEND_JSON_ERR(objResp, "Invalid data");

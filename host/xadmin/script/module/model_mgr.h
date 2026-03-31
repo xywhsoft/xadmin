@@ -104,9 +104,9 @@ typedef struct {
 	void (*RemoveRoute)(str uri);
 	
 	// ===== HTTP响应 =====
-	void (*SendJson)(struct mg_connection* c, int code, str json);
-	void (*SendHtml)(struct mg_connection* c, int code, str html);
-	void (*SendPage)(struct mg_connection* c, str pagePath, xvalue data);
+	void (*SendJson)(XS_ResponseObject objResp, int code, str json, size_t len);
+	void (*SendHtml)(XS_ResponseObject objResp, int code, str html);
+	void (*SendPage)(XS_ResponseObject objResp, str pagePath, xvalue data);
 	
 	// ===== JSON操作 =====
 	xvalue (*JsonParse)(str json);
@@ -482,13 +482,13 @@ void ModelCtx_JsonFree(xvalue val)
 // 获取后台Session
 xvalue ModelCtx_GetAdminSession(str token)
 {
-	return xvoTableGetValue(G_AdminSession, token, strlen(token));
+	return Session_GetAdminByID(token);
 }
 
 // 获取前台Session
 xvalue ModelCtx_GetMemberSession(str token)
 {
-	return xvoTableGetValue(G_MemberSession, token, strlen(token));
+	return Session_GetMemberByID(token);
 }
 
 // 获取当前时间�?
@@ -518,7 +518,9 @@ ModelInstance* Model_Create(str sName)
 	memset(pModel, 0, sizeof(ModelInstance));
 	
 	pModel->sName = xrtCopyStr(sName, 0);
-	pModel->lstRoutes = xrtListCreate(sizeof(ptr), 0);
+	pModel->lstRoutes = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	xrtOwnerActivateShared(&pModel->lstRoutes->Owner);
+	xrtOwnerActivateShared(&pModel->lstRoutes->AVLT.Owner);
 	pModel->arrFields = NULL;
 	pModel->pTccState = NULL;
 	pModel->bEnabled = FALSE;
@@ -2899,9 +2901,15 @@ void ModelMgr_Init()
 	memset(G_ModelMgr, 0, sizeof(ModelManager));
 	
 	// 初始化数据结�?
-	G_ModelMgr->tblModels = xrtDictCreate(sizeof(ModelInstance*), 0);
-	G_ModelMgr->tblNamespaces = xrtDictCreate(0, 0);
-	G_ModelMgr->lstEnabledModels = xrtListCreate(sizeof(ptr), 0);
+	G_ModelMgr->tblModels = xrtDictCreate(sizeof(ModelInstance*), XRT_OBJMODE_SHARED);
+	G_ModelMgr->tblNamespaces = xrtDictCreate(0, XRT_OBJMODE_SHARED);
+	G_ModelMgr->lstEnabledModels = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	xrtOwnerActivateShared(&G_ModelMgr->tblModels->Owner);
+	xrtOwnerActivateShared(&G_ModelMgr->tblModels->AVLT.Owner);
+	xrtOwnerActivateShared(&G_ModelMgr->tblNamespaces->Owner);
+	xrtOwnerActivateShared(&G_ModelMgr->tblNamespaces->AVLT.Owner);
+	xrtOwnerActivateShared(&G_ModelMgr->lstEnabledModels->Owner);
+	xrtOwnerActivateShared(&G_ModelMgr->lstEnabledModels->AVLT.Owner);
 	
 	// 初始化上下文
 	ModelMgr_InitContext();

@@ -20,7 +20,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 	}
 	
 	// step 1 : 暴力破解防火�?
-	xtime tCD = Guard_Check(xsReqRemote(objReq));
+	xtime tCD = Guard_Check((str)xsReqRemote(objReq));
 	if ( tCD ) {
 		str sTime = xrtTimeToStr(tCD, XRT_TIME_FORMAT_DATETIME);
 		mg_http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":429,\"msg\":\"登录失败尝试次数过多，请�?%s 后再试\"}", sTime);
@@ -29,7 +29,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 	}
 	
 	// step 2 : 解析请求数据
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);
@@ -75,8 +75,8 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 			
 			// step 4 : 检查用户组权限
 			int64 iGroupId = sqlite3_column_int64(stmt_member_login, 4);
-			xvalue tblGroup = xvoListGetValue(G_CACHE_MemberGroupAuth, iGroupId);
-			if ( tblGroup && (tblGroup->Type == XVO_DT_TABLE) ) {
+			int64 iLvGroup = -1;
+			if ( MemberAuth_DBGroupGetAccess(iGroupId, 0, &iLvGroup) ) {
 				bOK = TRUE;
 				
 				// step 5 : 创建用户 Session 表（使用新的创建函数，自动设置过期时间）
@@ -85,7 +85,6 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 				
 				// 获取 authLevel（用户级�?> 用户组级别取较大值）
 				int64 iLvUser = sqlite3_column_int64(stmt_member_login, 5);
-				int64 iLvGroup = xvoTableGetInt(tblGroup, "__authLevel__", 13);
 				int64 iAuthLevel = iLvUser > iLvGroup ? iLvUser : iLvGroup;
 				
 				// step 6 : 将用户信息填�?Session �?
@@ -96,6 +95,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 				xvoTableSetInt(tblSession, "balance", 7, sqlite3_column_int64(stmt_member_login, 6));
 				xvoTableSetText(tblSession, "username", 8, sUsername, 0, FALSE);
 				xvoTableSetText(tblSession, "nickname", 8, (str)sqlite3_column_text(stmt_member_login, 7), 0, FALSE);
+				Session_StoreMember(MSID, tblSession);
 				
 			} else {
 				http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":403,\"msg\":\"用户组配置异常，请联系管理员\"}", 0);
@@ -111,7 +111,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 	
 	if ( bOK ) {
 		// step 7 : 重置防护模块信息
-		Guard_Reset(xsReqRemote(objReq));
+		Guard_Reset((str)xsReqRemote(objReq));
 		
 		// step 8 : 返回响应，附�?cookie 信息
 		str sHeader;
@@ -134,7 +134,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 	} else {
 		// 登录失败
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":401,\"msg\":\"用户名或密码错误\"}", 0);
-		Guard_Failed(xsReqRemote(objReq));
+		Guard_Failed((str)xsReqRemote(objReq));
 	}
 	
 	// step 9 : 释放表单
@@ -154,7 +154,7 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	}
 	
 	// step 1 : 解析请求数据
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);
@@ -242,7 +242,7 @@ void API_Logout(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObje
 	// 删除 Session
 	if ( objSession->Type == XVO_DT_TABLE ) {
 		str sID = xvoTableGetText(objSession, "msid", 4);
-		xvoTableRemove(G_MemberSession, sID, 0);
+		Session_RemoveMemberByID(sID);
 	}
 	
 	// 清除 Cookie
@@ -299,7 +299,7 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 		
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		// 更新当前用户信息（仅允许修改昵称、邮箱、电话、头像）
-		xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblForm->Type != XVO_DT_TABLE ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 			xvoUnref(tblForm);
@@ -359,7 +359,7 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		return;
 	}
 	
-	xvalue tblForm = xrtParseJSON((const char*)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm->Type != XVO_DT_TABLE ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		xvoUnref(tblForm);

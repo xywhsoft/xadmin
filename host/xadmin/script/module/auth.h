@@ -232,6 +232,61 @@ void Auth_CompileSQL()
 
 
 // 缓存权限分组列表 - ComboBox 使用
+
+
+
+static bool XAdminValuePublishShared(xvalue pVal);
+
+static bool XAdminPublishListValueProc(int64 iKey, ptr pVal, ptr pArg)
+{
+	xvalue objList = (xvalue)pArg;
+	xvalue objVal = xvoListGetValue(objList, iKey);
+	XAdminValuePublishShared(objVal);
+	return FALSE;
+}
+
+static bool XAdminPublishTableValueProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+{
+	xvalue objTable = (xvalue)pArg;
+	xvalue objVal = xvoTableGetValue(objTable, pKey->Key, pKey->KeyLen);
+	XAdminValuePublishShared(objVal);
+	return FALSE;
+}
+
+static bool XAdminValuePublishShared(xvalue pVal)
+{
+	if ( pVal == NULL || pVal->IsStatic ) {
+		return TRUE;
+	}
+
+	switch ( pVal->Type ) {
+		case XVO_DT_ARRAY:
+			for ( int i = 0; i < pVal->vArray->Count; i++ ) {
+				XAdminValuePublishShared(xvoArrayGetValue(pVal, i));
+			}
+			xrtOwnerActivateShared(&pVal->vArray->Owner);
+			break;
+		case XVO_DT_LIST:
+			xrtListWalk(pVal->vList, (ptr)XAdminPublishListValueProc, pVal);
+			xrtOwnerActivateShared(&pVal->vList->AVLT.Owner);
+			xrtOwnerActivateShared(&pVal->vList->Owner);
+			break;
+		case XVO_DT_TABLE:
+			xrtDictWalk(pVal->vTable, (ptr)XAdminPublishTableValueProc, pVal);
+			xrtOwnerActivateShared(&pVal->vTable->AVLT.Owner);
+			xrtOwnerActivateShared(&pVal->vTable->Owner);
+			break;
+		case XVO_DT_COLL:
+			xrtOwnerActivateShared(&pVal->vColl->Owner);
+			break;
+		default:
+			break;
+	}
+
+	xvoSetShared_Inline(pVal);
+	return TRUE;
+}
+
 void ReloadCache_Auth_Auth()
 {
 	xvalue arrRet = xvoCreateArray();
@@ -247,6 +302,7 @@ void ReloadCache_Auth_Auth()
 		xvoArrayAppendValue(arrRet, tblRow, TRUE);
 	}
 	sqlite3_reset(stmt_cache_auth);
+	XAdminValuePublishShared(arrRet);
 	
 	// 替换全局缓存（这样写是为了多线程同步无冲突）
 	if ( G_CACHE_Auth ) {
@@ -313,6 +369,7 @@ void ReloadCache_Auth_Group()
 			xvoArrayAppendValue(arrAuths, tblAuth, TRUE);
 		}
 	}
+	XAdminValuePublishShared(arrRet);
 	
 	// 释放映射�?
 	xvoUnref(listIndex);
@@ -330,6 +387,213 @@ void ReloadCache_Auth_Group()
 
 
 // 重新加载全局缓存 - 两份缓存：G_CACHE_Role �?ComboBox 列表缓存、G_CACHE_RoleAuth 为权限映射表缓存
+static int XAdminIDCacheFormatKey(int64 id, char sKey[32])
+{
+	int iLen;
+
+	if ( sKey == NULL || id <= 0 ) {
+		return 0;
+	}
+
+	sKey[0] = 'i';
+	sKey[1] = 'd';
+	sKey[2] = ':';
+	iLen = xrtI64ToStr(id, sKey + 3);
+	if ( iLen <= 0 || iLen >= 29 ) {
+		return 0;
+	}
+	sKey[iLen + 3] = '\0';
+
+	return iLen + 3;
+}
+
+
+
+static xvalue XAdminIndexedCacheGetValue(xvalue objIndexCache, xvalue objValueCache, int64 id)
+{
+	int64 iIndex;
+
+	if ( objIndexCache == NULL || objValueCache == NULL || id <= 0 ) {
+		return NULL;
+	}
+
+	if ( objIndexCache->Type != XVO_DT_LIST || objValueCache->Type != XVO_DT_ARRAY ) {
+		return NULL;
+	}
+
+	iIndex = xvoListGetInt(objIndexCache, id);
+	if ( iIndex <= 0 || iIndex > objValueCache->vArray->Count ) {
+		return NULL;
+	}
+
+	return xvoArrayGetValue(objValueCache, (uint32)(iIndex - 1));
+}
+
+
+
+static xvalue XAdminIDCacheGetValue(xvalue objCache, int64 id)
+{
+	char sKey[32];
+	int iKeyLen;
+
+	if ( objCache == NULL || id <= 0 ) {
+		return NULL;
+	}
+
+	if ( objCache->Type == XVO_DT_ARRAY ) {
+		for ( int i = 0; i < objCache->vArray->Count; i++ ) {
+			xvalue tblItem = xvoArrayGetValue(objCache, i);
+			if ( tblItem && (tblItem->Type == XVO_DT_TABLE) ) {
+				int64 iItemID = xvoTableGetInt(tblItem, "id", 2);
+				if ( iItemID <= 0 ) {
+					iItemID = xvoTableGetInt(tblItem, "__id__", 6);
+				}
+				if ( iItemID == id ) {
+					return tblItem;
+				}
+			}
+		}
+		if ( objCache == G_CACHE_RoleAuth ) {
+			return XAdminIndexedCacheGetValue(G_CACHE_RoleAuthIndex, G_CACHE_RoleAuth, id);
+		}
+		if ( objCache == G_CACHE_MemberGroupAuth ) {
+			return XAdminIndexedCacheGetValue(G_CACHE_MemberGroupAuthIndex, G_CACHE_MemberGroupAuth, id);
+		}
+		return NULL;
+	}
+
+	if ( objCache->Type == XVO_DT_TABLE ) {
+		iKeyLen = XAdminIDCacheFormatKey(id, sKey);
+		if ( iKeyLen <= 0 ) {
+			return NULL;
+		}
+		return xvoTableGetValue(objCache, sKey, iKeyLen);
+	}
+
+	if ( objCache->Type == XVO_DT_LIST ) {
+		return xvoListGetValue(objCache, id);
+	}
+
+	return NULL;
+}
+
+
+
+static bool XAdminIDCacheGetBool(xvalue objCache, int64 id)
+{
+	return xvoGetBool(XAdminIDCacheGetValue(objCache, id));
+}
+
+
+
+static int64 XAdminIDCacheGetInt(xvalue objCache, int64 id)
+{
+	return xvoGetInt(XAdminIDCacheGetValue(objCache, id));
+}
+
+
+
+static bool XAdminIDArrayContainsInt(xvalue objIDs, int64 id)
+{
+	if ( objIDs == NULL || id <= 0 ) {
+		return FALSE;
+	}
+
+	if ( objIDs->Type == XVO_DT_ARRAY ) {
+		for ( int i = 0; i < objIDs->vArray->Count; i++ ) {
+			if ( xvoArrayGetInt(objIDs, i) == id ) {
+				return TRUE;
+			}
+		}
+		return FALSE;
+	}
+
+	return XAdminIDCacheGetBool(objIDs, id);
+}
+
+
+
+static bool Auth_DBRoleGetAccess(int64 iRoleID, int64 iAuthID, int64* pAuthLevel)
+{
+	bool bAllowed = FALSE;
+	str sAuthList = NULL;
+	xvalue arrAuth = NULL;
+
+	if ( pAuthLevel ) {
+		*pAuthLevel = -1;
+	}
+	if ( iRoleID <= 0 ) {
+		return FALSE;
+	}
+
+	sqlite3_bind_int64(stmt_role_get, 1, iRoleID);
+	if ( sqlite3_step(stmt_role_get) == SQLITE_ROW ) {
+		if ( sqlite3_column_int64(stmt_role_get, 7) == 0 ) {
+			if ( pAuthLevel ) {
+				*pAuthLevel = sqlite3_column_int64(stmt_role_get, 4);
+			}
+			if ( iAuthID <= 0 ) {
+				bAllowed = TRUE;
+			} else {
+				sAuthList = (str)sqlite3_column_text(stmt_role_get, 3);
+				if ( sAuthList && strlen(sAuthList) > 2 ) {
+					arrAuth = xrtParseJSON(sAuthList, 0);
+					if ( arrAuth && (arrAuth->Type == XVO_DT_ARRAY) ) {
+						bAllowed = XAdminIDArrayContainsInt(arrAuth, iAuthID);
+					}
+					if ( arrAuth ) {
+						xvoUnref(arrAuth);
+					}
+				}
+			}
+		}
+	}
+	sqlite3_reset(stmt_role_get);
+	return bAllowed;
+}
+
+
+
+static bool XAdminIDCacheSetValue(xvalue objCache, int64 id, xvalue pVal, bool bColloc)
+{
+	char sKey[32];
+	int iKeyLen;
+
+	if ( objCache == NULL || id <= 0 ) {
+		return FALSE;
+	}
+
+	if ( objCache->Type == XVO_DT_TABLE ) {
+		iKeyLen = XAdminIDCacheFormatKey(id, sKey);
+		if ( iKeyLen <= 0 ) {
+			return FALSE;
+		}
+		return xvoTableSetValue(objCache, sKey, iKeyLen, pVal, bColloc);
+	}
+
+	if ( objCache->Type == XVO_DT_LIST ) {
+		return xvoListSetValue(objCache, id, pVal, bColloc);
+	}
+
+	return FALSE;
+}
+
+
+
+static bool XAdminIDCacheSetBool(xvalue objCache, int64 id, bool bVal)
+{
+	return XAdminIDCacheSetValue(objCache, id, xvoCreateBool(bVal), TRUE);
+}
+
+
+
+static bool XAdminIDCacheSetInt(xvalue objCache, int64 id, int64 iVal)
+{
+	return XAdminIDCacheSetValue(objCache, id, xvoCreateInt(iVal), TRUE);
+}
+
+
+
 bool AuthRouteCategorize(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
 {
 	struct {
@@ -337,7 +601,7 @@ bool AuthRouteCategorize(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
 		xvalue tblURI;
 	} *pAuthInfo = param;
 	if ( pInfo->bAuth && (pInfo->AuthID > 0) ) {
-		bool bPass = xvoListGetBool(pAuthInfo->listAuth, pInfo->AuthID);
+		bool bPass = XAdminIDArrayContainsInt(pAuthInfo->listAuth, pInfo->AuthID);
 		if ( bPass ) {
 			xvoTableSetBool(pAuthInfo->tblURI, pKey->Key, pKey->KeyLen, TRUE);
 		}
@@ -348,7 +612,9 @@ void Auth_ReloadCache()
 {
 	// 使用预编译语句查询数�?
 	xvalue arrRet = xvoCreateArray();
-	xvalue lstRet = xvoCreateList();
+	xvalue lstRet = xvoCreateArray();
+	xvalue idxRet = xvoCreateList();
+	xvalue lvlRet = xvoCreateList();
 	
 	while ( sqlite3_step(stmt_cache_role) == SQLITE_ROW ) {
 		// 添加到列表缓�?
@@ -361,19 +627,15 @@ void Auth_ReloadCache()
 		xvoTableSetInt(tblRow, "authLevel", 9, authLevel);
 		xvoArrayAppendValue(arrRet, tblRow, TRUE);
 		// 解析权限分组列表 - 转换�?list 方便按ID索引
-		xvalue listAuth = xvoCreateList();
+		xvalue listAuth = NULL;
 		str sAuthList = (str)sqlite3_column_text(stmt_cache_role, 2);
 		if ( sAuthList && (strlen(sAuthList) > 2) ) {
 			xvalue arrAuth = xrtParseJSON(sAuthList, 0);
-			if ( arrAuth && (arrAuth->Type == XVO_DT_ARRAY) && (arrAuth->vArray->Count > 0) ) {
-				for ( int i = 0; i < arrAuth->vArray->Count; i++ ) {
-					int64 authID = xvoArrayGetInt(arrAuth, i);
-					if ( authID > 0 ) {
-						xvoListSetBool(listAuth, authID, TRUE);
-					}
-				}
+			if ( arrAuth && (arrAuth->Type == XVO_DT_ARRAY) ) {
+				listAuth = arrAuth;
+			} else if ( arrAuth ) {
+				xvoUnref(arrAuth);
 			}
-			xvoUnref(arrAuth);
 		}
 		// 构建对应角色�?URI 权限字典
 		xvalue tblURI = xvoCreateTable();
@@ -382,15 +644,26 @@ void Auth_ReloadCache()
 			xvalue tblURI;
 		} dictWalkInfo = { listAuth, tblURI };
 		xrtDictWalk(G_StaticRouteTableHTTP, (ptr)AuthRouteCategorize, &dictWalkInfo);
-		xvoUnref(listAuth);
+		if ( listAuth ) {
+			xvoUnref(listAuth);
+		}
 		// 权限字典添加元数�?
+		xvoTableSetInt(tblURI, "id", 2, id);
+		xvoTableSetText(tblURI, "name", 4, name, 0, FALSE);
+		xvoTableSetInt(tblURI, "authLevel", 9, authLevel);
 		xvoTableSetInt(tblURI, "__id__", 6, id);
 		xvoTableSetText(tblURI, "__name__", 8, name, 0, FALSE);
 		xvoTableSetInt(tblURI, "__authLevel__", 13, authLevel);
 		// 将整理好的权限字典添加到缓存�?
-		xvoListSetValue(lstRet, id, tblURI, TRUE);
+		xvoArrayAppendValue(lstRet, tblURI, TRUE);
+		xvoListSetInt(idxRet, id, lstRet->vArray->Count);
+		xvoListSetInt(lvlRet, id, authLevel);
 	}
 	sqlite3_reset(stmt_cache_role);
+	XAdminValuePublishShared(arrRet);
+	XAdminValuePublishShared(lstRet);
+	XAdminValuePublishShared(idxRet);
+	XAdminValuePublishShared(lvlRet);
 	
 	// 替换全局缓存 - 角色列表（这样写是为了多线程同步无冲突）
 	if ( G_CACHE_Role ) {
@@ -408,6 +681,20 @@ void Auth_ReloadCache()
 		xvoUnref(oldCache);
 	} else {
 		G_CACHE_RoleAuth = lstRet;
+	}
+	if ( G_CACHE_RoleAuthIndex ) {
+		xvalue oldCache = G_CACHE_RoleAuthIndex;
+		G_CACHE_RoleAuthIndex = idxRet;
+		xvoUnref(oldCache);
+	} else {
+		G_CACHE_RoleAuthIndex = idxRet;
+	}
+	if ( G_CACHE_RoleAuthLevel ) {
+		xvalue oldCache = G_CACHE_RoleAuthLevel;
+		G_CACHE_RoleAuthLevel = lvlRet;
+		xvoUnref(oldCache);
+	} else {
+		G_CACHE_RoleAuthLevel = lvlRet;
 	}
 	//xvoPrintValue(lstRet, 0, 0, 0, NULL);
 }
@@ -540,6 +827,8 @@ void Auth_Unit()
 	
 	// 释放全局缓存�?
 	xvoUnref(G_CACHE_RoleAuth);
+	xvoUnref(G_CACHE_RoleAuthIndex);
+	xvoUnref(G_CACHE_RoleAuthLevel);
 	xvoUnref(G_CACHE_Auth);
 	xvoUnref(G_CACHE_Group);
 	xvoUnref(G_CACHE_Role);

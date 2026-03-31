@@ -41,7 +41,13 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, XS
 	xvoTableSetBool(tblAuth, "group_exists", 12, G_CACHE_Group != NULL);
 	xvoTableSetBool(tblAuth, "role_exists", 11, G_CACHE_Role != NULL);
 	if ( G_CACHE_RoleAuth != NULL ) {
-		xvoTableSetInt(tblAuth, "roleAuth_count", 14, xvoTableItemCount(G_CACHE_RoleAuth));
+		if ( G_CACHE_RoleAuth->Type == XVO_DT_ARRAY ) {
+			xvoTableSetInt(tblAuth, "roleAuth_count", 14, xvoArrayItemCount(G_CACHE_RoleAuth));
+		} else if ( G_CACHE_RoleAuth->Type == XVO_DT_TABLE ) {
+			xvoTableSetInt(tblAuth, "roleAuth_count", 14, xvoTableItemCount(G_CACHE_RoleAuth));
+		} else if ( G_CACHE_RoleAuth->Type == XVO_DT_LIST ) {
+			xvoTableSetInt(tblAuth, "roleAuth_count", 14, xvoListItemCount(G_CACHE_RoleAuth));
+		}
 	}
 	if ( G_CACHE_Auth != NULL ) {
 		xvoTableSetInt(tblAuth, "auth_count", 10, xvoArrayItemCount(G_CACHE_Auth));
@@ -159,8 +165,48 @@ void Request_Trace_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	
 	if ( (strcmp(sType, "all") == 0) || (strcmp(sType, "roleAuth") == 0) ) {
 		if ( G_CACHE_RoleAuth != NULL ) {
-			xvoAddRef(G_CACHE_RoleAuth);
-			xvoTableSetValue(tblData, "roleAuth", 8, G_CACHE_RoleAuth, TRUE);
+			xvalue tblRoleAuth = xvoCreateTable();
+			xvalue objRole1 = XAdminIDCacheGetValue(G_CACHE_RoleAuth, 1);
+			xvalue objRole2 = XAdminIDCacheGetValue(G_CACHE_RoleAuth, 2);
+			xvalue objItem0 = (G_CACHE_RoleAuth->Type == XVO_DT_ARRAY && G_CACHE_RoleAuth->vArray->Count > 0) ? xvoArrayGetValue(G_CACHE_RoleAuth, 0) : NULL;
+			xvalue objItem1 = (G_CACHE_RoleAuth->Type == XVO_DT_ARRAY && G_CACHE_RoleAuth->vArray->Count > 1) ? xvoArrayGetValue(G_CACHE_RoleAuth, 1) : NULL;
+			xvoTableSetInt(tblRoleAuth, "cacheType", 9, G_CACHE_RoleAuth->Type);
+			if ( G_CACHE_RoleAuth->Type == XVO_DT_ARRAY ) {
+				xvoTableSetInt(tblRoleAuth, "count", 5, xvoArrayItemCount(G_CACHE_RoleAuth));
+			} else if ( G_CACHE_RoleAuth->Type == XVO_DT_TABLE ) {
+				xvoTableSetInt(tblRoleAuth, "count", 5, xvoTableItemCount(G_CACHE_RoleAuth));
+			} else if ( G_CACHE_RoleAuth->Type == XVO_DT_LIST ) {
+				xvoTableSetInt(tblRoleAuth, "count", 5, xvoListItemCount(G_CACHE_RoleAuth));
+			}
+			xvoTableSetBool(tblRoleAuth, "role1_exists", 12, objRole1 != NULL);
+			xvoTableSetBool(tblRoleAuth, "item0_exists", 12, objItem0 != NULL);
+			xvoTableSetBool(tblRoleAuth, "item1_exists", 12, objItem1 != NULL);
+			xvoTableSetBool(tblRoleAuth, "role2_exists", 12, objRole2 != NULL);
+			if ( objRole1 != NULL ) {
+				xvoTableSetInt(tblRoleAuth, "role1_type", 10, objRole1->Type);
+				if ( objRole1->Type == XVO_DT_TABLE ) {
+					xvoTableSetInt(tblRoleAuth, "role1_id", 8, xvoTableGetInt(objRole1, "id", 2));
+				}
+			}
+			if ( objRole2 != NULL ) {
+				xvoTableSetInt(tblRoleAuth, "role2_type", 10, objRole2->Type);
+				if ( objRole2->Type == XVO_DT_TABLE ) {
+					xvoTableSetInt(tblRoleAuth, "role2_id", 8, xvoTableGetInt(objRole2, "id", 2));
+				}
+			}
+			if ( objItem0 != NULL ) {
+				xvoTableSetInt(tblRoleAuth, "item0_type", 10, objItem0->Type);
+				if ( objItem0->Type == XVO_DT_TABLE ) {
+					xvoTableSetInt(tblRoleAuth, "item0_id", 8, xvoTableGetInt(objItem0, "id", 2));
+				}
+			}
+			if ( objItem1 != NULL ) {
+				xvoTableSetInt(tblRoleAuth, "item1_type", 10, objItem1->Type);
+				if ( objItem1->Type == XVO_DT_TABLE ) {
+					xvoTableSetInt(tblRoleAuth, "item1_id", 8, xvoTableGetInt(objItem1, "id", 2));
+				}
+			}
+			xvoTableSetValue(tblData, "roleAuth", 8, tblRoleAuth, TRUE);
 		}
 	}
 	

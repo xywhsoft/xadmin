@@ -48,7 +48,7 @@ int PLUGIN_FUNC(GetData)()
 
 // API: 获取插件信息
 void PLUGIN_API(GetInfo)(void* objServer, void* objHost,
-                        struct mg_connection* c, struct mg_http_message* hm)
+                        XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
     xvalue tblRet = xvoCreateTable();
     xvoTableSetBool(tblRet, "result", 6, TRUE);
@@ -58,14 +58,14 @@ void PLUGIN_API(GetInfo)(void* objServer, void* objHost,
 
     size_t iSize = 0;
     str sJson = ctx->JsonStringify(tblRet, &iSize);
-    ctx->SendJson(c, 200, sJson, iSize);
+    ctx->SendJson(objResp, 200, sJson, iSize);
     ctx->Free(sJson);
     xvoUnref(tblRet);
 }
 
 // API: 增加计数器
 void PLUGIN_API(Increment)(void* objServer, void* objHost,
-                         struct mg_connection* c, struct mg_http_message* hm)
+                         XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
     g_iCounter++;
 
@@ -75,7 +75,7 @@ void PLUGIN_API(Increment)(void* objServer, void* objHost,
 
     size_t iSize = 0;
     str sJson = ctx->JsonStringify(tblRet, &iSize);
-    ctx->SendJson(c, 200, sJson, iSize);
+    ctx->SendJson(objResp, 200, sJson, iSize);
     ctx->Free(sJson);
     xvoUnref(tblRet);
 }
