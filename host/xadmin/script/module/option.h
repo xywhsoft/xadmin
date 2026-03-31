@@ -122,6 +122,7 @@ bool Option_SaveFile(str sFileName, xvalue tblFormData)
 									// 同时更新 G_Option
 									if ( tblNamespace != NULL ) {
 										xvoAddRef(varNewValue);
+										XAdminValuePublishShared(varNewValue);
 										xvoTableSetValue(tblNamespace, sName, 0, varNewValue, TRUE);
 									}
 								}
@@ -154,6 +155,7 @@ void Option_Init()
 	
 	// 扫描配置目录，加载所有配置文件
 	xrtDirScan(OptionPath, FALSE, ScanOptionFileProc, NULL);
+	XAdminValuePublishShared(G_Option);
 }
 
 

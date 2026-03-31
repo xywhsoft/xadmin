@@ -96,7 +96,9 @@ void Plugin_UnloadTemplates(str sPluginId)
 
 void PluginTemplate_Init()
 {
-	G_PluginTemplateCache = xrtDictCreate(sizeof(ptr), 0);
+	G_PluginTemplateCache = xrtDictCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	xrtOwnerActivateShared(&G_PluginTemplateCache->Owner);
+	xrtOwnerActivateShared(&G_PluginTemplateCache->AVLT.Owner);
 }
 
 

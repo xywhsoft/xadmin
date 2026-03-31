@@ -7,7 +7,6 @@
 
 
 // 补充 API 定义
-uint64 GetTickCount64();
 
 
 
@@ -60,9 +59,11 @@ bool G_Install = FALSE;
 
 // 全局 Session �?- 后台管理�?
 xvalue G_AdminSession = NULL;
+xdict G_AdminSessionMap = NULL;
 
 // 全局 Session �?- 前台用户
 xvalue G_MemberSession = NULL;
+xdict G_MemberSessionMap = NULL;
 
 
 
@@ -249,12 +250,16 @@ xvalue G_CACHE_RoleAuth = NULL;					// 角色权限缓存 - 后端鉴权查表�
 xvalue G_CACHE_Auth = NULL;						// 权限分组缓存 - 前端列表渲染�?
 xvalue G_CACHE_Group = NULL;					// 权限分类缓存 - 前端列表渲染�?
 xvalue G_CACHE_Role = NULL;						// 角色列表缓存 - 前端列表渲染�?
+xvalue G_CACHE_RoleAuthIndex = NULL;			// role id -> permission array index
+xvalue G_CACHE_RoleAuthLevel = NULL;			// role id -> authLevel
 
 // 前台全局权限�?
 xvalue G_CACHE_MemberGroupAuth = NULL;			// 前台用户组权限缓�?- 鉴权查表�?
 xvalue G_CACHE_MemberAuth = NULL;				// 前台权限分组缓存
 xvalue G_CACHE_MemberAuthGroup = NULL;			// 前台权限分类缓存
 xvalue G_CACHE_MemberGroup = NULL;				// 前台用户组列表缓�?
+xvalue G_CACHE_MemberGroupAuthIndex = NULL;	// group id -> permission array index
+xvalue G_CACHE_MemberGroupAuthLevel = NULL;	// group id -> authLevel
 
 
 

@@ -5,6 +5,7 @@
 	"name":	"dependent_plugin",
 	"version":	"1.0.0",
 	"exports":	[],
+	"dependencies":	["base_plugin"],
 	"settings":	{
 		"multiplier":	2
 	},

@@ -224,7 +224,7 @@ int PluginCtx_AddMenu(int parent, str title, str icon, int type, str openType, s
 	int iExistingId = 0;
 
 	if ( G_CurrentPluginId ) {
-		sSQL = "SELECT id FROM menu WHERE href = ? AND plugin_id = ? AND isDelete = 0 LIMIT 1";
+		sSQL = "SELECT id FROM menu WHERE href = ? AND (plugin_id = ? OR plugin_id IS NULL) AND isDelete = 0 ORDER BY id DESC LIMIT 1";
 		if ( sqlite3_prepare_v3(G_DB, sSQL, -1, 0, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_text(stmt, 1, href ? href : (str)"", -1, NULL);
 			sqlite3_bind_text(stmt, 2, G_CurrentPluginId, -1, NULL);
@@ -236,7 +236,7 @@ int PluginCtx_AddMenu(int parent, str title, str icon, int type, str openType, s
 	}
 
 	if ( iExistingId > 0 ) {
-		sSQL = "UPDATE menu SET title = ?, icon = ?, type = ?, openType = ?, parent = ?, sort = ?, visible = ?, updateTime = ? WHERE id = ?";
+		sSQL = "UPDATE menu SET title = ?, icon = ?, type = ?, openType = ?, parent = ?, sort = ?, visible = ?, updateTime = ?, plugin_id = ?, isDelete = 0 WHERE id = ?";
 		if ( sqlite3_prepare_v3(G_DB, sSQL, -1, 0, &stmt, NULL) == SQLITE_OK ) {
 			int64 iNow = xrtNow();
 			sqlite3_bind_text(stmt, 1, title, -1, NULL);
@@ -247,9 +247,19 @@ int PluginCtx_AddMenu(int parent, str title, str icon, int type, str openType, s
 			sqlite3_bind_int(stmt, 6, sort);
 			sqlite3_bind_int(stmt, 7, visible ? 1 : 0);
 			sqlite3_bind_int64(stmt, 8, iNow);
-			sqlite3_bind_int(stmt, 9, iExistingId);
+			sqlite3_bind_text(stmt, 9, G_CurrentPluginId ? G_CurrentPluginId : (str)"", -1, NULL);
+			sqlite3_bind_int(stmt, 10, iExistingId);
 			sqlite3_step(stmt);
 			sqlite3_finalize(stmt);
+			if ( href && href[0] ) {
+				str sCleanupSQL = xrtFormat(
+					"UPDATE menu SET isDelete = 1, updateTime = %lld "
+					"WHERE href = '%s' AND (plugin_id = '%s' OR plugin_id IS NULL) AND id <> %d AND isDelete = 0",
+					iNow, href, G_CurrentPluginId ? G_CurrentPluginId : (str)"", iExistingId
+				);
+				sqlite3_exec(G_DB, sCleanupSQL, NULL, NULL, NULL);
+				xrtFree(sCleanupSQL);
+			}
 			printf("        [Plugin] Menu updated: %s (id=%d, plugin_id=%s)\n", title, iExistingId, G_CurrentPluginId ? G_CurrentPluginId : (str)"NULL");
 			return iExistingId;
 		}
@@ -280,7 +290,6 @@ int PluginCtx_AddMenu(int parent, str title, str icon, int type, str openType, s
 	printf("        [Plugin] Menu added: %s (id=%d, plugin_id=%s)\n", title, iMenuId, G_CurrentPluginId ? G_CurrentPluginId : (str)"NULL");
 	return iMenuId;
 }
-
 bool PluginCtx_RemoveMenu(int menuId)
 {
 	int64 iNow = xrtNow();
@@ -1513,38 +1522,43 @@ void PluginMgr_LoadEnabledPlugins()
 	int iCount = xrtListCount(lstEnabled);
 	printf("[xadmin:plugin] enabled count=%d\n", iCount);
 	fflush(stdout);
-
-	for ( int i = 0; i < iCount - 1; i++ ) {
-		for ( int j = 0; j < iCount - i - 1; j++ ) {
-			PluginInstance* p1 = xrtListGetPtr(lstEnabled, j);
-			PluginInstance* p2 = xrtListGetPtr(lstEnabled, j + 1);
-			if ( p1->iSort > p2->iSort ) {
-				xrtListSetPtr(lstEnabled, j, p2, NULL);
-				xrtListSetPtr(lstEnabled, j + 1, p1, NULL);
-			}
-		}
+	if ( iCount <= 0 ) {
+		xrtListDestroy(lstEnabled);
+		return;
 	}
+
+	if ( !Plugin_ValidateDependencies() ) {
+		printf("        [Plugin] ERROR: Dependency validation failed\n");
+		xrtListDestroy(lstEnabled);
+		return;
+	}
+
+	xlist loadOrder = xrtListCreate(sizeof(ptr), 0);
+	if ( !Plugin_TopologicalSort(&loadOrder) ) {
+		printf("        [Plugin] ERROR: Circular dependency detected\n");
+		xrtListDestroy(loadOrder);
+		xrtListDestroy(lstEnabled);
+		return;
+	}
+
 	printf("[xadmin:plugin] sort done\n");
 	fflush(stdout);
 
-	for ( int i = 0; i < iCount; i++ ) {
-		PluginInstance* pPlugin = xrtListGetPtr(lstEnabled, i);
+	int iLoadCount = xrtListCount(loadOrder);
+	for ( int i = 0; i < iLoadCount; i++ ) {
+		PluginInstance* pPlugin = xrtListGetPtr(loadOrder, i);
 		printf("[xadmin:plugin] enabling index=%d name=%s\n", i, pPlugin ? pPlugin->sName : (str)"(null)");
 		fflush(stdout);
-		if ( pPlugin ) {
-			Plugin_Enable(pPlugin);
-			printf("[xadmin:plugin] enable return index=%d name=%s\n", i, pPlugin->sName ? pPlugin->sName : (str)"(null)");
-			fflush(stdout);
+		if ( pPlugin && !Plugin_Enable(pPlugin) ) {
+			printf("        [Plugin] ERROR: Failed to enable plugin '%s'\n", pPlugin->sName);
 		}
+		printf("[xadmin:plugin] enable return index=%d name=%s\n", i, pPlugin && pPlugin->sName ? pPlugin->sName : (str)"(null)");
+		fflush(stdout);
 	}
 
+	xrtListDestroy(loadOrder);
 	xrtListDestroy(lstEnabled);
-	// xrtListDestroy(loadOrder);  // 暂时禁用
 }
-
-
-// 闁告帗绻傞～鎰板礌閺嶃劌绲诲ù鐘插椤撴悂鎮堕崱妤佺彜
-// 婵☆偀鍋撻柡灞诲劚閼荤喖宕氬☉妯肩处闁圭粯甯婂▎銏㈢不閿涘嫭鍊為柤鎸庣矊瀹曠喖鏁嶉崼婵愬殸濞存粌楠搁崙锛勨偓鐟邦槼椤ュ﹪鎯冮崟顓㈠厙缂備胶鍣︾槐?
 void PluginMgr_EnsureMenu()
 {
 	// 婵☆偀鍋撻柡灞诲劜瑜板啯绂掗崜渚囧悁闁荤偛妫滆ぐ宥夊础閺囩喐笑闁告熬绠戦悺銊╁捶?
@@ -2188,65 +2202,97 @@ bool Plugin_CountPluginsProc(Dict_Key* pKey, ptr pVal, ptr pArg)
 	return FALSE;
 }
 
-// 拓扑排序（Kahn算法）
-// 返回值: TRUE=成功, FALSE=失败（循环依赖）
-bool Plugin_TopologicalSort(xlist* pResult)
+bool Plugin_LoadOrderLessThan(PluginInstance* pLeft, PluginInstance* pRight)
 {
-	// 创建入度表
-	xdict inDegree = xrtDictCreate(sizeof(int), 0);
+	if ( !pLeft ) {
+		return FALSE;
+	}
+	if ( !pRight ) {
+		return TRUE;
+	}
+	if ( pLeft->iSort != pRight->iSort ) {
+		return pLeft->iSort < pRight->iSort;
+	}
+	if ( !pLeft->sName ) {
+		return FALSE;
+	}
+	if ( !pRight->sName ) {
+		return TRUE;
+	}
+	return strcmp(pLeft->sName, pRight->sName) < 0;
+}
 
-	// 初始化入度
-	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_TopologicalSortInitProc, inDegree);
+bool Plugin_DependenciesResolvedForSort(PluginInstance* pPlugin, xdict processed)
+{
+	if ( !pPlugin ) {
+		return FALSE;
+	}
 
-	// 创建队列
-	xlist queue = xrtListCreate(sizeof(ptr), 0);
+	int iDepCount = pPlugin->lstDependencies ? xrtListCount(pPlugin->lstDependencies) : 0;
+	for ( int i = 0; i < iDepCount; i++ ) {
+		PluginDependency* pDep = xrtListGetPtr(pPlugin->lstDependencies, i);
+		if ( !pDep || !pDep->sPluginName || strlen(pDep->sPluginName) == 0 ) {
+			continue;
+		}
 
-	// 统计插件总数
-	int iCount = 0;
-	PluginCountContext countCtx = {&iCount};
-	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_CountPluginsProc, &countCtx);
-
-	// 将入度为0的节点加入队列
-	TopologicalSortContext ctx = {queue, inDegree};
-	xrtDictWalk(G_PluginMgr->tblPlugins, Plugin_TopologicalSortEnqueueProc, &ctx);
-
-	// 拓扑排序
-	while ( xrtListCount(queue) > 0 ) {
-		// 取出队首
-		PluginInstance* pPlugin = xrtListGetPtr(queue, 0);
-		xrtListRemove(queue, 0);
-
-		// 加入结果
-		xrtListSetPtr(*pResult, xrtListCount(*pResult), pPlugin, NULL);
-
-		// 减少依赖此节点的节点的入度
-		int iDependentCount = xrtListCount(pPlugin->lstDependents);
-		for ( int i = 0; i < iDependentCount; i++ ) {
-			PluginInstance* pDependent = xrtListGetPtr(pPlugin->lstDependents, i);
-			if ( pDependent ) {
-				int* pDegree = xrtDictGet(inDegree, pDependent->sName, strlen(pDependent->sName));
-				if ( pDegree ) {
-					(*pDegree)--;
-					if ( *pDegree == 0 ) {
-						xrtListSetPtr(queue, xrtListCount(queue), pDependent, NULL);
-					}
-				}
+		PluginInstance* pDepPlugin = PluginMgr_GetPlugin(pDep->sPluginName);
+		if ( pDepPlugin && pDepPlugin->bEnabled ) {
+			if ( !xrtDictExists(processed, pDepPlugin->sName, strlen(pDepPlugin->sName)) ) {
+				return FALSE;
 			}
 		}
 	}
 
-	// 检查是否有环
-	int iSortedCount = xrtListCount(*pResult);
-	bool bHasCycle = (iSortedCount != iCount);
-
-	// 清理
-	xrtDictDestroy(inDegree);
-	xrtListDestroy(queue);
-
-	return !bHasCycle;
+	return TRUE;
 }
 
-// 验证依赖关系的回调函数
+bool Plugin_TopologicalSort(xlist* pResult)
+{
+	if ( !pResult || !(*pResult) ) {
+		return FALSE;
+	}
+
+	xlist pending = xrtListCreate(sizeof(ptr), 0);
+	xdict processed = xrtDictCreate(sizeof(char), 0);
+	xrtDictWalk(G_PluginMgr->tblPlugins, PluginMgr_CollectEnabledProc, pending);
+
+	while ( xrtListCount(pending) > 0 ) {
+		int iBestIdx = -1;
+		PluginInstance* pBest = NULL;
+		int iPendingCount = xrtListCount(pending);
+
+		for ( int i = 0; i < iPendingCount; i++ ) {
+			PluginInstance* pPlugin = xrtListGetPtr(pending, i);
+			if ( !Plugin_DependenciesResolvedForSort(pPlugin, processed) ) {
+				continue;
+			}
+			if ( Plugin_LoadOrderLessThan(pPlugin, pBest) ) {
+				pBest = pPlugin;
+				iBestIdx = i;
+			}
+		}
+
+		if ( iBestIdx < 0 || !pBest ) {
+			xrtDictDestroy(processed);
+			xrtListDestroy(pending);
+			return FALSE;
+		}
+
+		xrtListSetPtr(*pResult, xrtListCount(*pResult), pBest, NULL);
+
+		char* pDone = xrtDictSet(processed, pBest->sName, strlen(pBest->sName), NULL);
+		if ( pDone ) {
+			*pDone = 1;
+		}
+
+		xrtListRemove(pending, iBestIdx);
+	}
+
+	xrtDictDestroy(processed);
+	xrtListDestroy(pending);
+	return TRUE;
+}
+
 typedef struct {
 	bool* pbValid;
 } ValidateContext;

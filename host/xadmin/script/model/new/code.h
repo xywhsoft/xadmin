@@ -16,6 +16,10 @@ sqlite3* G_DB;
 // 注意：Model_AddRoute 实际返回 RouteInfo*，但模型代码不需要使用返回�?
 extern void* Model_AddRoute(str, void*, bool, bool, int, int);
 extern void Model_RemoveRoute(str);
+extern bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
+extern int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
+extern int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
+extern int mg_http_reply(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 
 // HTTP helper declarations
 bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
