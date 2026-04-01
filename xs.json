@@ -1,32 +1,34 @@
-[
-	{
-		"enabled": true,
-		"class": "http",
-		"name": "xywhsoft Server",
-		"desc": "xywhsoft server",
-		"param": "",
-		"backlog": 128,
-		"recv_limit": 1048576,
-		"path_limit": 200,
-		"header_limit": 32,
-		"body_limit": 262144,
-		"ip": "0.0.0.0",
-		"port": 80,
-		"tls": true,
-		"port_tls": 443,
-		"host_default": {
+{
+	"services": [
+		{
 			"enabled": true,
-			"name": "xAdmin",
-			"desc": "xadmin host",
+			"class": "http",
+			"name": "xAdmin Server",
+			"desc": "xAdmin server",
 			"param": "",
-			"debug": false,
-			"path": "host/xadmin/wwwroot",
-			"tls_ca": "host/xadmin/tls/ca.pem",
-			"tls_cert": "host/xadmin/tls/cert.pem",
-			"tls_key": "host/xadmin/tls/key.pem",
-			"devlang": "c",
-			"devfile": "host/xadmin/script/main.c"
-		},
-		"hosts": []
-	}
-]
+			"backlog": 128,
+			"recv_limit": 1048576,
+			"path_limit": 200,
+			"header_limit": 32,
+			"body_limit": 262144,
+			"ip": "0.0.0.0",
+			"port": 80,
+			"tls": true,
+			"port_tls": 443,
+			"host_default": {
+				"enabled": true,
+				"name": "xAdmin",
+				"desc": "xadmin host",
+				"param": "",
+				"debug": false,
+				"path": "host/xadmin/wwwroot",
+				"tls_ca": "host/xadmin/tls/ca.pem",
+				"tls_cert": "host/xadmin/tls/cert.pem",
+				"tls_key": "host/xadmin/tls/key.pem",
+				"devlang": "c",
+				"devfile": "host/xadmin/script/main.c"
+			},
+			"hosts": []
+		}
+	]
+}

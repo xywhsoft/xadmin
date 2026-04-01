@@ -78,9 +78,9 @@ void Logs_Add(XS_RequestObject objReq, xvalue objSession)
 
 	sqlite3_bind_text(stmt_logs_add, 1, sUser, -1, SQLITE_STATIC);
 	sqlite3_bind_text(stmt_logs_add, 2, sIP, -1, SQLITE_STATIC);
-	sqlite3_bind_text(stmt_logs_add, 3, sURI, (int)HttpPathLen(objReq), SQLITE_STATIC);
-	sqlite3_bind_text(stmt_logs_add, 4, sMethod, (int)HttpMethodLen(objReq), SQLITE_STATIC);
-	sqlite3_bind_text(stmt_logs_add, 5, sQuery, (int)HttpQueryLen(objReq), SQLITE_STATIC);
+	sqlite3_bind_text(stmt_logs_add, 3, sURI, (int)strlen(sURI), SQLITE_STATIC);
+	sqlite3_bind_text(stmt_logs_add, 4, sMethod, (int)strlen(sMethod), SQLITE_STATIC);
+	sqlite3_bind_text(stmt_logs_add, 5, sQuery, (int)strlen(sQuery), SQLITE_STATIC);
 	sqlite3_bind_text(stmt_logs_add, 6, pBody, (int)iBodyLen, SQLITE_STATIC);
 	sqlite3_bind_int64(stmt_logs_add, 7, now);
 	sqlite3_step(stmt_logs_add);

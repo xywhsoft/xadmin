@@ -1,81 +1,81 @@
 
 
 
-// XS 鍩虹鏈嶅姟搴?
+// XS 基础服务库
 #include <xs_vnext_full.h>
 #if defined(_WIN32) || defined(_WIN64)
-	// windows 鏂规
+	// windows 方案
 #else
-	// 鍏朵粬骞冲彴鏂规
+	// 其他平台方案
 	#include <pthread.h>
 	#include <sys/utsname.h>
 #endif
 
 
 
-// 鍏ㄥ眬瀹氫箟
+// 全局定义
 #include "module/define.h"
 
-// 瀹夊叏闃叉姢妯″潡
+// 安全防护模块
 #include "module/guard.h"
 
-// 鐙珛椤甸潰 API
+// 独立页面 API
 #include "module/page.h"
 
-// 妯℃澘鐩稿叧鍔熻兘
+// 模板相关功能
 #include "module/template.h"
 
-// 瀹夎鐩稿叧鍔熻兘
+// 安装相关功能
 #include "module/install.h"
 
-// Session 鐩稿叧鍔熻兘
+// Session 相关功能
 #include "module/session.h"
 
-// 鏁版嵁搴撶浉鍏冲姛鑳?
+// 数据库相关功能
 #include "module/db.h"
 
-// 鏉冮檺绠＄悊妯″潡
+// 权限管理模块
 #include "module/auth.h"
 
-// 鏃ュ織璁板綍妯″潡
+// 日志记录模块
 #include "module/logs.h"
 
-// 鍚庡彴鍔熻兘妯″潡
+// 后台功能模块
 #include "module/admin.h"
 
-// 閰嶇疆绠＄悊妯″潡
+// 配置管理模块
 #include "module/option.h"
 
-// 鑿滃崟绠＄悊妯″潡
+// 菜单管理模块
 #include "module/menu.h"
 
-// 鍓嶅彴鐢ㄦ埛妯″潡
+// 前台用户模块
 #include "module/member.h"
 
-// 鍓嶅彴鏉冮檺缂撳瓨妯″潡
+// 前台权限缓存模块
 #include "module/member_auth.h"
 
-// 妯″瀷瀛楁绫诲瀷瀹氫箟
+// 模型字段类型定义
 #include "module/model_field.h"
 
-// 妯″瀷绠＄悊鍣?
+// 模型管理器
 #include "module/model_mgr.h"
 
-// 闄勪欢绠＄悊妯″潡
+// 附件管理模块
 #include "module/attachment.h"
 
-// 鎻掍欢涓婁笅鏂囧畾涔?
+// 插件上下文定义
 #include "module/plugin_ctx.h"
 
-// 鎻掍欢椤甸潰鍜屾ā鏉垮姞杞?
+// 插件页面
 #include "module/plugin_page.h"
 
-// 鎻掍欢绠＄悊鍣?
+// 插件管理器
 #include "module/plugin_mgr.h"
 
 
 
-// 璺敱璋冪敤 - HTTP
+// 路由调用 - HTTP
 #include "route_http/index.h"
 #include "route_http/login.h"
 #include "route_http/logs.h"
@@ -92,17 +92,17 @@
 
 
 
-// 鍏ㄥ眬闈欐€佽矾鐢辫〃
+// 全局静态路由表
 #include "route.h"
 
-// HTTP 鍗忚澶勭悊
+// HTTP 协议处理
 #include "module/http.h"
 
 
 
 
 
-// 鏈嶅姟鍒濆鍖?
+// 服务初始化
 void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 {
 	printf("[xadmin:init] Define_Init begin\n");
@@ -222,62 +222,62 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 
 
 
-// 鏈嶅姟鍗歌浇
+// 服务卸载
 void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 {
 
-	// 鍗歌浇鎻掍欢妯℃澘绯荤粺
+	// 卸载插件模板
 	PluginTemplate_Unit();
 
-	// 鍗歌浇鎻掍欢绠＄悊鍣紙鏈€鍏堝嵏杞斤級
+	// 卸载插件管理器
 	PluginMgr_Unit();
 	
-	// 鍗歌浇闄勪欢绠＄悊妯″潡
+	// 卸载附件管理模块
 	Attachment_Unit();
 	
-	// 鍗歌浇妯″瀷绠＄悊鍣?
+	// 卸载模型管理器
 	ModelMgr_Unit();
 	
-	// 鍗歌浇鍓嶅彴鏉冮檺缂撳瓨妯″潡
+	// 卸载前台权限缓存模块
 	MemberAuth_Unit();
 	
-	// 鍗歌浇鍓嶅彴鐢ㄦ埛妯″潡
+	// 卸载前台权限缓存模块
 	Member_Unit();
 	
-	// 鍗歌浇鑿滃崟绠＄悊妯″潡
+	// 卸载菜单管理模块
 	Menu_Unit();
 	
-	// 鍗歌浇閰嶇疆绠＄悊妯″潡
+	// 卸载配置管理模块
 	Option_Unit();
 	
-	// 鍗歌浇鍚庡彴鍔熻兘妯″潡
+	// 卸载后台功能模块
 	Admin_Unit();
 	
-	// 鍗歌浇鏃ュ織璁板綍妯″潡
+	// 卸载日志记录模块
 	Logs_Unit();
 	
-	// 鍗歌浇鏉冮檺绠＄悊妯″潡
+	// 卸载权限管理模块
 	Auth_Unit();
 	
-	// 鍗歌浇 HTTP 璺敱琛?
+	// 卸载 HTTP 路由表
 	RouteHTTP_Unit();
 	
-	// 閲婃斁鏁版嵁搴?
+	// 释放数据库
 	DB_Unit();
 	
-	// 鍗歌浇 Session 妯″潡
+	// 卸载 Session 模块
 	Session_Unit();
 	
-	// 鍗歌浇瀹夎妯″潡
+	// 卸载安装模块
 	Install_Unit();
 	
-	// 鍗歌浇妯℃澘妯″潡
+	// 卸载模板模块
 	Template_Unit();
 	
-	// 鍗歌浇闃叉姢妯″潡
+	// 卸载防护模块
 	Guard_Unit();
 	
-	// 鍗歌浇鍏ㄥ眬鏁版嵁
+	// 卸载全局数据
 	Define_Unit();
 	
 }

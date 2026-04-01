@@ -431,55 +431,63 @@ void PluginCtx_ReloadAuthCache()
 // Session 闁瑰灝绉崇紞?
 xvalue PluginCtx_GetAdminSession(str token)
 {
-	return xvoTableGetValue(G_AdminSession, token, strlen(token));
+	return Session_GetAdminByID(token);
 }
 
 xvalue PluginCtx_GetMemberSession(str token)
 {
-	return xvoTableGetValue(G_MemberSession, token, strlen(token));
+	return Session_GetMemberByID(token);
 }
 
 str PluginCtx_CreateAdminSession(int64 userId, str userName, int roleId, int timeout)
 {
 	str sToken = xrtMakeXIDS();
-	xvalue tblSession = xvoCreateTable();
+	xvalue tblSession = Session_CreateAdmin(sToken);
 	xvoTableSetInt(tblSession, "id", 2, userId);
 	xvoTableSetText(tblSession, "user", 4, userName, 0, FALSE);
 	xvoTableSetInt(tblSession, "role", 4, roleId);
-	xvoTableSetInt(tblSession, "expire", 6, xrtNow() + timeout);
-	xvoTableSetValue(G_AdminSession, sToken, 32, tblSession, TRUE);
+	if ( timeout > 0 ) {
+		xvoTableSetInt(tblSession, "_expireTime", 11, xrtNow() + timeout);
+	}
+	Session_StoreAdmin(sToken, tblSession);
+	xvoUnref(tblSession);
 	return sToken;
 }
 
 str PluginCtx_CreateMemberSession(int64 userId, str userName, int groupId, int timeout)
 {
 	str sToken = xrtMakeXIDS();
-	xvalue tblSession = xvoCreateTable();
+	xvalue tblSession = Session_CreateMember(sToken);
 	xvoTableSetInt(tblSession, "id", 2, userId);
 	xvoTableSetText(tblSession, "username", 8, userName, 0, FALSE);
 	xvoTableSetInt(tblSession, "groupId", 7, groupId);
-	xvoTableSetInt(tblSession, "expire", 6, xrtNow() + timeout);
-	xvoTableSetValue(G_MemberSession, sToken, 32, tblSession, TRUE);
+	if ( timeout > 0 ) {
+		xvoTableSetInt(tblSession, "_expireTime", 11, xrtNow() + timeout);
+	}
+	Session_StoreMember(sToken, tblSession);
+	xvoUnref(tblSession);
 	return sToken;
 }
 
 void PluginCtx_DestroyAdminSession(str token)
 {
-	xvoTableRemove(G_AdminSession, token, strlen(token));
+	Session_RemoveAdminByID(token);
 }
 
 void PluginCtx_DestroyMemberSession(str token)
 {
-	xvoTableRemove(G_MemberSession, token, strlen(token));
+	Session_RemoveMemberByID(token);
 }
 
 void PluginCtx_ExtendSession(bool isAdmin, str token, int timeout)
 {
 	xvalue tblSession = isAdmin ? 
-		xvoTableGetValue(G_AdminSession, token, strlen(token)) :
-		xvoTableGetValue(G_MemberSession, token, strlen(token));
+		Session_GetAdminByID(token) :
+		Session_GetMemberByID(token);
 	if ( tblSession ) {
-		xvoTableSetInt(tblSession, "expire", 6, xrtNow() + timeout);
+		int64 iNow = xrtNow();
+		xvoTableSetInt(tblSession, "_activeTime", 11, iNow);
+		xvoTableSetInt(tblSession, "_expireTime", 11, iNow + timeout);
 	}
 }
 
@@ -2535,18 +2543,21 @@ str PluginCtx_RenderTemplate(str templatePath, xvalue data)
 
 str PluginCtx_RenderString(str templateString, xvalue data)
 {
+	xtetemplate hTemplate;
+	XTE_Error tError = { 0 };
+	size_t iRetSize = 0;
+
 	if ( !templateString || !data ) {
 		return NULL;
 	}
 
-	XTE_LiteObject objTemplate = xteParse(templateString, strlen(templateString), NULL);
-	if ( !objTemplate || !objTemplate->Success ) {
+	hTemplate = xteParseEx(NULL, templateString, strlen(templateString), NULL, &tError);
+	if ( hTemplate == NULL ) {
 		return xrtFormat("Template parse error");
 	}
 
-	size_t iRetSize = 0;
-	str sResult = xteMake(objTemplate, data, tblENV, G_Template, &iRetSize);
-	xteParseFree(objTemplate);
+	str sResult = xteMake(hTemplate, data, tblENV, G_Template, &iRetSize);
+	xteDestroyTemplate(hTemplate);
 	return sResult;
 }
 

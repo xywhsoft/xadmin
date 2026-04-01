@@ -8,6 +8,6 @@
 	"settings":	{
 		"maxItems":	100
 	},
-	"enabled":	true,
+	"enabled":	false,
 	"author":	"xAdmin"
 }

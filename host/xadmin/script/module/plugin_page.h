@@ -1,4 +1,3 @@
-
 // plugin page and template runtime
 
 extern str PluginPath;
@@ -6,10 +5,6 @@ extern xvalue tblENV;
 extern xdict G_Template;
 
 static xdict G_PluginTemplateCache = NULL;
-
-extern XTE_LiteObject xteParse(char* sText, size_t iSize, char* sBracket);
-extern char* xteMake(XTE_LiteObject objTemplate, xvalue tblVal, xvalue tblENV, xdict tblInclude, size_t* pRetSize);
-extern void xteParseFree(XTE_LiteObject objLite);
 
 
 
@@ -45,7 +40,8 @@ void Plugin_LoadTemplates(str sPluginId)
 
 str Plugin_MakePageWithTemplate(str sPluginId, str sTemplate, xvalue tblData, size_t* pRetSize)
 {
-	XTE_LiteObject objTemplate;
+	xtetemplate hTemplate;
+	XTE_Error tError = { 0 };
 	str sTemplateDir;
 	str sFilePath;
 	str sText;
@@ -67,17 +63,14 @@ str Plugin_MakePageWithTemplate(str sPluginId, str sTemplate, xvalue tblData, si
 	}
 
 	iSize = strlen(sText);
-	objTemplate = xteParse(sText, iSize, NULL);
+	hTemplate = xteParseEx(NULL, sText, iSize, NULL, &tError);
 	xrtFree(sText);
-	if ( (objTemplate == NULL) || (!objTemplate->Success) ) {
-		if ( objTemplate ) {
-			xteParseFree(objTemplate);
-		}
+	if ( hTemplate == NULL ) {
 		return xrtFormat("<!DOCTYPE html><html><body><p>plugin template parse failed: %s/%s</p></body></html>", sPluginId, sTemplate);
 	}
 
-	sPage = xteMake(objTemplate, tblData, tblENV, G_Template, pRetSize);
-	xteParseFree(objTemplate);
+	sPage = xteMake(hTemplate, tblData, tblENV, G_Template, pRetSize);
+	xteDestroyTemplate(hTemplate);
 	if ( sPage == NULL ) {
 		return xrtFormat("<!DOCTYPE html><html><body><p>plugin template render failed: %s/%s</p></body></html>", sPluginId, sTemplate);
 	}

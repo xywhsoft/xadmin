@@ -1,4 +1,3 @@
-
 // template runtime env
 xvalue tblENV = NULL;
 
@@ -19,7 +18,8 @@ xvalue TemplateProc_Project_MakeXID(xvalue varENV, xvalue varParam)
 
 char* MakePageWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 {
-	XTE_LiteObject objTemplate;
+	xtetemplate hTemplate;
+	XTE_Error tError = { 0 };
 	str sFilePath;
 	str sText;
 	char* sPage;
@@ -37,17 +37,14 @@ char* MakePageWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 	}
 
 	iSize = strlen(sText);
-	objTemplate = xteParse(sText, iSize, NULL);
+	hTemplate = xteParseEx(NULL, sText, iSize, NULL, &tError);
 	xrtFree(sText);
-	if ( (objTemplate == NULL) || (!objTemplate->Success) ) {
-		if ( objTemplate ) {
-			xteParseFree(objTemplate);
-		}
+	if ( hTemplate == NULL ) {
 		return xrtFormat("<!DOCTYPE html><html><body><p>template parse failed: %s</p></body></html>", sTemplate);
 	}
 
-	sPage = xteMake(objTemplate, tblData, tblENV, G_Template, pRetSize);
-	xteParseFree(objTemplate);
+	sPage = xteMake(hTemplate, tblData, tblENV, G_Template, pRetSize);
+	xteDestroyTemplate(hTemplate);
 	if ( sPage == NULL ) {
 		return xrtFormat("<!DOCTYPE html><html><body><p>template render failed: %s</p></body></html>", sTemplate);
 	}

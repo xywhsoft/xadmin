@@ -6,6 +6,6 @@
 	"version":	"1.0.0",
 	"exports":	null,
 	"settings":	null,
-	"enabled":	true,
+	"enabled":	false,
 	"author":	"xAdmin"
 }

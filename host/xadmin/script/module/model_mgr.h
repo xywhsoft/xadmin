@@ -482,13 +482,13 @@ void ModelCtx_JsonFree(xvalue val)
 // 获取后台Session
 xvalue ModelCtx_GetAdminSession(str token)
 {
-	return xvoTableGetValue(G_AdminSession, token, strlen(token));
+	return Session_GetAdminByID(token);
 }
 
 // 获取前台Session
 xvalue ModelCtx_GetMemberSession(str token)
 {
-	return xvoTableGetValue(G_MemberSession, token, strlen(token));
+	return Session_GetMemberByID(token);
 }
 
 // 获取当前时间�?
