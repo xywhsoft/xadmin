@@ -1,6 +1,6 @@
 {
 	"formatVersion": 3,
-	"id": "hello",
+	"xid": "hello",
 	"name": "hello",
 	"title": "Hello World Demo Plugin",
 	"description": "Demo plugin for the new xAdmin plugin system",
@@ -34,9 +34,8 @@
 	"contributes": {
 		"menus": [],
 		"routes": [],
-		"jobs": [],
 		"hooks": [],
-		"models": []
+		"events": []
 	},
 	"multiInstance": false,
 	"defaultConfig": "config.defaults.json",

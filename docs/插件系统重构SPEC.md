@@ -322,6 +322,17 @@ XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr);
 2. 只用于注入 `G_DB`、Host API 指针等少量宿主单例。
 3. `session`、`req / resp` 等请求级对象不进入全局注入，而是继续通过路由参数直传。
 4. 该接口是新的 V3 启动机制，不等价于旧插件接口兼容层。
+5. 首批固定注入槽位包括：
+   - `XADMIN_GLOBAL_HOST_API`
+   - `XADMIN_GLOBAL_MAIN_DB`
+   - `XADMIN_GLOBAL_PLUGIN_XID`
+   - `XADMIN_GLOBAL_PLUGIN_ROOT_PATH`
+   - `XADMIN_GLOBAL_PLUGIN_INSTANCE_ID`
+   - `XADMIN_GLOBAL_PLUGIN_INSTANCE_NAME`
+   - `XADMIN_GLOBAL_PLUGIN_MOUNT_PATH`
+   - `XADMIN_GLOBAL_PLUGIN_DATA_PATH`
+   - `XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH`
+6. 插件私有数据库不是单独 API；插件拿到路径后自行用 native `sqlite3_open*()` 管理。
 
 统一描述符回调：
 

@@ -54,8 +54,11 @@ bool PS_LoadManifest(PluginSystemPackage* pPackage, str sRootPath)
 
 	pPackage->iFormatVersion = xvoTableGetInt(pPackage->tblManifest, "formatVersion", 13);
 	pPackage->iSort = xvoTableGetInt(pPackage->tblManifest, "sort", 4);
-	pPackage->sPluginId = PS_ManifestTextDup(pPackage->tblManifest, "id", 2, NULL);
-	pPackage->sName = PS_ManifestTextDup(pPackage->tblManifest, "name", 4, pPackage->sPluginId);
+	pPackage->sXid = PS_ManifestTextDup(pPackage->tblManifest, "xid", 3, NULL);
+	if ( pPackage->sXid == NULL ) {
+		pPackage->sXid = PS_ManifestTextDup(pPackage->tblManifest, "id", 2, NULL);
+	}
+	pPackage->sName = PS_ManifestTextDup(pPackage->tblManifest, "name", 4, pPackage->sXid);
 	pPackage->sTitle = PS_ManifestTextDup(pPackage->tblManifest, "title", 5, pPackage->sName);
 	pPackage->sDescription = PS_ManifestTextDup(pPackage->tblManifest, "description", 11, "");
 	pPackage->sVersion = PS_ManifestTextDup(pPackage->tblManifest, "version", 7, "0.0.0");

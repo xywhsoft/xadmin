@@ -96,10 +96,13 @@ PluginSystemServiceRegistration* PS_ServiceCreateRegistration(PluginSystemGenera
 	}
 	memset(pRegistration, 0, sizeof(PluginSystemServiceRegistration));
 
+	const char* sProviderInstanceId = decl->provider_instance_id ? decl->provider_instance_id : (const char*)pGeneration->pInstance->sInstanceId;
+	const char* sCapabilitiesRequired = decl->capabilities_required ? decl->capabilities_required : "";
+
 	pRegistration->pGeneration = pGeneration;
 	pRegistration->sServiceName = xrtCopyStr((str)decl->service_name, 0);
-	pRegistration->sProviderInstanceId = xrtCopyStr((str)(decl->provider_instance_id ? decl->provider_instance_id : pGeneration->pInstance->sInstanceId), 0);
-	pRegistration->sCapabilitiesRequired = xrtCopyStr((str)(decl->capabilities_required ? decl->capabilities_required : ""), 0);
+	pRegistration->sProviderInstanceId = xrtCopyStr((str)sProviderInstanceId, 0);
+	pRegistration->sCapabilitiesRequired = xrtCopyStr((str)sCapabilitiesRequired, 0);
 	pRegistration->iMajorVersion = decl->major_version;
 	pRegistration->iMinorVersion = decl->minor_version;
 	pRegistration->iLifecycleScope = decl->lifecycle_scope;
@@ -281,7 +284,7 @@ int PS_HostRegisterService(void* plugin_handle, const XAdminServiceDecl* decl, c
 		pGeneration,
 		"generation",
 		"service",
-		sResourceKey ? sResourceKey : decl->service_name,
+		sResourceKey ? sResourceKey : (str)decl->service_name,
 		pRegistration->sProviderInstanceId,
 		"lease_drain"
 	);

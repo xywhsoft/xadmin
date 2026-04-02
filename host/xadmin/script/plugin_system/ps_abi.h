@@ -7,6 +7,11 @@
 
 XAdminHostAPI G_PluginSystemHostAPI;
 
+bool PluginSystem_Enable(str sName);
+bool PluginSystem_Disable(str sName);
+bool PluginSystem_Reload(str sName);
+bool PluginSystem_Generate(const XAdminGeneratedPluginSpec* spec);
+
 typedef struct {
 	PluginSystemGeneration* pGeneration;
 	bool bReleased;
@@ -69,6 +74,15 @@ bool PS_HostTextEquals(const char* sLeft, const char* sRight)
 PluginSystemGeneration* PS_HostGetGeneration(void* plugin_handle)
 {
 	return (PluginSystemGeneration*)plugin_handle;
+}
+
+const char* PS_HostGetActorXid(void* plugin_handle)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+	if ( pGeneration && pGeneration->pPackage && PS_PackageKey(pGeneration->pPackage) ) {
+		return (const char*)PS_PackageKey(pGeneration->pPackage);
+	}
+	return "(system)";
 }
 
 void PS_HostAppendToken(xlist lstTokens, ptr pToken)
@@ -294,6 +308,36 @@ int PS_HostReplyJson(XS_ResponseObject resp, int code, const char* json, size_t 
 int PS_HostReplyHtml(XS_ResponseObject resp, int code, const char* html)
 {
 	return http_reply(resp, code, HTTP_CT_HTML, html, 0);
+}
+
+int PS_HostGeneratePlugin(void* plugin_handle, const XAdminGeneratedPluginSpec* spec)
+{
+	if ( (spec == NULL) || (spec->xid == NULL) || (spec->xid[0] == '\0') ) {
+		return -1;
+	}
+
+	PS_HostLog(LOG_INFO, "plugin generate requested: actor=%s xid=%s", PS_HostGetActorXid(plugin_handle), spec->xid);
+	return PluginSystem_Generate(spec) ? 0 : -1;
+}
+
+int PS_HostReloadPlugin(void* plugin_handle, const char* xid)
+{
+	if ( (xid == NULL) || (xid[0] == '\0') ) {
+		return -1;
+	}
+
+	PS_HostLog(LOG_INFO, "plugin reload requested: actor=%s xid=%s", PS_HostGetActorXid(plugin_handle), xid);
+	return PluginSystem_Reload((str)xid) ? 0 : -1;
+}
+
+int PS_HostSetPluginEnabled(void* plugin_handle, const char* xid, int enabled)
+{
+	if ( (xid == NULL) || (xid[0] == '\0') ) {
+		return -1;
+	}
+
+	PS_HostLog(LOG_INFO, "plugin enable state requested: actor=%s xid=%s enabled=%d", PS_HostGetActorXid(plugin_handle), xid, enabled ? 1 : 0);
+	return (enabled ? PluginSystem_Enable((str)xid) : PluginSystem_Disable((str)xid)) ? 0 : -1;
 }
 
 int PS_HostFindMenuId(PluginSystemGeneration* pGeneration, const XAdminMenuDecl* decl)
@@ -960,9 +1004,6 @@ void PS_HostAPI_Init()
 	G_PluginSystemHostAPI.http.reply_json = PS_HostReplyJson;
 	G_PluginSystemHostAPI.http.reply_html = PS_HostReplyHtml;
 
-	G_PluginSystemHostAPI.db.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.db.hdr.size = sizeof(XAdminDbAPI);
-
 	G_PluginSystemHostAPI.ui.hdr.abi_version = XADMIN_ABI_VERSION;
 	G_PluginSystemHostAPI.ui.hdr.size = sizeof(XAdminUiAPI);
 	G_PluginSystemHostAPI.ui.register_menu = PS_HostRegisterMenu;
@@ -987,20 +1028,18 @@ void PS_HostAPI_Init()
 	G_PluginSystemHostAPI.hook.register_hook = PS_HostRegisterHook;
 	G_PluginSystemHostAPI.hook.unregister_hook = PS_HostUnregisterHook;
 	G_PluginSystemHostAPI.hook.invoke = PS_HostInvokeHook;
-	G_PluginSystemHostAPI.job.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.job.hdr.size = sizeof(XAdminJobAPI);
-	G_PluginSystemHostAPI.fs.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.fs.hdr.size = sizeof(XAdminFsAPI);
-	G_PluginSystemHostAPI.tpl.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.tpl.hdr.size = sizeof(XAdminTemplateAPI);
-	G_PluginSystemHostAPI.model.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.model.hdr.size = sizeof(XAdminModelAPI);
 
 	G_PluginSystemHostAPI.service.hdr.abi_version = XADMIN_ABI_VERSION;
 	G_PluginSystemHostAPI.service.hdr.size = sizeof(XAdminServiceAPI);
 	G_PluginSystemHostAPI.service.register_service = PS_HostRegisterService;
 	G_PluginSystemHostAPI.service.acquire_service = PS_HostAcquireService;
 	G_PluginSystemHostAPI.service.release_service = PS_HostReleaseService;
+
+	G_PluginSystemHostAPI.pluginctl.hdr.abi_version = XADMIN_ABI_VERSION;
+	G_PluginSystemHostAPI.pluginctl.hdr.size = sizeof(XAdminPluginControlAPI);
+	G_PluginSystemHostAPI.pluginctl.generate_plugin = PS_HostGeneratePlugin;
+	G_PluginSystemHostAPI.pluginctl.reload_plugin = PS_HostReloadPlugin;
+	G_PluginSystemHostAPI.pluginctl.set_plugin_enabled = PS_HostSetPluginEnabled;
 }
 
 #endif

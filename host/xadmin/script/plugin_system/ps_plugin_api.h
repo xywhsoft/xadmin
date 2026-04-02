@@ -14,6 +14,15 @@
 #define LOG_INFO 1
 #define LOG_WARN 2
 #define LOG_ERROR 3
+#define XADMIN_GLOBAL_HOST_API 1
+#define XADMIN_GLOBAL_MAIN_DB 2
+#define XADMIN_GLOBAL_PLUGIN_XID 3
+#define XADMIN_GLOBAL_PLUGIN_ROOT_PATH 4
+#define XADMIN_GLOBAL_PLUGIN_INSTANCE_ID 5
+#define XADMIN_GLOBAL_PLUGIN_INSTANCE_NAME 6
+#define XADMIN_GLOBAL_PLUGIN_MOUNT_PATH 7
+#define XADMIN_GLOBAL_PLUGIN_DATA_PATH 8
+#define XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH 9
 
 typedef void* XAdminPluginHandle;
 typedef void* XAdminServiceLease;
@@ -137,10 +146,6 @@ typedef struct {
 
 typedef struct {
 	XAdminAbiHeader hdr;
-} XAdminDbAPI;
-
-typedef struct {
-	XAdminAbiHeader hdr;
 	int (*register_menu)(void* plugin_handle, const XAdminMenuDecl* decl, int* out_menu_id, XAdminMenuToken* token);
 	int (*unregister_menu)(XAdminMenuToken token);
 } XAdminUiAPI;
@@ -171,48 +176,51 @@ typedef struct {
 
 typedef struct {
 	XAdminAbiHeader hdr;
-} XAdminJobAPI;
-
-typedef struct {
-	XAdminAbiHeader hdr;
-} XAdminFsAPI;
-
-typedef struct {
-	XAdminAbiHeader hdr;
-} XAdminTemplateAPI;
-
-typedef struct {
-	XAdminAbiHeader hdr;
 	int (*register_service)(void* plugin_handle, const XAdminServiceDecl* decl, const void* vtable);
 	int (*acquire_service)(void* plugin_handle, const char* name, int major, XAdminServiceLease* out_lease, const void** out_vtable);
 	int (*release_service)(XAdminServiceLease lease);
 } XAdminServiceAPI;
 
 typedef struct {
+	const char* relative_path;
+	const void* data;
+	size_t size;
+} XAdminGeneratedFile;
+
+typedef struct {
+	const char* xid;
+	const char* title;
+	const char* version;
+	const char* entry;
+	int auto_enable;
+	size_t file_count;
+	const XAdminGeneratedFile* files;
+} XAdminGeneratedPluginSpec;
+
+typedef struct {
 	XAdminAbiHeader hdr;
-} XAdminModelAPI;
+	int (*generate_plugin)(void* plugin_handle, const XAdminGeneratedPluginSpec* spec);
+	int (*reload_plugin)(void* plugin_handle, const char* xid);
+	int (*set_plugin_enabled)(void* plugin_handle, const char* xid, int enabled);
+} XAdminPluginControlAPI;
 
 typedef struct {
 	uint32_t abi_version;
 	size_t size;
 	XAdminCoreAPI core;
 	XAdminHttpAPI http;
-	XAdminDbAPI db;
 	XAdminUiAPI ui;
 	XAdminAuthAPI auth;
 	XAdminEventAPI event;
 	XAdminHookAPI hook;
-	XAdminJobAPI job;
-	XAdminFsAPI fs;
-	XAdminTemplateAPI tpl;
 	XAdminServiceAPI service;
-	XAdminModelAPI model;
+	XAdminPluginControlAPI pluginctl;
 } XAdminHostAPI;
 
 typedef struct XAdminPluginDescriptor {
 	uint32_t abi_version;
 	size_t size;
-	const char* plugin_id;
+	const char* xid;
 	const char* version;
 	const char* title;
 	int (*OnLoad)(const XAdminHostAPI* host, XAdminPluginHandle* out_handle);

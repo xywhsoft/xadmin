@@ -2,6 +2,14 @@
 
 static const XAdminHostAPI* G_HelloHost = NULL;
 static XAdminPluginHandle G_HelloHandle = NULL;
+static sqlite3* G_HelloMainDb = NULL;
+static const char* G_HelloXid = NULL;
+static const char* G_HelloRootPath = NULL;
+static const char* G_HelloInstanceId = NULL;
+static const char* G_HelloInstanceName = NULL;
+static const char* G_HelloMountPath = NULL;
+static const char* G_HelloDataPath = NULL;
+static const char* G_HelloPrivateDbPath = NULL;
 
 typedef struct {
 	char sWelcomeMessage[256];
@@ -52,6 +60,29 @@ static HelloGreeterServiceVTable G_HelloGreeterService = {
 	Hello_ServiceGetMessage,
 	Hello_ServiceFillData
 };
+
+XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr)
+{
+	if ( idx == XADMIN_GLOBAL_HOST_API ) {
+		G_HelloHost = (const XAdminHostAPI*)ptr;
+	} else if ( idx == XADMIN_GLOBAL_MAIN_DB ) {
+		G_HelloMainDb = (sqlite3*)ptr;
+	} else if ( idx == XADMIN_GLOBAL_PLUGIN_XID ) {
+		G_HelloXid = (const char*)ptr;
+	} else if ( idx == XADMIN_GLOBAL_PLUGIN_ROOT_PATH ) {
+		G_HelloRootPath = (const char*)ptr;
+	} else if ( idx == XADMIN_GLOBAL_PLUGIN_INSTANCE_ID ) {
+		G_HelloInstanceId = (const char*)ptr;
+	} else if ( idx == XADMIN_GLOBAL_PLUGIN_INSTANCE_NAME ) {
+		G_HelloInstanceName = (const char*)ptr;
+	} else if ( idx == XADMIN_GLOBAL_PLUGIN_MOUNT_PATH ) {
+		G_HelloMountPath = (const char*)ptr;
+	} else if ( idx == XADMIN_GLOBAL_PLUGIN_DATA_PATH ) {
+		G_HelloDataPath = (const char*)ptr;
+	} else if ( idx == XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH ) {
+		G_HelloPrivateDbPath = (const char*)ptr;
+	}
+}
 
 void Hello_SendTableJson(XS_ResponseObject objResp, xvalue tblData)
 {
@@ -134,9 +165,18 @@ void Hello_RequestInfo(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 	tblRet = xvoCreateTable();
 	xvoTableSetBool(tblRet, "result", 6, TRUE);
-	xvoTableSetText(tblRet, "id", 2, "hello", 0, FALSE);
+	xvoTableSetText(tblRet, "id", 2, (str)(G_HelloXid ? G_HelloXid : "hello"), 0, FALSE);
+	xvoTableSetText(tblRet, "xid", 3, (str)(G_HelloXid ? G_HelloXid : "hello"), 0, FALSE);
 	xvoTableSetText(tblRet, "title", 5, "Hello World Demo Plugin", 0, FALSE);
 	xvoTableSetText(tblRet, "version", 7, "3.0.0", 0, FALSE);
+	xvoTableSetBool(tblRet, "dbInjected", 10, G_HelloMainDb != NULL);
+	xvoTableSetBool(tblRet, "hostInjected", 12, G_HelloHost != NULL);
+	xvoTableSetText(tblRet, "rootPath", 8, (str)(G_HelloRootPath ? G_HelloRootPath : ""), 0, FALSE);
+	xvoTableSetText(tblRet, "instanceId", 10, (str)(G_HelloInstanceId ? G_HelloInstanceId : ""), 0, FALSE);
+	xvoTableSetText(tblRet, "instanceName", 12, (str)(G_HelloInstanceName ? G_HelloInstanceName : ""), 0, FALSE);
+	xvoTableSetText(tblRet, "mountPath", 9, (str)(G_HelloMountPath ? G_HelloMountPath : ""), 0, FALSE);
+	xvoTableSetText(tblRet, "dataPath", 8, (str)(G_HelloDataPath ? G_HelloDataPath : ""), 0, FALSE);
+	xvoTableSetText(tblRet, "privateDbPath", 13, (str)(G_HelloPrivateDbPath ? G_HelloPrivateDbPath : ""), 0, FALSE);
 	xvoTableSetInt(tblRet, "eventCount", 10, G_HelloEventCount);
 	xvoTableSetInt(tblRet, "hookCount", 9, G_HelloHookCount);
 	xvoTableSetText(tblRet, "lastEventMessage", 16, G_HelloLastEventMessage, 0, FALSE);
@@ -205,7 +245,11 @@ int Hello_OnLoad(const XAdminHostAPI* host, XAdminPluginHandle* out_handle)
 	G_HelloEventCount = 0;
 	G_HelloHookCount = 0;
 	G_HelloLastEventMessage[0] = '\0';
-	G_HelloHost->core.log(LOG_INFO, "hello plugin loaded");
+	G_HelloHost->core.log(LOG_INFO, "hello plugin loaded: dbInjected=%d pluginctl=%d xid=%s data=%s",
+		G_HelloMainDb != NULL,
+		(host && host->pluginctl.generate_plugin != NULL) ? 1 : 0,
+		G_HelloXid ? G_HelloXid : "(null)",
+		G_HelloDataPath ? G_HelloDataPath : "(null)");
 	return 0;
 }
 
@@ -366,6 +410,13 @@ void Hello_OnUnload(XAdminPluginHandle handle)
 	G_HelloEventCount = 0;
 	G_HelloHookCount = 0;
 	G_HelloLastEventMessage[0] = '\0';
+	G_HelloXid = NULL;
+	G_HelloRootPath = NULL;
+	G_HelloInstanceId = NULL;
+	G_HelloInstanceName = NULL;
+	G_HelloMountPath = NULL;
+	G_HelloDataPath = NULL;
+	G_HelloPrivateDbPath = NULL;
 	G_HelloHost->core.log(LOG_INFO, "hello plugin unloaded");
 	G_HelloHost = NULL;
 }

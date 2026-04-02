@@ -3,6 +3,8 @@
 
 #include "ps_types.h"
 
+typedef void (*XAdminPluginSetGlobalDataProc)(int idx, void* ptr);
+
 void PS_TCCAddPathIfExists(TCCState* pTcc, str sRootPath, str sRelPath, bool bInclude)
 {
 	str sPath;
@@ -141,6 +143,7 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemInstance* p
 	str sErrorMessage;
 	bool bCompiled = FALSE;
 	const XAdminPluginDescriptor* (*procGetDescriptor)(void);
+	XAdminPluginSetGlobalDataProc procSetGlobalData = NULL;
 
 	if ( (pPackage == NULL) || (pInstance == NULL) || (pGeneration == NULL) || (pPackage->sRootPath == NULL) ) {
 		return FALSE;
@@ -205,6 +208,19 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemInstance* p
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
 		xsDestroyTCC(pTcc);
 		return FALSE;
+	}
+
+	procSetGlobalData = (XAdminPluginSetGlobalDataProc)tcc_get_symbol(pTcc, "XAdmin_PluginSetGlobalData");
+	if ( procSetGlobalData ) {
+		procSetGlobalData(XADMIN_GLOBAL_HOST_API, &G_PluginSystemHostAPI);
+		procSetGlobalData(XADMIN_GLOBAL_MAIN_DB, G_DB);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_XID, pPackage->sXid);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_ROOT_PATH, pPackage->sRootPath);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_INSTANCE_ID, pInstance->sInstanceId);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_INSTANCE_NAME, pInstance->sInstanceName);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_MOUNT_PATH, pInstance->sMountPath);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_DATA_PATH, pInstance->sDataPath);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH, pInstance->sPrivateDbPath);
 	}
 
 	procGetDescriptor = (const XAdminPluginDescriptor* (*)(void))tcc_get_symbol(pTcc, "XAdmin_GetPluginDescriptor");

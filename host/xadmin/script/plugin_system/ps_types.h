@@ -102,6 +102,8 @@ struct PluginSystemInstance {
 	str sPackageId;
 	str sInstanceName;
 	str sMountPath;
+	str sDataPath;
+	str sPrivateDbPath;
 	bool bEnabled;
 	bool bInstalled;
 	int iStatus;
@@ -117,7 +119,7 @@ struct PluginSystemInstance {
 struct PluginSystemPackage {
 	int iFormatVersion;
 	int iSort;
-	str sPluginId;
+	str sXid;
 	str sName;
 	str sTitle;
 	str sDescription;
@@ -156,7 +158,7 @@ str PS_PackageKey(PluginSystemPackage* pPackage)
 	if ( pPackage == NULL ) {
 		return NULL;
 	}
-	return pPackage->sPluginId ? pPackage->sPluginId : pPackage->sName;
+	return pPackage->sXid ? pPackage->sXid : pPackage->sName;
 }
 
 const char* PS_InstanceStatusText(int iStatus)
@@ -371,6 +373,8 @@ void PS_DestroyInstance(PluginSystemInstance* pInstance)
 	PS_FreeString(&pInstance->sPackageId);
 	PS_FreeString(&pInstance->sInstanceName);
 	PS_FreeString(&pInstance->sMountPath);
+	PS_FreeString(&pInstance->sDataPath);
+	PS_FreeString(&pInstance->sPrivateDbPath);
 	xrtFree(pInstance);
 }
 
@@ -418,7 +422,7 @@ void PS_DestroyPackage(PluginSystemPackage* pPackage)
 		pPackage->tblConfigSchema = NULL;
 	}
 
-	PS_FreeString(&pPackage->sPluginId);
+	PS_FreeString(&pPackage->sXid);
 	PS_FreeString(&pPackage->sName);
 	PS_FreeString(&pPackage->sTitle);
 	PS_FreeString(&pPackage->sDescription);

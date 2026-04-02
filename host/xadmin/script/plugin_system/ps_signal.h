@@ -82,6 +82,8 @@ void PS_EventRebuildPublishedSnapshot()
 int PS_HookCompare(PluginSystemHookRegistration* pLeft, PluginSystemHookRegistration* pRight)
 {
 	int iNameCompare;
+	const char* sLeftName;
+	const char* sRightName;
 
 	if ( pLeft == pRight ) {
 		return 0;
@@ -93,7 +95,9 @@ int PS_HookCompare(PluginSystemHookRegistration* pLeft, PluginSystemHookRegistra
 		return -1;
 	}
 
-	iNameCompare = strcmp(pLeft->sHookName ? pLeft->sHookName : "", pRight->sHookName ? pRight->sHookName : "");
+	sLeftName = pLeft->sHookName ? (const char*)pLeft->sHookName : "";
+	sRightName = pRight->sHookName ? (const char*)pRight->sHookName : "";
+	iNameCompare = strcmp(sLeftName, sRightName);
 	if ( iNameCompare != 0 ) {
 		return iNameCompare;
 	}
