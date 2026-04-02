@@ -20,6 +20,167 @@ void PS_RuntimeCleanupRoutes(PluginSystemGeneration* pGeneration)
 	}
 }
 
+void PS_RuntimeCleanupMenus(PluginSystemGeneration* pGeneration)
+{
+	if ( (pGeneration == NULL) || (pGeneration->lstMenuTokens == NULL) ) {
+		return;
+	}
+
+	for ( int i = xrtListCount(pGeneration->lstMenuTokens) - 1; i >= 0; i-- ) {
+		ptr pToken = xrtListGetPtr(pGeneration->lstMenuTokens, i);
+		if ( pToken ) {
+			PS_HostUnregisterMenu((XAdminMenuToken)(uintptr_t)pToken);
+			xrtListSetPtr(pGeneration->lstMenuTokens, i, NULL, NULL);
+		}
+	}
+}
+
+void PS_RuntimeCleanupUriAuths(PluginSystemGeneration* pGeneration)
+{
+	if ( (pGeneration == NULL) || (pGeneration->lstUriAuthTokens == NULL) ) {
+		return;
+	}
+
+	for ( int i = xrtListCount(pGeneration->lstUriAuthTokens) - 1; i >= 0; i-- ) {
+		ptr pToken = xrtListGetPtr(pGeneration->lstUriAuthTokens, i);
+		if ( pToken ) {
+			PS_HostUnregisterUriAuth((XAdminUriAuthToken)(uintptr_t)pToken);
+			xrtListSetPtr(pGeneration->lstUriAuthTokens, i, NULL, NULL);
+		}
+	}
+}
+
+void PS_RuntimeCleanupAuths(PluginSystemGeneration* pGeneration)
+{
+	if ( (pGeneration == NULL) || (pGeneration->lstAuthTokens == NULL) ) {
+		return;
+	}
+
+	for ( int i = xrtListCount(pGeneration->lstAuthTokens) - 1; i >= 0; i-- ) {
+		ptr pToken = xrtListGetPtr(pGeneration->lstAuthTokens, i);
+		if ( pToken ) {
+			PS_HostUnregisterAuth((XAdminAuthToken)(uintptr_t)pToken);
+			xrtListSetPtr(pGeneration->lstAuthTokens, i, NULL, NULL);
+		}
+	}
+}
+
+void PS_RuntimeCleanupAuthGroups(PluginSystemGeneration* pGeneration)
+{
+	if ( (pGeneration == NULL) || (pGeneration->lstAuthGroupTokens == NULL) ) {
+		return;
+	}
+
+	for ( int i = xrtListCount(pGeneration->lstAuthGroupTokens) - 1; i >= 0; i-- ) {
+		ptr pToken = xrtListGetPtr(pGeneration->lstAuthGroupTokens, i);
+		if ( pToken ) {
+			PS_HostUnregisterAuthGroup((XAdminAuthGroupToken)(uintptr_t)pToken);
+			xrtListSetPtr(pGeneration->lstAuthGroupTokens, i, NULL, NULL);
+		}
+	}
+}
+
+void PS_RuntimeCleanupGenerationEntryPoints(PluginSystemGeneration* pGeneration)
+{
+	PS_RuntimeCleanupUriAuths(pGeneration);
+	PS_RuntimeCleanupAuths(pGeneration);
+	PS_RuntimeCleanupAuthGroups(pGeneration);
+	PS_RuntimeCleanupMenus(pGeneration);
+	PS_RuntimeCleanupRoutes(pGeneration);
+}
+
+void PS_RuntimeCleanupGenerationResources(PluginSystemGeneration* pGeneration)
+{
+	PS_RuntimeCleanupGenerationEntryPoints(pGeneration);
+	PS_HookDestroyGenerationRegistrations(pGeneration);
+	PS_EventDestroyGenerationRegistrations(pGeneration);
+	PS_ServiceDestroyGenerationRegistrations(pGeneration);
+}
+
+void PS_RuntimeTrackDrainingGeneration(PluginSystemInstance* pInstance, PluginSystemGeneration* pGeneration)
+{
+	if ( (pInstance == NULL) || (pGeneration == NULL) || (pInstance->lstDrainingGenerations == NULL) ) {
+		return;
+	}
+
+	for ( int i = 0; i < xrtListCount(pInstance->lstDrainingGenerations); i++ ) {
+		if ( xrtListGetPtr(pInstance->lstDrainingGenerations, i) == pGeneration ) {
+			return;
+		}
+	}
+
+	xrtListSetPtr(pInstance->lstDrainingGenerations, xrtListCount(pInstance->lstDrainingGenerations), pGeneration, NULL);
+}
+
+void PS_RuntimeDetachDrainingGeneration(PluginSystemInstance* pInstance, PluginSystemGeneration* pGeneration)
+{
+	if ( (pInstance == NULL) || (pGeneration == NULL) || (pInstance->lstDrainingGenerations == NULL) ) {
+		return;
+	}
+
+	for ( int i = 0; i < xrtListCount(pInstance->lstDrainingGenerations); i++ ) {
+		if ( xrtListGetPtr(pInstance->lstDrainingGenerations, i) == pGeneration ) {
+			xrtListSetPtr(pInstance->lstDrainingGenerations, i, NULL, NULL);
+			return;
+		}
+	}
+}
+
+void PS_RuntimeFinalizeGeneration(PluginSystemInstance* pInstance, PluginSystemGeneration* pGeneration)
+{
+	if ( pGeneration == NULL ) {
+		return;
+	}
+
+	printf("        [PluginSystem] Finalize generation: instance=%s generation=%u state=%d refs=%d\n",
+		(pInstance && pInstance->sInstanceId) ? (const char*)pInstance->sInstanceId : "(unknown)",
+		pGeneration->iGeneration,
+		pGeneration->iState,
+		pGeneration->iRefCount);
+
+	PS_ServiceUnpublishGeneration(pGeneration, "removed");
+	if ( pGeneration->pDescriptor && pGeneration->pDescriptor->OnStop ) {
+		pGeneration->pDescriptor->OnStop((XAdminPluginHandle)pGeneration);
+	}
+	PS_RuntimeCleanupGenerationResources(pGeneration);
+	if ( pGeneration->pDescriptor && pGeneration->pDescriptor->OnUnload ) {
+		pGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pGeneration);
+	}
+	pGeneration->iStopTime = xrtNow();
+	pGeneration->iState = PS_GENERATION_STATE_STOPPED;
+	PS_StorageSaveGeneration(pInstance, pGeneration);
+	PS_RuntimeDetachDrainingGeneration(pInstance, pGeneration);
+	if ( pInstance && (pInstance->pActiveGeneration == pGeneration) ) {
+		pInstance->pActiveGeneration = NULL;
+		pInstance->iActiveGeneration = 0;
+	}
+	PS_DestroyGeneration(pGeneration);
+}
+
+void PS_RuntimeOnGenerationRefReleased(PluginSystemGeneration* pGeneration)
+{
+	if ( (pGeneration == NULL) || (pGeneration->iState != PS_GENERATION_STATE_DRAINING) || (pGeneration->iRefCount > 0) ) {
+		return;
+	}
+
+	PS_RuntimeFinalizeGeneration(pGeneration->pInstance, pGeneration);
+}
+
+void PS_RuntimeForceDrainInstance(PluginSystemInstance* pInstance)
+{
+	if ( (pInstance == NULL) || (pInstance->lstDrainingGenerations == NULL) ) {
+		return;
+	}
+
+	for ( int i = 0; i < xrtListCount(pInstance->lstDrainingGenerations); i++ ) {
+		PluginSystemGeneration* pGeneration = xrtListGetPtr(pInstance->lstDrainingGenerations, i);
+		if ( pGeneration ) {
+			pGeneration->iRefCount = 0;
+			PS_RuntimeFinalizeGeneration(pInstance, pGeneration);
+		}
+	}
+}
+
 bool PS_RuntimeFailInstance(PluginSystemInstance* pInstance, PluginSystemGeneration* pGeneration, str sMessage, bool bMarkInstanceFailed)
 {
 	printf("        [PluginSystem] Generation failed: instance=%s generation=%u reason=%s\n",
@@ -52,17 +213,23 @@ void PS_RuntimeDeactivateGeneration(PluginSystemInstance* pInstance, PluginSyste
 		pGeneration->iGeneration,
 		pGeneration->iState);
 
-	if ( pGeneration->pDescriptor && pGeneration->pDescriptor->OnStop ) {
-		pGeneration->pDescriptor->OnStop((XAdminPluginHandle)pGeneration);
+	PS_HookUnpublishGeneration(pGeneration);
+	PS_EventUnpublishGeneration(pGeneration);
+	PS_ServiceUnpublishGeneration(pGeneration, (pGeneration->iRefCount > 0) ? "draining" : "removed");
+	if ( pGeneration->iRefCount > 0 ) {
+		PS_RuntimeCleanupGenerationEntryPoints(pGeneration);
+		pGeneration->iStopTime = xrtNow();
+		pGeneration->iState = PS_GENERATION_STATE_DRAINING;
+		PS_StorageSaveGeneration(pInstance, pGeneration);
+		PS_RuntimeTrackDrainingGeneration(pInstance, pGeneration);
+		printf("        [PluginSystem] Generation draining: instance=%s generation=%u refs=%d\n",
+			(pInstance && pInstance->sInstanceId) ? (const char*)pInstance->sInstanceId : "(unknown)",
+			pGeneration->iGeneration,
+			pGeneration->iRefCount);
+		return;
 	}
-	PS_RuntimeCleanupRoutes(pGeneration);
-	if ( pGeneration->pDescriptor && pGeneration->pDescriptor->OnUnload ) {
-		pGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pGeneration);
-	}
-	pGeneration->iStopTime = xrtNow();
-	pGeneration->iState = PS_GENERATION_STATE_STOPPED;
-	PS_StorageSaveGeneration(pInstance, pGeneration);
-	PS_DestroyGeneration(pGeneration);
+
+	PS_RuntimeFinalizeGeneration(pInstance, pGeneration);
 }
 
 bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance, PluginSystemGeneration* pNewGeneration, bool bAffectInstance)
@@ -76,6 +243,9 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 	if ( pNewGeneration == NULL ) {
 		return FALSE;
 	}
+
+	pNewGeneration->pInstance = pInstance;
+	pNewGeneration->pPackage = pPackage;
 
 	printf("        [PluginSystem] Preparing generation: package=%s instance=%s generation=%u\n",
 		PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
@@ -93,6 +263,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 	if ( pNewGeneration->pDescriptor->OnLoad ) {
 		if ( pNewGeneration->pDescriptor->OnLoad(&G_PluginSystemHostAPI, &pNewGeneration->hPlugin) != 0 ) {
 			PS_RuntimeFailInstance(pInstance, pNewGeneration, "plugin OnLoad failed", bAffectInstance);
+			PS_RuntimeCleanupGenerationResources(pNewGeneration);
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
@@ -105,6 +276,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 	if ( !pInstance->bInstalled && pNewGeneration->pDescriptor->OnInstall ) {
 		if ( pNewGeneration->pDescriptor->OnInstall((XAdminPluginHandle)pNewGeneration) != 0 ) {
 			PS_RuntimeFailInstance(pInstance, pNewGeneration, "plugin OnInstall failed", bAffectInstance);
+			PS_RuntimeCleanupGenerationResources(pNewGeneration);
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
@@ -117,6 +289,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 	if ( pNewGeneration->pDescriptor->OnConfigChanged ) {
 		if ( pNewGeneration->pDescriptor->OnConfigChanged((XAdminPluginHandle)pNewGeneration, pInstance->tblConfig) != 0 ) {
 			PS_RuntimeFailInstance(pInstance, pNewGeneration, "plugin OnConfigChanged failed", bAffectInstance);
+			PS_RuntimeCleanupGenerationResources(pNewGeneration);
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
@@ -128,7 +301,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 	if ( pNewGeneration->pDescriptor->OnStart ) {
 		if ( pNewGeneration->pDescriptor->OnStart((XAdminPluginHandle)pNewGeneration) != 0 ) {
 			PS_RuntimeFailInstance(pInstance, pNewGeneration, "plugin OnStart failed", bAffectInstance);
-			PS_RuntimeCleanupRoutes(pNewGeneration);
+			PS_RuntimeCleanupGenerationResources(pNewGeneration);
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
@@ -141,10 +314,10 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 		memset(&report, 0, sizeof(report));
 		if ( pNewGeneration->pDescriptor->OnHealthCheck((XAdminPluginHandle)pNewGeneration, &report) != 0 ) {
 			PS_RuntimeFailInstance(pInstance, pNewGeneration, "plugin health check failed", bAffectInstance);
-			PS_RuntimeCleanupRoutes(pNewGeneration);
 			if ( pNewGeneration->pDescriptor->OnStop ) {
 				pNewGeneration->pDescriptor->OnStop((XAdminPluginHandle)pNewGeneration);
 			}
+			PS_RuntimeCleanupGenerationResources(pNewGeneration);
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
@@ -171,6 +344,9 @@ void PS_RuntimeActivateGeneration(PluginSystemInstance* pInstance, PluginSystemG
 	if ( pGeneration->iStartTime <= 0 ) {
 		pGeneration->iStartTime = xrtNow();
 	}
+	PS_HookPublishGeneration(pGeneration);
+	PS_EventPublishGeneration(pGeneration);
+	PS_ServicePublishGeneration(pGeneration);
 
 	pInstance->pActiveGeneration = pGeneration;
 	pInstance->iActiveGeneration = pGeneration->iGeneration;

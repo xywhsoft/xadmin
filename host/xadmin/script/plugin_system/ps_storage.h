@@ -43,6 +43,123 @@ void PS_StorageUnit()
 {
 }
 
+void PS_StorageBindText(sqlite3_stmt* stmt, int iIndex, const char* sText)
+{
+	sqlite3_bind_text(stmt, iIndex, sText ? sText : "", -1, NULL);
+}
+
+int PS_StorageTrackResource(PluginSystemGeneration* pGeneration, const char* sOwnerScope, const char* sResourceType, const char* sResourceKey, const char* sResourceRef, const char* sDestroyPolicy)
+{
+	sqlite3_stmt* stmt = NULL;
+	int iResourceId = 0;
+
+	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pInstance == NULL) ) {
+		return 0;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "INSERT INTO plugin_resource (instance_id, generation, owner_scope, resource_type, resource_key, resource_ref, destroy_policy, create_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		return 0;
+	}
+
+	if ( sResourceType && sResourceKey ) {
+		sqlite3_stmt* stmtCleanup = NULL;
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE plugin_resource SET status = 'removed' WHERE instance_id = ? AND resource_type = ? AND resource_key = ? AND status = 'active'", -1, SQL_PREPARE_DEFAULT, &stmtCleanup, NULL) == SQLITE_OK ) {
+			PS_StorageBindText(stmtCleanup, 1, pGeneration->pInstance->sInstanceId);
+			PS_StorageBindText(stmtCleanup, 2, sResourceType);
+			PS_StorageBindText(stmtCleanup, 3, sResourceKey);
+			sqlite3_step(stmtCleanup);
+			sqlite3_finalize(stmtCleanup);
+		}
+	}
+
+	PS_StorageBindText(stmt, 1, pGeneration->pInstance->sInstanceId);
+	sqlite3_bind_int(stmt, 2, (int)pGeneration->iGeneration);
+	PS_StorageBindText(stmt, 3, sOwnerScope ? sOwnerScope : "generation");
+	PS_StorageBindText(stmt, 4, sResourceType);
+	PS_StorageBindText(stmt, 5, sResourceKey);
+	PS_StorageBindText(stmt, 6, sResourceRef);
+	PS_StorageBindText(stmt, 7, sDestroyPolicy ? sDestroyPolicy : "auto_unload");
+	sqlite3_bind_int64(stmt, 8, xrtNow());
+	if ( sqlite3_step(stmt) == SQLITE_DONE ) {
+		iResourceId = (int)sqlite3_last_insert_rowid(G_DB);
+	}
+
+	sqlite3_finalize(stmt);
+	return iResourceId;
+}
+
+bool PS_StorageUpdateResourceStatus(int iResourceId, const char* sStatus)
+{
+	sqlite3_stmt* stmt = NULL;
+	bool bOK = FALSE;
+
+	if ( (G_DB == NULL) || (iResourceId <= 0) ) {
+		return FALSE;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "UPDATE plugin_resource SET status = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		return FALSE;
+	}
+
+	PS_StorageBindText(stmt, 1, sStatus ? sStatus : "removed");
+	sqlite3_bind_int(stmt, 2, iResourceId);
+	bOK = (sqlite3_step(stmt) == SQLITE_DONE);
+	sqlite3_finalize(stmt);
+	return bOK;
+}
+
+int PS_StorageSaveService(PluginSystemGeneration* pGeneration, const char* sServiceName, int iMajorVersion, int iMinorVersion, const char* sStatus)
+{
+	sqlite3_stmt* stmt = NULL;
+	int iServiceId = 0;
+
+	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pInstance == NULL) || (sServiceName == NULL) || (sServiceName[0] == '\0') ) {
+		return 0;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_service (id, instance_id, generation, service_name, major_version, minor_version, status) VALUES ((SELECT id FROM plugin_service WHERE instance_id = ? AND generation = ? AND service_name = ? AND major_version = ? AND minor_version = ? LIMIT 1), ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		return 0;
+	}
+
+	PS_StorageBindText(stmt, 1, pGeneration->pInstance->sInstanceId);
+	sqlite3_bind_int(stmt, 2, (int)pGeneration->iGeneration);
+	PS_StorageBindText(stmt, 3, sServiceName);
+	sqlite3_bind_int(stmt, 4, iMajorVersion);
+	sqlite3_bind_int(stmt, 5, iMinorVersion);
+	PS_StorageBindText(stmt, 6, pGeneration->pInstance->sInstanceId);
+	sqlite3_bind_int(stmt, 7, (int)pGeneration->iGeneration);
+	PS_StorageBindText(stmt, 8, sServiceName);
+	sqlite3_bind_int(stmt, 9, iMajorVersion);
+	sqlite3_bind_int(stmt, 10, iMinorVersion);
+	PS_StorageBindText(stmt, 11, sStatus ? sStatus : "active");
+	if ( sqlite3_step(stmt) == SQLITE_DONE ) {
+		iServiceId = (int)sqlite3_last_insert_rowid(G_DB);
+	}
+
+	sqlite3_finalize(stmt);
+	return iServiceId;
+}
+
+bool PS_StorageUpdateServiceStatus(int iServiceId, const char* sStatus)
+{
+	sqlite3_stmt* stmt = NULL;
+	bool bOK = FALSE;
+
+	if ( (G_DB == NULL) || (iServiceId <= 0) ) {
+		return FALSE;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "UPDATE plugin_service SET status = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		return FALSE;
+	}
+
+	PS_StorageBindText(stmt, 1, sStatus ? sStatus : "removed");
+	sqlite3_bind_int(stmt, 2, iServiceId);
+	bOK = (sqlite3_step(stmt) == SQLITE_DONE);
+	sqlite3_finalize(stmt);
+	return bOK;
+}
+
 bool PS_StorageSavePackage(PluginSystemPackage* pPackage)
 {
 	sqlite3_stmt* stmt = NULL;
@@ -181,12 +298,12 @@ bool PS_StorageSaveGeneration(PluginSystemInstance* pInstance, PluginSystemGener
 		sqlite3_bind_text(stmt, 3, (const char*)(pInstance->sInstanceId ? pInstance->sInstanceId : (str)""), -1, NULL);
 		sqlite3_bind_int(stmt, 4, (int)pGeneration->iGeneration);
 		sqlite3_bind_text(stmt, 5, "", -1, NULL);
-		sqlite3_bind_text(stmt, 6, (pGeneration->iState == PS_GENERATION_STATE_ACTIVE) ? "active" : ((pGeneration->iState == PS_GENERATION_STATE_FAILED) ? "failed" : ((pGeneration->iState == PS_GENERATION_STATE_STOPPED) ? "stopped" : "loaded")), -1, NULL);
+		sqlite3_bind_text(stmt, 6, PS_GenerationStateText(pGeneration->iState), -1, NULL);
 		sqlite3_bind_text(stmt, 7, (const char*)(pGeneration->sCompileHash ? pGeneration->sCompileHash : (str)""), -1, NULL);
 		sqlite3_bind_int64(stmt, 8, pGeneration->iLoadTime);
 		sqlite3_bind_int64(stmt, 9, pGeneration->iStartTime);
 		sqlite3_bind_int64(stmt, 10, pGeneration->iStopTime);
-		sqlite3_bind_text(stmt, 11, (pGeneration->iState == PS_GENERATION_STATE_ACTIVE) ? "ok" : "", -1, NULL);
+		sqlite3_bind_text(stmt, 11, (pGeneration->iState == PS_GENERATION_STATE_ACTIVE) ? "ok" : ((pGeneration->iState == PS_GENERATION_STATE_DRAINING) ? "draining" : ""), -1, NULL);
 		sqlite3_bind_text(stmt, 12, (const char*)(pGeneration->sErrorMessage ? pGeneration->sErrorMessage : (str)""), -1, NULL);
 		bOK = (sqlite3_step(stmt) == SQLITE_DONE);
 	}

@@ -18,6 +18,18 @@
 typedef void* XAdminPluginHandle;
 typedef void* XAdminServiceLease;
 typedef uintptr_t XAdminRouteToken;
+typedef uintptr_t XAdminMenuToken;
+typedef uintptr_t XAdminAuthGroupToken;
+typedef uintptr_t XAdminAuthToken;
+typedef uintptr_t XAdminUriAuthToken;
+typedef uintptr_t XAdminEventToken;
+typedef uintptr_t XAdminHookToken;
+
+#define XADMIN_AUTH_SCOPE_ADMIN 1
+#define XADMIN_AUTH_SCOPE_MEMBER 2
+#define XADMIN_HOOK_CONTINUE 0
+#define XADMIN_HOOK_STOP 1
+#define XADMIN_HOOK_ERROR -1
 
 typedef struct {
 	uint32_t abi_version;
@@ -39,6 +51,48 @@ typedef struct {
 } XAdminRouteDecl;
 
 typedef struct {
+	const char* key;
+	int parent_id;
+	const char* title;
+	const char* icon;
+	int type;
+	const char* open_type;
+	const char* href;
+	int sort;
+	bool visible;
+	const char* remark;
+} XAdminMenuDecl;
+
+typedef struct {
+	int scope;
+	const char* key;
+	const char* name;
+	const char* description;
+	int sort;
+} XAdminAuthGroupDecl;
+
+typedef struct {
+	int scope;
+	const char* key;
+	int group_id;
+	const char* name;
+	const char* description;
+	int sort;
+} XAdminAuthDecl;
+
+typedef struct {
+	int scope;
+	const char* key;
+	int auth_id;
+	const char* uri;
+	const char* description;
+	int sort;
+	bool need_auth;
+	bool need_log;
+	bool keep_active;
+} XAdminUriAuthDecl;
+
+typedef struct {
 	const char* service_name;
 	int major_version;
 	int minor_version;
@@ -47,6 +101,20 @@ typedef struct {
 	size_t vtable_size;
 	const char* capabilities_required;
 } XAdminServiceDecl;
+
+typedef void (*XAdminEventProc)(const char* event_name, void* payload, size_t payload_size);
+typedef int (*XAdminHookProc)(const char* hook_name, void* payload, size_t payload_size);
+
+typedef struct {
+	const char* event_name;
+	XAdminEventProc proc;
+} XAdminEventDecl;
+
+typedef struct {
+	const char* hook_name;
+	int sort;
+	XAdminHookProc proc;
+} XAdminHookDecl;
 
 typedef struct {
 	XAdminAbiHeader hdr;
@@ -73,18 +141,32 @@ typedef struct {
 
 typedef struct {
 	XAdminAbiHeader hdr;
+	int (*register_menu)(void* plugin_handle, const XAdminMenuDecl* decl, int* out_menu_id, XAdminMenuToken* token);
+	int (*unregister_menu)(XAdminMenuToken token);
 } XAdminUiAPI;
 
 typedef struct {
 	XAdminAbiHeader hdr;
+	int (*register_auth_group)(void* plugin_handle, const XAdminAuthGroupDecl* decl, int* out_group_id, XAdminAuthGroupToken* token);
+	int (*unregister_auth_group)(XAdminAuthGroupToken token);
+	int (*register_auth)(void* plugin_handle, const XAdminAuthDecl* decl, int* out_auth_id, XAdminAuthToken* token);
+	int (*unregister_auth)(XAdminAuthToken token);
+	int (*register_uri_auth)(void* plugin_handle, const XAdminUriAuthDecl* decl, int* out_uri_id, XAdminUriAuthToken* token);
+	int (*unregister_uri_auth)(XAdminUriAuthToken token);
 } XAdminAuthAPI;
 
 typedef struct {
 	XAdminAbiHeader hdr;
+	int (*listen)(void* plugin_handle, const XAdminEventDecl* decl, XAdminEventToken* token);
+	int (*unlisten)(XAdminEventToken token);
+	int (*emit)(void* plugin_handle, const char* event_name, void* payload, size_t payload_size);
 } XAdminEventAPI;
 
 typedef struct {
 	XAdminAbiHeader hdr;
+	int (*register_hook)(void* plugin_handle, const XAdminHookDecl* decl, XAdminHookToken* token);
+	int (*unregister_hook)(XAdminHookToken token);
+	int (*invoke)(void* plugin_handle, const char* hook_name, void* payload, size_t payload_size);
 } XAdminHookAPI;
 
 typedef struct {

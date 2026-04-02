@@ -299,6 +299,12 @@ void PluginSystem_Init()
 	memset(G_PluginSystem, 0, sizeof(PluginSystemManager));
 
 	G_PluginSystem->lstPackages = xrtListCreate(sizeof(ptr), 0);
+	G_PluginSystem->lstServices = xrtListCreate(sizeof(ptr), 0);
+	G_PluginSystem->lstServiceSnapshots = xrtListCreate(sizeof(ptr), 0);
+	G_PluginSystem->lstEvents = xrtListCreate(sizeof(ptr), 0);
+	G_PluginSystem->lstEventSnapshots = xrtListCreate(sizeof(ptr), 0);
+	G_PluginSystem->lstHooks = xrtListCreate(sizeof(ptr), 0);
+	G_PluginSystem->lstHookSnapshots = xrtListCreate(sizeof(ptr), 0);
 	G_PluginSystem->sPluginRootPath = xrtPathJoin(2, AppPath, "script/plugin");
 	G_PluginSystem->sDataPath = xrtPathJoin(3, AppPath, "data", "plugin_system");
 
@@ -336,11 +342,90 @@ void PluginSystem_Unit()
 			if ( pInstance && pInstance->pActiveGeneration ) {
 				PS_RuntimeStopInstance(pInstance);
 			}
+		}
+		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
+			PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
+			PluginSystemInstance* pInstance = PS_GetDefaultInstance(pPackage);
+			if ( pInstance ) {
+				PS_RuntimeForceDrainInstance(pInstance);
+			}
+		}
+		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
+			PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
 			PS_DestroyPackage(pPackage);
 			xrtListSetPtr(G_PluginSystem->lstPackages, i, NULL, NULL);
 		}
 		xrtListDestroy(G_PluginSystem->lstPackages);
 	}
+	if ( G_PluginSystem->lstServices ) {
+		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstServices); i++ ) {
+			PluginSystemServiceRegistration* pRegistration = xrtListGetPtr(G_PluginSystem->lstServices, i);
+			if ( pRegistration ) {
+				PS_ServiceFreeRegistration(pRegistration);
+				xrtListSetPtr(G_PluginSystem->lstServices, i, NULL, NULL);
+			}
+		}
+		xrtListDestroy(G_PluginSystem->lstServices);
+		G_PluginSystem->lstServices = NULL;
+	}
+	if ( G_PluginSystem->lstServiceSnapshots ) {
+		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstServiceSnapshots); i++ ) {
+			ptr pSnapshot = xrtListGetPtr(G_PluginSystem->lstServiceSnapshots, i);
+			if ( pSnapshot ) {
+				xrtFree(pSnapshot);
+				xrtListSetPtr(G_PluginSystem->lstServiceSnapshots, i, NULL, NULL);
+			}
+		}
+		xrtListDestroy(G_PluginSystem->lstServiceSnapshots);
+		G_PluginSystem->lstServiceSnapshots = NULL;
+	}
+	G_PluginSystem->ppPublishedServices = NULL;
+	if ( G_PluginSystem->lstEvents ) {
+		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstEvents); i++ ) {
+			PluginSystemEventRegistration* pRegistration = xrtListGetPtr(G_PluginSystem->lstEvents, i);
+			if ( pRegistration ) {
+				PS_EventFreeRegistration(pRegistration);
+				xrtListSetPtr(G_PluginSystem->lstEvents, i, NULL, NULL);
+			}
+		}
+		xrtListDestroy(G_PluginSystem->lstEvents);
+		G_PluginSystem->lstEvents = NULL;
+	}
+	if ( G_PluginSystem->lstEventSnapshots ) {
+		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstEventSnapshots); i++ ) {
+			ptr pSnapshot = xrtListGetPtr(G_PluginSystem->lstEventSnapshots, i);
+			if ( pSnapshot ) {
+				xrtFree(pSnapshot);
+				xrtListSetPtr(G_PluginSystem->lstEventSnapshots, i, NULL, NULL);
+			}
+		}
+		xrtListDestroy(G_PluginSystem->lstEventSnapshots);
+		G_PluginSystem->lstEventSnapshots = NULL;
+	}
+	G_PluginSystem->ppPublishedEvents = NULL;
+	if ( G_PluginSystem->lstHooks ) {
+		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstHooks); i++ ) {
+			PluginSystemHookRegistration* pRegistration = xrtListGetPtr(G_PluginSystem->lstHooks, i);
+			if ( pRegistration ) {
+				PS_HookFreeRegistration(pRegistration);
+				xrtListSetPtr(G_PluginSystem->lstHooks, i, NULL, NULL);
+			}
+		}
+		xrtListDestroy(G_PluginSystem->lstHooks);
+		G_PluginSystem->lstHooks = NULL;
+	}
+	if ( G_PluginSystem->lstHookSnapshots ) {
+		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstHookSnapshots); i++ ) {
+			ptr pSnapshot = xrtListGetPtr(G_PluginSystem->lstHookSnapshots, i);
+			if ( pSnapshot ) {
+				xrtFree(pSnapshot);
+				xrtListSetPtr(G_PluginSystem->lstHookSnapshots, i, NULL, NULL);
+			}
+		}
+		xrtListDestroy(G_PluginSystem->lstHookSnapshots);
+		G_PluginSystem->lstHookSnapshots = NULL;
+	}
+	G_PluginSystem->ppPublishedHooks = NULL;
 
 	PS_StorageUnit();
 	PS_FreeString(&G_PluginSystem->sPluginRootPath);

@@ -3,6 +3,14 @@
 
 #include "ps_plugin_api.h"
 
+typedef struct PluginSystemGeneration PluginSystemGeneration;
+typedef struct PluginSystemInstance PluginSystemInstance;
+typedef struct PluginSystemPackage PluginSystemPackage;
+typedef struct PluginSystemServiceRegistration PluginSystemServiceRegistration;
+typedef struct PluginSystemServiceLeaseData PluginSystemServiceLeaseData;
+typedef struct PluginSystemEventRegistration PluginSystemEventRegistration;
+typedef struct PluginSystemHookRegistration PluginSystemHookRegistration;
+
 typedef enum {
 	PS_INSTANCE_STATUS_DISCOVERED = 0,
 	PS_INSTANCE_STATUS_DISABLED = 1,
@@ -17,11 +25,54 @@ typedef enum {
 	PS_GENERATION_STATE_LOADED = 2,
 	PS_GENERATION_STATE_STARTED = 3,
 	PS_GENERATION_STATE_ACTIVE = 4,
-	PS_GENERATION_STATE_STOPPED = 5,
-	PS_GENERATION_STATE_FAILED = 6
+	PS_GENERATION_STATE_DRAINING = 5,
+	PS_GENERATION_STATE_STOPPED = 6,
+	PS_GENERATION_STATE_FAILED = 7
 } PluginSystemGenerationState;
 
-typedef struct PluginSystemGeneration {
+struct PluginSystemServiceRegistration {
+	PluginSystemGeneration* pGeneration;
+	str sServiceName;
+	str sProviderInstanceId;
+	str sCapabilitiesRequired;
+	int iMajorVersion;
+	int iMinorVersion;
+	int iLifecycleScope;
+	int iServiceRowId;
+	int iResourceId;
+	size_t iVtableSize;
+	const void* pVtable;
+	bool bPublished;
+	bool bListed;
+};
+
+struct PluginSystemServiceLeaseData {
+	PluginSystemGeneration* pConsumerGeneration;
+	PluginSystemGeneration* pProviderGeneration;
+	PluginSystemServiceRegistration* pRegistration;
+	bool bReleased;
+};
+
+struct PluginSystemEventRegistration {
+	PluginSystemGeneration* pGeneration;
+	str sEventName;
+	XAdminEventProc pProc;
+	int iResourceId;
+	bool bPublished;
+	bool bListed;
+};
+
+struct PluginSystemHookRegistration {
+	PluginSystemGeneration* pGeneration;
+	str sHookName;
+	int iSort;
+	XAdminHookProc pProc;
+	int iResourceId;
+	bool bPublished;
+	bool bListed;
+};
+
+struct PluginSystemGeneration {
 	uint32_t iGeneration;
 	int iState;
 	int iRefCount;
@@ -34,10 +85,19 @@ typedef struct PluginSystemGeneration {
 	TCCState* pTccState;
 	const XAdminPluginDescriptor* pDescriptor;
 	XAdminPluginHandle hPlugin;
+	PluginSystemInstance* pInstance;
+	PluginSystemPackage* pPackage;
 	xlist lstRouteTokens;
-} PluginSystemGeneration;
+	xlist lstMenuTokens;
+	xlist lstAuthGroupTokens;
+	xlist lstAuthTokens;
+	xlist lstUriAuthTokens;
+	xlist lstServiceRegistrations;
+	xlist lstEventRegistrations;
+	xlist lstHookRegistrations;
+};
 
-typedef struct PluginSystemInstance {
+struct PluginSystemInstance {
 	str sInstanceId;
 	str sPackageId;
 	str sInstanceName;
@@ -49,11 +109,12 @@ typedef struct PluginSystemInstance {
 	uint32_t iActiveGeneration;
 	xvalue tblConfig;
 	PluginSystemGeneration* pActiveGeneration;
+	xlist lstDrainingGenerations;
 	int64 iCreateTime;
 	int64 iUpdateTime;
-} PluginSystemInstance;
+};
 
-typedef struct PluginSystemPackage {
+struct PluginSystemPackage {
 	int iFormatVersion;
 	int iSort;
 	str sPluginId;
@@ -71,10 +132,19 @@ typedef struct PluginSystemPackage {
 	xvalue tblDefaultConfig;
 	xvalue tblConfigSchema;
 	xlist lstInstances;
-} PluginSystemPackage;
+};
 
 typedef struct PluginSystemManager {
 	xlist lstPackages;
+	xlist lstServices;
+	xlist lstServiceSnapshots;
+	PluginSystemServiceRegistration** ppPublishedServices;
+	xlist lstEvents;
+	xlist lstEventSnapshots;
+	PluginSystemEventRegistration** ppPublishedEvents;
+	xlist lstHooks;
+	xlist lstHookSnapshots;
+	PluginSystemHookRegistration** ppPublishedHooks;
 	str sPluginRootPath;
 	str sDataPath;
 } PluginSystemManager;
@@ -97,6 +167,21 @@ const char* PS_InstanceStatusText(int iStatus)
 		case PS_INSTANCE_STATUS_RESOLVED: return "resolved";
 		case PS_INSTANCE_STATUS_ACTIVE: return "active";
 		case PS_INSTANCE_STATUS_FAILED: return "failed";
+		default: return "unknown";
+	}
+}
+
+const char* PS_GenerationStateText(int iState)
+{
+	switch ( iState ) {
+		case PS_GENERATION_STATE_ACTIVE: return "active";
+		case PS_GENERATION_STATE_DRAINING: return "draining";
+		case PS_GENERATION_STATE_STOPPED: return "stopped";
+		case PS_GENERATION_STATE_FAILED: return "failed";
+		case PS_GENERATION_STATE_STARTED: return "started";
+		case PS_GENERATION_STATE_LOADED: return "loaded";
+		case PS_GENERATION_STATE_COMPILED: return "compiled";
+		case PS_GENERATION_STATE_DISCOVERED: return "discovered";
 		default: return "unknown";
 	}
 }
@@ -176,6 +261,13 @@ PluginSystemGeneration* PS_CreateGeneration(uint32_t iGeneration)
 	pGeneration->iState = PS_GENERATION_STATE_DISCOVERED;
 	pGeneration->iLoadTime = xrtNow();
 	pGeneration->lstRouteTokens = xrtListCreate(sizeof(ptr), 0);
+	pGeneration->lstMenuTokens = xrtListCreate(sizeof(ptr), 0);
+	pGeneration->lstAuthGroupTokens = xrtListCreate(sizeof(ptr), 0);
+	pGeneration->lstAuthTokens = xrtListCreate(sizeof(ptr), 0);
+	pGeneration->lstUriAuthTokens = xrtListCreate(sizeof(ptr), 0);
+	pGeneration->lstServiceRegistrations = xrtListCreate(sizeof(ptr), 0);
+	pGeneration->lstEventRegistrations = xrtListCreate(sizeof(ptr), 0);
+	pGeneration->lstHookRegistrations = xrtListCreate(sizeof(ptr), 0);
 	return pGeneration;
 }
 
@@ -188,6 +280,34 @@ void PS_DestroyGeneration(PluginSystemGeneration* pGeneration)
 	if ( pGeneration->lstRouteTokens ) {
 		xrtListDestroy(pGeneration->lstRouteTokens);
 		pGeneration->lstRouteTokens = NULL;
+	}
+	if ( pGeneration->lstMenuTokens ) {
+		xrtListDestroy(pGeneration->lstMenuTokens);
+		pGeneration->lstMenuTokens = NULL;
+	}
+	if ( pGeneration->lstAuthGroupTokens ) {
+		xrtListDestroy(pGeneration->lstAuthGroupTokens);
+		pGeneration->lstAuthGroupTokens = NULL;
+	}
+	if ( pGeneration->lstAuthTokens ) {
+		xrtListDestroy(pGeneration->lstAuthTokens);
+		pGeneration->lstAuthTokens = NULL;
+	}
+	if ( pGeneration->lstUriAuthTokens ) {
+		xrtListDestroy(pGeneration->lstUriAuthTokens);
+		pGeneration->lstUriAuthTokens = NULL;
+	}
+	if ( pGeneration->lstServiceRegistrations ) {
+		xrtListDestroy(pGeneration->lstServiceRegistrations);
+		pGeneration->lstServiceRegistrations = NULL;
+	}
+	if ( pGeneration->lstEventRegistrations ) {
+		xrtListDestroy(pGeneration->lstEventRegistrations);
+		pGeneration->lstEventRegistrations = NULL;
+	}
+	if ( pGeneration->lstHookRegistrations ) {
+		xrtListDestroy(pGeneration->lstHookRegistrations);
+		pGeneration->lstHookRegistrations = NULL;
 	}
 
 	if ( pGeneration->pTccState ) {
@@ -214,6 +334,7 @@ PluginSystemInstance* PS_CreateInstance(str sInstanceId, str sPackageId)
 	pInstance->sInstanceName = xrtCopyStr(sInstanceId, 0);
 	pInstance->iStatus = PS_INSTANCE_STATUS_DISCOVERED;
 	pInstance->iNextGeneration = 1;
+	pInstance->lstDrainingGenerations = xrtListCreate(sizeof(ptr), 0);
 	pInstance->iCreateTime = xrtNow();
 	pInstance->iUpdateTime = pInstance->iCreateTime;
 	return pInstance;
@@ -228,6 +349,17 @@ void PS_DestroyInstance(PluginSystemInstance* pInstance)
 	if ( pInstance->pActiveGeneration ) {
 		PS_DestroyGeneration(pInstance->pActiveGeneration);
 		pInstance->pActiveGeneration = NULL;
+	}
+	if ( pInstance->lstDrainingGenerations ) {
+		for ( int i = 0; i < xrtListCount(pInstance->lstDrainingGenerations); i++ ) {
+			PluginSystemGeneration* pGeneration = xrtListGetPtr(pInstance->lstDrainingGenerations, i);
+			if ( pGeneration ) {
+				PS_DestroyGeneration(pGeneration);
+				xrtListSetPtr(pInstance->lstDrainingGenerations, i, NULL, NULL);
+			}
+		}
+		xrtListDestroy(pInstance->lstDrainingGenerations);
+		pInstance->lstDrainingGenerations = NULL;
 	}
 
 	if ( pInstance->tblConfig ) {
