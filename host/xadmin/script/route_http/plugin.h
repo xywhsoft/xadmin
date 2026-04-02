@@ -1,12 +1,3 @@
-
-
-
-// ============================================
-// 插件管理后台路由
-// ============================================
-
-
-
 void PluginRoute_SendJson(XS_ResponseObject objResp, xvalue tblRet)
 {
 	size_t iSize = 0;
@@ -16,9 +7,26 @@ void PluginRoute_SendJson(XS_ResponseObject objResp, xvalue tblRet)
 	xvoUnref(tblRet);
 }
 
+bool PluginRoute_ReadNameFromBody(XS_RequestObject objReq, char* sName, size_t iCap)
+{
+	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+	str sValue;
 
+	if ( sName && (iCap > 0) ) {
+		sName[0] = '\0';
+	}
+	if ( tblForm == NULL ) {
+		return FALSE;
+	}
 
-// 获取插件列表 API
+	sValue = xvoTableGetText(tblForm, "name", 4);
+	if ( sValue && sName && (iCap > 0) ) {
+		snprintf(sName, iCap, "%s", sValue);
+	}
+	xvoUnref(tblForm);
+	return (sName && (sName[0] != '\0'));
+}
+
 void Request_Plugin_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	xvalue arrList = PluginSystem_GetList();
@@ -36,9 +44,6 @@ void Request_Plugin_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	PluginRoute_SendJson(objResp, tblRet);
 }
 
-
-
-// 获取插件详情 API
 void Request_Plugin_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[128];
@@ -50,13 +55,13 @@ void Request_Plugin_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	(void)objSession;
 
 	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
-	if ( strlen(sName) == 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin name\"}", 0);
+	if ( sName[0] == '\0' ) {
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 		return;
 	}
 
 	tblData = PluginSystem_GetPackageData(sName);
-	if ( !tblData ) {
+	if ( tblData == NULL ) {
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Plugin not found\"}", 0);
 		return;
 	}
@@ -67,28 +72,6 @@ void Request_Plugin_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	PluginRoute_SendJson(objResp, tblRet);
 }
 
-
-
-bool PluginRoute_ReadNameFromBody(XS_RequestObject objReq, char* sName, size_t iCap)
-{
-	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-	str sValue;
-
-	if ( tblForm == NULL ) {
-		return FALSE;
-	}
-
-	sValue = xvoTableGetText(tblForm, "name", 4);
-	if ( sValue ) {
-		snprintf(sName, iCap, "%s", sValue);
-	}
-	xvoUnref(tblForm);
-	return (sName[0] != '\0');
-}
-
-
-
-// 启用插件 API
 void Request_Plugin_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[128] = {0};
@@ -102,23 +85,15 @@ void Request_Plugin_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
-
 	if ( !PluginRoute_ReadNameFromBody(objReq, sName, sizeof(sName)) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin name\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 		return;
 	}
 
 	bResult = PluginSystem_Enable(sName);
-	if ( bResult ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Plugin enabled\"}", 0);
-	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Failed to enable plugin\"}", 0);
-	}
+	http_reply(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Plugin enabled\"}" : "{\"result\":false,\"message\":\"Failed to enable plugin\"}", 0);
 }
 
-
-
-// 禁用插件 API
 void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[128] = {0};
@@ -132,23 +107,15 @@ void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
-
 	if ( !PluginRoute_ReadNameFromBody(objReq, sName, sizeof(sName)) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin name\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 		return;
 	}
 
 	bResult = PluginSystem_Disable(sName);
-	if ( bResult ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Plugin disabled\"}", 0);
-	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Failed to disable plugin\"}", 0);
-	}
+	http_reply(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Plugin disabled\"}" : "{\"result\":false,\"message\":\"Failed to disable plugin\"}", 0);
 }
 
-
-
-// 重载插件 API
 void Request_Plugin_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[128] = {0};
@@ -162,23 +129,15 @@ void Request_Plugin_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
-
 	if ( !PluginRoute_ReadNameFromBody(objReq, sName, sizeof(sName)) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin name\"}", 0);
+		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 		return;
 	}
 
 	bResult = PluginSystem_Reload(sName);
-	if ( bResult ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Plugin reloaded\"}", 0);
-	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Failed to reload plugin\"}", 0);
-	}
+	http_reply(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Plugin reloaded\"}" : "{\"result\":false,\"message\":\"Failed to reload plugin\"}", 0);
 }
 
-
-
-// 插件设置 API
 void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	(void)objServer;
@@ -186,13 +145,13 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objSession;
 
 	if ( HttpMethodIs(objReq, "GET") ) {
-		char sName[128];
+		char sName[128] = {0};
 		xvalue tblRet;
 		xvalue tblSettings;
 
 		HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
-		if ( strlen(sName) == 0 ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin name\"}", 0);
+		if ( sName[0] == '\0' ) {
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 			return;
 		}
 
@@ -219,27 +178,19 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 		tblSettings = xvoTableGetValue(tblForm, "settings", 8);
 		if ( (sName == NULL) || (sName[0] == '\0') ) {
 			xvoUnref(tblForm);
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin name\"}", 0);
+			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 			return;
 		}
 
 		bResult = PluginSystem_SaveSettings(sName, tblSettings);
 		xvoUnref(tblForm);
-
-		if ( bResult ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Settings saved\"}", 0);
-		} else {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Failed to save settings\"}", 0);
-		}
+		http_reply(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Settings saved\"}" : "{\"result\":false,\"message\":\"Failed to save settings\"}", 0);
 		return;
 	}
 
 	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 }
 
-
-
-// 插件列表页面
 void Request_View_Plugin_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	(void)objServer;

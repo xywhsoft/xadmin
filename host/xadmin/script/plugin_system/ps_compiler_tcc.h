@@ -163,6 +163,7 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemInstance* p
 		return FALSE;
 	}
 
+	PS_TCCRegisterPluginSdkSymbols(pTcc);
 	PS_TCCAddPublicInclude(pTcc);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "inc", TRUE);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "lib", FALSE);
@@ -212,13 +213,10 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemInstance* p
 
 	procSetGlobalData = (XAdminPluginSetGlobalDataProc)tcc_get_symbol(pTcc, "XAdmin_PluginSetGlobalData");
 	if ( procSetGlobalData ) {
-		procSetGlobalData(XADMIN_GLOBAL_HOST_API, &G_PluginSystemHostAPI);
 		procSetGlobalData(XADMIN_GLOBAL_MAIN_DB, G_DB);
+		procSetGlobalData(XADMIN_GLOBAL_OPTION_TABLE, G_Option);
 		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_XID, pPackage->sXid);
 		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_ROOT_PATH, pPackage->sRootPath);
-		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_INSTANCE_ID, pInstance->sInstanceId);
-		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_INSTANCE_NAME, pInstance->sInstanceName);
-		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_MOUNT_PATH, pInstance->sMountPath);
 		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_DATA_PATH, pInstance->sDataPath);
 		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH, pInstance->sPrivateDbPath);
 	}

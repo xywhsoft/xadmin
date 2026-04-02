@@ -240,6 +240,7 @@ RouteInfo* Model_AddRoute(str uri, void* proc, bool bAuth, bool bAdmin, int auth
 	RouteInfo* pInfo = xrtDictSet(G_StaticRouteTableHTTP, uri, strlen(uri), NULL);
 	if ( pInfo ) {
 		pInfo->Proc = proc;
+		pInfo->pPluginRouteToken = NULL;
 		pInfo->bAuth = bAuth;
 		pInfo->bAdmin = bAdmin;
 		pInfo->bPutLog = FALSE;

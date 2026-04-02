@@ -5,12 +5,11 @@
 #include "ps_service.h"
 #include "ps_signal.h"
 
-XAdminHostAPI G_PluginSystemHostAPI;
-
 bool PluginSystem_Enable(str sName);
 bool PluginSystem_Disable(str sName);
 bool PluginSystem_Reload(str sName);
 bool PluginSystem_Generate(const XAdminGeneratedPluginSpec* spec);
+void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc);
 
 typedef struct {
 	PluginSystemGeneration* pGeneration;
@@ -227,6 +226,44 @@ void PS_HostFree(void* ptr)
 	}
 }
 
+void PS_HostDestroyGenerationRouteTokens(PluginSystemGeneration* pGeneration)
+{
+	if ( (pGeneration == NULL) || (pGeneration->lstRouteTokens == NULL) ) {
+		return;
+	}
+
+	for ( int i = 0; i < xrtListCount(pGeneration->lstRouteTokens); i++ ) {
+		PluginSystemRouteToken* pToken = xrtListGetPtr(pGeneration->lstRouteTokens, i);
+		if ( pToken ) {
+			if ( pToken->sPath ) {
+				xrtFree(pToken->sPath);
+				pToken->sPath = NULL;
+			}
+			xrtFree(pToken);
+			xrtListSetPtr(pGeneration->lstRouteTokens, i, NULL, NULL);
+		}
+	}
+}
+
+void PS_HostInvokeRoute(RouteInfo* pInfo, XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	PluginSystemRouteToken* pToken = pInfo ? (PluginSystemRouteToken*)pInfo->pPluginRouteToken : NULL;
+	PluginSystemGeneration* pGeneration = pToken ? pToken->base.pGeneration : NULL;
+
+	if ( pGeneration ) {
+		pGeneration->iRefCount++;
+	}
+	if ( pInfo && pInfo->Proc ) {
+		pInfo->Proc(objServer, objHost, objReq, objResp, objSession);
+	}
+	if ( pGeneration && (pGeneration->iRefCount > 0) ) {
+		pGeneration->iRefCount--;
+		if ( (pGeneration->iState == PS_GENERATION_STATE_DRAINING) && (pGeneration->iRefCount <= 0) ) {
+			PS_RuntimeOnGenerationRefReleased(pGeneration);
+		}
+	}
+}
+
 int PS_HostRegisterRoute(void* plugin_handle, const XAdminRouteDecl* decl, XAdminRouteToken* token)
 {
 	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
@@ -263,6 +300,9 @@ int PS_HostRegisterRoute(void* plugin_handle, const XAdminRouteDecl* decl, XAdmi
 	if ( token ) {
 		*token = (XAdminRouteToken)(uintptr_t)pToken;
 	}
+	if ( pInfo ) {
+		pInfo->pPluginRouteToken = pToken;
+	}
 	PS_HostAppendToken(pGeneration->lstRouteTokens, pToken);
 	PS_HostRefreshRouteCaches();
 	return 0;
@@ -281,21 +321,16 @@ int PS_HostUnregisterRoute(XAdminRouteToken token)
 	}
 
 	pToken->base.bReleased = TRUE;
-	if ( pToken->base.pGeneration ) {
-		PS_HostDetachToken(pToken->base.pGeneration->lstRouteTokens, pToken);
-	}
 
 	if ( pToken->sPath ) {
 		pCurrent = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
 		if ( pCurrent && (pCurrent->Proc == pToken->pProc) ) {
+			pCurrent->pPluginRouteToken = NULL;
 			xrtDictRemove(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
 		}
-		xrtFree(pToken->sPath);
-		pToken->sPath = NULL;
 	}
 
 	PS_StorageUpdateResourceStatus(pToken->base.iResourceId, "removed");
-	xrtFree(pToken);
 	PS_HostRefreshRouteCaches();
 	return 0;
 }
@@ -980,66 +1015,149 @@ int PS_HostUnregisterUriAuth(XAdminUriAuthToken token)
 	return 0;
 }
 
-void PS_HostAPI_Init()
+int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl* decl, XAdminRouteToken* token)
 {
-	memset(&G_PluginSystemHostAPI, 0, sizeof(G_PluginSystemHostAPI));
+	return PS_HostRegisterRoute(plugin_handle, decl, token);
+}
 
-	G_PluginSystemHostAPI.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.size = sizeof(G_PluginSystemHostAPI);
+int XAdmin_UnregisterRoute(XAdminRouteToken token)
+{
+	return PS_HostUnregisterRoute(token);
+}
 
-	G_PluginSystemHostAPI.core.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.core.hdr.size = sizeof(XAdminCoreAPI);
-	G_PluginSystemHostAPI.core.host_version = "3.0.0";
-	G_PluginSystemHostAPI.core.app_path = AppPath;
-	G_PluginSystemHostAPI.core.data_path = G_PluginSystem ? G_PluginSystem->sDataPath : NULL;
-	G_PluginSystemHostAPI.core.log = PS_HostLog;
-	G_PluginSystemHostAPI.core.time_now = PS_HostTimeNow;
-	G_PluginSystemHostAPI.core.alloc = PS_HostAlloc;
-	G_PluginSystemHostAPI.core.free = PS_HostFree;
+int XAdmin_RegisterMenu(XAdminPluginHandle plugin_handle, const XAdminMenuDecl* decl, int* out_menu_id, XAdminMenuToken* token)
+{
+	return PS_HostRegisterMenu(plugin_handle, decl, out_menu_id, token);
+}
 
-	G_PluginSystemHostAPI.http.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.http.hdr.size = sizeof(XAdminHttpAPI);
-	G_PluginSystemHostAPI.http.register_route = PS_HostRegisterRoute;
-	G_PluginSystemHostAPI.http.unregister_route = PS_HostUnregisterRoute;
-	G_PluginSystemHostAPI.http.reply_json = PS_HostReplyJson;
-	G_PluginSystemHostAPI.http.reply_html = PS_HostReplyHtml;
+int XAdmin_UnregisterMenu(XAdminMenuToken token)
+{
+	return PS_HostUnregisterMenu(token);
+}
 
-	G_PluginSystemHostAPI.ui.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.ui.hdr.size = sizeof(XAdminUiAPI);
-	G_PluginSystemHostAPI.ui.register_menu = PS_HostRegisterMenu;
-	G_PluginSystemHostAPI.ui.unregister_menu = PS_HostUnregisterMenu;
+int XAdmin_RegisterAuthGroup(XAdminPluginHandle plugin_handle, const XAdminAuthGroupDecl* decl, int* out_group_id, XAdminAuthGroupToken* token)
+{
+	return PS_HostRegisterAuthGroup(plugin_handle, decl, out_group_id, token);
+}
 
-	G_PluginSystemHostAPI.auth.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.auth.hdr.size = sizeof(XAdminAuthAPI);
-	G_PluginSystemHostAPI.auth.register_auth_group = PS_HostRegisterAuthGroup;
-	G_PluginSystemHostAPI.auth.unregister_auth_group = PS_HostUnregisterAuthGroup;
-	G_PluginSystemHostAPI.auth.register_auth = PS_HostRegisterAuth;
-	G_PluginSystemHostAPI.auth.unregister_auth = PS_HostUnregisterAuth;
-	G_PluginSystemHostAPI.auth.register_uri_auth = PS_HostRegisterUriAuth;
-	G_PluginSystemHostAPI.auth.unregister_uri_auth = PS_HostUnregisterUriAuth;
+int XAdmin_UnregisterAuthGroup(XAdminAuthGroupToken token)
+{
+	return PS_HostUnregisterAuthGroup(token);
+}
 
-	G_PluginSystemHostAPI.event.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.event.hdr.size = sizeof(XAdminEventAPI);
-	G_PluginSystemHostAPI.event.listen = PS_HostListenEvent;
-	G_PluginSystemHostAPI.event.unlisten = PS_HostUnlistenEvent;
-	G_PluginSystemHostAPI.event.emit = PS_HostEmitEvent;
-	G_PluginSystemHostAPI.hook.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.hook.hdr.size = sizeof(XAdminHookAPI);
-	G_PluginSystemHostAPI.hook.register_hook = PS_HostRegisterHook;
-	G_PluginSystemHostAPI.hook.unregister_hook = PS_HostUnregisterHook;
-	G_PluginSystemHostAPI.hook.invoke = PS_HostInvokeHook;
+int XAdmin_RegisterAuth(XAdminPluginHandle plugin_handle, const XAdminAuthDecl* decl, int* out_auth_id, XAdminAuthToken* token)
+{
+	return PS_HostRegisterAuth(plugin_handle, decl, out_auth_id, token);
+}
 
-	G_PluginSystemHostAPI.service.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.service.hdr.size = sizeof(XAdminServiceAPI);
-	G_PluginSystemHostAPI.service.register_service = PS_HostRegisterService;
-	G_PluginSystemHostAPI.service.acquire_service = PS_HostAcquireService;
-	G_PluginSystemHostAPI.service.release_service = PS_HostReleaseService;
+int XAdmin_UnregisterAuth(XAdminAuthToken token)
+{
+	return PS_HostUnregisterAuth(token);
+}
 
-	G_PluginSystemHostAPI.pluginctl.hdr.abi_version = XADMIN_ABI_VERSION;
-	G_PluginSystemHostAPI.pluginctl.hdr.size = sizeof(XAdminPluginControlAPI);
-	G_PluginSystemHostAPI.pluginctl.generate_plugin = PS_HostGeneratePlugin;
-	G_PluginSystemHostAPI.pluginctl.reload_plugin = PS_HostReloadPlugin;
-	G_PluginSystemHostAPI.pluginctl.set_plugin_enabled = PS_HostSetPluginEnabled;
+int XAdmin_RegisterUriAuth(XAdminPluginHandle plugin_handle, const XAdminUriAuthDecl* decl, int* out_uri_id, XAdminUriAuthToken* token)
+{
+	return PS_HostRegisterUriAuth(plugin_handle, decl, out_uri_id, token);
+}
+
+int XAdmin_UnregisterUriAuth(XAdminUriAuthToken token)
+{
+	return PS_HostUnregisterUriAuth(token);
+}
+
+int XAdmin_ListenEvent(XAdminPluginHandle plugin_handle, const XAdminEventDecl* decl, XAdminEventToken* token)
+{
+	return PS_HostListenEvent(plugin_handle, decl, token);
+}
+
+int XAdmin_UnlistenEvent(XAdminEventToken token)
+{
+	return PS_HostUnlistenEvent(token);
+}
+
+int XAdmin_EmitEvent(XAdminPluginHandle plugin_handle, const char* event_name, void* payload, size_t payload_size)
+{
+	return PS_HostEmitEvent(plugin_handle, event_name, payload, payload_size);
+}
+
+int XAdmin_RegisterHook(XAdminPluginHandle plugin_handle, const XAdminHookDecl* decl, XAdminHookToken* token)
+{
+	return PS_HostRegisterHook(plugin_handle, decl, token);
+}
+
+int XAdmin_UnregisterHook(XAdminHookToken token)
+{
+	return PS_HostUnregisterHook(token);
+}
+
+int XAdmin_InvokeHook(XAdminPluginHandle plugin_handle, const char* hook_name, void* payload, size_t payload_size)
+{
+	return PS_HostInvokeHook(plugin_handle, hook_name, payload, payload_size);
+}
+
+int XAdmin_RegisterService(XAdminPluginHandle plugin_handle, const XAdminServiceDecl* decl, const void* vtable)
+{
+	return PS_HostRegisterService(plugin_handle, decl, vtable);
+}
+
+int XAdmin_AcquireService(XAdminPluginHandle plugin_handle, const char* name, int major, XAdminServiceLease* out_lease, const void** out_vtable)
+{
+	return PS_HostAcquireService(plugin_handle, name, major, out_lease, out_vtable);
+}
+
+int XAdmin_ReleaseService(XAdminServiceLease lease)
+{
+	return PS_HostReleaseService(lease);
+}
+
+int XAdmin_GeneratePlugin(XAdminPluginHandle plugin_handle, const XAdminGeneratedPluginSpec* spec)
+{
+	return PS_HostGeneratePlugin(plugin_handle, spec);
+}
+
+int XAdmin_ReloadPlugin(XAdminPluginHandle plugin_handle, const char* xid)
+{
+	return PS_HostReloadPlugin(plugin_handle, xid);
+}
+
+int XAdmin_SetPluginEnabled(XAdminPluginHandle plugin_handle, const char* xid, int enabled)
+{
+	return PS_HostSetPluginEnabled(plugin_handle, xid, enabled);
+}
+
+void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc)
+{
+	if ( pTcc == NULL ) {
+		return;
+	}
+
+	tcc_add_symbol(pTcc, "XAdmin_RegisterRoute", XAdmin_RegisterRoute);
+	tcc_add_symbol(pTcc, "XAdmin_UnregisterRoute", XAdmin_UnregisterRoute);
+	tcc_add_symbol(pTcc, "HttpMethodIs", HttpMethodIs);
+	tcc_add_symbol(pTcc, "HttpGetQueryVar", HttpGetQueryVar);
+	tcc_add_symbol(pTcc, "http_reply", http_reply);
+	tcc_add_symbol(pTcc, "HttpReplyFormat", HttpReplyFormat);
+	tcc_add_symbol(pTcc, "LoadPage", LoadPage);
+	tcc_add_symbol(pTcc, "XAdmin_RegisterMenu", XAdmin_RegisterMenu);
+	tcc_add_symbol(pTcc, "XAdmin_UnregisterMenu", XAdmin_UnregisterMenu);
+	tcc_add_symbol(pTcc, "XAdmin_RegisterAuthGroup", XAdmin_RegisterAuthGroup);
+	tcc_add_symbol(pTcc, "XAdmin_UnregisterAuthGroup", XAdmin_UnregisterAuthGroup);
+	tcc_add_symbol(pTcc, "XAdmin_RegisterAuth", XAdmin_RegisterAuth);
+	tcc_add_symbol(pTcc, "XAdmin_UnregisterAuth", XAdmin_UnregisterAuth);
+	tcc_add_symbol(pTcc, "XAdmin_RegisterUriAuth", XAdmin_RegisterUriAuth);
+	tcc_add_symbol(pTcc, "XAdmin_UnregisterUriAuth", XAdmin_UnregisterUriAuth);
+	tcc_add_symbol(pTcc, "XAdmin_ListenEvent", XAdmin_ListenEvent);
+	tcc_add_symbol(pTcc, "XAdmin_UnlistenEvent", XAdmin_UnlistenEvent);
+	tcc_add_symbol(pTcc, "XAdmin_EmitEvent", XAdmin_EmitEvent);
+	tcc_add_symbol(pTcc, "XAdmin_RegisterHook", XAdmin_RegisterHook);
+	tcc_add_symbol(pTcc, "XAdmin_UnregisterHook", XAdmin_UnregisterHook);
+	tcc_add_symbol(pTcc, "XAdmin_InvokeHook", XAdmin_InvokeHook);
+	tcc_add_symbol(pTcc, "XAdmin_RegisterService", XAdmin_RegisterService);
+	tcc_add_symbol(pTcc, "XAdmin_AcquireService", XAdmin_AcquireService);
+	tcc_add_symbol(pTcc, "XAdmin_ReleaseService", XAdmin_ReleaseService);
+	tcc_add_symbol(pTcc, "XAdmin_GeneratePlugin", XAdmin_GeneratePlugin);
+	tcc_add_symbol(pTcc, "XAdmin_ReloadPlugin", XAdmin_ReloadPlugin);
+	tcc_add_symbol(pTcc, "XAdmin_SetPluginEnabled", XAdmin_SetPluginEnabled);
 }
 
 #endif

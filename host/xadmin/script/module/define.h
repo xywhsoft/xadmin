@@ -87,6 +87,7 @@ typedef struct {
 	
 	// 对应 URI 的处理函�?
 	void (*Proc)(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession);
+	void* pPluginRouteToken;
 	
 	// 是否必须鉴权才能访问
 	bool bAuth;
@@ -115,6 +116,7 @@ void AddStaticRouteHTTP(str uri, void* proc)
 	RouteInfo* pInfo = xrtDictSet(G_StaticRouteTableHTTP, uri, strlen(uri), NULL);
 	if ( pInfo ) {
 		pInfo->Proc = proc;
+		pInfo->pPluginRouteToken = NULL;
 		pInfo->bAuth = TRUE;		// 默认需要鉴权（安全优先�?
 		pInfo->bAdmin = TRUE;		// 默认后台接口
 		pInfo->bPutLog = FALSE;		// 默认不记录日�?

@@ -64,7 +64,6 @@ bool PS_LoadManifest(PluginSystemPackage* pPackage, str sRootPath)
 	pPackage->sVersion = PS_ManifestTextDup(pPackage->tblManifest, "version", 7, "0.0.0");
 	pPackage->sAuthor = PS_ManifestTextDup(pPackage->tblManifest, "author", 6, "");
 	pPackage->sKind = PS_ManifestTextDup(pPackage->tblManifest, "kind", 4, "singleton");
-	pPackage->bMultiInstance = xvoTableGetBool(pPackage->tblManifest, "multiInstance", 13);
 
 	tblBuild = xvoTableGetValue(pPackage->tblManifest, "build", 5);
 	if ( tblBuild ) {

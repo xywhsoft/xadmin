@@ -1,10 +1,10 @@
 {
-	"formatVersion": 3,
+	"formatVersion": 4,
 	"xid": "hello",
 	"name": "hello",
 	"title": "Hello World Demo Plugin",
-	"description": "Demo plugin for the new xAdmin plugin system",
-	"version": "3.0.0",
+	"description": "Demo plugin for the current xAdmin plugin system",
+	"version": "4.0.0",
 	"author": "xAdmin",
 	"kind": "singleton",
 	"sort": 999,
@@ -21,11 +21,11 @@
 		"defines": ["XADMIN_PLUGIN=1"]
 	},
 	"compat": {
-		"minHostVersion": "3.0.0",
-		"maxHostVersion": "4.0.0",
-		"abiVersion": 3
+		"minHostVersion": "4.0.0",
+		"maxHostVersion": "5.0.0",
+		"abiVersion": 4
 	},
-	"capabilities": ["route.public", "route.admin"],
+	"capabilities": ["route.public", "route.admin", "service", "hook", "event"],
 	"dependencies": {
 		"plugins": [],
 		"services": [],
@@ -37,7 +37,6 @@
 		"hooks": [],
 		"events": []
 	},
-	"multiInstance": false,
 	"defaultConfig": "config.defaults.json",
 	"configSchema": "config.schema.json"
 }

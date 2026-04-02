@@ -262,14 +262,14 @@ PluginSystemGeneration* PS_CreateGeneration(uint32_t iGeneration)
 	pGeneration->iGeneration = iGeneration;
 	pGeneration->iState = PS_GENERATION_STATE_DISCOVERED;
 	pGeneration->iLoadTime = xrtNow();
-	pGeneration->lstRouteTokens = xrtListCreate(sizeof(ptr), 0);
-	pGeneration->lstMenuTokens = xrtListCreate(sizeof(ptr), 0);
-	pGeneration->lstAuthGroupTokens = xrtListCreate(sizeof(ptr), 0);
-	pGeneration->lstAuthTokens = xrtListCreate(sizeof(ptr), 0);
-	pGeneration->lstUriAuthTokens = xrtListCreate(sizeof(ptr), 0);
-	pGeneration->lstServiceRegistrations = xrtListCreate(sizeof(ptr), 0);
-	pGeneration->lstEventRegistrations = xrtListCreate(sizeof(ptr), 0);
-	pGeneration->lstHookRegistrations = xrtListCreate(sizeof(ptr), 0);
+	pGeneration->lstRouteTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pGeneration->lstMenuTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pGeneration->lstAuthGroupTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pGeneration->lstAuthTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pGeneration->lstUriAuthTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pGeneration->lstServiceRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pGeneration->lstEventRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pGeneration->lstHookRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	return pGeneration;
 }
 
@@ -336,7 +336,7 @@ PluginSystemInstance* PS_CreateInstance(str sInstanceId, str sPackageId)
 	pInstance->sInstanceName = xrtCopyStr(sInstanceId, 0);
 	pInstance->iStatus = PS_INSTANCE_STATUS_DISCOVERED;
 	pInstance->iNextGeneration = 1;
-	pInstance->lstDrainingGenerations = xrtListCreate(sizeof(ptr), 0);
+	pInstance->lstDrainingGenerations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pInstance->iCreateTime = xrtNow();
 	pInstance->iUpdateTime = pInstance->iCreateTime;
 	return pInstance;
@@ -386,7 +386,7 @@ PluginSystemPackage* PS_CreatePackage()
 	}
 
 	memset(pPackage, 0, sizeof(PluginSystemPackage));
-	pPackage->lstInstances = xrtListCreate(sizeof(ptr), 0);
+	pPackage->lstInstances = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	return pPackage;
 }
 
@@ -441,6 +441,44 @@ PluginSystemInstance* PS_GetDefaultInstance(PluginSystemPackage* pPackage)
 		return NULL;
 	}
 	return xrtListGetPtr(pPackage->lstInstances, 0);
+}
+
+int PS_GetInstanceCount(PluginSystemPackage* pPackage)
+{
+	if ( (pPackage == NULL) || (pPackage->lstInstances == NULL) ) {
+		return 0;
+	}
+	return xrtListCount(pPackage->lstInstances);
+}
+
+PluginSystemInstance* PS_FindInstanceById(PluginSystemPackage* pPackage, const char* sInstanceId)
+{
+	if ( (pPackage == NULL) || (pPackage->lstInstances == NULL) || (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
+		return NULL;
+	}
+
+	for ( int i = 0; i < xrtListCount(pPackage->lstInstances); i++ ) {
+		PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, i);
+		if ( pInstance && pInstance->sInstanceId && (strcmp((const char*)pInstance->sInstanceId, sInstanceId) == 0) ) {
+			return pInstance;
+		}
+	}
+	return NULL;
+}
+
+PluginSystemInstance* PS_FindInstanceByName(PluginSystemPackage* pPackage, const char* sInstanceName)
+{
+	if ( (pPackage == NULL) || (pPackage->lstInstances == NULL) || (sInstanceName == NULL) || (sInstanceName[0] == '\0') ) {
+		return NULL;
+	}
+
+	for ( int i = 0; i < xrtListCount(pPackage->lstInstances); i++ ) {
+		PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, i);
+		if ( pInstance && pInstance->sInstanceName && (strcmp((const char*)pInstance->sInstanceName, sInstanceName) == 0) ) {
+			return pInstance;
+		}
+	}
+	return NULL;
 }
 
 #endif

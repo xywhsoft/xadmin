@@ -15,7 +15,6 @@ void PS_RuntimeCleanupRoutes(PluginSystemGeneration* pGeneration)
 		ptr pTokenPath = xrtListGetPtr(pGeneration->lstRouteTokens, i);
 		if ( pTokenPath ) {
 			PS_HostUnregisterRoute((XAdminRouteToken)(uintptr_t)pTokenPath);
-			xrtListSetPtr(pGeneration->lstRouteTokens, i, NULL, NULL);
 		}
 	}
 }
@@ -146,6 +145,7 @@ void PS_RuntimeFinalizeGeneration(PluginSystemInstance* pInstance, PluginSystemG
 	if ( pGeneration->pDescriptor && pGeneration->pDescriptor->OnUnload ) {
 		pGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pGeneration);
 	}
+	PS_HostDestroyGenerationRouteTokens(pGeneration);
 	pGeneration->iStopTime = xrtNow();
 	pGeneration->iState = PS_GENERATION_STATE_STOPPED;
 	PS_StorageSaveGeneration(pInstance, pGeneration);
@@ -254,6 +254,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 
 	if ( !PS_CompileGeneration(pPackage, pInstance, pNewGeneration) ) {
 		PS_RuntimeFailInstance(pInstance, pNewGeneration, pNewGeneration->sErrorMessage ? pNewGeneration->sErrorMessage : (str)"compile failed", bAffectInstance);
+		PS_HostDestroyGenerationRouteTokens(pNewGeneration);
 		PS_DestroyGeneration(pNewGeneration);
 		return FALSE;
 	}
@@ -261,12 +262,13 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 	pNewGeneration->iState = PS_GENERATION_STATE_LOADED;
 	pNewGeneration->hPlugin = (XAdminPluginHandle)pNewGeneration;
 	if ( pNewGeneration->pDescriptor->OnLoad ) {
-		if ( pNewGeneration->pDescriptor->OnLoad(&G_PluginSystemHostAPI, &pNewGeneration->hPlugin) != 0 ) {
+		if ( pNewGeneration->pDescriptor->OnLoad(&pNewGeneration->hPlugin) != 0 ) {
 			PS_RuntimeFailInstance(pInstance, pNewGeneration, "plugin OnLoad failed", bAffectInstance);
 			PS_RuntimeCleanupGenerationResources(pNewGeneration);
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
+			PS_HostDestroyGenerationRouteTokens(pNewGeneration);
 			PS_DestroyGeneration(pNewGeneration);
 			return FALSE;
 		}
@@ -280,6 +282,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
+			PS_HostDestroyGenerationRouteTokens(pNewGeneration);
 			PS_DestroyGeneration(pNewGeneration);
 			return FALSE;
 		}
@@ -293,6 +296,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
+			PS_HostDestroyGenerationRouteTokens(pNewGeneration);
 			PS_DestroyGeneration(pNewGeneration);
 			return FALSE;
 		}
@@ -305,6 +309,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
+			PS_HostDestroyGenerationRouteTokens(pNewGeneration);
 			PS_DestroyGeneration(pNewGeneration);
 			return FALSE;
 		}
@@ -321,6 +326,7 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemInst
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
 				pNewGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pNewGeneration);
 			}
+			PS_HostDestroyGenerationRouteTokens(pNewGeneration);
 			PS_DestroyGeneration(pNewGeneration);
 			return FALSE;
 		}

@@ -96,7 +96,7 @@ PluginSystemServiceRegistration* PS_ServiceCreateRegistration(PluginSystemGenera
 	}
 	memset(pRegistration, 0, sizeof(PluginSystemServiceRegistration));
 
-	const char* sProviderInstanceId = decl->provider_instance_id ? decl->provider_instance_id : (const char*)pGeneration->pInstance->sInstanceId;
+	const char* sProviderInstanceId = decl->provider_xid ? decl->provider_xid : (const char*)PS_PackageKey(pGeneration->pPackage);
 	const char* sCapabilitiesRequired = decl->capabilities_required ? decl->capabilities_required : "";
 
 	pRegistration->pGeneration = pGeneration;
@@ -263,7 +263,7 @@ int PS_HostRegisterService(void* plugin_handle, const XAdminServiceDecl* decl, c
 	if ( (pGeneration == NULL) || (pGeneration->pInstance == NULL) || (decl == NULL) || (decl->service_name == NULL) || (decl->service_name[0] == '\0') || (decl->major_version < 0) || (decl->minor_version < 0) || (decl->vtable_size <= 0) || (vtable == NULL) ) {
 		return -1;
 	}
-	if ( decl->provider_instance_id && !PS_ServiceTextEquals(decl->provider_instance_id, pGeneration->pInstance->sInstanceId) ) {
+	if ( decl->provider_xid && !PS_ServiceTextEquals(decl->provider_xid, (const char*)PS_PackageKey(pGeneration->pPackage)) ) {
 		return -1;
 	}
 

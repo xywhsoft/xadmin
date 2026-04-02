@@ -5,6 +5,11 @@
 #include "ps_manifest.h"
 
 bool PS_ManagerEnsureDefaultInstance(PluginSystemPackage* pPackage);
+int PS_ManagerLoadPackageInstances(PluginSystemPackage* pPackage);
+PluginSystemPackage* PS_ManagerFindPackageByInstanceRef(const char* sInstanceRef);
+PluginSystemInstance* PS_ManagerFindPackageInstanceByRef(PluginSystemPackage* pPackage, const char* sInstanceRef);
+xvalue PS_ManagerBuildInstanceData(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance);
+bool PS_ManagerValidateConfigSchema(PluginSystemPackage* pPackage, xvalue tblConfig, str* psError);
 
 PluginSystemPackage* PluginSystem_FindPackage(str sName)
 {
@@ -27,7 +32,74 @@ PluginSystemPackage* PluginSystem_FindPackage(str sName)
 PluginSystemInstance* PluginSystem_FindInstance(str sName)
 {
 	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
-	return pPackage ? PS_GetDefaultInstance(pPackage) : NULL;
+	PluginSystemPackage* pInstancePackage;
+
+	if ( pPackage ) {
+		return PS_GetDefaultInstance(pPackage);
+	}
+	pInstancePackage = PS_ManagerFindPackageByInstanceRef((const char*)sName);
+	return pInstancePackage ? PS_ManagerFindPackageInstanceByRef(pInstancePackage, (const char*)sName) : NULL;
+}
+
+PluginSystemPackage* PS_ManagerFindPackageByInstanceRef(const char* sInstanceRef)
+{
+	if ( (G_PluginSystem == NULL) || (G_PluginSystem->lstPackages == NULL) || (sInstanceRef == NULL) || (sInstanceRef[0] == '\0') ) {
+		return NULL;
+	}
+
+	for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
+		PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
+		if ( PS_ManagerFindPackageInstanceByRef(pPackage, sInstanceRef) ) {
+			return pPackage;
+		}
+	}
+	return NULL;
+}
+
+PluginSystemInstance* PS_ManagerFindPackageInstanceByRef(PluginSystemPackage* pPackage, const char* sInstanceRef)
+{
+	PluginSystemInstance* pInstance;
+
+	if ( (pPackage == NULL) || (sInstanceRef == NULL) || (sInstanceRef[0] == '\0') ) {
+		return NULL;
+	}
+
+	pInstance = PS_FindInstanceById(pPackage, sInstanceRef);
+	if ( pInstance ) {
+		return pInstance;
+	}
+	return PS_FindInstanceByName(pPackage, sInstanceRef);
+}
+
+xvalue PS_ManagerBuildInstanceData(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance)
+{
+	xvalue tblData;
+
+	if ( (pPackage == NULL) || (pInstance == NULL) ) {
+		return NULL;
+	}
+
+	tblData = xvoCreateTable();
+	xvoTableSetText(tblData, "packageId", 9, PS_PackageKey(pPackage) ? PS_PackageKey(pPackage) : (str)"", 0, FALSE);
+	xvoTableSetText(tblData, "xid", 3, pPackage->sXid ? pPackage->sXid : (str)"", 0, FALSE);
+	xvoTableSetText(tblData, "instanceId", 10, pInstance->sInstanceId ? pInstance->sInstanceId : (str)"", 0, FALSE);
+	xvoTableSetText(tblData, "instanceName", 12, pInstance->sInstanceName ? pInstance->sInstanceName : (str)"", 0, FALSE);
+	xvoTableSetText(tblData, "mountPath", 9, pInstance->sMountPath ? pInstance->sMountPath : (str)"", 0, FALSE);
+	xvoTableSetText(tblData, "dataPath", 8, pInstance->sDataPath ? pInstance->sDataPath : (str)"", 0, FALSE);
+	xvoTableSetText(tblData, "privateDbPath", 13, pInstance->sPrivateDbPath ? pInstance->sPrivateDbPath : (str)"", 0, FALSE);
+	xvoTableSetBool(tblData, "enabled", 7, pInstance->bEnabled);
+	xvoTableSetBool(tblData, "loaded", 6, pInstance->pActiveGeneration != NULL);
+	xvoTableSetText(tblData, "status", 6, (str)PS_InstanceStatusText(pInstance->iStatus), 0, FALSE);
+	xvoTableSetInt(tblData, "generation", 10, (int)pInstance->iActiveGeneration);
+	xvoTableSetInt(tblData, "createTime", 10, pInstance->iCreateTime);
+	xvoTableSetInt(tblData, "updateTime", 10, pInstance->iUpdateTime);
+	if ( pInstance->tblConfig ) {
+		xvalue tblConfig = PS_ValueDup(pInstance->tblConfig);
+		if ( tblConfig ) {
+			xvoTableSetValue(tblData, "settings", 8, tblConfig, TRUE);
+		}
+	}
+	return tblData;
 }
 
 xvalue PS_ManagerBuildPackageData(PluginSystemPackage* pPackage)
@@ -52,10 +124,17 @@ xvalue PS_ManagerBuildPackageData(PluginSystemPackage* pPackage)
 	xvoTableSetText(tblData, "kind", 4, pPackage->sKind ? pPackage->sKind : (str)"singleton", 0, FALSE);
 	xvoTableSetText(tblData, "entry", 5, pPackage->sEntry ? pPackage->sEntry : (str)"main.c", 0, FALSE);
 	xvoTableSetText(tblData, "path", 4, pPackage->sRootPath ? pPackage->sRootPath : (str)"", 0, FALSE);
-	xvoTableSetBool(tblData, "multiInstance", 13, pPackage->bMultiInstance);
 	xvoTableSetInt(tblData, "sort", 4, pPackage->iSort);
+	if ( pPackage->tblConfigSchema ) {
+		xvalue tblSchema = PS_ValueDup(pPackage->tblConfigSchema);
+		if ( tblSchema ) {
+			xvoTableSetValue(tblData, "configSchema", 12, tblSchema, TRUE);
+		}
+	}
 
 	if ( pInstance ) {
+		xvoTableSetText(tblData, "dataPath", 8, pInstance->sDataPath ? pInstance->sDataPath : (str)"", 0, FALSE);
+		xvoTableSetText(tblData, "privateDbPath", 13, pInstance->sPrivateDbPath ? pInstance->sPrivateDbPath : (str)"", 0, FALSE);
 		xvoTableSetBool(tblData, "enabled", 7, pInstance->bEnabled);
 		xvoTableSetBool(tblData, "loaded", 6, pInstance->pActiveGeneration != NULL);
 		xvoTableSetText(tblData, "status", 6, (str)PS_InstanceStatusText(pInstance->iStatus), 0, FALSE);
@@ -105,6 +184,35 @@ bool PS_ManagerIsValidXid(const char* sXid)
 	return TRUE;
 }
 
+bool PS_ManagerIsValidInstanceName(const char* sInstanceName)
+{
+	size_t iLen;
+
+	if ( (sInstanceName == NULL) || (sInstanceName[0] == '\0') ) {
+		return FALSE;
+	}
+
+	iLen = strlen(sInstanceName);
+	if ( (iLen <= 0) || (iLen > 96) ) {
+		return FALSE;
+	}
+
+	for ( size_t i = 0; i < iLen; i++ ) {
+		char ch = sInstanceName[i];
+		if ( ((ch >= 'a') && (ch <= 'z'))
+			|| ((ch >= 'A') && (ch <= 'Z'))
+			|| ((ch >= '0') && (ch <= '9'))
+			|| (ch == '.')
+			|| (ch == '_')
+			|| (ch == '-') ) {
+			continue;
+		}
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
 bool PS_ManagerIsSafeRelativePath(const char* sRelPath)
 {
 	if ( (sRelPath == NULL) || (sRelPath[0] == '\0') ) {
@@ -136,24 +244,324 @@ void PS_ManagerAssignInstancePaths(PluginSystemPackage* pPackage, PluginSystemIn
 		return;
 	}
 
-	sDataRoot = xrtPathJoin(5, AppPath, "data", "plugin", sXid, pInstance->sInstanceName ? pInstance->sInstanceName : pInstance->sInstanceId);
+	sDataRoot = xrtPathJoin(4, AppPath, "data", "plugin", sXid);
 	if ( sDataRoot == NULL ) {
 		return;
 	}
 
-	if ( (pInstance->sDataPath == NULL) || (pInstance->sDataPath[0] == '\0') ) {
-		PS_FreeString(&pInstance->sDataPath);
-		pInstance->sDataPath = xrtCopyStr(sDataRoot, 0);
-	}
-	if ( (pInstance->sPrivateDbPath == NULL) || (pInstance->sPrivateDbPath[0] == '\0') ) {
-		PS_FreeString(&pInstance->sPrivateDbPath);
-		pInstance->sPrivateDbPath = xrtPathJoin(2, sDataRoot, "plugin.db");
-	}
+	PS_FreeString(&pInstance->sDataPath);
+	pInstance->sDataPath = xrtCopyStr(sDataRoot, 0);
+	PS_FreeString(&pInstance->sPrivateDbPath);
+	pInstance->sPrivateDbPath = xrtPathJoin(2, sDataRoot, "plugin.db");
 
 	if ( pInstance->sDataPath ) {
 		xrtDirCreateAll(pInstance->sDataPath);
 	}
 	xrtFree(sDataRoot);
+}
+
+str PS_ManagerBuildConfigPath(PluginSystemInstance* pInstance)
+{
+	if ( (pInstance == NULL) || (pInstance->sDataPath == NULL) || (pInstance->sDataPath[0] == '\0') ) {
+		return NULL;
+	}
+	return xrtPathJoin(2, pInstance->sDataPath, "config.json");
+}
+
+void PS_ManagerLoadConfigFile(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance)
+{
+	str sConfigPath;
+	xvalue tblConfig = NULL;
+
+	(void)pPackage;
+
+	if ( (pPackage == NULL) || (pInstance == NULL) ) {
+		return;
+	}
+
+	sConfigPath = PS_ManagerBuildConfigPath(pInstance);
+	if ( sConfigPath && xrtFileExists(sConfigPath) ) {
+		tblConfig = xrtParseJSON_File(sConfigPath);
+	}
+	if ( tblConfig && (xvoType(tblConfig) == XVO_DT_TABLE) ) {
+		if ( pInstance->tblConfig ) {
+			xvoUnref(pInstance->tblConfig);
+		}
+		pInstance->tblConfig = tblConfig;
+		tblConfig = NULL;
+	} else if ( tblConfig ) {
+		xvoUnref(tblConfig);
+	}
+	if ( sConfigPath ) {
+		xrtFree(sConfigPath);
+	}
+}
+
+bool PS_ManagerSaveConfigFile(PluginSystemInstance* pInstance)
+{
+	str sConfigPath;
+	xvalue tblConfig = NULL;
+	int iRet;
+
+	if ( (pInstance == NULL) || (pInstance->sDataPath == NULL) ) {
+		return FALSE;
+	}
+
+	xrtDirCreateAll(pInstance->sDataPath);
+	sConfigPath = PS_ManagerBuildConfigPath(pInstance);
+	if ( sConfigPath == NULL ) {
+		return FALSE;
+	}
+
+	tblConfig = pInstance->tblConfig ? pInstance->tblConfig : xvoCreateTable();
+	iRet = xrtStringifyJSON_File(sConfigPath, tblConfig, TRUE);
+	if ( tblConfig && (tblConfig != pInstance->tblConfig) ) {
+		xvoUnref(tblConfig);
+	}
+	xrtFree(sConfigPath);
+	return iRet >= 0;
+}
+
+str PS_ManagerBuildInstanceId(PluginSystemPackage* pPackage, const char* sInstanceName)
+{
+	if ( (pPackage == NULL) || (sInstanceName == NULL) || (sInstanceName[0] == '\0') || (PS_PackageKey(pPackage) == NULL) ) {
+		return NULL;
+	}
+
+	if ( strcmp((const char*)PS_PackageKey(pPackage), sInstanceName) == 0 ) {
+		return xrtCopyStr(PS_PackageKey(pPackage), 0);
+	}
+
+	return xrtFormat("%s.%s", PS_PackageKey(pPackage), sInstanceName);
+}
+
+void PS_ManagerSetSchemaError(str* psError, str sMessage)
+{
+	if ( psError == NULL ) {
+		if ( sMessage ) {
+			xrtFree(sMessage);
+		}
+		return;
+	}
+
+	if ( *psError ) {
+		xrtFree(*psError);
+	}
+	*psError = sMessage ? sMessage : xrtCopyStr("invalid config schema", 0);
+}
+
+str PS_ManagerBuildSchemaPath(const char* sBasePath, const char* sKey, int iIndex)
+{
+	if ( sKey && sKey[0] ) {
+		if ( sBasePath && sBasePath[0] ) {
+			return xrtFormat("%s.%s", sBasePath, sKey);
+		}
+		return xrtCopyStr((str)sKey, 0);
+	}
+
+	if ( iIndex >= 0 ) {
+		if ( sBasePath && sBasePath[0] ) {
+			return xrtFormat("%s[%d]", sBasePath, iIndex);
+		}
+		return xrtFormat("[%d]", iIndex);
+	}
+
+	return sBasePath ? xrtCopyStr((str)sBasePath, 0) : xrtCopyStr("config", 0);
+}
+
+bool PS_ManagerSchemaTypeMatches(xvalue objValue, const char* sType)
+{
+	int iType;
+
+	if ( (sType == NULL) || (sType[0] == '\0') ) {
+		return TRUE;
+	}
+	if ( strcmp(sType, "null") == 0 ) {
+		return (objValue == NULL) || (xvoType(objValue) == XVO_DT_NULL);
+	}
+	if ( objValue == NULL ) {
+		return FALSE;
+	}
+
+	iType = xvoType(objValue);
+	if ( strcmp(sType, "object") == 0 ) {
+		return iType == XVO_DT_TABLE;
+	}
+	if ( strcmp(sType, "array") == 0 ) {
+		return iType == XVO_DT_ARRAY;
+	}
+	if ( strcmp(sType, "string") == 0 ) {
+		return iType == XVO_DT_TEXT;
+	}
+	if ( strcmp(sType, "boolean") == 0 ) {
+		return iType == XVO_DT_BOOL;
+	}
+	if ( strcmp(sType, "integer") == 0 ) {
+		return iType == XVO_DT_INT;
+	}
+	if ( strcmp(sType, "number") == 0 ) {
+		return (iType == XVO_DT_INT) || (iType == XVO_DT_FLOAT);
+	}
+
+	return TRUE;
+}
+
+bool PS_ManagerValidateConfigSchemaValue(xvalue tblSchema, xvalue objValue, const char* sPath, str* psError)
+{
+	str sType;
+	xvalue tblProperties;
+	xvalue arrRequired;
+	xvalue objAdditional;
+	xvalue tblItems;
+	bool bNeedObject;
+	bool bNeedArray;
+	bool bAllowAdditional = TRUE;
+
+	if ( tblSchema == NULL ) {
+		return TRUE;
+	}
+
+	sType = xvoTableGetText(tblSchema, "type", 4);
+	tblProperties = xvoTableGetValue(tblSchema, "properties", 10);
+	arrRequired = xvoTableGetValue(tblSchema, "required", 8);
+	objAdditional = xvoTableGetValue(tblSchema, "additionalProperties", 20);
+	tblItems = xvoTableGetValue(tblSchema, "items", 5);
+
+	if ( sType && !PS_ManagerSchemaTypeMatches(objValue, sType) ) {
+		str sLabel = PS_ManagerBuildSchemaPath(sPath, NULL, -1);
+		PS_ManagerSetSchemaError(psError, xrtFormat("%s expects type %s", sLabel ? (const char*)sLabel : "config", sType));
+		if ( sLabel ) {
+			xrtFree(sLabel);
+		}
+		return FALSE;
+	}
+
+	bNeedObject = ((sType && (strcmp(sType, "object") == 0)) || (tblProperties != NULL) || (arrRequired != NULL) || (objAdditional != NULL));
+	if ( bNeedObject ) {
+		if ( !PS_ManagerSchemaTypeMatches(objValue, "object") ) {
+			str sLabel = PS_ManagerBuildSchemaPath(sPath, NULL, -1);
+			PS_ManagerSetSchemaError(psError, xrtFormat("%s expects type object", sLabel ? (const char*)sLabel : "config"));
+			if ( sLabel ) {
+				xrtFree(sLabel);
+			}
+			return FALSE;
+		}
+
+		if ( arrRequired && (xvoType(arrRequired) == XVO_DT_ARRAY) ) {
+			for ( uint32 i = 0; i < xvoArrayItemCount(arrRequired); i++ ) {
+				str sRequiredKey = xvoArrayGetText(arrRequired, i);
+				if ( (sRequiredKey == NULL) || (sRequiredKey[0] == '\0') ) {
+					continue;
+				}
+				if ( xvoTableGetValue(objValue, sRequiredKey, strlen(sRequiredKey)) == NULL ) {
+					str sLabel = PS_ManagerBuildSchemaPath(sPath, sRequiredKey, -1);
+					PS_ManagerSetSchemaError(psError, xrtFormat("%s is required", sLabel ? sLabel : sRequiredKey));
+					if ( sLabel ) {
+						xrtFree(sLabel);
+					}
+					return FALSE;
+				}
+			}
+		}
+
+		if ( objAdditional && (xvoType(objAdditional) == XVO_DT_BOOL) ) {
+			bAllowAdditional = xvoGetBool(objAdditional);
+		}
+
+		if ( tblProperties && (xvoType(tblProperties) == XVO_DT_TABLE) ) {
+			DICT_FOREACH(tblProperties->vTable, pKey, pUnused) {
+				xvalue tblPropertySchema = xvoTableGetValue(tblProperties, (str)pKey->Key, pKey->KeyLen);
+				xvalue objPropertyValue = xvoTableGetValue(objValue, (str)pKey->Key, pKey->KeyLen);
+				str sChildPath = NULL;
+
+				(void)pUnused;
+				if ( objPropertyValue == NULL ) {
+					continue;
+				}
+
+				sChildPath = PS_ManagerBuildSchemaPath(sPath, (const char*)pKey->Key, -1);
+				if ( !PS_ManagerValidateConfigSchemaValue(tblPropertySchema, objPropertyValue, sChildPath, psError) ) {
+					if ( sChildPath ) {
+						xrtFree(sChildPath);
+					}
+					return FALSE;
+				}
+				if ( sChildPath ) {
+					xrtFree(sChildPath);
+				}
+			}
+		}
+
+		if ( !bAllowAdditional && objValue && (xvoType(objValue) == XVO_DT_TABLE) ) {
+			DICT_FOREACH(objValue->vTable, pKey, pUnused) {
+				(void)pUnused;
+				if ( (tblProperties == NULL) || (xvoTableGetValue(tblProperties, (str)pKey->Key, pKey->KeyLen) == NULL) ) {
+					str sLabel = PS_ManagerBuildSchemaPath(sPath, (const char*)pKey->Key, -1);
+					PS_ManagerSetSchemaError(psError, xrtFormat("%s is not allowed", sLabel ? (const char*)sLabel : (const char*)pKey->Key));
+					if ( sLabel ) {
+						xrtFree(sLabel);
+					}
+					return FALSE;
+				}
+			}
+		}
+	}
+
+	bNeedArray = ((sType && (strcmp(sType, "array") == 0)) || (tblItems != NULL));
+	if ( bNeedArray ) {
+		if ( !PS_ManagerSchemaTypeMatches(objValue, "array") ) {
+			str sLabel = PS_ManagerBuildSchemaPath(sPath, NULL, -1);
+			PS_ManagerSetSchemaError(psError, xrtFormat("%s expects type array", sLabel ? (const char*)sLabel : "config"));
+			if ( sLabel ) {
+				xrtFree(sLabel);
+			}
+			return FALSE;
+		}
+
+		if ( tblItems ) {
+			for ( uint32 i = 0; i < xvoArrayItemCount(objValue); i++ ) {
+				xvalue objItem = xvoArrayGetValue(objValue, i);
+				str sItemPath = PS_ManagerBuildSchemaPath(sPath, NULL, (int)i);
+				if ( !PS_ManagerValidateConfigSchemaValue(tblItems, objItem, sItemPath, psError) ) {
+					if ( sItemPath ) {
+						xrtFree(sItemPath);
+					}
+					return FALSE;
+				}
+				if ( sItemPath ) {
+					xrtFree(sItemPath);
+				}
+			}
+		}
+	}
+
+	return TRUE;
+}
+
+bool PS_ManagerValidateConfigSchema(PluginSystemPackage* pPackage, xvalue tblConfig, str* psError)
+{
+	xvalue tblEffectiveConfig = tblConfig;
+
+	if ( (pPackage == NULL) || (pPackage->tblConfigSchema == NULL) ) {
+		return TRUE;
+	}
+	if ( tblEffectiveConfig == NULL ) {
+		tblEffectiveConfig = xvoCreateTable();
+		if ( tblEffectiveConfig == NULL ) {
+			PS_ManagerSetSchemaError(psError, xrtCopyStr("config expects type object", 0));
+			return FALSE;
+		}
+	}
+	if ( !PS_ManagerValidateConfigSchemaValue(pPackage->tblConfigSchema, tblEffectiveConfig, "config", psError) ) {
+		if ( tblEffectiveConfig != tblConfig ) {
+			xvoUnref(tblEffectiveConfig);
+		}
+		return FALSE;
+	}
+	if ( tblEffectiveConfig != tblConfig ) {
+		xvoUnref(tblEffectiveConfig);
+	}
+	return TRUE;
 }
 
 void PS_ManagerClearPackageMetadata(PluginSystemPackage* pPackage)
@@ -296,7 +704,10 @@ PluginSystemPackage* PS_ManagerDiscoverPackagePath(str sPath, bool bRefreshExist
 	if ( pExisting ) {
 		if ( bRefreshExisting && PS_ManagerRefreshPackage(pExisting, sPath) ) {
 			PS_StorageSavePackage(pExisting);
-			PS_ManagerEnsureDefaultInstance(pExisting);
+			if ( PS_GetInstanceCount(pExisting) <= 0 ) {
+				PS_ManagerLoadPackageInstances(pExisting);
+				PS_ManagerEnsureDefaultInstance(pExisting);
+			}
 		}
 		PS_DestroyPackage(pPackage);
 		if ( sDirName ) {
@@ -306,6 +717,7 @@ PluginSystemPackage* PS_ManagerDiscoverPackagePath(str sPath, bool bRefreshExist
 	}
 
 	PS_StorageSavePackage(pPackage);
+	PS_ManagerLoadPackageInstances(pPackage);
 	PS_ManagerEnsureDefaultInstance(pPackage);
 	printf("        [PluginSystem] Discovered package: %s\n", PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)");
 
@@ -397,7 +809,7 @@ bool PS_ManagerWriteGeneratedManifest(str sRootPath, const XAdminGeneratedPlugin
 		goto cleanup;
 	}
 
-	xvoTableSetInt(tblManifest, "formatVersion", 13, 3);
+	xvoTableSetInt(tblManifest, "formatVersion", 13, 4);
 	xvoTableSetText(tblManifest, "xid", 3, (str)spec->xid, 0, FALSE);
 	xvoTableSetText(tblManifest, "name", 4, (str)(spec->xid ? spec->xid : ""), 0, FALSE);
 	xvoTableSetText(tblManifest, "title", 5, (str)((spec->title && spec->title[0]) ? spec->title : spec->xid), 0, FALSE);
@@ -420,8 +832,8 @@ bool PS_ManagerWriteGeneratedManifest(str sRootPath, const XAdminGeneratedPlugin
 	xvoTableSetValue(tblBuild, "defines", 7, arrDefines, TRUE);
 	xvoTableSetValue(tblManifest, "build", 5, tblBuild, TRUE);
 
-	xvoTableSetText(tblCompat, "minHostVersion", 14, "3.0.0", 0, FALSE);
-	xvoTableSetText(tblCompat, "maxHostVersion", 14, "4.0.0", 0, FALSE);
+	xvoTableSetText(tblCompat, "minHostVersion", 14, "4.0.0", 0, FALSE);
+	xvoTableSetText(tblCompat, "maxHostVersion", 14, "5.0.0", 0, FALSE);
 	xvoTableSetInt(tblCompat, "abiVersion", 10, XADMIN_ABI_VERSION);
 	xvoTableSetValue(tblManifest, "compat", 6, tblCompat, TRUE);
 
@@ -435,7 +847,6 @@ bool PS_ManagerWriteGeneratedManifest(str sRootPath, const XAdminGeneratedPlugin
 	xvoTableSetValue(tblContributes, "hooks", 5, xvoCreateArray(), TRUE);
 	xvoTableSetValue(tblContributes, "events", 6, xvoCreateArray(), TRUE);
 	xvoTableSetValue(tblManifest, "contributes", 11, tblContributes, TRUE);
-	xvoTableSetBool(tblManifest, "multiInstance", 13, FALSE);
 	xvoTableSetText(tblManifest, "defaultConfig", 13, "config.defaults.json", 0, FALSE);
 	xvoTableSetText(tblManifest, "configSchema", 12, "config.schema.json", 0, FALSE);
 
@@ -463,7 +874,7 @@ bool PS_ManagerEnsureDefaultInstance(PluginSystemPackage* pPackage)
 		return FALSE;
 	}
 
-	if ( PS_GetDefaultInstance(pPackage) ) {
+	if ( PS_GetInstanceCount(pPackage) > 0 ) {
 		return TRUE;
 	}
 
@@ -480,10 +891,21 @@ bool PS_ManagerEnsureDefaultInstance(PluginSystemPackage* pPackage)
 		PS_ManagerAssignInstancePaths(pPackage, pInstance);
 		PS_StorageSaveInstance(pInstance);
 	}
+	PS_ManagerLoadConfigFile(pPackage, pInstance);
+	if ( pInstance->tblConfig == NULL ) {
+		pInstance->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
+	}
+	PS_ManagerSaveConfigFile(pInstance);
 
 	iIndex = xrtListCount(pPackage->lstInstances);
 	xrtListSetPtr(pPackage->lstInstances, iIndex, pInstance, NULL);
 	return TRUE;
+}
+
+int PS_ManagerLoadPackageInstances(PluginSystemPackage* pPackage)
+{
+	(void)pPackage;
+	return 0;
 }
 
 int PS_ManagerScanPluginProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iPathSize)
@@ -530,17 +952,20 @@ void PS_ManagerAutoStartEnabled()
 
 	for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
 		PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
-		PluginSystemInstance* pInstance = PS_GetDefaultInstance(pPackage);
-		printf("        [PluginSystem] AutoStart check: package=%s enabled=%d status=%d active=%u\n",
-			PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
-			pInstance ? pInstance->bEnabled : 0,
-			pInstance ? pInstance->iStatus : -1,
-			pInstance ? pInstance->iActiveGeneration : 0);
-		if ( pInstance && pInstance->bEnabled ) {
-			if ( !PS_RuntimeStartInstance(pPackage, pInstance) ) {
-				printf("        [PluginSystem] AutoStart failed: package=%s instance=%s\n",
-					PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
-					pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)");
+		for ( int j = 0; j < PS_GetInstanceCount(pPackage); j++ ) {
+			PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, j);
+			printf("        [PluginSystem] AutoStart check: package=%s instance=%s enabled=%d status=%d active=%u\n",
+				PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
+				(pInstance && pInstance->sInstanceId) ? (const char*)pInstance->sInstanceId : "(unknown)",
+				pInstance ? pInstance->bEnabled : 0,
+				pInstance ? pInstance->iStatus : -1,
+				pInstance ? pInstance->iActiveGeneration : 0);
+			if ( pInstance && pInstance->bEnabled ) {
+				if ( !PS_RuntimeStartInstance(pPackage, pInstance) ) {
+					printf("        [PluginSystem] AutoStart failed: package=%s instance=%s\n",
+						PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
+						pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)");
+				}
 			}
 		}
 	}
@@ -570,6 +995,25 @@ xvalue PluginSystem_GetPackageData(str sName)
 	return pPackage ? PS_ManagerBuildPackageData(pPackage) : NULL;
 }
 
+xvalue PluginSystem_GetInstances(str sName)
+{
+	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
+	xvalue arrInstances = xvoCreateArray();
+
+	if ( pPackage == NULL ) {
+		return arrInstances;
+	}
+
+	for ( int i = 0; i < PS_GetInstanceCount(pPackage); i++ ) {
+		PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, i);
+		xvalue tblInstance = PS_ManagerBuildInstanceData(pPackage, pInstance);
+		if ( tblInstance ) {
+			xvoArrayAppendValue(arrInstances, tblInstance, TRUE);
+		}
+	}
+	return arrInstances;
+}
+
 xvalue PluginSystem_GetSettings(str sName)
 {
 	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
@@ -581,10 +1025,11 @@ xvalue PluginSystem_GetSettings(str sName)
 
 bool PluginSystem_SaveSettings(str sName, xvalue tblSettings)
 {
-	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
-	PluginSystemInstance* pInstance = pPackage ? PS_GetDefaultInstance(pPackage) : NULL;
+	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
+	PluginSystemPackage* pPackage = pInstance ? PluginSystem_FindPackage(pInstance->sPackageId) : PluginSystem_FindPackage(sName);
 	xvalue tblNewConfig;
 	xvalue tblOldConfig;
+	str sSchemaError = NULL;
 
 	if ( (pPackage == NULL) || (pInstance == NULL) ) {
 		return FALSE;
@@ -593,6 +1038,19 @@ bool PluginSystem_SaveSettings(str sName, xvalue tblSettings)
 	tblNewConfig = tblSettings ? PS_ValueDup(tblSettings) : xvoCreateTable();
 	if ( tblNewConfig == NULL ) {
 		tblNewConfig = xvoCreateTable();
+	}
+	if ( !PS_ManagerValidateConfigSchema(pPackage, tblNewConfig, &sSchemaError) ) {
+		printf("        [PluginSystem] Config schema validation failed: package=%s instance=%s reason=%s\n",
+			PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
+			pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)",
+			sSchemaError ? (const char*)sSchemaError : "(unknown)");
+		if ( sSchemaError ) {
+			xrtFree(sSchemaError);
+		}
+		if ( tblNewConfig ) {
+			xvoUnref(tblNewConfig);
+		}
+		return FALSE;
 	}
 
 	tblOldConfig = pInstance->tblConfig ? PS_ValueDup(pInstance->tblConfig) : NULL;
@@ -616,18 +1074,29 @@ bool PluginSystem_SaveSettings(str sName, xvalue tblSettings)
 	}
 
 	pInstance->iUpdateTime = xrtNow();
-	return PS_StorageSaveInstance(pInstance);
+	return PS_ManagerSaveConfigFile(pInstance) && PS_StorageSaveInstance(pInstance);
 }
 
 bool PluginSystem_Enable(str sName)
 {
-	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
-	PluginSystemInstance* pInstance = pPackage ? PS_GetDefaultInstance(pPackage) : NULL;
+	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
+	PluginSystemPackage* pPackage = pInstance ? PluginSystem_FindPackage(pInstance->sPackageId) : PluginSystem_FindPackage(sName);
+	str sSchemaError = NULL;
 	if ( (pPackage == NULL) || (pInstance == NULL) ) {
 		return FALSE;
 	}
 	if ( pInstance->pActiveGeneration ) {
 		return TRUE;
+	}
+	if ( !PS_ManagerValidateConfigSchema(pPackage, pInstance->tblConfig, &sSchemaError) ) {
+		printf("        [PluginSystem] Start blocked by invalid config: package=%s instance=%s reason=%s\n",
+			PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
+			pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)",
+			sSchemaError ? (const char*)sSchemaError : "(unknown)");
+		if ( sSchemaError ) {
+			xrtFree(sSchemaError);
+		}
+		return FALSE;
 	}
 	return PS_RuntimeStartInstance(pPackage, pInstance);
 }
@@ -643,12 +1112,114 @@ bool PluginSystem_Disable(str sName)
 
 bool PluginSystem_Reload(str sName)
 {
-	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
-	PluginSystemInstance* pInstance = pPackage ? PS_GetDefaultInstance(pPackage) : NULL;
+	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
+	PluginSystemPackage* pPackage = pInstance ? PluginSystem_FindPackage(pInstance->sPackageId) : PluginSystem_FindPackage(sName);
+	str sSchemaError = NULL;
 	if ( (pPackage == NULL) || (pInstance == NULL) ) {
 		return FALSE;
 	}
+	if ( !PS_ManagerValidateConfigSchema(pPackage, pInstance->tblConfig, &sSchemaError) ) {
+		printf("        [PluginSystem] Reload blocked by invalid config: package=%s instance=%s reason=%s\n",
+			PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
+			pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)",
+			sSchemaError ? (const char*)sSchemaError : "(unknown)");
+		if ( sSchemaError ) {
+			xrtFree(sSchemaError);
+		}
+		return FALSE;
+	}
 	return PS_RuntimeReloadInstance(pPackage, pInstance);
+}
+
+bool PluginSystem_CreateInstance(str sName, str sInstanceName, str sMountPath)
+{
+	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
+	PluginSystemInstance* pInstance;
+	str sInstanceId = NULL;
+
+	if ( (pPackage == NULL) || !PS_ManagerIsValidInstanceName((const char*)sInstanceName) ) {
+		return FALSE;
+	}
+	if ( !pPackage->bMultiInstance && (PS_GetInstanceCount(pPackage) > 0) ) {
+		return FALSE;
+	}
+	if ( PS_FindInstanceByName(pPackage, (const char*)sInstanceName) ) {
+		return FALSE;
+	}
+
+	sInstanceId = PS_ManagerBuildInstanceId(pPackage, (const char*)sInstanceName);
+	if ( (sInstanceId == NULL) || PS_FindInstanceById(pPackage, (const char*)sInstanceId) ) {
+		if ( sInstanceId ) {
+			xrtFree(sInstanceId);
+		}
+		return FALSE;
+	}
+
+	pInstance = PS_CreateInstance(sInstanceId, PS_PackageKey(pPackage));
+	xrtFree(sInstanceId);
+	if ( pInstance == NULL ) {
+		return FALSE;
+	}
+
+	PS_FreeString(&pInstance->sInstanceName);
+	pInstance->sInstanceName = xrtCopyStr(sInstanceName, 0);
+	if ( sMountPath && sMountPath[0] ) {
+		PS_FreeString(&pInstance->sMountPath);
+		pInstance->sMountPath = xrtCopyStr(sMountPath, 0);
+	}
+	pInstance->bEnabled = FALSE;
+	pInstance->bInstalled = FALSE;
+	pInstance->iStatus = PS_INSTANCE_STATUS_DISABLED;
+	pInstance->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
+	PS_ManagerAssignInstancePaths(pPackage, pInstance);
+	if ( !PS_StorageSaveInstance(pInstance) ) {
+		PS_DestroyInstance(pInstance);
+		return FALSE;
+	}
+
+	xrtListSetPtr(pPackage->lstInstances, xrtListCount(pPackage->lstInstances), pInstance, NULL);
+	return TRUE;
+}
+
+bool PluginSystem_DeleteInstance(str sInstanceId)
+{
+	PluginSystemPackage* pPackage = PS_ManagerFindPackageByInstanceRef((const char*)sInstanceId);
+	PluginSystemInstance* pInstance;
+	int iIndex = -1;
+
+	if ( (pPackage == NULL) || (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
+		return FALSE;
+	}
+
+	pInstance = PS_FindInstanceById(pPackage, (const char*)sInstanceId);
+	if ( pInstance == NULL ) {
+		return FALSE;
+	}
+	if ( PS_GetInstanceCount(pPackage) <= 1 ) {
+		return FALSE;
+	}
+
+	if ( pInstance->pActiveGeneration ) {
+		PS_RuntimeStopInstance(pInstance);
+	}
+	PS_RuntimeForceDrainInstance(pInstance);
+	if ( !PS_StorageDeleteInstance((const char*)pInstance->sInstanceId) ) {
+		return FALSE;
+	}
+
+	for ( int i = 0; i < PS_GetInstanceCount(pPackage); i++ ) {
+		if ( xrtListGetPtr(pPackage->lstInstances, i) == pInstance ) {
+			iIndex = i;
+			break;
+		}
+	}
+	if ( iIndex < 0 ) {
+		return FALSE;
+	}
+
+	xrtListRemovePtr(pPackage->lstInstances, iIndex);
+	PS_DestroyInstance(pInstance);
+	return TRUE;
 }
 
 bool PluginSystem_Generate(const XAdminGeneratedPluginSpec* spec)
@@ -710,13 +1281,13 @@ void PluginSystem_Init()
 	G_PluginSystem = xrtMalloc(sizeof(PluginSystemManager));
 	memset(G_PluginSystem, 0, sizeof(PluginSystemManager));
 
-	G_PluginSystem->lstPackages = xrtListCreate(sizeof(ptr), 0);
-	G_PluginSystem->lstServices = xrtListCreate(sizeof(ptr), 0);
-	G_PluginSystem->lstServiceSnapshots = xrtListCreate(sizeof(ptr), 0);
-	G_PluginSystem->lstEvents = xrtListCreate(sizeof(ptr), 0);
-	G_PluginSystem->lstEventSnapshots = xrtListCreate(sizeof(ptr), 0);
-	G_PluginSystem->lstHooks = xrtListCreate(sizeof(ptr), 0);
-	G_PluginSystem->lstHookSnapshots = xrtListCreate(sizeof(ptr), 0);
+	G_PluginSystem->lstPackages = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	G_PluginSystem->lstServices = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	G_PluginSystem->lstServiceSnapshots = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	G_PluginSystem->lstEvents = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	G_PluginSystem->lstEventSnapshots = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	G_PluginSystem->lstHooks = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	G_PluginSystem->lstHookSnapshots = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	G_PluginSystem->sPluginRootPath = xrtPathJoin(2, AppPath, "script/plugin");
 	G_PluginSystem->sDataPath = xrtPathJoin(3, AppPath, "data", "plugin_system");
 
@@ -733,7 +1304,6 @@ void PluginSystem_Init()
 	}
 
 	PS_StorageInit();
-	PS_HostAPI_Init();
 	PS_ManagerScanPackages();
 	PS_ManagerAutoStartEnabled();
 }
@@ -749,17 +1319,21 @@ void PluginSystem_Unit()
 	if ( G_PluginSystem->lstPackages ) {
 		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
 			PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
-			PluginSystemInstance* pInstance = PS_GetDefaultInstance(pPackage);
 			printf("        [PluginSystem] Destroy package: %s\n", PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)");
-			if ( pInstance && pInstance->pActiveGeneration ) {
-				PS_RuntimeStopInstance(pInstance);
+			for ( int j = 0; j < PS_GetInstanceCount(pPackage); j++ ) {
+				PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, j);
+				if ( pInstance && pInstance->pActiveGeneration ) {
+					PS_RuntimeStopInstance(pInstance);
+				}
 			}
 		}
 		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
 			PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
-			PluginSystemInstance* pInstance = PS_GetDefaultInstance(pPackage);
-			if ( pInstance ) {
-				PS_RuntimeForceDrainInstance(pInstance);
+			for ( int j = 0; j < PS_GetInstanceCount(pPackage); j++ ) {
+				PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, j);
+				if ( pInstance ) {
+					PS_RuntimeForceDrainInstance(pInstance);
+				}
 			}
 		}
 		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {

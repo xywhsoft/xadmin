@@ -213,9 +213,6 @@ bool PS_StorageLoadInstanceState(PluginSystemInstance* pInstance)
 
 	sqlite3_bind_text(stmt, 1, pInstance->sInstanceId, -1, NULL);
 	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
-		const unsigned char* sConfigJson = sqlite3_column_text(stmt, 3);
-		xvalue tblConfig = NULL;
-
 		bFound = TRUE;
 		pInstance->bEnabled = sqlite3_column_int(stmt, 0) ? TRUE : FALSE;
 		pInstance->iStatus = PS_InstanceStatusFromText((str)sqlite3_column_text(stmt, 1));
@@ -229,6 +226,75 @@ bool PS_StorageLoadInstanceState(PluginSystemInstance* pInstance)
 		if ( pInstance->iActiveGeneration >= pInstance->iNextGeneration ) {
 			pInstance->iNextGeneration = pInstance->iActiveGeneration + 1;
 		}
+	}
+
+	sqlite3_finalize(stmt);
+	return bFound;
+}
+
+int PS_StorageLoadPackageInstances(PluginSystemPackage* pPackage)
+{
+	sqlite3_stmt* stmt = NULL;
+	int iCount = 0;
+	const char* sPackageId;
+
+	if ( (G_DB == NULL) || (pPackage == NULL) || (pPackage->lstInstances == NULL) ) {
+		return 0;
+	}
+
+	sPackageId = (const char*)PS_PackageKey(pPackage);
+	if ( (sPackageId == NULL) || (sPackageId[0] == '\0') ) {
+		return 0;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "SELECT instance_id, instance_name, mount_path, enabled, status, active_generation, config_json, create_time, update_time, data_path, private_db_path FROM plugin_instance WHERE package_id = ? OR xid = ? ORDER BY create_time ASC, instance_id ASC", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		return 0;
+	}
+
+	PS_StorageBindText(stmt, 1, sPackageId);
+	PS_StorageBindText(stmt, 2, sPackageId);
+	while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+		const unsigned char* sInstanceId = sqlite3_column_text(stmt, 0);
+		const unsigned char* sInstanceName = sqlite3_column_text(stmt, 1);
+		const unsigned char* sMountPath = sqlite3_column_text(stmt, 2);
+		const unsigned char* sConfigJson = sqlite3_column_text(stmt, 6);
+		PluginSystemInstance* pInstance;
+		xvalue tblConfig = NULL;
+
+		if ( (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
+			continue;
+		}
+		if ( PS_FindInstanceById(pPackage, (const char*)sInstanceId) != NULL ) {
+			continue;
+		}
+
+		pInstance = PS_CreateInstance((str)sInstanceId, (str)sPackageId);
+		if ( pInstance == NULL ) {
+			continue;
+		}
+
+		if ( pInstance->tblConfig ) {
+			xvoUnref(pInstance->tblConfig);
+			pInstance->tblConfig = NULL;
+		}
+		pInstance->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
+
+		PS_FreeString(&pInstance->sInstanceName);
+		pInstance->sInstanceName = xrtCopyStr((str)(sInstanceName ? sInstanceName : sInstanceId), 0);
+		PS_FreeString(&pInstance->sMountPath);
+		pInstance->sMountPath = xrtCopyStr((str)(sMountPath ? sMountPath : (const unsigned char*)""), 0);
+		PS_FreeString(&pInstance->sDataPath);
+		PS_FreeString(&pInstance->sPrivateDbPath);
+		pInstance->sDataPath = xrtCopyStr((str)(sqlite3_column_text(stmt, 9) ? sqlite3_column_text(stmt, 9) : (const unsigned char*)""), 0);
+		pInstance->sPrivateDbPath = xrtCopyStr((str)(sqlite3_column_text(stmt, 10) ? sqlite3_column_text(stmt, 10) : (const unsigned char*)""), 0);
+		pInstance->bEnabled = sqlite3_column_int(stmt, 3) ? TRUE : FALSE;
+		pInstance->iStatus = PS_InstanceStatusFromText((str)sqlite3_column_text(stmt, 4));
+		pInstance->iActiveGeneration = (uint32_t)sqlite3_column_int(stmt, 5);
+		pInstance->iCreateTime = sqlite3_column_int64(stmt, 7);
+		pInstance->iUpdateTime = sqlite3_column_int64(stmt, 8);
+		if ( pInstance->iActiveGeneration >= pInstance->iNextGeneration ) {
+			pInstance->iNextGeneration = pInstance->iActiveGeneration + 1;
+		}
 
 		if ( sConfigJson && sConfigJson[0] ) {
 			tblConfig = xrtParseJSON((str)sConfigJson, strlen((str)sConfigJson));
@@ -239,28 +305,23 @@ bool PS_StorageLoadInstanceState(PluginSystemInstance* pInstance)
 				pInstance->tblConfig = tblConfig;
 			}
 		}
+
+		xrtListSetPtr(pPackage->lstInstances, xrtListCount(pPackage->lstInstances), pInstance, NULL);
+		iCount++;
 	}
 
 	sqlite3_finalize(stmt);
-	return bFound;
+	return iCount;
 }
 
 bool PS_StorageSaveInstance(PluginSystemInstance* pInstance)
 {
 	sqlite3_stmt* stmt = NULL;
-	str sConfigJson = NULL;
 	bool bOK = FALSE;
 	int64 iNow;
 
 	if ( (G_DB == NULL) || (pInstance == NULL) ) {
 		return FALSE;
-	}
-
-	if ( pInstance->tblConfig ) {
-		sConfigJson = xrtStringifyJSON(pInstance->tblConfig, FALSE, NULL);
-	}
-	if ( sConfigJson == NULL ) {
-		sConfigJson = xrtCopyStr("{}", 0);
 	}
 
 	iNow = xrtNow();
@@ -278,7 +339,7 @@ bool PS_StorageSaveInstance(PluginSystemInstance* pInstance)
 		sqlite3_bind_text(stmt, 6, (const char*)(pInstance->sDataPath ? pInstance->sDataPath : (str)""), -1, NULL);
 		sqlite3_bind_text(stmt, 7, (const char*)(pInstance->sPrivateDbPath ? pInstance->sPrivateDbPath : (str)""), -1, NULL);
 		sqlite3_bind_int(stmt, 8, pInstance->bEnabled ? 1 : 0);
-		sqlite3_bind_text(stmt, 9, sConfigJson, -1, NULL);
+		sqlite3_bind_text(stmt, 9, "{}", -1, NULL);
 		sqlite3_bind_text(stmt, 10, PS_InstanceStatusText(pInstance->iStatus), -1, NULL);
 		sqlite3_bind_int(stmt, 11, (int)pInstance->iActiveGeneration);
 		sqlite3_bind_int64(stmt, 12, pInstance->iCreateTime);
@@ -288,9 +349,6 @@ bool PS_StorageSaveInstance(PluginSystemInstance* pInstance)
 
 	if ( stmt ) {
 		sqlite3_finalize(stmt);
-	}
-	if ( sConfigJson ) {
-		xrtFree(sConfigJson);
 	}
 	return bOK;
 }
@@ -324,6 +382,66 @@ bool PS_StorageSaveGeneration(PluginSystemInstance* pInstance, PluginSystemGener
 		sqlite3_finalize(stmt);
 	}
 	return bOK;
+}
+
+bool PS_StorageDeleteInstanceRows(const char* sTable, const char* sInstanceId)
+{
+	sqlite3_stmt* stmt = NULL;
+	str sSQL = NULL;
+	bool bOK = FALSE;
+
+	if ( (G_DB == NULL) || (sTable == NULL) || (sTable[0] == '\0') || (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
+		return FALSE;
+	}
+
+	sSQL = xrtFormat("DELETE FROM %s WHERE instance_id = ?", sTable);
+	if ( (sSQL == NULL) || (sqlite3_prepare_v3(G_DB, sSQL, -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK) ) {
+		if ( sSQL ) {
+			xrtFree(sSQL);
+		}
+		return FALSE;
+	}
+
+	PS_StorageBindText(stmt, 1, sInstanceId);
+	bOK = (sqlite3_step(stmt) == SQLITE_DONE);
+	sqlite3_finalize(stmt);
+	xrtFree(sSQL);
+	return bOK;
+}
+
+bool PS_StorageDeleteInstance(const char* sInstanceId)
+{
+	sqlite3_stmt* stmt = NULL;
+	bool bOK = FALSE;
+
+	if ( (G_DB == NULL) || (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
+		return FALSE;
+	}
+
+	sqlite3_exec(G_DB, "BEGIN IMMEDIATE", NULL, NULL, NULL);
+	if ( !PS_StorageDeleteInstanceRows("plugin_generation", sInstanceId)
+		|| !PS_StorageDeleteInstanceRows("plugin_resource", sInstanceId)
+		|| !PS_StorageDeleteInstanceRows("plugin_service", sInstanceId)
+		|| !PS_StorageDeleteInstanceRows("plugin_migration_log", sInstanceId) ) {
+		sqlite3_exec(G_DB, "ROLLBACK", NULL, NULL, NULL);
+		return FALSE;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "DELETE FROM plugin_instance WHERE instance_id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		sqlite3_exec(G_DB, "ROLLBACK", NULL, NULL, NULL);
+		return FALSE;
+	}
+
+	PS_StorageBindText(stmt, 1, sInstanceId);
+	bOK = (sqlite3_step(stmt) == SQLITE_DONE);
+	sqlite3_finalize(stmt);
+	if ( !bOK ) {
+		sqlite3_exec(G_DB, "ROLLBACK", NULL, NULL, NULL);
+		return FALSE;
+	}
+
+	sqlite3_exec(G_DB, "COMMIT", NULL, NULL, NULL);
+	return TRUE;
 }
 
 #endif

@@ -357,7 +357,7 @@ static void AdminRequestAuth(XS_ServerObject objServer, XS_HostObject objHost, X
 			if ( pInfo->bActive ) {
 				Session_ExtendAdmin(objSession);
 			}
-			pInfo->Proc(objServer, objHost, objReq, objResp, objSession);
+			PS_HostInvokeRoute(pInfo, objServer, objHost, objReq, objResp, objSession);
 		} else {
 			LoadPage(objResp, 403, HTTP_CT_HTML, "status/403.html");
 		}
@@ -385,7 +385,7 @@ static void MemberRequestAuth(XS_ServerObject objServer, XS_HostObject objHost, 
 			if ( pInfo->bActive ) {
 				Session_ExtendMember(objSession);
 			}
-			pInfo->Proc(objServer, objHost, objReq, objResp, objSession);
+			PS_HostInvokeRoute(pInfo, objServer, objHost, objReq, objResp, objSession);
 		} else {
 			http_reply(objResp, 403, HTTP_CT_JSON, "{\"code\":403,\"msg\":\"forbidden\"}", 0);
 		}
@@ -399,6 +399,7 @@ bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 {
 	const char* sPath = xsReqPath(objReq);
 	RouteInfo* pInfo;
+	RouteInfo tInfo;
 	xvalue objSession = NULL;
 	bool bOwnSession = FALSE;
 	str sSessionID = NULL;
@@ -411,6 +412,8 @@ bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 	if ( pInfo == NULL ) {
 		return FALSE;
 	}
+	tInfo = *pInfo;
+	pInfo = &tInfo;
 
 	if ( G_Install == FALSE ) {
 		objSession = xvoCreateNull();
@@ -466,7 +469,7 @@ bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 			MemberRequestAuth(objServer, objHost, objReq, objResp, objSession, pInfo);
 		}
 	} else {
-		pInfo->Proc(objServer, objHost, objReq, objResp, objSession);
+		PS_HostInvokeRoute(pInfo, objServer, objHost, objReq, objResp, objSession);
 	}
 
 	if ( sSessionID ) {
