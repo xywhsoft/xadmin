@@ -64,14 +64,8 @@
 // 附件管理模块
 #include "module/attachment.h"
 
-// 插件上下文定义
-#include "module/plugin_ctx.h"
-
-// 插件页面
-#include "module/plugin_page.h"
-
-// 插件管理器
-#include "module/plugin_mgr.h"
+// 插件系统
+#include "plugin_system/plugin_system.h"
 
 
 
@@ -121,12 +115,6 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	fflush(stdout);
 	Template_Init();
 	printf("[xadmin:init] Template_Init done\n");
-	fflush(stdout);
-
-	printf("[xadmin:init] PluginTemplate_Init begin\n");
-	fflush(stdout);
-	PluginTemplate_Init();
-	printf("[xadmin:init] PluginTemplate_Init done\n");
 	fflush(stdout);
 
 	printf("[xadmin:init] Install_Init begin\n");
@@ -213,10 +201,10 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	printf("[xadmin:init] Auth_SyncURIS done\n");
 	fflush(stdout);
 
-	printf("[xadmin:init] PluginMgr_Init begin\n");
+	printf("[xadmin:init] PluginSystem_Init begin\n");
 	fflush(stdout);
-	PluginMgr_Init();
-	printf("[xadmin:init] PluginMgr_Init done\n");
+	PluginSystem_Init();
+	printf("[xadmin:init] PluginSystem_Init done\n");
 	fflush(stdout);
 }
 
@@ -226,11 +214,8 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 {
 
-	// 卸载插件模板
-	PluginTemplate_Unit();
-
-	// 卸载插件管理器
-	PluginMgr_Unit();
+	// 卸载插件系统
+	PluginSystem_Unit();
 	
 	// 卸载附件管理模块
 	Attachment_Unit();

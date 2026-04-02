@@ -1,0 +1,44 @@
+{
+	"formatVersion": 3,
+	"id": "hello",
+	"name": "hello",
+	"title": "Hello World Demo Plugin",
+	"description": "Demo plugin for the new xAdmin plugin system",
+	"version": "3.0.0",
+	"author": "xAdmin",
+	"kind": "singleton",
+	"sort": 999,
+	"runtime": {
+		"compiler": "tcc",
+		"language": "c"
+	},
+	"build": {
+		"entry": "main.c",
+		"sources": ["main.c"],
+		"includeDirs": [],
+		"libraryDirs": [],
+		"libraries": [],
+		"defines": ["XADMIN_PLUGIN=1"]
+	},
+	"compat": {
+		"minHostVersion": "3.0.0",
+		"maxHostVersion": "4.0.0",
+		"abiVersion": 3
+	},
+	"capabilities": ["route.public", "route.admin"],
+	"dependencies": {
+		"plugins": [],
+		"services": [],
+		"features": []
+	},
+	"contributes": {
+		"menus": [],
+		"routes": [],
+		"jobs": [],
+		"hooks": [],
+		"models": []
+	},
+	"multiInstance": false,
+	"defaultConfig": "config.defaults.json",
+	"configSchema": "config.schema.json"
+}

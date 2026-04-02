@@ -1,243 +1,183 @@
 #include "plugin.h"
 
-PluginContext* ctx;
-xvalue g_tblSettings = NULL;
-int g_iMenuId = 0;
+static const XAdminHostAPI* G_HelloHost = NULL;
+static xvalue G_HelloConfig = NULL;
 
-void Plugin_SetGlobalData(int idx, void* ptr)
+void Hello_SendTableJson(XS_ResponseObject objResp, xvalue tblData)
 {
-	if ( idx == 1 ) {
-		ctx = (PluginContext*)ptr;
-	} else if ( idx == 2 ) {
-		g_tblSettings = (xvalue)ptr;
+	size_t iSize = 0;
+	str sJson = xrtStringifyJSON(tblData, FALSE, &iSize);
+	if ( sJson ) {
+		G_HelloHost->http.reply_json(objResp, 200, sJson, iSize);
+		G_HelloHost->core.free((void*)sJson);
 	}
+	xvoUnref(tblData);
 }
 
-void API_Hello_Greeting(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Hello_RequestGreeting(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	str sMessage = "Hello World!";
+	str sMessage = "Hello from xAdmin plugin system";
 	bool bShowTime = FALSE;
+	xvalue tblRet;
 
-	if ( g_tblSettings ) {
-		str sCustomMsg = xvoTableGetText(g_tblSettings, "welcomeMessage", 14);
-		if ( sCustomMsg && strlen(sCustomMsg) > 0 ) {
-			sMessage = sCustomMsg;
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+
+	if ( G_HelloConfig ) {
+		str sCustomMessage = xvoTableGetText(G_HelloConfig, "welcomeMessage", 14);
+		if ( sCustomMessage && sCustomMessage[0] ) {
+			sMessage = sCustomMessage;
 		}
-		bShowTime = xvoTableGetBool(g_tblSettings, "showTime", 8);
+		bShowTime = xvoTableGetBool(G_HelloConfig, "showTime", 8);
 	}
 
-	xvalue objRet = xvoCreateTable();
-	xvoTableSetBool(objRet, "result", 6, TRUE);
-	xvoTableSetText(objRet, "message", 7, sMessage, 0, FALSE);
+	tblRet = xvoCreateTable();
+	xvoTableSetBool(tblRet, "result", 6, TRUE);
+	xvoTableSetText(tblRet, "message", 7, sMessage, 0, FALSE);
 	if ( bShowTime ) {
-		xvoTableSetInt(objRet, "time", 4, ctx->TimeNow());
+		xvoTableSetInt(tblRet, "time", 4, G_HelloHost->core.time_now());
 	}
 
-	size_t iSize = 0;
-	str sJson = ctx->JsonStringify(objRet, &iSize);
-	ctx->SendJson(objResp, 200, sJson, iSize);
-	ctx->Free(sJson);
-	xvoUnref(objRet);
+	Hello_SendTableJson(objResp, tblRet);
 }
 
-void API_Hello_Info(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Hello_RequestInfo(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	ctx->SendJson(objResp, 200, "{\"result\":true,\"name\":\"hello\",\"title\":\"Hello World Demo Plugin\",\"version\":\"1.0.0\"}", 0);
+	xvalue tblRet;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+
+	tblRet = xvoCreateTable();
+	xvoTableSetBool(tblRet, "result", 6, TRUE);
+	xvoTableSetText(tblRet, "id", 2, "hello", 0, FALSE);
+	xvoTableSetText(tblRet, "title", 5, "Hello World Demo Plugin", 0, FALSE);
+	xvoTableSetText(tblRet, "version", 7, "3.0.0", 0, FALSE);
+	Hello_SendTableJson(objResp, tblRet);
 }
 
-void API_Debug_ExecuteSQL(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Hello_RequestView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	xvalue objReqTbl = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-	if ( !objReqTbl ) {
-		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
-		return;
-	}
-
-	str sSQL = xvoTableGetText(objReqTbl, "sql", 3);
-	if ( !sSQL || strlen(sSQL) == 0 ) {
-		xvoUnref(objReqTbl);
-		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"missing sql\"}", 0);
-		return;
-	}
-
-	char* sErr = NULL;
-	int64 iStart = ctx->TimeNow();
-	int iRet = sqlite3_exec(ctx->pDB, sSQL, NULL, NULL, &sErr);
-	int64 iEnd = ctx->TimeNow();
-
-	xvalue objRet = xvoCreateTable();
-	xvoTableSetBool(objRet, "result", 6, iRet == SQLITE_OK);
-	xvoTableSetInt(objRet, "affectedRows", 11, sqlite3_changes(ctx->pDB));
-	xvoTableSetInt(objRet, "time", 4, iEnd - iStart);
-	xvoTableSetText(objRet, "sql", 3, sSQL, 0, FALSE);
-
-	if ( sErr ) {
-		xvoTableSetText(objRet, "error", 5, sErr, 0, FALSE);
-		sqlite3_free(sErr);
-	} else {
-		xvoTableSetText(objRet, "message", 7, iRet == SQLITE_OK ? "ok" : "failed", 0, FALSE);
-	}
-
-	size_t iSize = 0;
-	str sJson = ctx->JsonStringify(objRet, &iSize);
-	ctx->SendJson(objResp, 200, sJson, iSize);
-	ctx->Free(sJson);
-	xvoUnref(objRet);
-	xvoUnref(objReqTbl);
-}
-
-void API_Debug_QueryTable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
-{
-	xvalue objReqTbl = ctx->JsonParse((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-	if ( !objReqTbl ) {
-		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"invalid request\"}", 0);
-		return;
-	}
-
-	str sTableName = xvoTableGetText(objReqTbl, "table", 5);
-	if ( !sTableName || strlen(sTableName) == 0 ) {
-		xvoUnref(objReqTbl);
-		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"missing table\"}", 0);
-		return;
-	}
-
-	int iLimit = xvoTableGetInt(objReqTbl, "limit", 5);
-	if ( (iLimit <= 0) || (iLimit > 1000) ) {
-		iLimit = 100;
-	}
-
-	str sSQL = xrtFormat("SELECT * FROM %s LIMIT %d", sTableName, iLimit);
-	sqlite3_stmt* stmt = NULL;
-	int iRet = sqlite3_prepare_v3(ctx->pDB, sSQL, -1, 0, &stmt, NULL);
-	xrtFree(sSQL);
-
-	if ( iRet != SQLITE_OK ) {
-		xvoUnref(objReqTbl);
-		ctx->SendJson(objResp, 200, "{\"result\":false,\"message\":\"prepare failed\"}", 0);
-		return;
-	}
-
-	xvalue objArrColumns = xvoCreateArray();
-	xvalue objArrRows = xvoCreateArray();
-	int iColCount = sqlite3_column_count(stmt);
-
-	for ( int i = 0; i < iColCount; i++ ) {
-		const char* sColName = sqlite3_column_name(stmt, i);
-		xvoArrayAppendText(objArrColumns, sColName, 0, TRUE);
-	}
-
-	int iRowCount = 0;
-	while ( (sqlite3_step(stmt) == SQLITE_ROW) && (iRowCount < iLimit) ) {
-		xvalue objTblRow = xvoCreateTable();
-		for ( int i = 0; i < iColCount; i++ ) {
-			const char* sColName = sqlite3_column_name(stmt, i);
-			int iColType = sqlite3_column_type(stmt, i);
-
-			if ( iColType == SQLITE_INTEGER ) {
-				xvoTableSetInt(objTblRow, sColName, 3, sqlite3_column_int64(stmt, i));
-			} else if ( iColType == SQLITE_FLOAT ) {
-				xvoTableSetFloat(objTblRow, sColName, 3, sqlite3_column_double(stmt, i));
-			} else if ( iColType == SQLITE_TEXT ) {
-				xvoTableSetText(objTblRow, sColName, 3, (str)sqlite3_column_text(stmt, i), 0, FALSE);
-			} else if ( iColType == SQLITE_BLOB ) {
-				xvoTableSetText(objTblRow, sColName, 3, "<BLOB>", 0, FALSE);
-			} else {
-				xvoTableSetNull(objTblRow, sColName, 3);
-			}
-		}
-		xvoArrayAppendValue(objArrRows, objTblRow, TRUE);
-		iRowCount++;
-	}
-
-	sqlite3_finalize(stmt);
-
-	xvalue objRet = xvoCreateTable();
-	xvoTableSetBool(objRet, "result", 6, TRUE);
-	xvoTableSetText(objRet, "table", 5, sTableName, 0, FALSE);
-	xvoTableSetInt(objRet, "rowCount", 8, iRowCount);
-	xvoTableSetValue(objRet, "columns", 7, objArrColumns, FALSE);
-	xvoTableSetValue(objRet, "data", 4, objArrRows, FALSE);
-
-	size_t iSize = 0;
-	str sJson = ctx->JsonStringify(objRet, &iSize);
-	ctx->SendJson(objResp, 200, sJson, iSize);
-	ctx->Free(sJson);
-	xvoUnref(objRet);
-	xvoUnref(objReqTbl);
-}
-
-void View_Hello_Page(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
-{
-	str sHtml = "<div style='padding:30px;text-align:center;'>"
-		"<h1 style='color:#1e9fff;'>Hello World Plugin</h1>"
-		"<p>This is a demo plugin for xAdmin.</p>"
-		"<p>Version: <code>1.0.0</code></p>"
-		"<button class='layui-btn' onclick='testApi()'>Test API</button>"
-		"<pre id='result' style='margin-top:20px;text-align:left;background:#f8f8f8;padding:15px;border-radius:4px;'></pre>"
+	const char* sHtml =
+		"<div style='padding:32px;text-align:center;'>"
+		"<h1 style='margin-bottom:12px;'>Hello Plugin</h1>"
+		"<p style='color:#666;'>This page is served by the new plugin ABI.</p>"
+		"<button class='layui-btn' onclick='helloPluginTest()'>Call API</button>"
+		"<pre id='hello_plugin_result' style='margin:24px auto 0;max-width:720px;text-align:left;background:#f7f7f7;padding:16px;border-radius:8px;'></pre>"
 		"</div>"
 		"<script>"
-		"function testApi() {"
+		"function helloPluginTest(){"
 		"fetch('/api/plugin/hello/greeting')"
 		".then(function(r){return r.json();})"
-		".then(function(data){document.getElementById('result').innerText = JSON.stringify(data, null, 2);});"
+		".then(function(data){document.getElementById('hello_plugin_result').innerText=JSON.stringify(data,null,2);});"
 		"}"
 		"</script>";
-	ctx->SendHtml(objResp, 200, sHtml);
+
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+
+	G_HelloHost->http.reply_html(objResp, 200, sHtml);
 }
 
-void Hello_RegisterRoutes()
+int Hello_OnLoad(const XAdminHostAPI* host, XAdminPluginHandle* out_handle)
 {
-	ctx->AddRoute("/api/plugin/hello/greeting", API_Hello_Greeting, FALSE, FALSE, 0, 0);
-	ctx->AddRoute("/api/plugin/hello/info", API_Hello_Info, FALSE, FALSE, 0, 0);
-	ctx->AddRoute("/api/debug/execute_sql", API_Debug_ExecuteSQL, TRUE, TRUE, 0, 0);
-	ctx->AddRoute("/api/debug/query_table", API_Debug_QueryTable, TRUE, TRUE, 0, 0);
-	ctx->AddRoute("/admin/view/plugin/hello", View_Hello_Page, TRUE, TRUE, 0, 0);
+	(void)out_handle;
+	G_HelloHost = host;
+	G_HelloHost->core.log(LOG_INFO, "hello plugin loaded");
+	return 0;
 }
 
-void Hello_UnregisterRoutes()
+int Hello_OnStart(XAdminPluginHandle handle)
 {
-	ctx->RemoveRoute("/api/plugin/hello/greeting");
-	ctx->RemoveRoute("/api/plugin/hello/info");
-	ctx->RemoveRoute("/api/debug/execute_sql");
-	ctx->RemoveRoute("/api/debug/query_table");
-	ctx->RemoveRoute("/admin/view/plugin/hello");
+	XAdminRouteDecl route;
+
+	memset(&route, 0, sizeof(route));
+	route.path = "/api/plugin/hello/greeting";
+	route.proc = Hello_RequestGreeting;
+	G_HelloHost->http.register_route(handle, &route, NULL);
+
+	memset(&route, 0, sizeof(route));
+	route.path = "/api/plugin/hello/info";
+	route.proc = Hello_RequestInfo;
+	G_HelloHost->http.register_route(handle, &route, NULL);
+
+	memset(&route, 0, sizeof(route));
+	route.path = "/admin/view/plugin/hello";
+	route.proc = Hello_RequestView;
+	route.need_auth = TRUE;
+	route.admin_only = TRUE;
+	G_HelloHost->http.register_route(handle, &route, NULL);
+
+	G_HelloHost->core.log(LOG_INFO, "hello plugin started");
+	return 0;
 }
 
-void Hello_RegisterMenus()
+int Hello_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)
 {
-}
+	(void)handle;
 
-void Hello_UnregisterMenus()
-{
-	if ( g_iMenuId > 0 ) {
-		ctx->RemoveMenu(g_iMenuId);
-		g_iMenuId = 0;
+	if ( G_HelloConfig ) {
+		xvoUnref(G_HelloConfig);
+		G_HelloConfig = NULL;
 	}
+
+	if ( new_cfg ) {
+		xvoAddRef(new_cfg);
+		G_HelloConfig = new_cfg;
+	}
+
+	return 0;
 }
 
-void Hello_OnSystemReady(xvalue eventData)
+int Hello_OnHealthCheck(XAdminPluginHandle handle, XAdminHealthReport* out_report)
 {
-	ctx->Log(LOG_INFO, "[Hello Plugin] System ready event received!");
+	(void)handle;
+
+	if ( out_report ) {
+		out_report->status_code = 0;
+		out_report->message = "ok";
+	}
+	return 0;
 }
 
-void Plugin_hello_Init()
+void Hello_OnStop(XAdminPluginHandle handle)
 {
-	ctx->Log(LOG_INFO, "[Hello Plugin] Initializing...");
-
-	Hello_RegisterRoutes();
-	Hello_RegisterMenus();
-	ctx->OnEvent(EVENT_SYSTEM_READY, Hello_OnSystemReady);
-
-	ctx->Log(LOG_INFO, "[Hello Plugin] Initialized successfully!");
+	(void)handle;
+	G_HelloHost->core.log(LOG_INFO, "hello plugin stopping");
 }
 
-void Plugin_hello_Unit()
+void Hello_OnUnload(XAdminPluginHandle handle)
 {
-	ctx->Log(LOG_INFO, "[Hello Plugin] Unloading...");
+	(void)handle;
 
-	ctx->OffEvent(EVENT_SYSTEM_READY, Hello_OnSystemReady);
-	Hello_UnregisterRoutes();
-	Hello_UnregisterMenus();
+	if ( G_HelloConfig ) {
+		xvoUnref(G_HelloConfig);
+		G_HelloConfig = NULL;
+	}
 
-	ctx->Log(LOG_INFO, "[Hello Plugin] Unloaded successfully!");
+	G_HelloHost->core.log(LOG_INFO, "hello plugin unloaded");
+	G_HelloHost = NULL;
 }
+
+static XAdminPluginDescriptor G_HelloPlugin = {
+	XADMIN_ABI_VERSION,
+	sizeof(XAdminPluginDescriptor),
+	"hello",
+	"3.0.0",
+	"Hello World Demo Plugin",
+	Hello_OnLoad,
+	NULL,
+	Hello_OnStart,
+	Hello_OnConfigChanged,
+	Hello_OnHealthCheck,
+	Hello_OnStop,
+	Hello_OnUnload
+};
+
+XADMIN_DECLARE_PLUGIN(G_HelloPlugin)
