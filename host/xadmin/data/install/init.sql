@@ -405,7 +405,13 @@ INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, 
 VALUES (20, 15, '接口管理', 'layui-icon layui-icon-website', 1, '_component', '/admin/view/auth/uris', 500500, 1, '管理API接口', 63933640350, 63936000000, 0);
 
 INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
-VALUES (22, 15, '插件管理', 'layui-icon layui-icon-app', 1, '_component', '/admin/view/plugin', 500600, 1, '管理系统插件', 63936000000, 63936000000, 0);
+VALUES (22, 0, '插件管理', 'layui-icon layui-icon-app', 0, '', '', 550000, 1, '插件管理目录', 63936000000, 63936000000, 0);
+
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (23, 22, '插件商店', 'layui-icon layui-icon-cart-simple', 1, '_component', '/admin/view/plugin/store', 550100, 1, '浏览远程插件商店', 63936000000, 63936000000, 0);
+
+INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)
+VALUES (24, 22, '已安装插件', 'layui-icon layui-icon-component', 1, '_component', '/admin/view/plugin/installed', 550200, 1, '查看和管理已安装插件', 63936000000, 63936000000, 0);
 
 -- 系统日志 (sort=600000)
 INSERT INTO menu (id, parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, isDelete)

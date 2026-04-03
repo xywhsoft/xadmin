@@ -28,6 +28,32 @@
 		var layer = layui.layer;
 		var $ = layui.$;
 		
+		function escapeHtml(sText)
+		{
+			return $('<div/>').text(sText == null ? '' : String(sText)).html();
+		}
+		
+		function renderAuthGroup(d)
+		{
+			var iAuthID = Number(d.authID) || 0;
+			var bBackend = Number(d.isBackend) === 1;
+			var sName = bBackend ? d.authName : d.memberAuthName;
+			
+			if ( Number(d.needAuth) !== 1 ) {
+				return '<span class="layui-badge layui-bg-green">公开</span>';
+			}
+			
+			if ( iAuthID <= 0 ) {
+				return '<span class="layui-badge layui-bg-gray">未分配</span>';
+			}
+			
+			if ( !sName ) {
+				sName = 'ID ' + iAuthID;
+			}
+			
+			return '<span class="layui-badge ' + (bBackend ? ('backend-auth-color-' + iAuthID) : ('member-auth-color-' + iAuthID)) + '">' + escapeHtml(sName) + '</span>';
+		}
+		
 		// 创建渲染实例
 		table.render({
 			elem: '#Table_Auth_URIs',
@@ -48,7 +74,7 @@
 				{field:'sort', width:100, title: '排序'},
 				{field:'needAuth', width:80, title: '鉴权', align:'center', templet: '<span class="{{# if(d.needAuth){ }}layui-badge layui-bg-green{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.needAuth){ }}需要{{# } else { }}否{{# } }}</span>'},
 				{field:'isBackend', width:80, title: '类型', align:'center', templet: '<span class="{{# if(d.isBackend){ }}layui-badge layui-bg-blue{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.isBackend){ }}后台{{# } else { }}前台{{# } }}</span>'},
-				{width:140, title: '权限组', templet: '<span class="layui-badge {{# if(d.isBackend){ }}backend-auth-color-{{= d.authID }}{{# } else { }}member-auth-color-{{= d.authID }}{{# } }}">{{# if(d.isBackend){ }}{{= d.authName }}{{# } else { }}{{= d.memberAuthName }}{{# } }}</span>'},
+				{width:140, title: '权限组', templet: renderAuthGroup},
 				{width:320, title: 'URI', templet: '<code>{{= d.uri }}</code>'},
 				{field:'desc', title: '描述', minWidth:150},
 				{field:'needLog', width:80, title: '日志', align:'center', templet: '<span class="{{# if(d.needLog){ }}layui-badge layui-bg-orange{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.needLog){ }}记录{{# } else { }}否{{# } }}</span>'},

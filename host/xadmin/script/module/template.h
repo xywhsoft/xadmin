@@ -4,6 +4,9 @@ xvalue tblENV = NULL;
 // shared include table (kept for compatibility)
 xdict G_Template = NULL;
 
+#define XADMIN_TEMPLATE_BRACKET "{{}}"
+XTE_ParseOptions G_TemplateParseOptions = { XADMIN_TEMPLATE_BRACKET, 0 };
+
 
 
 xvalue TemplateProc_Project_MakeXID(xvalue varENV, xvalue varParam)
@@ -37,10 +40,10 @@ char* MakePageWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 	}
 
 	iSize = strlen(sText);
-	hTemplate = xteParseEx(NULL, sText, iSize, NULL, &tError);
+	hTemplate = xteParseEx(NULL, sText, iSize, &G_TemplateParseOptions, &tError);
 	xrtFree(sText);
 	if ( hTemplate == NULL ) {
-		return xrtFormat("<!DOCTYPE html><html><body><p>template parse failed: %s</p></body></html>", sTemplate);
+		return xrtFormat("<!DOCTYPE html><html><body><p>template parse failed: %s (%s at %u:%u)</p></body></html>", sTemplate, tError.sDesc ? tError.sDesc : "unknown error", tError.iLine, tError.iColumn);
 	}
 
 	sPage = xteMake(hTemplate, tblData, tblENV, G_Template, pRetSize);

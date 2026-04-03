@@ -1,12 +1,64 @@
+<style>
+	.plugin-list-page .layui-table-view .layui-table-cell {
+		height: auto;
+		min-height: 64px;
+		line-height: 1.6;
+		overflow: visible;
+	}
+
+	.plugin-list-page .layui-table-view .layui-table-body td,
+	.plugin-list-page .layui-table-view .layui-table-header th {
+		vertical-align: middle;
+	}
+
+	.plugin-list-meta {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 2px;
+		min-height: 56px;
+		padding: 4px 0;
+	}
+
+	.plugin-list-primary {
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.plugin-list-secondary {
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: #999;
+		font-size: 12px;
+	}
+
+	.plugin-list-desc {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		overflow: hidden;
+		color: #666;
+		font-size: 12px;
+		line-height: 1.6;
+		max-height: 38px;
+	}
+</style>
+
 <!-- 主体表格 -->
-<div style="padding: 16px;">
+<div class="plugin-list-page" style="padding: 16px;">
 	<table class="layui-hide" id="Table_Plugin_List" lay-filter="Table_Plugin_List"></table>
 </div>
 
 <!-- 表格工具栏 -->
 <script type="text/html" id="Toolbar_Plugin_List">
 	<div class="layui-inline">
-		<input type="text" id="searchPlugin" placeholder="搜索插件..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+		<input type="text" id="searchPlugin" placeholder="搜索插件标识、标题、描述或作者..." class="layui-input" style="width: 260px; height: 32px; margin-right: 10px;">
 	</div>
 	<div class="layui-inline">
 		<button class="layui-btn layui-btn-sm" lay-event="Plugin_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
@@ -14,30 +66,66 @@
 	</div>
 </script>
 
-<!-- 状态列模板 -->
-<script type="text/html" id="Tpl_Plugin_Status">
-	{{# if(d.enabled && d.loaded){ }}
-		<span class="layui-badge layui-bg-green">运行中</span>
-	{{# } else if(d.enabled && !d.loaded){ }}
-		<span class="layui-badge layui-bg-orange">加载失败</span>
-	{{# } else { }}
-		<span class="layui-badge layui-bg-gray">已禁用</span>
-	{{# } }}
+<!-- 标识列模板 -->
+<script type="text/html" id="Tpl_Plugin_Name">
+	<div class="plugin-list-meta">
+		<div class="plugin-list-primary" title="{{= d.xid || d.name || '-' }}"><code>{{= d.xid || d.name || '-' }}</code></div>
+		<div class="plugin-list-secondary" title="{{= d.kind || 'singleton' }}">{{= d.kind || 'singleton' }}</div>
+	</div>
 </script>
 
 <!-- 信息列模板 -->
 <script type="text/html" id="Tpl_Plugin_Info">
-	<div style="line-height: 1.6;">
-		<div><strong>{{= d.title }}</strong></div>
-		<div style="color: #666; font-size: 12px;">{{= d.desc || '暂无描述' }}</div>
+	<div class="plugin-list-meta">
+		<div class="plugin-list-primary" title="{{= d.title || d.name || d.xid || '未命名插件' }}"><strong>{{= d.title || d.name || d.xid || '未命名插件' }}</strong></div>
+		<div class="plugin-list-desc" title="{{= d.desc || '暂无描述' }}">{{= d.desc || '暂无描述' }}</div>
+		<div class="plugin-list-secondary" title="{{= d.path || '' }}">
+			目录：{{= d.path || '-' }}
+		</div>
 	</div>
 </script>
 
 <!-- 版本列模板 -->
 <script type="text/html" id="Tpl_Plugin_Version">
-	<div style="line-height: 1.6;">
-		<div><code>v{{= d.version }}</code></div>
-		<div style="color: #999; font-size: 12px;">{{= d.author }}</div>
+	<div class="plugin-list-meta">
+		<div class="plugin-list-primary" title="v{{= d.version || '0.0.0' }}"><code>v{{= d.version || '0.0.0' }}</code></div>
+		<div class="plugin-list-secondary" title="{{= d.author || '未知作者' }}">{{= d.author || '未知作者' }}</div>
+	</div>
+</script>
+
+<!-- 状态列模板 -->
+<script type="text/html" id="Tpl_Plugin_Status">
+	<div class="plugin-list-meta">
+		{{# if(d.enabled && d.loaded){ }}
+			<span class="layui-badge layui-bg-green">运行中</span>
+		{{# } else if(d.enabled && d.status === 'failed'){ }}
+			<span class="layui-badge layui-bg-orange">启动失败</span>
+		{{# } else if(d.enabled){ }}
+			<span class="layui-badge layui-bg-blue">已启用</span>
+		{{# } else { }}
+			<span class="layui-badge layui-bg-gray">已禁用</span>
+		{{# } }}
+		<div class="plugin-list-secondary" style="margin-top: 2px;">
+			{{# if(d.generation && d.generation > 0){ }}
+				运行代 #{{= d.generation }}
+			{{# } else { }}
+				尚未加载
+			{{# } }}
+		</div>
+	</div>
+</script>
+
+<!-- 数据列模板 -->
+<script type="text/html" id="Tpl_Plugin_Data">
+	<div class="plugin-list-meta">
+		{{# if(d.installed){ }}
+			<span class="layui-badge layui-bg-blue">已安装</span>
+		{{# } else { }}
+			<span class="layui-badge-rim">未安装</span>
+		{{# } }}
+		<div class="plugin-list-secondary" title="{{= d.dataPath || '' }}" style="margin-top: 2px;">
+			{{= d.dataPath || '未初始化数据目录' }}
+		</div>
 	</div>
 </script>
 
@@ -45,246 +133,470 @@
 <script type="text/html" id="Tool_Plugin_List">
 	<div class="layui-clear-space">
 		{{# if(d.enabled){ }}
-			<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="reload">重载</a>
-			<a class="layui-btn layui-btn-xs layui-bg-gray" lay-event="disable">禁用</a>
+			<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="reload">重载</a>
+			<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="disable">禁用</a>
 		{{# } else { }}
 			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="enable">启用</a>
 		{{# } }}
-		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="settings">设置</a>
+		<a class="layui-btn layui-btn-xs" lay-event="settings">设置</a>
 	</div>
 </script>
 
 <!-- 页面逻辑处理 -->
 <script>
-	layui.use(['table'], function(){
+	layui.use(['table', 'form'], function(){
 		var table = layui.table;
+		var form = layui.form;
 		var layer = layui.layer;
 		var $ = layui.$;
-		
-		// 创建渲染实例
+		var pluginSearchKeyword = '';
+
+		function pluginKey(data) {
+			return data.xid || data.name || '';
+		}
+
+		function pluginSearchText(data) {
+			return [
+				data.xid || '',
+				data.name || '',
+				data.title || '',
+				data.desc || '',
+				data.author || '',
+				data.version || '',
+				data.path || ''
+			].join(' ').toLowerCase();
+		}
+
+		function pluginMatchesSearch(data) {
+			if ( !pluginSearchKeyword ) {
+				return true;
+			}
+			return pluginSearchText(data).indexOf(pluginSearchKeyword) >= 0;
+		}
+
+		function pluginEscapeHtml(text) {
+			var s = (text === null || text === undefined) ? '' : String(text);
+			return s
+				.replace(/&/g, '&amp;')
+				.replace(/</g, '&lt;')
+				.replace(/>/g, '&gt;')
+				.replace(/"/g, '&quot;')
+				.replace(/'/g, '&#39;');
+		}
+
+		function pluginInferFieldType(value) {
+			if ( $.isArray(value) ) {
+				return 'array';
+			}
+			if ( value && typeof value === 'object' ) {
+				return 'object';
+			}
+			if ( typeof value === 'boolean' ) {
+				return 'boolean';
+			}
+			if ( typeof value === 'number' ) {
+				return (Math.floor(value) === value) ? 'integer' : 'number';
+			}
+			return 'string';
+		}
+
+		function pluginNormalizeFieldType(type, value) {
+			if ( type === 'integer' || type === 'number' || type === 'boolean' || type === 'object' || type === 'array' || type === 'string' ) {
+				return type;
+			}
+			return pluginInferFieldType(value);
+		}
+
+		function pluginBuildSettingsKeys(schemaProperties, settings) {
+			var keys = [];
+			var key;
+
+			if ( schemaProperties ) {
+				for ( key in schemaProperties ) {
+					if ( Object.prototype.hasOwnProperty.call(schemaProperties, key) ) {
+						keys.push(key);
+					}
+				}
+			}
+			if ( settings ) {
+				for ( key in settings ) {
+					if ( Object.prototype.hasOwnProperty.call(settings, key) && keys.indexOf(key) < 0 ) {
+						keys.push(key);
+					}
+				}
+			}
+			return keys;
+		}
+
+		function pluginRenderSettingsForm(pluginData, settings, layerIndex) {
+			var containerId = '#plugin_settings_container_' + layerIndex;
+			var schema = pluginData.configSchema || {};
+			var schemaProperties = (schema && schema.properties && typeof schema.properties === 'object') ? schema.properties : null;
+			var keys = pluginBuildSettingsKeys(schemaProperties, settings);
+			var formFilter = 'Form_Plugin_Settings_' + layerIndex;
+			var html = '';
+			var i;
+
+			if ( keys.length <= 0 ) {
+				$(containerId).html('<div style="padding: 36px 20px; text-align: center; color: #999;">该插件暂无可配置项</div>');
+				return;
+			}
+
+			html += '<form class="layui-form" lay-filter="' + formFilter + '" style="padding: 16px 20px 8px 0;">';
+			for ( i = 0; i < keys.length; i++ ) {
+				var key = keys[i];
+				var meta = schemaProperties && schemaProperties[key] ? schemaProperties[key] : {};
+				var value = settings && Object.prototype.hasOwnProperty.call(settings, key) ? settings[key] : undefined;
+				var type = pluginNormalizeFieldType(meta.type, value);
+				var title = meta.title || key;
+				var description = meta.description || '';
+				var stringValue = '';
+
+				html += '<div class="layui-form-item">';
+				html += '<label class="layui-form-label" style="width: 140px;">' + pluginEscapeHtml(title) + '</label>';
+				html += '<div class="layui-input-block" style="margin-left: 170px;">';
+
+				if ( type === 'boolean' ) {
+					html += '<input type="checkbox" data-field-key="' + pluginEscapeHtml(key) + '" data-field-type="boolean" lay-skin="switch" lay-text="是|否"' + (value ? ' checked' : '') + '>';
+				} else if ( type === 'integer' || type === 'number' ) {
+					stringValue = (value === null || value === undefined) ? '' : String(value);
+					html += '<input type="number" data-field-key="' + pluginEscapeHtml(key) + '" data-field-type="' + type + '" value="' + pluginEscapeHtml(stringValue) + '" class="layui-input"' + (type === 'integer' ? ' step="1"' : ' step="any"') + '>';
+				} else if ( type === 'object' || type === 'array' ) {
+					stringValue = JSON.stringify(value === undefined ? (type === 'array' ? [] : {}) : value, null, 2);
+					html += '<textarea data-field-key="' + pluginEscapeHtml(key) + '" data-field-type="' + type + '" class="layui-textarea" style="min-height: 110px; font-family: Consolas, monospace;">' + pluginEscapeHtml(stringValue) + '</textarea>';
+				} else {
+					stringValue = (value === null || value === undefined) ? '' : String(value);
+					if ( stringValue.length > 80 || stringValue.indexOf('\n') >= 0 ) {
+						html += '<textarea data-field-key="' + pluginEscapeHtml(key) + '" data-field-type="string" class="layui-textarea" style="min-height: 88px;">' + pluginEscapeHtml(stringValue) + '</textarea>';
+					} else {
+						html += '<input type="text" data-field-key="' + pluginEscapeHtml(key) + '" data-field-type="string" value="' + pluginEscapeHtml(stringValue) + '" class="layui-input">';
+					}
+				}
+
+				if ( description ) {
+					html += '<div class="layui-word-aux">' + pluginEscapeHtml(description) + '</div>';
+				}
+				html += '</div>';
+				html += '</div>';
+			}
+
+			html += '<div class="layui-form-item" style="margin-top: 28px;">';
+			html += '<div class="layui-input-block" style="margin-left: 170px;">';
+			html += '<button type="button" class="layui-btn" id="btn_save_plugin_settings_' + layerIndex + '">保存设置</button>';
+			html += '</div></div></form>';
+
+			$(containerId).html(html);
+			form.render(null, formFilter);
+
+			$('#btn_save_plugin_settings_' + layerIndex).off('click').on('click', function(){
+				var formData = {};
+				var hasError = false;
+
+				$(containerId).find('[data-field-key]').each(function(){
+					var $field = $(this);
+					var key = $field.attr('data-field-key');
+					var type = $field.attr('data-field-type');
+					var rawValue;
+					var parsedValue;
+
+					if ( hasError ) {
+						return;
+					}
+
+					if ( type === 'boolean' ) {
+						formData[key] = $field.is(':checked');
+						return;
+					}
+
+					rawValue = $.trim($field.val());
+					if ( type === 'integer' ) {
+						if ( rawValue === '' || isNaN(Number(rawValue)) ) {
+							hasError = true;
+							layer.msg('字段 "' + key + '" 必须是整数', {icon: 2});
+							return;
+						}
+						formData[key] = parseInt(rawValue, 10);
+						return;
+					}
+
+					if ( type === 'number' ) {
+						if ( rawValue === '' || isNaN(Number(rawValue)) ) {
+							hasError = true;
+							layer.msg('字段 "' + key + '" 必须是数字', {icon: 2});
+							return;
+						}
+						formData[key] = parseFloat(rawValue);
+						return;
+					}
+
+					if ( type === 'object' || type === 'array' ) {
+						try {
+							parsedValue = rawValue ? JSON.parse(rawValue) : (type === 'array' ? [] : {});
+						} catch (error) {
+							hasError = true;
+							layer.msg('字段 "' + key + '" 不是合法 JSON', {icon: 2});
+							return;
+						}
+
+						if ( type === 'array' && !$.isArray(parsedValue) ) {
+							hasError = true;
+							layer.msg('字段 "' + key + '" 必须是数组 JSON', {icon: 2});
+							return;
+						}
+						if ( type === 'object' && (!parsedValue || $.isArray(parsedValue) || typeof parsedValue !== 'object') ) {
+							hasError = true;
+							layer.msg('字段 "' + key + '" 必须是对象 JSON', {icon: 2});
+							return;
+						}
+						formData[key] = parsedValue;
+						return;
+					}
+
+					formData[key] = $field.val();
+				});
+
+				if ( hasError ) {
+					return;
+				}
+
+				fetch('/admin/plugin/settings', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name: pluginKey(pluginData), settings: formData })
+				})
+				.then(function(response){
+					return response.json();
+				})
+				.then(function(result){
+					if ( result && result.result ) {
+						layer.msg('设置已保存', {icon: 1});
+						layer.close(layerIndex);
+						table.reload('Table_Plugin_List');
+					} else {
+						layer.msg((result && result.message) || '保存失败', {icon: 2});
+					}
+				})
+				.catch(function(error){
+					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
+					console.error('Error:', error);
+				});
+			});
+		}
+
+		function pluginOpenSettings(data) {
+			var layerIndex = layer.open({
+				title: '插件设置 - ' + (data.title || pluginKey(data)),
+				type: 1,
+				shadeClose: true,
+				area: ['620px', '520px'],
+				content: '<div id="plugin_settings_container_' + pluginKey(data) + '" style="padding: 24px 20px; text-align: center; color: #999;">正在加载设置...</div>',
+				success: function(layero, index){
+					var finalContainerId = '#plugin_settings_container_' + index;
+
+					$(layero).find('[id^="plugin_settings_container_"]').attr('id', 'plugin_settings_container_' + index);
+					$(finalContainerId).html('<div style="padding: 36px 0;"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size: 28px;"></i></div>');
+
+					fetch('/admin/plugin/settings?name=' + encodeURIComponent(pluginKey(data)))
+					.then(function(response){
+						return response.json();
+					})
+					.then(function(result){
+						if ( result && result.result ) {
+							pluginRenderSettingsForm(data, result.data || {}, index);
+						} else {
+							$(finalContainerId).html('<div style="padding: 36px 20px; text-align: center; color: #f56c6c;">加载设置失败</div>');
+						}
+					})
+					.catch(function(error){
+						$(finalContainerId).html('<div style="padding: 36px 20px; text-align: center; color: #f56c6c;">请求出错，请查看开发者工具检查原因</div>');
+						console.error('Error:', error);
+					});
+				}
+			});
+		}
+
+		function pluginReloadTable() {
+			table.reload('Table_Plugin_List', {
+				page: {
+					curr: 1
+				}
+			});
+		}
+
 		table.render({
 			elem: '#Table_Plugin_List',
+			id: 'Table_Plugin_List',
 			toolbar: '#Toolbar_Plugin_List',
 			url: '/admin/plugin/list',
 			defaultToolbar: ['filter', 'exports', 'print'],
 			height: 'full-135',
+			css: '',
 			cellMinWidth: 60,
-			skin: "line",
-			page: false,
+			skin: 'line',
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+			},
+			parseData: function(res){
+				var rows = $.isArray(res.data) ? res.data.slice(0) : [];
+				var filtered = [];
+				var i;
+
+				for ( i = 0; i < rows.length; i++ ) {
+					if ( pluginMatchesSearch(rows[i]) ) {
+						filtered.push(rows[i]);
+					}
+				}
+
+				return {
+					code: res.code || 0,
+					msg: res.msg || '',
+					count: filtered.length,
+					data: filtered
+				};
+			},
 			cols: [[
-				{field:'sort', width:80, title: '排序', sort: true},
-				{field:'name', width:120, title: '标识', templet: '<code>{{= d.name }}</code>'},
-				{width:300, title: '插件信息', templet: '#Tpl_Plugin_Info'},
-				{width:130, title: '版本/作者', templet: '#Tpl_Plugin_Version'},
-				{width:100, title: '状态', templet: '#Tpl_Plugin_Status'},
-				{width:200, title: '操作', templet: '#Tool_Plugin_List'},
+				{field: 'sort', width: 80, title: '排序', sort: true},
+				{width: 190, title: '插件标识', templet: '#Tpl_Plugin_Name'},
+				{width: 420, title: '插件信息', templet: '#Tpl_Plugin_Info'},
+				{width: 180, title: '版本/作者', templet: '#Tpl_Plugin_Version'},
+				{width: 150, title: '运行状态', templet: '#Tpl_Plugin_Status'},
+				{minWidth: 320, title: '数据目录', templet: '#Tpl_Plugin_Data'},
+				{width: 180, title: '操作', templet: '#Tool_Plugin_List'}
 			]],
 			done: function(){
 			},
 			error: function(res, msg){
-				console.log(res, msg)
+				console.log(res, msg);
 			}
 		});
-		
-		// 工具栏事件
+
+		$(document).off('keydown.plugin_search').on('keydown.plugin_search', '#searchPlugin', function(event){
+			if ( event.keyCode === 13 ) {
+				pluginSearchKeyword = $.trim($(this).val()).toLowerCase();
+				pluginReloadTable();
+			}
+		});
+
 		table.on('toolbar(Table_Plugin_List)', function(obj){
 			switch ( obj.event ) {
 				case 'Plugin_Search':
-					var keyword = document.getElementById('searchPlugin').value.toLowerCase();
-					table.reloadData('Table_Plugin_List', {
-						where: { search: keyword },
-					});
+					pluginSearchKeyword = $.trim($('#searchPlugin').val()).toLowerCase();
+					pluginReloadTable();
 				break;
 				case 'Plugin_Refresh':
-					table.reloadData('Table_Plugin_List');
+					pluginSearchKeyword = '';
+					$('#searchPlugin').val('');
+					pluginReloadTable();
 				break;
-			};
+			}
 		});
-		
-		// 触发单元格工具事件
+
 		table.on('tool(Table_Plugin_List)', function(obj){
 			var data = obj.data;
-			
-			if ( obj.event == 'enable' ) {
-				// 启用插件
-				layer.confirm('确定要启用插件 "' + data.title + '" 吗？', {
+			var name = pluginKey(data);
+
+			if ( obj.event === 'enable' ) {
+				layer.confirm('确定要启用插件 "' + (data.title || name) + '" 吗？', {
 					icon: 3,
 					title: '启用确认'
 				}, function(index){
 					fetch('/admin/plugin/enable', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ name: data.name })
+						body: JSON.stringify({ name: name })
 					})
-					.then(response => response.json())
-					.then(result => {
+					.then(function(response){
+						return response.json();
+					})
+					.then(function(result){
 						if ( result && result.result === true ) {
 							layer.msg('插件已启用', {icon: 1});
-							table.reloadData('Table_Plugin_List');
-							// 刷新后台页面以显示插件菜单
+							pluginReloadTable();
 							if ( parent && parent.location ) {
 								parent.location.reload();
 							}
 						} else {
-							layer.msg(result.message || '启用失败', {icon: 2});
+							layer.msg((result && result.message) || '启用失败', {icon: 2});
 						}
 					})
-					.catch(error => {
-						layer.msg('请求出错', {icon: 2});
+					.catch(function(error){
+						layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
 						console.error('Error:', error);
 					});
 					layer.close(index);
 				});
-				
-			} else if ( obj.event == 'disable' ) {
-				// 禁用插件
-				layer.confirm('确定要禁用插件 "' + data.title + '" 吗？<br><span style="color:#ff5722;">插件注册的菜单和路由将被移除！</span>', {
+				return;
+			}
+
+			if ( obj.event === 'disable' ) {
+				layer.confirm('确定要禁用插件 "' + (data.title || name) + '" 吗？<br><span style="color:#ff5722;">插件注册的菜单、路由和权限资源将被移除。</span>', {
 					icon: 3,
 					title: '禁用确认'
 				}, function(index){
 					fetch('/admin/plugin/disable', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ name: data.name })
+						body: JSON.stringify({ name: name })
 					})
-					.then(response => response.json())
-					.then(result => {
+					.then(function(response){
+						return response.json();
+					})
+					.then(function(result){
 						if ( result && result.result === true ) {
 							layer.msg('插件已禁用', {icon: 1});
-							table.reloadData('Table_Plugin_List');
-							// 刷新后台页面以隐藏插件菜单
+							pluginReloadTable();
 							if ( parent && parent.location ) {
 								parent.location.reload();
 							}
 						} else {
-							layer.msg(result.message || '禁用失败', {icon: 2});
+							layer.msg((result && result.message) || '禁用失败', {icon: 2});
 						}
 					})
-					.catch(error => {
-						layer.msg('请求出错', {icon: 2});
+					.catch(function(error){
+						layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
 						console.error('Error:', error);
 					});
 					layer.close(index);
 				});
-				
-			} else if ( obj.event == 'reload' ) {
-				// 重载插件
-				layer.confirm('确定要重载插件 "' + data.title + '" 吗？<br>这将卸载并重新加载插件代码。', {
+				return;
+			}
+
+			if ( obj.event === 'reload' ) {
+				layer.confirm('确定要重载插件 "' + (data.title || name) + '" 吗？<br><span style="color:#999;">这会重新编译并切换到新的运行代。</span>', {
 					icon: 3,
 					title: '重载确认'
 				}, function(index){
 					fetch('/admin/plugin/reload', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ name: data.name })
+						body: JSON.stringify({ name: name })
 					})
-					.then(response => response.json())
-					.then(result => {
+					.then(function(response){
+						return response.json();
+					})
+					.then(function(result){
 						if ( result && result.result === true ) {
 							layer.msg('插件已重载', {icon: 1});
-							table.reloadData('Table_Plugin_List');
+							pluginReloadTable();
 						} else {
-							layer.msg(result.message || '重载失败', {icon: 2});
+							layer.msg((result && result.message) || '重载失败', {icon: 2});
 						}
 					})
-					.catch(error => {
-						layer.msg('请求出错', {icon: 2});
+					.catch(function(error){
+						layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
 						console.error('Error:', error);
 					});
 					layer.close(index);
 				});
-				
-			} else if ( obj.event == 'settings' ) {
-				// 插件设置
-				layer.open({
-					title: '插件设置 - ' + data.title,
-					type: 1,
-					area: ['500px', '400px'],
-					shadeClose: true,
-					content: '<div style="padding:20px;" id="plugin_settings_container"><div style="text-align:center;padding:50px;"><i class="layui-icon layui-icon-loading layui-anim layui-anim-rotate layui-anim-loop" style="font-size:30px;"></i></div></div>',
-					success: function(layero, index){
-						// 加载插件设置
-						fetch('/admin/plugin/settings?name=' + data.name)
-						.then(response => response.json())
-						.then(result => {
-							if ( result && result.result ) {
-								var settings = result.data || {};
-								var html = '<form class="layui-form" style="padding:10px;">';
-								
-								// 动态生成设置表单
-								var hasSettings = false;
-								for ( var key in settings ) {
-									hasSettings = true;
-									var value = settings[key];
-									var valueType = typeof value;
-									
-									html += '<div class="layui-form-item">';
-									html += '<label class="layui-form-label">' + key + '</label>';
-									html += '<div class="layui-input-block">';
-									
-									if ( valueType === 'boolean' ) {
-										html += '<input type="checkbox" name="' + key + '" lay-skin="switch" lay-text="是|否"' + (value ? ' checked' : '') + '>';
-									} else if ( valueType === 'number' ) {
-										html += '<input type="number" name="' + key + '" value="' + value + '" class="layui-input">';
-									} else {
-										html += '<input type="text" name="' + key + '" value="' + value + '" class="layui-input">';
-									}
-									
-									html += '</div></div>';
-								}
-								
-								if ( !hasSettings ) {
-									html += '<div style="text-align:center;color:#999;padding:30px;">该插件暂无可配置项</div>';
-								}
-								
-								html += '<div class="layui-form-item" style="margin-top:30px;text-align:center;">';
-								html += '<button type="button" class="layui-btn" id="btn_save_settings">保存设置</button>';
-								html += '</div></form>';
-								
-								$('#plugin_settings_container').html(html);
-								layui.form.render();
-								
-								// 保存按钮事件
-								$('#btn_save_settings').on('click', function(){
-									var formData = {};
-									$('#plugin_settings_container').find('input').each(function(){
-										var $input = $(this);
-										var name = $input.attr('name');
-										if ( !name ) return;
-										
-										if ( $input.attr('type') === 'checkbox' ) {
-											formData[name] = $input.is(':checked');
-										} else if ( $input.attr('type') === 'number' ) {
-											formData[name] = parseFloat($input.val()) || 0;
-										} else {
-											formData[name] = $input.val();
-										}
-									});
-									
-									fetch('/admin/plugin/settings', {
-										method: 'POST',
-										headers: { 'Content-Type': 'application/json' },
-										body: JSON.stringify({ name: data.name, settings: formData })
-									})
-									.then(response => response.json())
-									.then(result => {
-										if ( result && result.result ) {
-											layer.msg('设置已保存', {icon: 1});
-											layer.close(index);
-										} else {
-											layer.msg(result.message || '保存失败', {icon: 2});
-										}
-									});
-								});
-							} else {
-								$('#plugin_settings_container').html('<div style="text-align:center;color:#f00;padding:50px;">加载设置失败</div>');
-							}
-						});
-					}
-				});
+				return;
+			}
+
+			if ( obj.event === 'settings' ) {
+				pluginOpenSettings(data);
 			}
 		});
-	
 	});
 
 </script>

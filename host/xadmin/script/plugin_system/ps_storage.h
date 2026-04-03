@@ -217,6 +217,9 @@ bool PS_StorageSavePackage(PluginSystemPackage* pPackage)
 
 	sPackageId = PS_PackageKey(pPackage);
 	sManifestJson = pPackage->tblManifest ? xrtStringifyJSON(pPackage->tblManifest, FALSE, NULL) : xrtCopyStr("{}", 0);
+	if ( sManifestJson == NULL ) {
+		sManifestJson = xrtCopyStr("{}", 0);
+	}
 
 	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_package (package_id, xid, plugin_id, version, source_type, install_path, checksum, signature, trust_level, manifest_json, install_time) VALUES (?, ?, ?, ?, 'local', ?, '', '', 'system', ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_text(stmt, 1, (const char*)(sPackageId ? sPackageId : (str)""), -1, NULL);
@@ -256,6 +259,8 @@ bool PS_StorageLoadRuntime(PluginSystemPackage* pPackage)
 	sqlite3_bind_text(stmt, 1, sPackageId, -1, NULL);
 	sqlite3_bind_text(stmt, 2, sPackageId, -1, NULL);
 	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+		const unsigned char* sConfigJson = sqlite3_column_text(stmt, 4);
+		xvalue tblConfig = NULL;
 		bFound = TRUE;
 		pPackage->bEnabled = sqlite3_column_int(stmt, 0) ? TRUE : FALSE;
 		pPackage->bInstalled = sqlite3_column_int(stmt, 1) ? TRUE : FALSE;
@@ -270,6 +275,19 @@ bool PS_StorageLoadRuntime(PluginSystemPackage* pPackage)
 		if ( pPackage->iActiveGeneration >= pPackage->iNextGeneration ) {
 			pPackage->iNextGeneration = pPackage->iActiveGeneration + 1;
 		}
+		if ( sConfigJson && sConfigJson[0] ) {
+			tblConfig = PS_ValueParseJsonShared((str)sConfigJson, strlen((const char*)sConfigJson));
+		}
+		if ( tblConfig && (xvoType(tblConfig) == XVO_DT_TABLE) ) {
+			if ( pPackage->tblConfig ) {
+				xvoUnref(pPackage->tblConfig);
+			}
+			pPackage->tblConfig = tblConfig;
+			tblConfig = NULL;
+		}
+		if ( tblConfig ) {
+			xvoUnref(tblConfig);
+		}
 	}
 
 	sqlite3_finalize(stmt);
@@ -282,6 +300,7 @@ bool PS_StorageSaveRuntime(PluginSystemPackage* pPackage)
 	bool bOK = FALSE;
 	int64 iNow;
 	const char* sPackageId;
+	str sConfigJson = NULL;
 
 	if ( (G_DB == NULL) || (pPackage == NULL) ) {
 		return FALSE;
@@ -293,6 +312,10 @@ bool PS_StorageSaveRuntime(PluginSystemPackage* pPackage)
 	}
 	pPackage->iUpdateTime = iNow;
 	sPackageId = PS_StoragePackageXid(pPackage);
+	sConfigJson = pPackage->tblConfig ? xrtStringifyJSON(pPackage->tblConfig, FALSE, NULL) : xrtCopyStr("{}", 0);
+	if ( sConfigJson == NULL ) {
+		sConfigJson = xrtCopyStr("{}", 0);
+	}
 
 	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_runtime (package_id, xid, mount_path, data_path, private_db_path, enabled, installed, config_json, status, active_generation, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_text(stmt, 1, sPackageId, -1, NULL);
@@ -302,7 +325,7 @@ bool PS_StorageSaveRuntime(PluginSystemPackage* pPackage)
 		sqlite3_bind_text(stmt, 5, (const char*)(pPackage->sPrivateDbPath ? pPackage->sPrivateDbPath : (str)""), -1, NULL);
 		sqlite3_bind_int(stmt, 6, pPackage->bEnabled ? 1 : 0);
 		sqlite3_bind_int(stmt, 7, pPackage->bInstalled ? 1 : 0);
-		sqlite3_bind_text(stmt, 8, "{}", -1, NULL);
+		sqlite3_bind_text(stmt, 8, (const char*)(sConfigJson ? sConfigJson : (str)"{}"), -1, NULL);
 		sqlite3_bind_text(stmt, 9, PS_PackageStatusText(pPackage->iStatus), -1, NULL);
 		sqlite3_bind_int(stmt, 10, (int)pPackage->iActiveGeneration);
 		sqlite3_bind_int64(stmt, 11, pPackage->iCreateTime);
@@ -312,6 +335,9 @@ bool PS_StorageSaveRuntime(PluginSystemPackage* pPackage)
 
 	if ( stmt ) {
 		sqlite3_finalize(stmt);
+	}
+	if ( sConfigJson ) {
+		xrtFree(sConfigJson);
 	}
 	return bOK;
 }

@@ -28,7 +28,9 @@
 				<div class="layui-input-block">
 					<select name="role" lay-verify="required">
 						<option value="">请选择角色</option>
-						{*RoleComboListItem:roleList}
+						{{#foreach:roleList}}
+						<option value="{{$id}}">{{$name}}</option>
+						{{#end}}
 					</select>
 				</div>
 			</div>
@@ -131,4 +133,3 @@
 	</script>
 </body>
 </html>
-{#define:RoleComboListItem}<option value="{$id}">{$name}</option>{#end}

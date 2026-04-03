@@ -1,4 +1,45 @@
 <!-- 主体表格 -->
+<style>
+.menu-tree-cell {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 22px;
+}
+
+.menu-tree-indent {
+	display: inline-block;
+	width: 24px;
+	flex: 0 0 24px;
+}
+
+.menu-tree-toggle,
+.menu-tree-toggle-placeholder {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+}
+
+.menu-tree-toggle {
+	color: #666;
+	cursor: pointer;
+}
+
+.menu-tree-icon {
+	width: 18px;
+	text-align: center;
+	flex: 0 0 18px;
+}
+
+.menu-tree-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+</style>
 <div style="padding: 16px;">
 	<table class="layui-hide" id="Table_Menu" lay-filter="Table_Menu"></table>
 </div>
@@ -41,47 +82,112 @@
 </script>
 
 <script>
-layui.use(['table', 'layer', 'treeTable'], function(){
+layui.use(['table', 'layer'], function(){
 	var table = layui.table;
 	var layer = layui.layer;
-	var treeTable = layui.treeTable;
 	var $ = layui.$;
 	
-	// 菜单数据
-	var arrMenuData = [];
+	var arrMenuTree = [];
+	var tblExpandedState = {};
 	
-	// 将扁平数据转换为树形结构
-	function buildTreeData(flatData)
+	function toNumber(value, iDefault)
+	{
+		var iValue = Number(value);
+		if ( isNaN(iValue) ) {
+			return iDefault || 0;
+		}
+		return iValue;
+	}
+	
+	function compareMenuNode(a, b)
+	{
+		var iSortDiff = toNumber(a.sort, 0) - toNumber(b.sort, 0);
+		if ( iSortDiff !== 0 ) {
+			return iSortDiff;
+		}
+		return toNumber(a.id, 0) - toNumber(b.id, 0);
+	}
+	
+	function sortMenuTree(arrTree)
+	{
+		arrTree.sort(compareMenuNode);
+		for ( var i = 0; i < arrTree.length; i++ ) {
+			if ( arrTree[i].children && arrTree[i].children.length > 0 ) {
+				sortMenuTree(arrTree[i].children);
+			}
+		}
+	}
+	
+	function buildTreeData(arrFlatData)
 	{
 		var tblMap = {};
 		var arrTree = [];
 		
-		// 先创建映射，只给目录类型初始化 children
-		for ( var i = 0; i < flatData.length; i++ ) {
-			var item = flatData[i];
-			if ( item.type === 0 ) {
-				item.children = [];
-			}
+		for ( var i = 0; i < arrFlatData.length; i++ ) {
+			var item = $.extend({}, arrFlatData[i], {
+				children: []
+			});
 			tblMap[item.id] = item;
 		}
 		
-		// 构建树形结构
-		for ( var i = 0; i < flatData.length; i++ ) {
-			var item = flatData[i];
-			if ( item.parent === 0 ) {
-				arrTree.push(item);
+		for ( var i = 0; i < arrFlatData.length; i++ ) {
+			var item = tblMap[arrFlatData[i].id];
+			var iParent = toNumber(item.parent, 0);
+			var tblParent = tblMap[iParent];
+			if ( iParent > 0 && tblParent ) {
+				tblParent.children.push(item);
 			} else {
-				var parent = tblMap[item.parent];
-				if ( parent && parent.children ) {
-					parent.children.push(item);
-				} else {
-					// 父节点不存在或不是目录，放到根级
-					arrTree.push(item);
-				}
+				arrTree.push(item);
 			}
 		}
 		
+		sortMenuTree(arrTree);
 		return arrTree;
+	}
+	
+	function flattenTreeData(arrTree, iDepth, arrResult)
+	{
+		arrResult = arrResult || [];
+		iDepth = iDepth || 0;
+		for ( var i = 0; i < arrTree.length; i++ ) {
+			var item = arrTree[i];
+			var bExpanded = tblExpandedState[item.id] !== false;
+			item._depth = iDepth;
+			item._hasChildren = item.children && item.children.length > 0;
+			item._expanded = bExpanded;
+			arrResult.push(item);
+			if ( item._hasChildren && bExpanded ) {
+				flattenTreeData(item.children, iDepth + 1, arrResult);
+			}
+		}
+		return arrResult;
+	}
+	
+	function escapeHtml(sText)
+	{
+		return $('<div/>').text(sText == null ? '' : String(sText)).html();
+	}
+	
+	function renderTitleCell(d)
+	{
+		var arrParts = [];
+		var sToggleIcon = d._expanded ? 'layui-icon-down' : 'layui-icon-right';
+		var sDefaultIcon = (d.type === 0) ? 'layui-icon layui-icon-folder' : 'layui-icon layui-icon-file';
+		var sIconClass = d.icon ? escapeHtml(d.icon) : sDefaultIcon;
+		
+		arrParts.push('<div class="menu-tree-cell">');
+		for ( var i = 0; i < d._depth; i++ ) {
+			arrParts.push('<span class="menu-tree-indent"></span>');
+		}
+		if ( d._hasChildren ) {
+			arrParts.push('<span class="menu-tree-toggle" data-id="' + d.id + '"><i class="layui-icon ' + sToggleIcon + '"></i></span>');
+		} else {
+			arrParts.push('<span class="menu-tree-toggle-placeholder"></span>');
+		}
+		arrParts.push('<span class="menu-tree-icon"><i class="' + sIconClass + '"></i></span>');
+		arrParts.push('<span class="menu-tree-title">' + escapeHtml(d.title || '') + '</span>');
+		arrParts.push('</div>');
+		return arrParts.join('');
 	}
 	
 	// 加载菜单数据
@@ -94,7 +200,7 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 		.then(result => {
 			layer.close(loading);
 			if ( result.result ) {
-				arrMenuData = buildTreeData(result.data || []);
+				arrMenuTree = buildTreeData(result.data || []);
 				renderMenuTable();
 			} else {
 				layer.msg(result.message || '加载失败', {icon: 2});
@@ -110,38 +216,17 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 	// 渲染菜单表格
 	function renderMenuTable()
 	{
-		// 使用 treeTable 渲染树形表格
-		treeTable.render({
+		table.render({
 			elem: '#Table_Menu',
+			id: 'Table_Menu',
 			toolbar: '#Toolbar_Menu',
 			defaultToolbar: ['filter', 'exports', 'print'],
 			height: 'full-135',
 			skin: 'line',
 			cellMinWidth: 60,
-			data: arrMenuData,
-			tree: {
-				customName: {
-					children: 'children',
-					name: 'title',
-					id: 'id'
-				},
-				view: {
-					showIcon: true,
-					indent: 24,
-					showFlexIconIfNotParent: false,
-					expandAllDefault: true,
-					iconFn: function(d){
-						// 目录使用文件夹图标，菜单使用文件图标
-						if ( d.type === 0 ) {
-							return '<i class="layui-icon layui-icon-layer" style="color:#1E9FFF;"></i>';
-						} else {
-							return '<i class="layui-icon layui-icon-file" style="color:#5FB878;"></i>';
-						}
-					}
-				}
-			},
+			data: flattenTreeData(arrMenuTree),
 			cols: [[
-				{field: 'title', title: '菜单标题', minWidth: 200},
+				{field: 'title', title: '菜单标题', minWidth: 260, templet: renderTitleCell},
 				{field: 'type', title: '类型', width: 80, align: 'center', templet: '#typeTpl'},
 				{field: 'sort', title: '排序', width: 80, align: 'center'},
 				{field: 'href', title: '链接地址', minWidth: 150, templet: function(d){
@@ -152,12 +237,20 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 				}},
 				{field: 'visible', title: '状态', width: 80, align: 'center', templet: '#statusTpl'},
 				{fixed: 'right', title: '操作', width: 120, align: 'center', toolbar: '#Tool_Menu'}
-			]]
+			]],
+			done: function(){
+				$('.menu-tree-toggle').off('click').on('click', function(event){
+					event.stopPropagation();
+					var iID = toNumber($(this).data('id'), 0);
+					tblExpandedState[iID] = !(tblExpandedState[iID] !== false);
+					renderMenuTable();
+				});
+			}
 		});
 	}
 	
 	// 工具栏事件
-	treeTable.on('toolbar(Table_Menu)', function(obj){
+	table.on('toolbar(Table_Menu)', function(obj){
 		switch ( obj.event ) {
 			case 'Menu_Refresh':
 				// 刷新
@@ -193,7 +286,7 @@ layui.use(['table', 'layer', 'treeTable'], function(){
 	});
 	
 	// 触发单元格工具事件
-	treeTable.on('tool(Table_Menu)', function(obj){
+	table.on('tool(Table_Menu)', function(obj){
 		var data = obj.data;
 		if ( obj.event == 'edit' ) {
 			// 编辑

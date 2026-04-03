@@ -181,6 +181,53 @@ void PS_RuntimeForceDrainPackage(PluginSystemPackage* pPackage)
 	}
 }
 
+#define PS_RUNTIME_DRAIN_WAIT_SLICE_MS 10
+#define PS_RUNTIME_DRAIN_WAIT_TIMEOUT_SECONDS 30
+
+bool PS_RuntimeWaitForPackageDrain(PluginSystemPackage* pPackage, PluginSystemGeneration* pExcludedGeneration)
+{
+	int64 iDeadline;
+
+	if ( (pPackage == NULL) || (pPackage->lstDrainingGenerations == NULL) ) {
+		return TRUE;
+	}
+
+	iDeadline = xrtNow() + PS_RUNTIME_DRAIN_WAIT_TIMEOUT_SECONDS;
+	while ( TRUE ) {
+		bool bWaiting = FALSE;
+
+		for ( int i = 0; i < xrtListCount(pPackage->lstDrainingGenerations); i++ ) {
+			PluginSystemGeneration* pGeneration = xrtListGetPtr(pPackage->lstDrainingGenerations, i);
+			if ( (pGeneration == NULL) || (pGeneration == pExcludedGeneration) ) {
+				continue;
+			}
+			if ( pGeneration->iState != PS_GENERATION_STATE_DRAINING ) {
+				continue;
+			}
+			if ( pGeneration->iRefCount <= 0 ) {
+				PS_RuntimeFinalizeGeneration(pPackage, pGeneration);
+				bWaiting = TRUE;
+				break;
+			}
+
+			bWaiting = TRUE;
+			break;
+		}
+
+		if ( !bWaiting ) {
+			return TRUE;
+		}
+		if ( xrtNow() >= iDeadline ) {
+			printf("        [PluginSystem] Drain wait timeout: package=%s excluded_generation=%u\n",
+				PS_PackageLogId(pPackage),
+				pExcludedGeneration ? pExcludedGeneration->iGeneration : 0);
+			return FALSE;
+		}
+
+		xrtSleep(PS_RUNTIME_DRAIN_WAIT_SLICE_MS);
+	}
+}
+
 bool PS_RuntimeFailGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration, str sMessage, bool bMarkPackageFailed)
 {
 	printf("        [PluginSystem] Generation failed: package=%s generation=%u reason=%s\n",
@@ -248,6 +295,7 @@ void PS_RuntimeDeactivateGeneration(PluginSystemPackage* pPackage, PluginSystemG
 bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pNewGeneration, bool bAffectPackage)
 {
 	XAdminHealthReport report;
+	xvalue tblConfig = NULL;
 
 	if ( (pPackage == NULL) || (pNewGeneration == NULL) ) {
 		return FALSE;
@@ -297,7 +345,12 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemGene
 	}
 
 	if ( pNewGeneration->pDescriptor->OnConfigChanged ) {
-		if ( pNewGeneration->pDescriptor->OnConfigChanged((XAdminPluginHandle)pNewGeneration, pPackage->tblConfig) != 0 ) {
+		tblConfig = PS_PackageConfigRef(pPackage);
+		if ( pNewGeneration->pDescriptor->OnConfigChanged((XAdminPluginHandle)pNewGeneration, tblConfig) != 0 ) {
+			if ( tblConfig ) {
+				xvoUnref(tblConfig);
+				tblConfig = NULL;
+			}
 			PS_RuntimeFailGeneration(pPackage, pNewGeneration, "plugin OnConfigChanged failed", bAffectPackage);
 			PS_RuntimeCleanupGenerationResources(pNewGeneration);
 			if ( pNewGeneration->pDescriptor->OnUnload ) {
@@ -306,6 +359,10 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemGene
 			PS_HostDestroyGenerationRouteTokens(pNewGeneration);
 			PS_DestroyGeneration(pNewGeneration);
 			return FALSE;
+		}
+		if ( tblConfig ) {
+			xvoUnref(tblConfig);
+			tblConfig = NULL;
 		}
 	}
 
@@ -348,10 +405,41 @@ bool PS_RuntimePrepareGeneration(PluginSystemPackage* pPackage, PluginSystemGene
 	return TRUE;
 }
 
-void PS_RuntimeActivateGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration)
+bool PS_RuntimeDiscardPreparedGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration, const char* sMessage, bool bMarkPackageFailed)
+{
+	if ( pGeneration == NULL ) {
+		return FALSE;
+	}
+
+	PS_RuntimeFailGeneration(pPackage, pGeneration, (str)(sMessage ? sMessage : "generation activation failed"), bMarkPackageFailed);
+	if ( pGeneration->pDescriptor && pGeneration->pDescriptor->OnStop ) {
+		pGeneration->pDescriptor->OnStop((XAdminPluginHandle)pGeneration);
+	}
+	PS_RuntimeCleanupGenerationResources(pGeneration);
+	if ( pGeneration->pDescriptor && pGeneration->pDescriptor->OnUnload ) {
+		pGeneration->pDescriptor->OnUnload((XAdminPluginHandle)pGeneration);
+	}
+	PS_HostDestroyGenerationRouteTokens(pGeneration);
+	PS_DestroyGeneration(pGeneration);
+	return FALSE;
+}
+
+bool PS_RuntimeActivateGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration, PluginSystemGeneration* pPreviousGeneration)
 {
 	if ( (pPackage == NULL) || (pGeneration == NULL) ) {
-		return;
+		return FALSE;
+	}
+
+	if ( !PS_HostPublishGenerationEntryPoints(pGeneration) ) {
+		printf("        [PluginSystem] Activate publish failed: package=%s generation=%u\n",
+			PS_PackageLogId(pPackage),
+			pGeneration->iGeneration);
+		if ( pPreviousGeneration && !PS_HostRestoreGenerationEntryPoints(pPreviousGeneration) ) {
+			printf("        [PluginSystem] Restore previous generation entry points failed: package=%s generation=%u\n",
+				PS_PackageLogId(pPackage),
+				pPreviousGeneration->iGeneration);
+		}
+		return FALSE;
 	}
 
 	pGeneration->iState = PS_GENERATION_STATE_ACTIVE;
@@ -371,6 +459,7 @@ void PS_RuntimeActivateGeneration(PluginSystemPackage* pPackage, PluginSystemGen
 
 	PS_StorageSaveRuntime(pPackage);
 	PS_StorageSaveGeneration(pPackage, pGeneration);
+	return TRUE;
 }
 
 bool PS_RuntimeStartPackage(PluginSystemPackage* pPackage)
@@ -391,14 +480,17 @@ bool PS_RuntimeStartPackage(PluginSystemPackage* pPackage)
 		return FALSE;
 	}
 
-	PS_RuntimeActivateGeneration(pPackage, pNewGeneration);
+	if ( !PS_RuntimeActivateGeneration(pPackage, pNewGeneration, NULL) ) {
+		printf("        [PluginSystem] Start failed while activating: package=%s\n", PS_PackageLogId(pPackage));
+		return PS_RuntimeDiscardPreparedGeneration(pPackage, pNewGeneration, "plugin activation failed", TRUE);
+	}
 	printf("        [PluginSystem] Start ok: package=%s generation=%u\n",
 		PS_PackageLogId(pPackage),
 		pNewGeneration->iGeneration);
 	return TRUE;
 }
 
-bool PS_RuntimeStopPackage(PluginSystemPackage* pPackage)
+bool PS_RuntimeStopPackage(PluginSystemPackage* pPackage, PluginSystemGeneration* pActorGeneration)
 {
 	PluginSystemGeneration* pGeneration;
 
@@ -417,10 +509,11 @@ bool PS_RuntimeStopPackage(PluginSystemPackage* pPackage)
 	pPackage->iActiveGeneration = 0;
 	pPackage->iUpdateTime = xrtNow();
 	PS_StorageSaveRuntime(pPackage);
+	PS_RuntimeWaitForPackageDrain(pPackage, pActorGeneration);
 	return TRUE;
 }
 
-bool PS_RuntimeReloadPackage(PluginSystemPackage* pPackage)
+bool PS_RuntimeReloadPackage(PluginSystemPackage* pPackage, PluginSystemGeneration* pActorGeneration)
 {
 	PluginSystemGeneration* pOldGeneration;
 	PluginSystemGeneration* pNewGeneration;
@@ -440,10 +533,14 @@ bool PS_RuntimeReloadPackage(PluginSystemPackage* pPackage)
 		return FALSE;
 	}
 
-	PS_RuntimeActivateGeneration(pPackage, pNewGeneration);
+	if ( !PS_RuntimeActivateGeneration(pPackage, pNewGeneration, pOldGeneration) ) {
+		printf("        [PluginSystem] Reload failed while activating: package=%s\n", PS_PackageLogId(pPackage));
+		return PS_RuntimeDiscardPreparedGeneration(pPackage, pNewGeneration, "plugin activation failed", FALSE);
+	}
 	if ( pOldGeneration ) {
 		PS_RuntimeDeactivateGeneration(pPackage, pOldGeneration);
 	}
+	PS_RuntimeWaitForPackageDrain(pPackage, pActorGeneration);
 	printf("        [PluginSystem] Reload ok: package=%s generation=%u\n",
 		PS_PackageLogId(pPackage),
 		pNewGeneration->iGeneration);

@@ -11,7 +11,7 @@
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
 	<form class="layui-form" lay-filter="menuEditForm" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-			<input type="hidden" name="id" value="{$id}">
+			<input type="hidden" name="id" value="{{$id}}">
 			
 			<div class="layui-form-item">
 				<label class="layui-form-label">上级分类</label>
@@ -25,7 +25,7 @@
 			<div class="layui-form-item">
 				<label class="layui-form-label">菜单标题</label>
 				<div class="layui-input-block">
-					<input type="text" name="title" value="{$title}" required lay-verify="required" placeholder="请输入菜单标题" autocomplete="off" class="layui-input">
+					<input type="text" name="title" value="{{$title}}" required lay-verify="required" placeholder="请输入菜单标题" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 			
@@ -33,8 +33,8 @@
 				<label class="layui-form-label">图标</label>
 				<div class="layui-input-block">
 					<div style="display: flex; width: 100%;">
-						<span id="iconPreview" style="flex-shrink: 0; width: 38px; height: 36px; line-height: 36px; text-align: center; border: 1px solid #e6e6e6; border-radius: 4px 0 0 4px; font-size: 18px; border-right: none; background: #fff;"><i class="{$icon}"></i></span>
-						<input type="text" name="icon" id="iconInput" value="{$icon}" placeholder="请选择图标" autocomplete="off" class="layui-input" style="flex: 1; border-radius: 0;" readonly>
+						<span id="iconPreview" style="flex-shrink: 0; width: 38px; height: 36px; line-height: 36px; text-align: center; border: 1px solid #e6e6e6; border-radius: 4px 0 0 4px; font-size: 18px; border-right: none; background: #fff;"><i class="{{$icon}}"></i></span>
+						<input type="text" name="icon" id="iconInput" value="{{$icon}}" placeholder="请选择图标" autocomplete="off" class="layui-input" style="flex: 1; border-radius: 0;" readonly>
 						<button type="button" class="layui-btn layui-btn-primary" id="btnSelectIcon" style="flex-shrink: 0; border-radius: 0 4px 4px 0; margin-left: -1px;">选择</button>
 					</div>
 				</div>
@@ -43,7 +43,7 @@
 			<div class="layui-form-item">
 				<label class="layui-form-label">链接地址</label>
 				<div class="layui-input-block">
-					<input type="text" name="href" value="{$href}" placeholder="如：view/home" autocomplete="off" class="layui-input">
+					<input type="text" name="href" value="{{$href}}" placeholder="如：view/home" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 			
@@ -61,7 +61,7 @@
 			<div class="layui-form-item">
 				<label class="layui-form-label">排序值</label>
 				<div class="layui-input-block">
-					<input type="number" name="sort" value="{$sort}" placeholder="数值越小越靠前" autocomplete="off" class="layui-input">
+					<input type="number" name="sort" value="{{$sort}}" placeholder="数值越小越靠前" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 			
@@ -75,7 +75,7 @@
 			<div class="layui-form-item layui-form-text">
 				<label class="layui-form-label">备注</label>
 				<div class="layui-input-block">
-					<textarea name="remark" placeholder="可选，备注信息" class="layui-textarea">{$remark}</textarea>
+					<textarea name="remark" placeholder="可选，备注信息" class="layui-textarea">{{$remark}}</textarea>
 				</div>
 			</div>
 	</div>
@@ -93,10 +93,10 @@
 			var $ = layui.$;
 			
 			// 当前菜单ID、父级ID和其他字段
-			var iCurrentID = {$id};
-			var iCurrentParent = {$parent};
-			var sOpenType = '{$openType}';
-			var iVisible = {$visible};
+			var iCurrentID = {{$id}};
+			var iCurrentParent = {{$parent}};
+			var sOpenType = '{{$openType}}';
+			var iVisible = {{$visible}};
 			
 			// 设置打开方式下拉框的值
 			$('#openTypeSelect').val(sOpenType || '_component');

@@ -11,23 +11,23 @@
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
 	<form class="layui-form" lay-filter="AuthGroupEditForm" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-			<input type="hidden" name="id" value="{$id}">
+			<input type="hidden" name="id" value="{{$id}}">
 			<div class="layui-form-item">
 				<label class="layui-form-label">分类名称</label>
 				<div class="layui-input-block">
-					<input type="text" name="name" value="{$name}" required lay-verify="required" placeholder="分类名称" autocomplete="off" class="layui-input">
+					<input type="text" name="name" value="{{$name}}" required lay-verify="required" placeholder="分类名称" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 			<div class="layui-form-item">
 				<label class="layui-form-label">描述</label>
 				<div class="layui-input-block">
-					<input type="text" name="desc" value="{$desc}" placeholder="请输入权限分类描述" autocomplete="off" class="layui-input">
+					<input type="text" name="desc" value="{{$desc}}" placeholder="请输入权限分类描述" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 			<div class="layui-form-item">
 				<label class="layui-form-label">排序值</label>
 				<div class="layui-input-block">
-					<input type="number" name="sort" value="{$sort}" placeholder="请输入排序值（数值越小排在前面）" autocomplete="off" class="layui-input">
+					<input type="number" name="sort" value="{{$sort}}" placeholder="请输入排序值（数值越小排在前面）" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 	</div>

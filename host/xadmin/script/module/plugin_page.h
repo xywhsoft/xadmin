@@ -3,6 +3,7 @@
 extern str PluginPath;
 extern xvalue tblENV;
 extern xdict G_Template;
+extern XTE_ParseOptions G_TemplateParseOptions;
 
 static xdict G_PluginTemplateCache = NULL;
 
@@ -63,10 +64,10 @@ str Plugin_MakePageWithTemplate(str sPluginId, str sTemplate, xvalue tblData, si
 	}
 
 	iSize = strlen(sText);
-	hTemplate = xteParseEx(NULL, sText, iSize, NULL, &tError);
+	hTemplate = xteParseEx(NULL, sText, iSize, &G_TemplateParseOptions, &tError);
 	xrtFree(sText);
 	if ( hTemplate == NULL ) {
-		return xrtFormat("<!DOCTYPE html><html><body><p>plugin template parse failed: %s/%s</p></body></html>", sPluginId, sTemplate);
+		return xrtFormat("<!DOCTYPE html><html><body><p>plugin template parse failed: %s/%s (%s at %u:%u)</p></body></html>", sPluginId, sTemplate, tError.sDesc ? tError.sDesc : "unknown error", tError.iLine, tError.iColumn);
 	}
 
 	sPage = xteMake(hTemplate, tblData, tblENV, G_Template, pRetSize);

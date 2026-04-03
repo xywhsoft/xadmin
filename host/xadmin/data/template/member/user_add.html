@@ -34,7 +34,9 @@
 			<div class="layui-input-block">
 				<select name="groupId" lay-verify="required">
 					<option value="">请选择用户组</option>
-					{*GroupComboListItem:groupList}
+					{{#foreach:groupList}}
+					<option value="{{$id}}">{{$name}}</option>
+					{{#end}}
 				</select>
 			</div>
 		</div>
@@ -120,4 +122,3 @@
 	</script>
 </body>
 </html>
-{#define:GroupComboListItem}<option value="{$id}">{$name}</option>{#end}

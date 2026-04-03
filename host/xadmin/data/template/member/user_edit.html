@@ -11,49 +11,51 @@
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
 	<form class="layui-form" lay-filter="MemberUserEditForm" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-		<input type="hidden" name="id" value="{$id}">
+		<input type="hidden" name="id" value="{{$id}}">
 		<div class="layui-form-item">
 			<label class="layui-form-label">用户名</label>
 			<div class="layui-input-block">
-				<input type="text" name="username" value="{$username}" class="layui-input" readonly disabled style="background:#f2f2f2;">
+				<input type="text" name="username" value="{{$username}}" class="layui-input" readonly disabled style="background:#f2f2f2;">
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">昵称</label>
 			<div class="layui-input-block">
-				<input type="text" name="nickname" value="{$nickname}" placeholder="请输入昵称" autocomplete="off" class="layui-input">
+				<input type="text" name="nickname" value="{{$nickname}}" placeholder="请输入昵称" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">用户组</label>
 			<div class="layui-input-block">
 				<select name="groupId" lay-verify="required">
-					{*GroupComboListItem:groupList}
+					{{#foreach:groupList}}
+					<option value="{{$id}}">{{$name}}</option>
+					{{#end}}
 				</select>
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">权限级别</label>
 			<div class="layui-input-block">
-				<input type="number" name="authLevel" value="{$authLevel}" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
+				<input type="number" name="authLevel" value="{{$authLevel}}" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">余额(分)</label>
 			<div class="layui-input-block">
-				<input type="text" value="{$balance}" class="layui-input" readonly disabled style="background:#f2f2f2;">
+				<input type="text" value="{{$balance}}" class="layui-input" readonly disabled style="background:#f2f2f2;">
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">邮箱</label>
 			<div class="layui-input-block">
-				<input type="email" name="email" value="{$email}" placeholder="请输入邮箱" autocomplete="off" class="layui-input">
+				<input type="email" name="email" value="{{$email}}" placeholder="请输入邮箱" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">手机</label>
 			<div class="layui-input-block">
-				<input type="text" name="phone" value="{$phone}" placeholder="请输入手机号" autocomplete="off" class="layui-input">
+				<input type="text" name="phone" value="{{$phone}}" placeholder="请输入手机号" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div class="layui-form-item">
@@ -73,8 +75,8 @@
 	</form>
 	<script src="/layui/layui.js"></script>
 	<script>
-		var currentGroupId = {$groupId};
-		var currentStatus = {$status};
+		var currentGroupId = {{$groupId}};
+		var currentStatus = {{$status}};
 		
 		layui.use('form', function(){
 			var form = layui.form;
@@ -132,4 +134,3 @@
 	</script>
 </body>
 </html>
-{#define:GroupComboListItem}<option value="{$id}">{$name}</option>{#end}

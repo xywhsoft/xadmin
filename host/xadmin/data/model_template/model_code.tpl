@@ -7,7 +7,7 @@
 // ============================================
 
 // 引入 xserver 基础库
-#include <xs_vnext_full.h>
+#include <xsbase.h>
 
 // 全局变量（通过 Model_SetGlobalData 传入）
 sqlite3* G_DB;

@@ -2,14 +2,7 @@
 
 
 // XS 基础服务库
-#include <xs_vnext_full.h>
-#if defined(_WIN32) || defined(_WIN64)
-	// windows 方案
-#else
-	// 其他平台方案
-	#include <pthread.h>
-	#include <sys/utsname.h>
-#endif
+#include <xsbase.h>
 
 
 
@@ -55,12 +48,6 @@
 // 前台权限缓存模块
 #include "module/member_auth.h"
 
-// 模型字段类型定义
-#include "module/model_field.h"
-
-// 模型管理器
-#include "module/model_mgr.h"
-
 // 附件管理模块
 #include "module/attachment.h"
 
@@ -79,7 +66,6 @@
 #include "route_http/trace.h"
 #include "route_http/api.h"
 #include "route_http/member.h"
-#include "route_http/model.h"
 #include "route_http/attachment.h"
 #include "route_http/attachment_api.h"
 #include "route_http/plugin.h"
@@ -171,6 +157,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	printf("[xadmin:init] Menu_Init done\n");
 	fflush(stdout);
 
+	printf("[xadmin:init] PluginRoute_EnsureMenus begin\n");
+	fflush(stdout);
+	PluginRoute_EnsureMenus();
+	printf("[xadmin:init] PluginRoute_EnsureMenus done\n");
+	fflush(stdout);
+
 	printf("[xadmin:init] Member_Init begin\n");
 	fflush(stdout);
 	Member_Init();
@@ -181,12 +173,6 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	fflush(stdout);
 	MemberAuth_Init();
 	printf("[xadmin:init] MemberAuth_Init done\n");
-	fflush(stdout);
-
-	printf("[xadmin:init] ModelMgr_Init begin\n");
-	fflush(stdout);
-	ModelMgr_Init();
-	printf("[xadmin:init] ModelMgr_Init done\n");
 	fflush(stdout);
 
 	printf("[xadmin:init] Attachment_Init begin\n");
@@ -219,9 +205,6 @@ void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 	
 	// 卸载附件管理模块
 	Attachment_Unit();
-	
-	// 卸载模型管理器
-	ModelMgr_Unit();
 	
 	// 卸载前台权限缓存模块
 	MemberAuth_Unit();

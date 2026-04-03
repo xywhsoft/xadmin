@@ -1,6 +1,5 @@
-
-
-
+#ifndef XS_BASE_H
+#define XS_BASE_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,22 +11,11 @@
 #include "inline_xrt.h"
 #include "inline_libtcc.h"
 #include "inline_sqlite3.h"
-#include "inline_xdo.h"
-#include "inline_md4c.h"
-#include "inline_xtp.h"
+//#include "inline_xdo.h"
+//#include "inline_md4c.h"
+//#include "inline_xtp.h"
 
 
-
-
-// 服务器类型定义
-#define SPT_NONE		0			// 未知服务
-#define SPT_HTTP		1			// HTTP 服务
-#define SPT_WS			2			// WebSocket 服务
-#define SPT_XTP			3			// XTP 服务
-#define SPT_TCP			0x10000		// TCP 协议
-#define SPT_UDP			0x10001		// UDP 协议
-#define SPT_CUSTOM		-1			// 自定义服务（事件驱动
-#define SPT_THREAD		-2			// 单开一条线程运行的特殊服务
 
 // xrt 事件类型定义
 #define XRT_EV_ACCEPT	1
@@ -36,78 +24,303 @@
 
 
 // 语言类型定义
-#define SLT_STATIC		0		// 静态页
-#define SLT_C			1		// C 语言
-#define SLT_LUA			2		// Lua（未来可能会支持的）
-#define SLT_JS			3		// JavaScript（未来可能会支持的）
-
-
-
-// 服务器结构体
-typedef struct {
-	str Name;											// 主机名称
-	str Desc;											// 主机描述
-	str Param;											// 启动参数
-	str Host;											// 主机地址（域名）
-	bool DebugMode;										// 输出额外的信息
-	xtlsconfig tTlsConfig;								// TLS 配置
-	str Path;											// 主机根目录
-	int DevLang;										// 开发语言
-	str DevFile;										// 开发文件，动态开发工程的总入口点
-	ptr JsonNode;										// 配置文件的 JSON 对象
-	ptr DevObj;											// 开发语言上下文对象
-	ptr ServiceInit;									// 服务启动前调用（函数不存在则不会调用）
-	ptr ServiceStart;									// 服务启动（HTTP等内置逻辑的服务不会调用此函数，自定义服务函数不存在则不会调用）
-	ptr ServiceUnit;									// 服务启动后调用（函数不存在则不会调用）
-	ptr EventProc;										// 服务器网络事件回调（函数不存在则不会调用）
-	ptr WsEventProc;									// WebSocket 事件回调（函数不存在则不会调用）
-	ptr RequestProc;									// HTTP 请求回调（函数不存在则不会调用）
-	void (*XS_SetGlobalDate)(int idx, void* ptr);		// XS 传递全局数据回调函数
-} XS_HostStruct, *XS_HostObject;
-typedef struct {
-	int Class;											// 服务器类型（HTTP、Custom、Thread、等）
-	str Name;											// 服务器名称
-	str Desc;											// 服务器描述
-	str Param;											// 启动参数
-	str Addr;											// 绑定地址端口
-	int EnableTLS;										// 是否启用 TLS
-	str AddrTLS;										// TLS 绑定地址端口
-	int EnableDefaultHost;								// 是否启用默认 Host
-	XS_HostStruct DefaultHost;							// 默认 Host
-	uint32 HostCount;									// Host 数量
-	xarray Hosts;										// Host 列表
-	xdict HostMap;										// Host 字典（用于快速定位 Host 数据结构）
-	ptr JsonNode;										// 配置文件的 JSON 对象
-	ptr pServer;										// xrt 服务器对象
-	ptr pServerTLS;										// xrt TLS 服务器对象
-} XS_ServerStruct, *XS_ServerObject;
+#define SLT_STATIC		0			// 静态页面
+#define SLT_C			1			// C 语言
+#define SLT_PROTOCOL	2			// 自定义接口
 
 
 
 
 
-#include "inline_other.h"
+typedef void* XS_ServerObject;
+typedef void* XS_HostObject;
+typedef const void* XS_RequestObject;
+typedef void* XS_ResponseObject;
+
+void xsLog(const char* sText);
+const char* xsServerName(XS_ServerObject objServer);
+int xsServerClass(XS_ServerObject objServer);
+int xsServerDebug(XS_ServerObject objServer);
+const char* xsServerAddr(XS_ServerObject objServer);
+const char* xsServerParam(XS_ServerObject objServer);
+const char* xsAppPath(void);
+const char* xsHostName(XS_HostObject objHost);
+const char* xsHostParam(XS_HostObject objHost);
+const char* xsHostPath(XS_HostObject objHost);
+const char* xsHostDevFile(XS_HostObject objHost);
+int xsHostDebug(XS_HostObject objHost);
+int xsHostDevMode(XS_HostObject objHost);
+const char* xsReqMethod(XS_RequestObject objReq);
+const char* xsReqTarget(XS_RequestObject objReq);
+const char* xsReqPath(XS_RequestObject objReq);
+const char* xsReqQuery(XS_RequestObject objReq);
+const void* xsReqBody(XS_RequestObject objReq);
+size_t xsReqBodyLen(XS_RequestObject objReq);
+const char* xsReqRemote(XS_RequestObject objReq);
+const char* xsReqHeader(XS_RequestObject objReq, const char* sName);
+int xsHttpStatus(XS_ResponseObject objResp, unsigned iStatus, const char* sReason);
+int xsHttpHeader(XS_ResponseObject objResp, const char* sName, const char* sValue);
+int xsHttpText(XS_ResponseObject objResp, unsigned iStatus, const char* sReason, const char* sText);
+int xsHttpBody(XS_ResponseObject objResp, const void* pData, size_t iLen, const char* sContentType);
+int xsHttpJson(XS_ResponseObject objResp, unsigned iStatus, const char* sReason, const char* sJson);
+int xsWsIsOpen(void* pConn);
+int xsWsSendText(void* pConn, const char* sText, size_t iLen);
+int xsWsSendBinary(void* pConn, const void* pData, size_t iLen);
+const char* xsWsProtocol(void* pConn);
+int xsWsPing(void* pConn, const void* pData, size_t iLen);
+int xsWsClose(void* pConn, unsigned short iCode, const char* sReason);
+int xsStreamSend(void* pStream, const void* pData, size_t iLen);
+int xsStreamClose(void* pStream, unsigned iFlags);
+int xsXtpSend(void* pStream, const char* sCmd, size_t iCmdSize, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize);
+int xsXtpSendRequest(void* pStream, uint64_t iMsgID, const char* sCmd, size_t iCmdSize, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize);
+int xsXtpSendPush(void* pStream, const char* sCmd, size_t iCmdSize, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize);
+int xsXtpSendEvent(void* pStream, const char* sCmd, size_t iCmdSize, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize);
+int xsXtpSendEx(void* pStream, unsigned iMsgType, uint64_t iMsgID, unsigned iFlags, int iStatus, const char* sCmd, size_t iCmdSize, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize);
+const char* xsXtpGetParam(const void* pMsg, const char* sKey);
+int xsXtpReply(void* pStream, const void* pReqMsg, const char* sCmd, size_t iCmdSize, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize);
+int xsXtpReplyEx(void* pStream, const void* pReqMsg, int iStatus, const char* sCmd, size_t iCmdSize, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize);
+uint64_t xsXtpMsgId(const void* pMsg);
+unsigned xsXtpMsgType(const void* pMsg);
+unsigned xsXtpMsgFlags(const void* pMsg);
+int xsXtpIsOK(const void* pMsg);
+int xsXtpStatus(const void* pMsg);
+const char* xsXtpCmd(const void* pMsg);
+unsigned xsXtpCmdLen(const void* pMsg);
+const void* xsXtpBody(const void* pMsg);
+unsigned xsXtpBodyLen(const void* pMsg);
+char* xsXtpCmdDup(const void* pMsg, const char* sDefault);
+char* xsXtpMetaText(const void* pMsg);
+char* xsXtpMetaJson(const void* pMsg);
+char* xsXtpResultJson(const void* pMsg);
+char* xsXtpErrorJson(const void* pMsg, const char* sDefault);
+char* xsXtpSummaryText(const void* pMsg);
+char* xsXtpSummaryJson(const void* pMsg);
+unsigned xsXtpParamCount(const void* pMsg);
+int xsXtpNeedReply(const void* pMsg);
+int xsXtpIsRequest(const void* pMsg);
+int xsXtpIsResponse(const void* pMsg);
+int xsXtpIsPush(const void* pMsg);
+int xsXtpIsEvent(const void* pMsg);
+int xsXtpCmdIs(const void* pMsg, const char* sCmd);
+int xsXtpHasParam(const void* pMsg, const char* sKey);
+const char* xsXtpParamText(const void* pMsg, const char* sKey, const char* sDefault);
+const char* xsXtpResultText(const void* pMsg, const char* sDefault);
+int xsXtpResultIs(const void* pMsg, const char* sResult);
+int xsXtpStatusIs(const void* pMsg, int iStatus);
+char* xsXtpErrorText(const void* pMsg, const char* sDefault);
+char* xsXtpParamDup(const void* pMsg, const char* sKey, const char* sDefault);
+int64_t xsXtpParamInt(const void* pMsg, const char* sKey, int64_t iDefault);
+int xsXtpParamBool(const void* pMsg, const char* sKey, int bDefault);
+char* xsXtpBodyDup(const void* pMsg, const char* sDefault);
+xvalue xsXtpParamsValue(const void* pMsg);
+int xsXtpReplyText(void* pStream, const void* pReqMsg, int iStatus, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const char* sText);
+int xsXtpReplyJson(void* pStream, const void* pReqMsg, int iStatus, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const char* sJson);
+int xsXtpReplyOKText(void* pStream, const void* pReqMsg, const char* sCmd, const char* sText);
+int xsXtpReplyErrorText(void* pStream, const void* pReqMsg, int iStatus, const char* sCmd, const char* sText);
+int xsXtpReplyOKJson(void* pStream, const void* pReqMsg, const char* sCmd, const char* sJson);
+int xsXtpReplyErrorJson(void* pStream, const void* pReqMsg, int iStatus, const char* sCmd, const char* sJson);
+int xsXtpReplyMissingParam(void* pStream, const void* pReqMsg, const char* sParam);
+int xsXtpReplyUnsupportedCmd(void* pStream, const void* pReqMsg, const char* sCmd);
+void* xsXtpClientOpen(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iTimeoutMs);
+void xsXtpClientClose(void* pClient);
+void* xsXtpClientDo(void* pClient, uint64_t iMsgID, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize, unsigned iTimeoutMs);
+void* xsXtpClientDoText(void* pClient, uint64_t iMsgID, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const char* sText, unsigned iTimeoutMs);
+void* xsXtpClientDoSimple(void* pClient, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs);
+void* xsXtpClientDoJson(void* pClient, uint64_t iMsgID, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const char* sJson, unsigned iTimeoutMs);
+void* xsXtpClientCall(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const void* pBody, size_t iBodySize, unsigned iTimeoutMs);
+void* xsXtpClientCallText(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const char* sText, unsigned iTimeoutMs);
+void* xsXtpClientCallSimple(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs);
+void* xsXtpClientCallJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const char* sJson, unsigned iTimeoutMs);
+char* xsXtpClientCallSimpleBody(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallTextBody(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const char* sText, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallJsonBody(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iParamCount, const char** arrParam, const char** arrValue, const char* sJson, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallSimpleSummary(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs);
+char* xsXtpClientCallSimpleSummaryJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs);
+char* xsXtpClientCallSimpleResult(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallSimpleError(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallSimpleMeta(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs);
+char* xsXtpClientCallSimpleMetaJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs);
+char* xsXtpClientCallSimpleResultJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs);
+char* xsXtpClientCallSimpleErrorJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs, const char* sDefault);
+int xsXtpClientCallSimpleStatus(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs, int iDefault);
+char* xsXtpClientCallSimpleCmd(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, const char* sCmd, unsigned iTimeoutMs, const char* sDefault);
+void xsXtpMessageFree(void* pMsg);
+int xsXtpClientLastErrorCode(void);
+const char* xsXtpClientLastError(void);
+const char* xsXtpParamKeyAt(const void* pMsg, unsigned iIndex, unsigned* piLen);
+const char* xsXtpParamValueAt(const void* pMsg, unsigned iIndex, unsigned* piLen);
+int xsXtpFindParamView(const void* pMsg, const char* sKey, const char** ppVal, unsigned* piLen);
+
+xvalue xsXtpValue(const void* pMsg);
+
+xvalue xsXtpClientCallSimpleValue(
+	const char* sHost,
+	unsigned iPort,
+	unsigned iRecvLimit,
+	unsigned iConnectTimeoutMs,
+	uint64_t iMsgID,
+	const char* sCmd,
+	unsigned iTimeoutMs
+);
+
+xvalue xsXtpClientCallSimpleParamsValue(
+	const char* sHost,
+	unsigned iPort,
+	unsigned iRecvLimit,
+	unsigned iConnectTimeoutMs,
+	uint64_t iMsgID,
+	const char* sCmd,
+	unsigned iTimeoutMs
+);
+
+void* xsXtpRequestCreate(const char* sCmd);
+void xsXtpRequestFree(void* pReq);
+int xsXtpRequestSetCmd(void* pReq, const char* sCmd);
+int xsXtpRequestSetParamsValue(void* pReq, xvalue objParams);
+int xsXtpRequestSetParamText(void* pReq, const char* sKey, const char* sValue);
+int xsXtpRequestSetParamInt(void* pReq, const char* sKey, int64_t iValue);
+int xsXtpRequestSetParamBool(void* pReq, const char* sKey, int bValue);
+int xsXtpRequestSetBodyText(void* pReq, const char* sText);
+int xsXtpRequestSetBodyJson(void* pReq, const char* sJson);
+int xsXtpRequestSetBodyValue(void* pReq, xvalue objBody);
+void* xsXtpClientDoRequest(void* pClient, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+void* xsXtpClientCallRequest(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+xvalue xsXtpClientCallRequestValue(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+xvalue xsXtpClientCallRequestParamsValue(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+xvalue xsXtpClientCallRequestBodyValue(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+char* xsXtpClientCallRequestBody(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallRequestResult(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallRequestError(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallRequestMeta(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+char* xsXtpClientCallRequestMetaJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+char* xsXtpClientCallRequestResultJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+char* xsXtpClientCallRequestErrorJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs, const char* sDefault);
+int xsXtpClientCallRequestOK(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+int xsXtpClientCallRequestStatus(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs, int iDefault);
+char* xsXtpClientCallRequestCmd(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs, const char* sDefault);
+char* xsXtpClientCallRequestSummary(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+char* xsXtpClientCallRequestSummaryJson(const char* sHost, unsigned iPort, unsigned iRecvLimit, unsigned iConnectTimeoutMs, uint64_t iMsgID, void* pReq, unsigned iTimeoutMs);
+
+int xsXtpBuildParamArrays(xvalue objParams, const char*** ppParam, const char*** ppValue, unsigned* piCount);
+void xsXtpFreeParamArrays(char** arrParam, char** arrValue, unsigned iCount);
+
+void* xsXtpClientCallTableText(
+	const char* sHost,
+	unsigned iPort,
+	unsigned iRecvLimit,
+	unsigned iConnectTimeoutMs,
+	uint64_t iMsgID,
+	const char* sCmd,
+	xvalue objParams,
+	const char* sText,
+	unsigned iTimeoutMs
+);
+
+void* xsXtpClientCallTableJson(
+	const char* sHost,
+	unsigned iPort,
+	unsigned iRecvLimit,
+	unsigned iConnectTimeoutMs,
+	uint64_t iMsgID,
+	const char* sCmd,
+	xvalue objParams,
+	const char* sJson,
+	unsigned iTimeoutMs
+);
+
+void* xsXtpClientCallTableValue(
+	const char* sHost,
+	unsigned iPort,
+	unsigned iRecvLimit,
+	unsigned iConnectTimeoutMs,
+	uint64_t iMsgID,
+	const char* sCmd,
+	xvalue objParams,
+	xvalue objBody,
+	unsigned iTimeoutMs
+);
+
+xvalue xsXtpBodyValue(const void* pMsg);
+
+xvalue xsXtpErrorValue(const void* pMsg);
+
+xvalue xsXtpClientCallSimpleBodyValue(
+	const char* sHost,
+	unsigned iPort,
+	unsigned iRecvLimit,
+	unsigned iConnectTimeoutMs,
+	uint64_t iMsgID,
+	const char* sCmd,
+	unsigned iTimeoutMs
+);
+
+int xsDgramSendTo(void* pSock, const char* sIP, unsigned short iPort, const void* pData, size_t iLen);
+int xsDgramReply(void* pSock, const void* pFromAddr, const void* pData, size_t iLen);
+const char* xsAddrText(const void* pAddr);
+int xsReloadCurrentHost(XS_ServerObject objServer, XS_HostObject objHost, int bForce);
+int xsReloadHostByName(XS_ServerObject objServer, const char* sHostName, int bForce);
 
 
 
+// xCore
+xrtGlobalData* g_pXCore = NULL;
 
 // 全局事件循环
-xeventloop* g_pLoop;
+void* g_pXsLoop = NULL;
 
 // 全局数据 - 服务器列表
-xarray ServerList;
-
-
+xarray g_arrXsServerList = NULL;
 
 // 使用 extern 可能导致数据指针出现变化，原因不明，先用这样的方式传递全局数据
-void XS_SetGlobalDate(int idx, void* ptr)
+static inline void XS_SetGlobalDate(int idx, void* ptr)
 {
 	if ( idx == 1 ) {
-		g_pLoop = ptr;
+		g_pXsLoop = ptr;
 	} else if ( idx == 2 ) {
-		ServerList = ptr;
+		g_arrXsServerList = (xarray)ptr;
 	} else if ( idx == 3 ) {
-		xCore = ptr;
+		g_pXCore = (xrtGlobalData*)ptr;
 	}
 }
 
+
+
+typedef struct {
+	uint16 KeySize;
+	uint16 ValSize;
+} XTP_ParamInfo;
+
+typedef struct XTP_Message {
+	uint16 Flags;
+	uint16 MsgType;
+	uint64 MsgID;
+	int32 Status;
+	uint32 PackSize;
+	char* pPackBuf;
+	const char* pCmd;
+	uint16 CmdSize;
+	const XTP_ParamInfo* pParamInfo;
+	const char* pParamData;
+	uint16 ParamCount;
+	const char* pBody;
+	uint32 BodySize;
+} XTP_Message, *XTP_MessageObject;
+
+int64_t xsDataRegister(xvalue objValue);
+int64_t xsDataRegisterEx(xvalue objValue, const char* sNamespace, const char* sTag, int64_t iTTL);
+xvalue xsDataGet(int64_t iID);
+int xsDataRetain(int64_t iID);
+int xsDataRelease(int64_t iID);
+int xsDataRemove(int64_t iID);
+int64_t xsDataRemoveByQuery(const char* sNamespace, const char* sTag, int iLimit);
+int64_t xsDataFindFirst(const char* sNamespace, const char* sTag);
+char* xsBusStatusJson(void);
+char* xsBusStatusJsonEx(const char* sNamespace, const char* sTag);
+char* xsBusNamespaceJson(void);
+int xsBusLastErrorCode(void);
+const char* xsBusLastError(void);
+int xsMsgSendToHost(const char* sServer, const char* sHost, const char* sTopic, int64_t iDataID, xvalue objArgs);
+int xsMsgSendToServer(const char* sServer, const char* sTopic, int64_t iDataID, xvalue objArgs);
+int xsMsgBroadcast(const char* sTopic, int64_t iDataID, xvalue objArgs);
+
+#endif

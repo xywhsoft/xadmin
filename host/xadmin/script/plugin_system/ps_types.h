@@ -75,6 +75,7 @@ struct PluginSystemGeneration {
 	uint32_t iGeneration;
 	int iState;
 	int iRefCount;
+	int iNextStagedId;
 	int64 iLoadTime;
 	int64 iStartTime;
 	int64 iStopTime;
@@ -199,21 +200,239 @@ void PS_FreeString(str* psValue)
 
 xvalue PS_ValueDup(xvalue objValue)
 {
-	str sJson;
 	xvalue objCopy;
 
 	if ( objValue == NULL ) {
 		return NULL;
 	}
 
-	sJson = xrtStringifyJSON(objValue, FALSE, NULL);
-	if ( sJson == NULL ) {
+	objCopy = xvoDeepCopy(objValue);
+	if ( objCopy == NULL ) {
+		str sJson = xrtStringifyJSON(objValue, FALSE, NULL);
+		if ( sJson == NULL ) {
+			return NULL;
+		}
+
+		objCopy = xrtParseJSON(sJson, strlen(sJson));
+		xrtFree(sJson);
+	}
+	return objCopy;
+}
+
+bool PS_ValuePublishShared(xvalue pVal)
+{
+	if ( pVal == NULL || pVal->IsStatic ) {
+		return TRUE;
+	}
+
+	switch ( pVal->Type ) {
+		case XVO_DT_ARRAY:
+			for ( int i = 0; i < pVal->vArray->Count; i++ ) {
+				if ( !PS_ValuePublishShared(xvoArrayGetValue(pVal, i)) ) {
+					return FALSE;
+				}
+			}
+			xrtOwnerActivateShared(&pVal->vArray->Owner);
+			break;
+		case XVO_DT_LIST:
+			for ( uint32 i = 0; i < xvoListItemCount(pVal); i++ ) {
+				if ( !PS_ValuePublishShared(xvoListGetValue(pVal, (int64)i)) ) {
+					return FALSE;
+				}
+			}
+			xrtOwnerActivateShared(&pVal->vList->AVLT.Owner);
+			xrtOwnerActivateShared(&pVal->vList->Owner);
+			break;
+		case XVO_DT_TABLE:
+			DICT_FOREACH(pVal->vTable, pKey, pUnused) {
+				(void)pUnused;
+				if ( !PS_ValuePublishShared(xvoTableGetValue(pVal, pKey->Key, pKey->KeyLen)) ) {
+					return FALSE;
+				}
+			}
+			xrtOwnerActivateShared(&pVal->vTable->AVLT.Owner);
+			xrtOwnerActivateShared(&pVal->vTable->Owner);
+			break;
+		case XVO_DT_COLL:
+			xrtOwnerActivateShared(&pVal->vColl->Owner);
+			break;
+		default:
+			break;
+	}
+
+	xvoSetShared_Inline(pVal);
+	return TRUE;
+}
+
+xvalue PS_CreateSharedTable()
+{
+	xvalue tblValue = xvoCreateTableEx(XRT_OBJMODE_SHARED);
+
+	if ( tblValue == NULL ) {
+		return NULL;
+	}
+	if ( !PS_ValuePublishShared(tblValue) ) {
+		xvoUnref(tblValue);
+		return NULL;
+	}
+	return tblValue;
+}
+
+xvalue PS_ValueCloneShared(xvalue objValue)
+{
+	xvalue objCopy = NULL;
+
+	if ( objValue == NULL ) {
 		return NULL;
 	}
 
-	objCopy = xrtParseJSON(sJson, strlen(sJson));
-	xrtFree(sJson);
+	switch ( xvoType(objValue) ) {
+		case XVO_DT_NULL:
+			objCopy = xvoCreateNull();
+			break;
+		case XVO_DT_BOOL:
+			objCopy = xvoCreateBool(xvoGetBool(objValue));
+			break;
+		case XVO_DT_INT:
+			objCopy = xvoCreateInt(xvoGetInt(objValue));
+			break;
+		case XVO_DT_FLOAT:
+			objCopy = xvoCreateFloat(xvoGetFloat(objValue));
+			break;
+		case XVO_DT_TEXT:
+			objCopy = xvoCreateText(xvoGetText(objValue), 0, FALSE);
+			break;
+		case XVO_DT_ARRAY: {
+			objCopy = xvoCreateArrayEx(XRT_OBJMODE_SHARED);
+			if ( (objCopy == NULL) || !PS_ValuePublishShared(objCopy) ) {
+				if ( objCopy ) {
+					xvoUnref(objCopy);
+				}
+				return NULL;
+			}
+			for ( uint32 i = 0; i < xvoArrayItemCount(objValue); i++ ) {
+				xvalue objChild = PS_ValueCloneShared(xvoArrayGetValue(objValue, i));
+				if ( (objChild == NULL) && (xvoArrayGetValue(objValue, i) != NULL) ) {
+					xvoUnref(objCopy);
+					return NULL;
+				}
+				xvoArrayAppendValue(objCopy, objChild, TRUE);
+			}
+			return objCopy;
+		}
+		case XVO_DT_TABLE: {
+			objCopy = xvoCreateTableEx(XRT_OBJMODE_SHARED);
+			if ( (objCopy == NULL) || !PS_ValuePublishShared(objCopy) ) {
+				if ( objCopy ) {
+					xvoUnref(objCopy);
+				}
+				return NULL;
+			}
+			DICT_FOREACH(objValue->vTable, pKey, pUnused) {
+				xvalue objChild;
+
+				(void)pUnused;
+				objChild = PS_ValueCloneShared(xvoTableGetValue(objValue, pKey->Key, pKey->KeyLen));
+				if ( (objChild == NULL) && (xvoTableGetValue(objValue, pKey->Key, pKey->KeyLen) != NULL) ) {
+					xvoUnref(objCopy);
+					return NULL;
+				}
+				xvoTableSetValue(objCopy, pKey->Key, pKey->KeyLen, objChild, TRUE);
+			}
+			return objCopy;
+		}
+		default:
+			objCopy = PS_ValueDup(objValue);
+			break;
+	}
+
+	if ( objCopy ) {
+		xvoSetShared_Inline(objCopy);
+	}
 	return objCopy;
+}
+
+xvalue PS_ValueDupShared(xvalue objValue)
+{
+	xvalue objCopy = PS_ValueCloneShared(objValue);
+
+	if ( objCopy == NULL ) {
+		return NULL;
+	}
+	return objCopy;
+}
+
+xvalue PS_ValueParseJsonShared(str sJson, size_t iSize)
+{
+	xvalue objValue;
+	xvalue objCopy;
+
+	if ( (sJson == NULL) || (iSize <= 0) ) {
+		return NULL;
+	}
+
+	objValue = xrtParseJSON(sJson, iSize);
+	if ( objValue == NULL ) {
+		return NULL;
+	}
+	objCopy = PS_ValueCloneShared(objValue);
+	xvoUnref(objValue);
+	if ( objCopy == NULL ) {
+		return NULL;
+	}
+	return objCopy;
+}
+
+xvalue PS_ValueParseJsonFileShared(str sPath)
+{
+	xvalue objValue;
+	xvalue objCopy;
+
+	if ( (sPath == NULL) || !xrtFileExists(sPath) ) {
+		return NULL;
+	}
+
+	objValue = xrtParseJSON_File(sPath);
+	if ( objValue == NULL ) {
+		return NULL;
+	}
+	objCopy = PS_ValueCloneShared(objValue);
+	xvoUnref(objValue);
+	if ( objCopy == NULL ) {
+		return NULL;
+	}
+	return objCopy;
+}
+
+xvalue PS_ValueRetain(xvalue objValue)
+{
+	if ( objValue ) {
+		xvoAddRef(objValue);
+	}
+	return objValue;
+}
+
+xvalue PS_PackageManifestRef(PluginSystemPackage* pPackage)
+{
+	return PS_ValueRetain(pPackage ? pPackage->tblManifest : NULL);
+}
+
+xvalue PS_PackageDefaultConfigRef(PluginSystemPackage* pPackage)
+{
+	return PS_ValueRetain(pPackage ? pPackage->tblDefaultConfig : NULL);
+}
+
+xvalue PS_PackageConfigSchemaRef(PluginSystemPackage* pPackage)
+{
+	return PS_ValueRetain(pPackage ? pPackage->tblConfigSchema : NULL);
+}
+
+xvalue PS_PackageConfigRef(PluginSystemPackage* pPackage)
+{
+	if ( pPackage == NULL ) {
+		return PS_CreateSharedTable();
+	}
+	return pPackage->tblConfig ? PS_ValueRetain(pPackage->tblConfig) : PS_CreateSharedTable();
 }
 
 str PS_ValueToStringDup(xvalue objValue)
@@ -252,6 +471,7 @@ PluginSystemGeneration* PS_CreateGeneration(uint32_t iGeneration)
 	memset(pGeneration, 0, sizeof(PluginSystemGeneration));
 	pGeneration->iGeneration = iGeneration;
 	pGeneration->iState = PS_GENERATION_STATE_DISCOVERED;
+	pGeneration->iNextStagedId = -1;
 	pGeneration->iLoadTime = xrtNow();
 	pGeneration->lstRouteTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstMenuTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);

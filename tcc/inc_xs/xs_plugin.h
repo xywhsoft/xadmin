@@ -1,7 +1,7 @@
 #ifndef XS_PLUGIN_H
 #define XS_PLUGIN_H
 
-#include "xs_vnext_full.h"
+#include "xsbase.h"
 
 #if defined(_WIN32) || defined(_WIN64)
 #define XADMIN_EXPORT __declspec(dllexport)

@@ -17,29 +17,36 @@
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
 	<form class="layui-form" lay-filter="GroupEditForm" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-		<input type="hidden" name="id" value="{$id}">
+		<input type="hidden" name="id" value="{{$id}}">
 		<div class="layui-form-item">
 			<label class="layui-form-label">组名称</label>
 			<div class="layui-input-block">
-				<input type="text" name="name" value="{$name}" required lay-verify="required" placeholder="请输入用户组名称" autocomplete="off" class="layui-input">
+				<input type="text" name="name" value="{{$name}}" required lay-verify="required" placeholder="请输入用户组名称" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div class="layui-form-item layui-form-text">
 			<label class="layui-form-label">描述</label>
 			<div class="layui-input-block">
-				<textarea name="desc" placeholder="请输入描述" class="layui-textarea" style="height: 60px;">{$desc}</textarea>
+				<textarea name="desc" placeholder="请输入描述" class="layui-textarea" style="height: 60px;">{{$desc}}</textarea>
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">分配权限</label>
 			<div class="layui-input-block" id="authListContainer" style="height: 280px; overflow-y: auto;">
-				{*AuthGroupItem:authGroups}
+				{{#foreach:authGroups}}
+				<div class="auth-group-header">{{$name}}</div>
+				<div class="auth-checkbox-container">
+					{{#foreach:auths}}
+					<input type="checkbox" name="authList[]" value="{{$id}}" title="{{$name}}" lay-skin="primary"{{$checked}}>
+					{{#end}}
+				</div>
+				{{#end}}
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">权限级别</label>
 			<div class="layui-input-block">
-				<input type="number" name="authLevel" value="{$authLevel}" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
+				<input type="number" name="authLevel" value="{{$authLevel}}" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 	</div>
@@ -103,5 +110,3 @@
 	</script>
 </body>
 </html>
-{#define:AuthGroupItem}<div class="auth-group-header">{$name}</div><div class="auth-checkbox-container">{*AuthCheckboxItem:auths}</div>{#end}
-{#define:AuthCheckboxItem}<input type="checkbox" name="authList[]" value="{$id}" title="{$name}" lay-skin="primary"{$checked}>{#end}

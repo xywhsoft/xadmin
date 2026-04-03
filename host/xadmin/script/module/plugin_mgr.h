@@ -15,6 +15,7 @@
 // 闁告挸绉撮幃婊勭珶閻楀牊顫栭柨娑欑鑶╅柡澶庢硶濞村宕楅崘鎻掑伎閻忕偐鍋撻柛娆愶耿閸?
 extern xvalue tblENV;
 extern xdict G_Template;
+extern XTE_ParseOptions G_TemplateParseOptions;
 
 
 // ==================== 闁轰胶澧楀畵浣虹磼閹惧鈧垳鈧鐭粻?====================
@@ -328,17 +329,80 @@ bool PluginCtx_HideMenu(int menuId)
 }
 
 
+static int PluginCtx_FindAuthGroupIdByName(str name)
+{
+	sqlite3_stmt* stmt = NULL;
+	int iGroupId = 0;
+
+	if ( name == NULL || name[0] == '\0' ) {
+		return 0;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM authGroup WHERE name = ? AND isDelete = 0 ORDER BY id ASC LIMIT 1;", -1, 0, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_text(stmt, 1, name, -1, SQLITE_TRANSIENT);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			iGroupId = sqlite3_column_int(stmt, 0);
+		}
+	}
+	if ( stmt ) {
+		sqlite3_finalize(stmt);
+	}
+
+	return iGroupId;
+}
+
+static int PluginCtx_FindAuthIdByGroupAndName(int groupId, str name)
+{
+	sqlite3_stmt* stmt = NULL;
+	int iAuthId = 0;
+
+	if ( groupId <= 0 || name == NULL || name[0] == '\0' ) {
+		return 0;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM auth WHERE groupID = ? AND name = ? AND isDelete = 0 ORDER BY id ASC LIMIT 1;", -1, 0, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int(stmt, 1, groupId);
+		sqlite3_bind_text(stmt, 2, name, -1, SQLITE_TRANSIENT);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			iAuthId = sqlite3_column_int(stmt, 0);
+		}
+	}
+	if ( stmt ) {
+		sqlite3_finalize(stmt);
+	}
+
+	return iAuthId;
+}
+
 // 闁哄鍟村娲箼瀹ュ嫮绋?
 int PluginCtx_AddAuthGroup(str name, str desc, int sort)
 {
 	int64 iNow = xrtNow();
+	int iGroupId = PluginCtx_FindAuthGroupIdByName(name);
+
+	if ( iGroupId > 0 ) {
+		sqlite3_stmt* stmt = NULL;
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE authGroup SET desc = ?, sort = ?, updateTime = ?, isDelete = 0 WHERE id = ?;", -1, 0, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, desc ? desc : (str)"", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 2, sort);
+			sqlite3_bind_int64(stmt, 3, iNow);
+			sqlite3_bind_int(stmt, 4, iGroupId);
+			sqlite3_step(stmt);
+		}
+		if ( stmt ) {
+			sqlite3_finalize(stmt);
+		}
+		printf("        [Plugin] AuthGroup updated: %s (id=%d)\n", name, iGroupId);
+		return iGroupId;
+	}
+
 	sqlite3_bind_text(stmt_group_add, 1, name, -1, NULL);
 	sqlite3_bind_text(stmt_group_add, 2, desc ? desc : (str)"", -1, NULL);
 	sqlite3_bind_int(stmt_group_add, 3, sort);
 	sqlite3_bind_int64(stmt_group_add, 4, iNow);
 	sqlite3_bind_int64(stmt_group_add, 5, iNow);
 	sqlite3_step(stmt_group_add);
-	int iGroupId = sqlite3_last_insert_rowid(G_DB);
+	iGroupId = sqlite3_last_insert_rowid(G_DB);
 	sqlite3_reset(stmt_group_add);
 	printf("        [Plugin] AuthGroup added: %s (id=%d)\n", name, iGroupId);
 	return iGroupId;
@@ -347,6 +411,24 @@ int PluginCtx_AddAuthGroup(str name, str desc, int sort)
 int PluginCtx_AddAuth(int groupId, str name, str desc, int sort)
 {
 	int64 iNow = xrtNow();
+	int iAuthId = PluginCtx_FindAuthIdByGroupAndName(groupId, name);
+
+	if ( iAuthId > 0 ) {
+		sqlite3_stmt* stmt = NULL;
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE auth SET desc = ?, sort = ?, updateTime = ?, isDelete = 0 WHERE id = ?;", -1, 0, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, desc ? desc : (str)"", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 2, sort);
+			sqlite3_bind_int64(stmt, 3, iNow);
+			sqlite3_bind_int(stmt, 4, iAuthId);
+			sqlite3_step(stmt);
+		}
+		if ( stmt ) {
+			sqlite3_finalize(stmt);
+		}
+		printf("        [Plugin] Auth updated: %s (id=%d)\n", name, iAuthId);
+		return iAuthId;
+	}
+
 	sqlite3_bind_int(stmt_auth_add, 1, groupId);
 	sqlite3_bind_text(stmt_auth_add, 2, name, -1, NULL);
 	sqlite3_bind_text(stmt_auth_add, 3, desc ? desc : (str)"", -1, NULL);
@@ -354,7 +436,7 @@ int PluginCtx_AddAuth(int groupId, str name, str desc, int sort)
 	sqlite3_bind_int64(stmt_auth_add, 5, iNow);
 	sqlite3_bind_int64(stmt_auth_add, 6, iNow);
 	sqlite3_step(stmt_auth_add);
-	int iAuthId = sqlite3_last_insert_rowid(G_DB);
+	iAuthId = sqlite3_last_insert_rowid(G_DB);
 	sqlite3_reset(stmt_auth_add);
 	printf("        [Plugin] Auth added: %s (id=%d)\n", name, iAuthId);
 	return iAuthId;
@@ -2551,9 +2633,9 @@ str PluginCtx_RenderString(str templateString, xvalue data)
 		return NULL;
 	}
 
-	hTemplate = xteParseEx(NULL, templateString, strlen(templateString), NULL, &tError);
+	hTemplate = xteParseEx(NULL, templateString, strlen(templateString), &G_TemplateParseOptions, &tError);
 	if ( hTemplate == NULL ) {
-		return xrtFormat("Template parse error");
+		return xrtFormat("Template parse error: %s at %u:%u", tError.sDesc ? tError.sDesc : "unknown error", tError.iLine, tError.iColumn);
 	}
 
 	str sResult = xteMake(hTemplate, data, tblENV, G_Template, &iRetSize);

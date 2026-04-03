@@ -1045,9 +1045,9 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 				iTime = sqlite3_column_int64(stmt_auth_all, 6);
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "groupName", 9, (str)sqlite3_column_text(stmt_auth_all, 8), 0, FALSE);
+				xvoTableSetText(tblRow, "groupName", 9, (str)sqlite3_column_text(stmt_auth_all, 7), 0, FALSE);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_auth_all, 9);
+					iCount = sqlite3_column_int64(stmt_auth_all, 8);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -1069,9 +1069,9 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				xvoTableSetText(tblRow, "createTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 				iTime = sqlite3_column_int64(stmt_auth_sel, 6);
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "groupName", 9, (str)sqlite3_column_text(stmt_auth_sel, 8), 0, FALSE);
+				xvoTableSetText(tblRow, "groupName", 9, (str)sqlite3_column_text(stmt_auth_sel, 7), 0, FALSE);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_auth_sel, 9);
+					iCount = sqlite3_column_int64(stmt_auth_sel, 8);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}

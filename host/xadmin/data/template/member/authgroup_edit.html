@@ -11,23 +11,23 @@
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
 	<form class="layui-form" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-		<input type="hidden" name="id" value="{$id}">
+		<input type="hidden" name="id" value="{{$id}}">
 		<div class="layui-form-item">
 			<label class="layui-form-label">分类名称</label>
 			<div class="layui-input-block">
-				<input type="text" name="name" value="{$name}" required lay-verify="required" placeholder="请输入分类名称" autocomplete="off" class="layui-input">
+				<input type="text" name="name" value="{{$name}}" required lay-verify="required" placeholder="请输入分类名称" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div class="layui-form-item layui-form-text">
 			<label class="layui-form-label">描述</label>
 			<div class="layui-input-block">
-				<textarea name="desc" placeholder="请输入描述" class="layui-textarea" style="height: 80px;">{$desc}</textarea>
+				<textarea name="desc" placeholder="请输入描述" class="layui-textarea" style="height: 80px;">{{$desc}}</textarea>
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">排序</label>
 			<div class="layui-input-block">
-				<input type="number" name="sort" value="{$sort}" placeholder="请输入排序值" autocomplete="off" class="layui-input">
+				<input type="number" name="sort" value="{{$sort}}" placeholder="请输入排序值" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 	</div>

@@ -32,7 +32,14 @@
 		<div class="layui-form-item">
 			<label class="layui-form-label">分配权限</label>
 			<div class="layui-input-block" id="authListContainer" style="height: 280px; overflow-y: auto;">
-				{*AuthGroupItem:authGroups}
+				{{#foreach:authGroups}}
+				<div class="auth-group-header">{{$name}}</div>
+				<div class="auth-checkbox-container">
+					{{#foreach:auths}}
+					<input type="checkbox" name="authList[]" value="{{$id}}" title="{{$name}}" lay-skin="primary">
+					{{#end}}
+				</div>
+				{{#end}}
 			</div>
 		</div>
 		<div class="layui-form-item">
@@ -101,5 +108,3 @@
 	</script>
 </body>
 </html>
-{#define:AuthGroupItem}<div class="auth-group-header">{$name}</div><div class="auth-checkbox-container">{*AuthCheckboxItem:auths}</div>{#end}
-{#define:AuthCheckboxItem}<input type="checkbox" name="authList[]" value="{$id}" title="{$name}" lay-skin="primary">{#end}

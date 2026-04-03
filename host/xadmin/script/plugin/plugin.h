@@ -1,7 +1,7 @@
 #ifndef XADMIN_PLUGIN_H
 #define XADMIN_PLUGIN_H
 
-#include <xs_vnext_full.h>
+#include <xsbase.h>
 
 #define EVENT_SYSTEM_READY			"system.ready"
 #define EVENT_SYSTEM_SHUTDOWN			"system.shutdown"

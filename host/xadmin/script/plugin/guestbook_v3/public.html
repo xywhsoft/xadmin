@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guestbook</title>
+  <style>
+    body { margin: 0; background: #f5efe6; color: #1f2937; font-family: "Segoe UI", Arial, sans-serif; }
+    .shell { max-width: 1080px; margin: 0 auto; padding: 36px 18px 72px; }
+    .hero { background: linear-gradient(135deg, #fff7ed, #fffbeb); border: 1px solid #fed7aa; border-radius: 24px; padding: 28px; box-shadow: 0 18px 48px rgba(120,53,15,.08); margin-bottom: 22px; }
+    .hero h1 { margin: 0 0 10px; font-size: 34px; line-height: 1.1; }
+    .hero p { margin: 0; max-width: 720px; line-height: 1.6; color: #7c2d12; }
+    .layout { display: grid; grid-template-columns: 340px 1fr; gap: 22px; }
+    .panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 22px; box-shadow: 0 16px 38px rgba(15,23,42,.06); }
+    .panel.pad { padding: 22px; }
+    .section-title { font-size: 20px; font-weight: 700; margin: 0 0 14px; }
+    label { display: block; font-size: 13px; font-weight: 700; margin: 0 0 6px; color: #374151; }
+    input, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 14px; padding: 11px 13px; font: inherit; background: #fff; }
+    textarea { min-height: 150px; resize: vertical; }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; }
+    .hint { font-size: 13px; color: #6b7280; }
+    .status { min-height: 18px; font-size: 13px; margin-top: 12px; color: #2563eb; }
+    .button { border: 0; border-radius: 999px; padding: 11px 18px; font-weight: 700; cursor: pointer; transition: .18s ease; background: #111827; color: #fff; }
+    .button.secondary { background: #f59e0b; color: #111827; }
+    .button:hover { transform: translateY(-1px); }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .pill { display: inline-flex; align-items: center; padding: 6px 10px; border-radius: 999px; background: #ffedd5; color: #9a3412; font-size: 12px; font-weight: 700; }
+    .item { padding: 18px 0; border-top: 1px solid #f1f5f9; }
+    .item:first-child { border-top: 0; padding-top: 0; }
+    .item-meta { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 10px; font-size: 13px; color: #6b7280; }
+    .item-meta strong { color: #111827; font-size: 15px; }
+    .item-content { white-space: pre-wrap; line-height: 1.7; color: #1f2937; }
+    .reply { margin-top: 14px; padding: 14px 16px; border-radius: 16px; background: #f8fafc; border: 1px solid #e2e8f0; }
+    .reply-head { font-size: 12px; font-weight: 700; letter-spacing: .04em; color: #475569; text-transform: uppercase; margin-bottom: 6px; }
+    .reply-time { margin-top: 8px; font-size: 12px; color: #64748b; }
+    .empty { padding: 36px 0; text-align: center; color: #94a3b8; }
+    .pager { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 18px; padding-top: 18px; border-top: 1px solid #f1f5f9; }
+    .pager-info { font-size: 13px; color: #6b7280; }
+    .pager-actions { display: flex; gap: 10px; }
+    @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } .hero h1 { font-size: 28px; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <h1 id="gb_title">Guestbook</h1>
+      <p id="gb_intro">Loading...</p>
+    </section>
+    <section class="layout">
+      <aside class="panel pad">
+        <div class="section-title">Leave a message</div>
+        <label for="gb_name">Nickname</label>
+        <input id="gb_name" maxlength="64" placeholder="How should we call you?">
+        <div style="height:12px"></div>
+        <label for="gb_content">Message</label>
+        <textarea id="gb_content" maxlength="280" placeholder="Write something useful, friendly, or direct."></textarea>
+        <div class="row">
+          <div class="hint" id="gb_counter">0 / 280</div>
+          <button class="button" id="gb_submit" onclick="gbSubmit()">Post</button>
+        </div>
+        <div class="hint" id="gb_policy" style="margin-top:10px"></div>
+        <div class="status" id="gb_status"></div>
+      </aside>
+      <section class="panel pad">
+        <div class="toolbar">
+          <div class="section-title" style="margin:0">Messages</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="pill" id="gb_total_badge">0 total</span>
+            <button class="button secondary" onclick="gbLoad(gb.page)">Refresh</button>
+          </div>
+        </div>
+        <div id="gb_list"><div class="empty">Loading...</div></div>
+        <div class="pager">
+          <div class="pager-info" id="gb_pager_info">Page 1</div>
+          <div class="pager-actions">
+            <button class="button secondary" id="gb_prev" onclick="gbPrev()">Previous</button>
+            <button class="button secondary" id="gb_next" onclick="gbNext()">Next</button>
+          </div>
+        </div>
+      </section>
+    </section>
+  </div>
+  <script>
+    const gb = { page: 1, total: 0, pageSize: 20, maxContentLength: 280, requireApproval: false };
+    function gbEscape(value) {
+      return String(value || "").replace(/[&<>\"']/g, (ch) => {
+        if (ch === "&") return "&amp;";
+        if (ch === "<") return "&lt;";
+        if (ch === ">") return "&gt;";
+        if (ch === "\"") return "&quot;";
+        return "&#39;";
+      });
+    }
+    function gbSetStatus(message, color) {
+      const el = document.getElementById("gb_status");
+      el.style.color = color || "#2563eb";
+      el.innerText = message || "";
+    }
+    function gbUpdateCounter() {
+      const area = document.getElementById("gb_content");
+      document.getElementById("gb_counter").innerText = `${(area.value || "").length} / ${gb.maxContentLength || 280}`;
+    }
+    function gbRender(payload) {
+      const list = document.getElementById("gb_list");
+      const items = (payload && payload.data) || [];
+      gb.page = (payload && payload.page) || 1;
+      gb.pageSize = (payload && payload.pageSize) || gb.pageSize;
+      gb.total = (payload && payload.total) || 0;
+      document.getElementById("gb_total_badge").innerText = `${gb.total} total`;
+      document.getElementById("gb_pager_info").innerText = `Page ${gb.page} / ${Math.max(1, Math.ceil((gb.total || 0) / (gb.pageSize || 1)))}`;
+      document.getElementById("gb_prev").disabled = gb.page <= 1;
+      document.getElementById("gb_next").disabled = gb.page * gb.pageSize >= gb.total;
+      if (!items.length) {
+        list.innerHTML = "<div class='empty'>No approved messages yet.</div>";
+        return;
+      }
+      list.innerHTML = items.map((item) => {
+        const reply = item.reply
+          ? `<div class="reply"><div class="reply-head">Reply</div><div class="item-content">${gbEscape(item.reply)}</div><div class="reply-time">${gbEscape(item.replyTimeText || "")}</div></div>`
+          : "";
+        return `<article class="item"><div class="item-meta"><strong>${gbEscape(item.nickname)}</strong><span>${gbEscape(item.createTimeText || "")}</span></div><div class="item-content">${gbEscape(item.content)}</div>${reply}</article>`;
+      }).join("");
+    }
+    function gbLoad(page) {
+      fetch(`/api/plugin/guestbook_v3/list?page=${encodeURIComponent(page || 1)}&limit=${encodeURIComponent(gb.pageSize || 20)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.result) throw new Error(data.message || "Load failed");
+          gbRender(data);
+        })
+        .catch((err) => gbSetStatus(err && err.message ? err.message : "Load failed", "#dc2626"));
+    }
+    function gbPrev() { if (gb.page > 1) gbLoad(gb.page - 1); }
+    function gbNext() { if (gb.page * gb.pageSize < gb.total) gbLoad(gb.page + 1); }
+    function gbSubmit() {
+      const button = document.getElementById("gb_submit");
+      const body = {
+        nickname: document.getElementById("gb_name").value,
+        content: document.getElementById("gb_content").value
+      };
+      button.disabled = true;
+      gbSetStatus("Posting...");
+      fetch("/api/plugin/guestbook_v3/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.result) throw new Error(data.message || "Post failed");
+          document.getElementById("gb_content").value = "";
+          gbUpdateCounter();
+          gbSetStatus(data.message || "Posted.");
+          if (!gb.requireApproval) gbLoad(1);
+        })
+        .catch((err) => gbSetStatus(err && err.message ? err.message : "Post failed", "#dc2626"))
+        .finally(() => { button.disabled = false; });
+    }
+    function gbLoadMeta() {
+      fetch("/api/plugin/guestbook_v3/meta")
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.result || !data.data) throw new Error(data.message || "Meta failed");
+          gb.pageSize = data.data.pageSize || 20;
+          gb.maxContentLength = data.data.maxContentLength || 280;
+          gb.requireApproval = !!data.data.requireApproval;
+          document.getElementById("gb_title").innerText = data.data.title || "Guestbook";
+          document.getElementById("gb_intro").innerText = data.data.intro || "";
+          document.getElementById("gb_content").maxLength = gb.maxContentLength;
+          document.getElementById("gb_policy").innerText = gb.requireApproval
+            ? "New messages require manual approval before they appear."
+            : "New messages appear immediately after posting.";
+          gbUpdateCounter();
+          gbLoad(1);
+        })
+        .catch((err) => gbSetStatus(err && err.message ? err.message : "Meta failed", "#dc2626"));
+    }
+    document.getElementById("gb_content").addEventListener("input", gbUpdateCounter);
+    gbUpdateCounter();
+    gbLoadMeta();
+  </script>
+</body>
+</html>

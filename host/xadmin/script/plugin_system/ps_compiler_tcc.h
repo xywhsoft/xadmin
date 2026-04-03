@@ -137,6 +137,7 @@ bool PS_TCCCompileSourceFile(TCCState* pTcc, str sRootPath, str sRelPath)
 bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration)
 {
 	TCCState* pTcc;
+	xvalue tblManifest = NULL;
 	xvalue tblBuild;
 	xvalue arrSources;
 	str sGenerationName;
@@ -169,7 +170,8 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "lib", FALSE);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "include", TRUE);
 
-	tblBuild = pPackage->tblManifest ? xvoTableGetValue(pPackage->tblManifest, "build", 5) : NULL;
+	tblManifest = PS_PackageManifestRef(pPackage);
+	tblBuild = tblManifest ? xvoTableGetValue(tblManifest, "build", 5) : NULL;
 	if ( tblBuild ) {
 		PS_TCCApplyRelativePathArray(pTcc, pPackage->sRootPath, xvoTableGetValue(tblBuild, "includeDirs", 11), TRUE);
 		PS_TCCApplyRelativePathArray(pTcc, pPackage->sRootPath, xvoTableGetValue(tblBuild, "libraryDirs", 11), FALSE);
@@ -200,6 +202,9 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	if ( !bCompiled ) {
 		pGeneration->sErrorMessage = xrtCopyStr("failed to compile plugin sources", 0);
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
+		if ( tblManifest ) {
+			xvoUnref(tblManifest);
+		}
 		xsDestroyTCC(pTcc);
 		return FALSE;
 	}
@@ -207,6 +212,9 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	if ( tcc_relocate(pTcc) < 0 ) {
 		pGeneration->sErrorMessage = xrtCopyStr("failed to relocate plugin image", 0);
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
+		if ( tblManifest ) {
+			xvoUnref(tblManifest);
+		}
 		xsDestroyTCC(pTcc);
 		return FALSE;
 	}
@@ -225,6 +233,9 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	if ( procGetDescriptor == NULL ) {
 		pGeneration->sErrorMessage = xrtCopyStr("XAdmin_GetPluginDescriptor not found", 0);
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
+		if ( tblManifest ) {
+			xvoUnref(tblManifest);
+		}
 		xsDestroyTCC(pTcc);
 		return FALSE;
 	}
@@ -233,6 +244,9 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	if ( pGeneration->pDescriptor == NULL ) {
 		pGeneration->sErrorMessage = xrtCopyStr("plugin descriptor returned NULL", 0);
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
+		if ( tblManifest ) {
+			xvoUnref(tblManifest);
+		}
 		xsDestroyTCC(pTcc);
 		return FALSE;
 	}
@@ -241,10 +255,16 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 		sErrorMessage = xrtFormat("abi version mismatch: plugin=%u host=%u", pGeneration->pDescriptor->abi_version, XADMIN_ABI_VERSION);
 		pGeneration->sErrorMessage = sErrorMessage;
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
+		if ( tblManifest ) {
+			xvoUnref(tblManifest);
+		}
 		xsDestroyTCC(pTcc);
 		return FALSE;
 	}
 
+	if ( tblManifest ) {
+		xvoUnref(tblManifest);
+	}
 	pGeneration->pTccState = pTcc;
 	pGeneration->sCompileHash = xrtFormat("%s:%u", pPackage->sVersion ? pPackage->sVersion : (str)"0.0.0", pGeneration->iGeneration);
 	pGeneration->iState = PS_GENERATION_STATE_COMPILED;

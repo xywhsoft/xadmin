@@ -16,7 +16,9 @@
 			<div class="layui-input-block">
 				<select name="groupID" lay-verify="required">
 					<option value="">请选择权限分类</option>
-					{*GroupComboListItem:groupList}
+					{{#foreach:groupList}}
+					<option value="{{$id}}">{{$name}}</option>
+					{{#end}}
 				</select>
 			</div>
 		</div>
@@ -92,4 +94,3 @@
 	</script>
 </body>
 </html>
-{#define:GroupComboListItem}<option value="{$id}">{$name}</option>{#end}

@@ -10,12 +10,12 @@
 </head>
 <body>
 	<form class="layui-form" style="padding: 20px; min-height: calc(100vh - 40px); display: flex; flex-direction: column;" lay-filter="categoryEditForm">
-		<input type="hidden" name="id" value="{$id}">
+		<input type="hidden" name="id" value="{{$id}}">
 		
 		<div class="layui-form-item">
 			<label class="layui-form-label">分类名称</label>
 			<div class="layui-input-block">
-				<input type="text" name="title" value="{$title}" required lay-verify="required" placeholder="请输入分类名称" autocomplete="off" class="layui-input">
+				<input type="text" name="title" value="{{$title}}" required lay-verify="required" placeholder="请输入分类名称" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		
@@ -23,8 +23,8 @@
 			<label class="layui-form-label">图标</label>
 			<div class="layui-input-block">
 				<div style="display: flex; width: 100%;">
-					<span id="iconPreview" style="flex-shrink: 0; width: 38px; height: 36px; line-height: 36px; text-align: center; border: 1px solid #e6e6e6; border-radius: 4px 0 0 4px; font-size: 18px; border-right: none; background: #fff;"><i class="{$icon}"></i></span>
-					<input type="text" name="icon" id="iconInput" value="{$icon}" placeholder="请选择图标" autocomplete="off" class="layui-input" style="flex: 1; border-radius: 0;" readonly>
+					<span id="iconPreview" style="flex-shrink: 0; width: 38px; height: 36px; line-height: 36px; text-align: center; border: 1px solid #e6e6e6; border-radius: 4px 0 0 4px; font-size: 18px; border-right: none; background: #fff;"><i class="{{$icon}}"></i></span>
+					<input type="text" name="icon" id="iconInput" value="{{$icon}}" placeholder="请选择图标" autocomplete="off" class="layui-input" style="flex: 1; border-radius: 0;" readonly>
 					<button type="button" class="layui-btn layui-btn-primary" id="btnSelectIcon" style="flex-shrink: 0; border-radius: 0 4px 4px 0; margin-left: -1px;">选择</button>
 				</div>
 			</div>
@@ -33,7 +33,7 @@
 		<div class="layui-form-item">
 			<label class="layui-form-label">排序值</label>
 			<div class="layui-input-block">
-				<input type="number" name="sort" value="{$sort}" placeholder="数值越小越靠前" autocomplete="off" class="layui-input">
+				<input type="number" name="sort" value="{{$sort}}" placeholder="数值越小越靠前" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		
@@ -47,7 +47,7 @@
 		<div class="layui-form-item layui-form-text">
 			<label class="layui-form-label">备注</label>
 			<div class="layui-input-block">
-				<textarea name="remark" placeholder="可选，备注信息" class="layui-textarea">{$remark}</textarea>
+				<textarea name="remark" placeholder="可选，备注信息" class="layui-textarea">{{$remark}}</textarea>
 			</div>
 		</div>
 		
@@ -60,16 +60,16 @@
 	<script src="/layui/layui.js"></script>
 	<script src="/js/icon-picker.js"></script>
 	<script>
-		layui.use('form', function(){{
+		layui.use('form', function(){
 			var form = layui.form;
 			var layer = layui.layer;
 			var $ = layui.$;
 			
 			// 当前分类的显示状态
-			var iVisible = {$visible};
+			var iVisible = {{$visible}};
 			
 			// 设置显示状态开关
-			if ( iVisible === 1 ) {{
+			if ( iVisible === 1 ) {
 				$('#visibleCheckbox').prop('checked', true);
 			}
 			
@@ -77,28 +77,28 @@
 			form.render();
 			
 			// 图标选择按钮
-			$('#btnSelectIcon').on('click', function(){{
-				IconPicker.open(this, function(sIcon){{
+			$('#btnSelectIcon').on('click', function(){
+				IconPicker.open(this, function(sIcon){
 					$('#iconInput').val(sIcon);
-					if ( sIcon ) {{
+					if ( sIcon ) {
 						$('#iconPreview').html('<i class="' + sIcon + '"></i>');
-					} else {{
+					} else {
 						$('#iconPreview').html('');
 					}
 				});
 			});
 			
 			// 取消按钮
-			document.getElementById('btnCancel').onclick = function(){{
+			document.getElementById('btnCancel').onclick = function(){
 				var index = parent.layer.getFrameIndex(window.name);
 				parent.layer.close(index);
 			};
 			
 			// 提交事件
-			form.on('submit(submitCategoryEdit)', function(data){{
+			form.on('submit(submitCategoryEdit)', function(data){
 				var field = data.field;
 				
-				var tblFormData = {{
+				var tblFormData = {
 					id: parseInt(field.id),
 					parent: 0,
 					title: field.title,
@@ -111,25 +111,25 @@
 					remark: field.remark || ''
 				};
 				
-				fetch('/admin/option/menu', {{
+				fetch('/admin/option/menu', {
 					method: 'PUT',
-					headers: {{
+					headers: {
 						'Content-Type': 'application/json'
 					},
 					body: JSON.stringify(tblFormData)
 				})
 				.then(response => response.json())
-				.then(result => {{
-					if ( result.result ) {{
-						layer.msg(result.message || '更新成功', {{icon: 1});
+				.then(result => {
+					if ( result.result ) {
+						layer.msg(result.message || '更新成功', {icon: 1});
 						var index = parent.layer.getFrameIndex(window.name);
 						parent.layer.close(index);
-					} else {{
-						layer.msg(result.message || '更新失败', {{icon: 2});
+					} else {
+						layer.msg(result.message || '更新失败', {icon: 2});
 					}
 				})
-				.catch(error => {{
-					layer.msg('请求出错，请查看开发者工具检查原因', {{icon: 2});
+				.catch(error => {
+					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
 					console.error('Error:', error);
 				});
 				

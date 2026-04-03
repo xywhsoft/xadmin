@@ -11,7 +11,7 @@
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
 	<form class="layui-form" lay-filter="urisForm" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-			<input type="hidden" name="id" value="{$id}">
+			<input type="hidden" name="id" value="{{$id}}">
 			<div class="layui-form-item">
 				<label class="layui-form-label">权限组</label>
 				<div class="layui-input-block">
@@ -23,19 +23,19 @@
 			<div class="layui-form-item">
 				<label class="layui-form-label">URI</label>
 				<div class="layui-input-block">
-					<input type="text" name="uri" value="{$uri}" required lay-verify="required" placeholder="URI路径" autocomplete="off" class="layui-input" readonly>
+					<input type="text" name="uri" value="{{$uri}}" required lay-verify="required" placeholder="URI路径" autocomplete="off" class="layui-input" readonly>
 				</div>
 			</div>
 			<div class="layui-form-item">
 				<label class="layui-form-label">描述</label>
 				<div class="layui-input-block">
-					<input type="text" name="desc" value="{$desc}" placeholder="请输入URI描述" autocomplete="off" class="layui-input">
+					<input type="text" name="desc" value="{{$desc}}" placeholder="请输入URI描述" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 			<div class="layui-form-item">
 				<label class="layui-form-label">排序值</label>
 				<div class="layui-input-block">
-					<input type="number" name="sort" value="{$sort}" placeholder="请输入排序值（数值越小排在前面）" autocomplete="off" class="layui-input">
+					<input type="number" name="sort" value="{{$sort}}" placeholder="请输入排序值（数值越小排在前面）" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 			<div class="layui-form-item" style="margin-top: 10px;">
@@ -81,9 +81,17 @@
 	<script src="/layui/layui.js"></script>
 	<script>
 		// 后台权限分组数据
-		var backendAuthList = [{*AuthJsonItem:authList}];
+		var backendAuthList = [
+			{{#foreach:authList}}
+			{id:{{$id}},name:"{{$name}}"},
+			{{#end}}
+		];
 		// 前台权限分组数据
-		var memberAuthList = [{*AuthJsonItem:memberAuthList}];
+		var memberAuthList = [
+			{{#foreach:memberAuthList}}
+			{id:{{$id}},name:"{{$name}}"},
+			{{#end}}
+		];
 		
 		layui.use('form', function(){
 			var form = layui.form;
@@ -103,16 +111,16 @@
 			}
 			
 			// 初始值
-			var initAuthID = {$authID};
-			var initIsBackend = {$isBackend} == 1;
+			var initAuthID = {{$authID}};
+			var initIsBackend = {{$isBackend}} == 1;
 			
 			// 渲染表单
 			form.render();
 			form.val('urisForm', {
 				"isBackend": initIsBackend,
-				"needAuth": {$needAuth} == 1,
-				"needLog": {$needLog} == 1,
-				"keepActive": {$keepActive} == 1
+				"needAuth": {{$needAuth}} == 1,
+				"needLog": {{$needLog}} == 1,
+				"keepActive": {{$keepActive}} == 1
 			});
 			
 			// 初始化权限分组下拉框
@@ -154,14 +162,14 @@
 				.then(function(response) { return response.json(); })
 				.then(function(data) {
 					if ( data.result ) {
-						layer.msg(data.msg, {icon: 1});
+						layer.msg(data.message, {icon: 1});
 						// 刷新父窗口列表
 						parent.layui.table.reloadData('Table_Auth_URIs');
 						// 关闭当前弹窗
 						var index = parent.layer.getFrameIndex(window.name);
 						parent.layer.close(index);
 					} else {
-						layer.msg('请求服务报错：' + data.msg, {icon: 2});
+						layer.msg('请求服务报错：' + data.message, {icon: 2});
 					}
 				})
 				.catch(function(error) {
@@ -176,5 +184,3 @@
 	</script>
 </body>
 </html>
-{#define:AuthComboListItem}<option value={$id}>{$name}</option>{#end}
-{#define:AuthJsonItem}{{id:{$id},name:"{$name}"},{#end}

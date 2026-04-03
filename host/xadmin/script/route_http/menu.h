@@ -76,7 +76,7 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 		// 获取类型
 		int iType = sqlite3_column_int(stmt_menu_get, 4);
 		
-		// 构建数据�?
+		// 构建数据�?
 		xvalue tblMenu = xvoCreateTable();
 		xvoTableSetInt(tblMenu, "id", 2, sqlite3_column_int(stmt_menu_get, 0));
 		xvoTableSetInt(tblMenu, "parent", 6, sqlite3_column_int(stmt_menu_get, 1));
@@ -93,7 +93,7 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 		// 根据类型选择模板
 		str sTemplate = (iType == 0) ? "option/menu_edit_category.html" : "option/menu_edit.html";
 		
-		// 构建页面并返�?
+		// 构建页面并返�?
 		size_t iRetSize = 0;
 		str sPage = MakePageWithTemplate(sTemplate, tblMenu, &iRetSize);
 		xvoUnref(tblMenu);
@@ -114,7 +114,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 {
 	if ( HttpMethodIs(objReq, "GET") ) {
 		
-		// 获取所有菜单数�?
+		// 获取所有菜单数�?
 		xvalue arrData = xvoCreateArray();
 		
 		while ( sqlite3_step(stmt_menu_all) == SQLITE_ROW ) {
@@ -133,7 +133,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		}
 		sqlite3_reset(stmt_menu_all);
 		
-		// 构建返回�?
+		// 构建返回�?
 		xvalue tblRet = xvoCreateTable();
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
 		xvoTableSetText(tblRet, "message", 7, "菜单数据获取成功", 0, FALSE);
@@ -147,7 +147,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		
 	} else if ( HttpMethodIs(objReq, "POST") ) {
 		
-		// 解析请求�?
+		// 解析请求�?
 		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
@@ -198,7 +198,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		
 	} else if ( HttpMethodIs(objReq, "PUT") ) {
 		
-		// 解析请求�?
+		// 解析请求�?
 		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
@@ -274,7 +274,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		
 		int iID = atoi(sID);
 		
-		// 检查是否有子菜�?
+		// 检查是否有子菜�?
 		if ( Menu_HasChildren(iID) > 0 ) {
 			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"该菜单下存在子菜单，请先删除子菜单\"}", 0);
 			return;

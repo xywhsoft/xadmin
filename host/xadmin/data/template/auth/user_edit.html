@@ -11,11 +11,11 @@
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
 	<form class="layui-form" lay-filter="UserEditForm" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
-			<input type="hidden" name="id" value="{$id}">
+			<input type="hidden" name="id" value="{{$id}}">
 			<div class="layui-form-item">
 				<label class="layui-form-label">用户名</label>
 				<div class="layui-input-block">
-					<input type="text" name="user" value="{$user}" required lay-verify="required" placeholder="请输入用户名" autocomplete="off" class="layui-input layui-disabled" readonly>
+					<input type="text" name="user" value="{{$user}}" required lay-verify="required" placeholder="请输入用户名" autocomplete="off" class="layui-input layui-disabled" readonly>
 				</div>
 			</div>
 			<div class="layui-form-item">
@@ -23,14 +23,16 @@
 				<div class="layui-input-block">
 					<select name="role" lay-verify="required">
 						<option value="">请选择角色</option>
-						{*RoleComboListItem:roleList}
+						{{#foreach:roleList}}
+						<option value="{{$id}}">{{$name}}</option>
+						{{#end}}
 					</select>
 				</div>
 			</div>
 			<div class="layui-form-item">
 				<label class="layui-form-label">权限级别 <i class="layui-icon layui-icon-tips" lay-tips="该字段与角色管理中的字段用途相同，使用其中更高的作为最终权限级别" style="color: #1E9FFF; cursor: help;"></i></label>
 				<div class="layui-input-block">
-					<input type="number" name="authLevel" value="{$authLevel}" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
+					<input type="number" name="authLevel" value="{{$authLevel}}" placeholder="请输入权限级别（0-999）" autocomplete="off" class="layui-input">
 				</div>
 			</div>
 	</div>
@@ -49,8 +51,8 @@
 			// 渲染表单
 			form.render();
 			form.val('UserEditForm', {
-				"role": {$role},
-				"authLevel": {$authLevel}
+				"role": {{$role}},
+				"authLevel": {{$authLevel}}
 			});
 			
 			// 启用提示功能
@@ -117,4 +119,3 @@
 	</script>
 </body>
 </html>
-{#define:RoleComboListItem}<option value="{$id}">{$name}</option>{#end}
