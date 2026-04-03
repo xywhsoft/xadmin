@@ -4,7 +4,6 @@
 #include "ps_plugin_api.h"
 
 typedef struct PluginSystemGeneration PluginSystemGeneration;
-typedef struct PluginSystemInstance PluginSystemInstance;
 typedef struct PluginSystemPackage PluginSystemPackage;
 typedef struct PluginSystemServiceRegistration PluginSystemServiceRegistration;
 typedef struct PluginSystemServiceLeaseData PluginSystemServiceLeaseData;
@@ -12,12 +11,12 @@ typedef struct PluginSystemEventRegistration PluginSystemEventRegistration;
 typedef struct PluginSystemHookRegistration PluginSystemHookRegistration;
 
 typedef enum {
-	PS_INSTANCE_STATUS_DISCOVERED = 0,
-	PS_INSTANCE_STATUS_DISABLED = 1,
-	PS_INSTANCE_STATUS_RESOLVED = 2,
-	PS_INSTANCE_STATUS_ACTIVE = 3,
-	PS_INSTANCE_STATUS_FAILED = 4
-} PluginSystemInstanceStatus;
+	PS_PACKAGE_STATUS_DISCOVERED = 0,
+	PS_PACKAGE_STATUS_DISABLED = 1,
+	PS_PACKAGE_STATUS_RESOLVED = 2,
+	PS_PACKAGE_STATUS_ACTIVE = 3,
+	PS_PACKAGE_STATUS_FAILED = 4
+} PluginSystemPackageStatus;
 
 typedef enum {
 	PS_GENERATION_STATE_DISCOVERED = 0,
@@ -33,7 +32,7 @@ typedef enum {
 struct PluginSystemServiceRegistration {
 	PluginSystemGeneration* pGeneration;
 	str sServiceName;
-	str sProviderInstanceId;
+	str sProviderXid;
 	str sCapabilitiesRequired;
 	int iMajorVersion;
 	int iMinorVersion;
@@ -85,7 +84,6 @@ struct PluginSystemGeneration {
 	TCCState* pTccState;
 	const XAdminPluginDescriptor* pDescriptor;
 	XAdminPluginHandle hPlugin;
-	PluginSystemInstance* pInstance;
 	PluginSystemPackage* pPackage;
 	xlist lstRouteTokens;
 	xlist lstMenuTokens;
@@ -95,25 +93,6 @@ struct PluginSystemGeneration {
 	xlist lstServiceRegistrations;
 	xlist lstEventRegistrations;
 	xlist lstHookRegistrations;
-};
-
-struct PluginSystemInstance {
-	str sInstanceId;
-	str sPackageId;
-	str sInstanceName;
-	str sMountPath;
-	str sDataPath;
-	str sPrivateDbPath;
-	bool bEnabled;
-	bool bInstalled;
-	int iStatus;
-	uint32_t iNextGeneration;
-	uint32_t iActiveGeneration;
-	xvalue tblConfig;
-	PluginSystemGeneration* pActiveGeneration;
-	xlist lstDrainingGenerations;
-	int64 iCreateTime;
-	int64 iUpdateTime;
 };
 
 struct PluginSystemPackage {
@@ -126,14 +105,26 @@ struct PluginSystemPackage {
 	str sVersion;
 	str sAuthor;
 	str sKind;
-	bool bMultiInstance;
+	str sPackageId;
+	str sMountPath;
 	str sRootPath;
 	str sManifestPath;
 	str sEntry;
+	str sDataPath;
+	str sPrivateDbPath;
+	bool bEnabled;
+	bool bInstalled;
+	int iStatus;
+	uint32_t iNextGeneration;
+	uint32_t iActiveGeneration;
+	xvalue tblConfig;
+	PluginSystemGeneration* pActiveGeneration;
+	xlist lstDrainingGenerations;
+	int64 iCreateTime;
+	int64 iUpdateTime;
 	xvalue tblManifest;
 	xvalue tblDefaultConfig;
 	xvalue tblConfigSchema;
-	xlist lstInstances;
 };
 
 typedef struct PluginSystemManager {
@@ -161,14 +152,14 @@ str PS_PackageKey(PluginSystemPackage* pPackage)
 	return pPackage->sXid ? pPackage->sXid : pPackage->sName;
 }
 
-const char* PS_InstanceStatusText(int iStatus)
+const char* PS_PackageStatusText(int iStatus)
 {
 	switch ( iStatus ) {
-		case PS_INSTANCE_STATUS_DISCOVERED: return "discovered";
-		case PS_INSTANCE_STATUS_DISABLED: return "disabled";
-		case PS_INSTANCE_STATUS_RESOLVED: return "resolved";
-		case PS_INSTANCE_STATUS_ACTIVE: return "active";
-		case PS_INSTANCE_STATUS_FAILED: return "failed";
+		case PS_PACKAGE_STATUS_DISCOVERED: return "discovered";
+		case PS_PACKAGE_STATUS_DISABLED: return "disabled";
+		case PS_PACKAGE_STATUS_RESOLVED: return "resolved";
+		case PS_PACKAGE_STATUS_ACTIVE: return "active";
+		case PS_PACKAGE_STATUS_FAILED: return "failed";
 		default: return "unknown";
 	}
 }
@@ -188,14 +179,14 @@ const char* PS_GenerationStateText(int iState)
 	}
 }
 
-int PS_InstanceStatusFromText(str sStatus)
+int PS_PackageStatusFromText(str sStatus)
 {
-	if ( !sStatus ) return PS_INSTANCE_STATUS_DISCOVERED;
-	if ( strcmp(sStatus, "disabled") == 0 ) return PS_INSTANCE_STATUS_DISABLED;
-	if ( strcmp(sStatus, "resolved") == 0 ) return PS_INSTANCE_STATUS_RESOLVED;
-	if ( strcmp(sStatus, "active") == 0 ) return PS_INSTANCE_STATUS_ACTIVE;
-	if ( strcmp(sStatus, "failed") == 0 ) return PS_INSTANCE_STATUS_FAILED;
-	return PS_INSTANCE_STATUS_DISCOVERED;
+	if ( !sStatus ) return PS_PACKAGE_STATUS_DISCOVERED;
+	if ( strcmp(sStatus, "disabled") == 0 ) return PS_PACKAGE_STATUS_DISABLED;
+	if ( strcmp(sStatus, "resolved") == 0 ) return PS_PACKAGE_STATUS_RESOLVED;
+	if ( strcmp(sStatus, "active") == 0 ) return PS_PACKAGE_STATUS_ACTIVE;
+	if ( strcmp(sStatus, "failed") == 0 ) return PS_PACKAGE_STATUS_FAILED;
+	return PS_PACKAGE_STATUS_DISCOVERED;
 }
 
 void PS_FreeString(str* psValue)
@@ -323,61 +314,6 @@ void PS_DestroyGeneration(PluginSystemGeneration* pGeneration)
 	xrtFree(pGeneration);
 }
 
-PluginSystemInstance* PS_CreateInstance(str sInstanceId, str sPackageId)
-{
-	PluginSystemInstance* pInstance = xrtMalloc(sizeof(PluginSystemInstance));
-	if ( !pInstance ) {
-		return NULL;
-	}
-
-	memset(pInstance, 0, sizeof(PluginSystemInstance));
-	pInstance->sInstanceId = xrtCopyStr(sInstanceId, 0);
-	pInstance->sPackageId = xrtCopyStr(sPackageId, 0);
-	pInstance->sInstanceName = xrtCopyStr(sInstanceId, 0);
-	pInstance->iStatus = PS_INSTANCE_STATUS_DISCOVERED;
-	pInstance->iNextGeneration = 1;
-	pInstance->lstDrainingGenerations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
-	pInstance->iCreateTime = xrtNow();
-	pInstance->iUpdateTime = pInstance->iCreateTime;
-	return pInstance;
-}
-
-void PS_DestroyInstance(PluginSystemInstance* pInstance)
-{
-	if ( pInstance == NULL ) {
-		return;
-	}
-
-	if ( pInstance->pActiveGeneration ) {
-		PS_DestroyGeneration(pInstance->pActiveGeneration);
-		pInstance->pActiveGeneration = NULL;
-	}
-	if ( pInstance->lstDrainingGenerations ) {
-		for ( int i = 0; i < xrtListCount(pInstance->lstDrainingGenerations); i++ ) {
-			PluginSystemGeneration* pGeneration = xrtListGetPtr(pInstance->lstDrainingGenerations, i);
-			if ( pGeneration ) {
-				PS_DestroyGeneration(pGeneration);
-				xrtListSetPtr(pInstance->lstDrainingGenerations, i, NULL, NULL);
-			}
-		}
-		xrtListDestroy(pInstance->lstDrainingGenerations);
-		pInstance->lstDrainingGenerations = NULL;
-	}
-
-	if ( pInstance->tblConfig ) {
-		xvoUnref(pInstance->tblConfig);
-		pInstance->tblConfig = NULL;
-	}
-
-	PS_FreeString(&pInstance->sInstanceId);
-	PS_FreeString(&pInstance->sPackageId);
-	PS_FreeString(&pInstance->sInstanceName);
-	PS_FreeString(&pInstance->sMountPath);
-	PS_FreeString(&pInstance->sDataPath);
-	PS_FreeString(&pInstance->sPrivateDbPath);
-	xrtFree(pInstance);
-}
-
 PluginSystemPackage* PS_CreatePackage()
 {
 	PluginSystemPackage* pPackage = xrtMalloc(sizeof(PluginSystemPackage));
@@ -386,7 +322,13 @@ PluginSystemPackage* PS_CreatePackage()
 	}
 
 	memset(pPackage, 0, sizeof(PluginSystemPackage));
-	pPackage->lstInstances = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pPackage->sPackageId = NULL;
+	pPackage->sMountPath = NULL;
+	pPackage->iStatus = PS_PACKAGE_STATUS_DISCOVERED;
+	pPackage->iNextGeneration = 1;
+	pPackage->lstDrainingGenerations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	pPackage->iCreateTime = xrtNow();
+	pPackage->iUpdateTime = pPackage->iCreateTime;
 	return pPackage;
 }
 
@@ -396,15 +338,25 @@ void PS_DestroyPackage(PluginSystemPackage* pPackage)
 		return;
 	}
 
-	if ( pPackage->lstInstances ) {
-		int iCount = xrtListCount(pPackage->lstInstances);
-		for ( int i = 0; i < iCount; i++ ) {
-			PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, i);
-			PS_DestroyInstance(pInstance);
-			xrtListSetPtr(pPackage->lstInstances, i, NULL, NULL);
+	if ( pPackage->pActiveGeneration ) {
+		PS_DestroyGeneration(pPackage->pActiveGeneration);
+		pPackage->pActiveGeneration = NULL;
+	}
+	if ( pPackage->lstDrainingGenerations ) {
+		for ( int i = 0; i < xrtListCount(pPackage->lstDrainingGenerations); i++ ) {
+			PluginSystemGeneration* pGeneration = xrtListGetPtr(pPackage->lstDrainingGenerations, i);
+			if ( pGeneration ) {
+				PS_DestroyGeneration(pGeneration);
+				xrtListSetPtr(pPackage->lstDrainingGenerations, i, NULL, NULL);
+			}
 		}
-		xrtListDestroy(pPackage->lstInstances);
-		pPackage->lstInstances = NULL;
+		xrtListDestroy(pPackage->lstDrainingGenerations);
+		pPackage->lstDrainingGenerations = NULL;
+	}
+
+	if ( pPackage->tblConfig ) {
+		xvoUnref(pPackage->tblConfig);
+		pPackage->tblConfig = NULL;
 	}
 
 	if ( pPackage->tblManifest ) {
@@ -429,56 +381,20 @@ void PS_DestroyPackage(PluginSystemPackage* pPackage)
 	PS_FreeString(&pPackage->sVersion);
 	PS_FreeString(&pPackage->sAuthor);
 	PS_FreeString(&pPackage->sKind);
+	PS_FreeString(&pPackage->sPackageId);
+	PS_FreeString(&pPackage->sMountPath);
 	PS_FreeString(&pPackage->sRootPath);
 	PS_FreeString(&pPackage->sManifestPath);
 	PS_FreeString(&pPackage->sEntry);
+	PS_FreeString(&pPackage->sDataPath);
+	PS_FreeString(&pPackage->sPrivateDbPath);
 	xrtFree(pPackage);
 }
 
-PluginSystemInstance* PS_GetDefaultInstance(PluginSystemPackage* pPackage)
+const char* PS_PackageLogId(PluginSystemPackage* pPackage)
 {
-	if ( (pPackage == NULL) || (pPackage->lstInstances == NULL) || (xrtListCount(pPackage->lstInstances) <= 0) ) {
-		return NULL;
-	}
-	return xrtListGetPtr(pPackage->lstInstances, 0);
-}
-
-int PS_GetInstanceCount(PluginSystemPackage* pPackage)
-{
-	if ( (pPackage == NULL) || (pPackage->lstInstances == NULL) ) {
-		return 0;
-	}
-	return xrtListCount(pPackage->lstInstances);
-}
-
-PluginSystemInstance* PS_FindInstanceById(PluginSystemPackage* pPackage, const char* sInstanceId)
-{
-	if ( (pPackage == NULL) || (pPackage->lstInstances == NULL) || (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
-		return NULL;
-	}
-
-	for ( int i = 0; i < xrtListCount(pPackage->lstInstances); i++ ) {
-		PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, i);
-		if ( pInstance && pInstance->sInstanceId && (strcmp((const char*)pInstance->sInstanceId, sInstanceId) == 0) ) {
-			return pInstance;
-		}
-	}
-	return NULL;
-}
-
-PluginSystemInstance* PS_FindInstanceByName(PluginSystemPackage* pPackage, const char* sInstanceName)
-{
-	if ( (pPackage == NULL) || (pPackage->lstInstances == NULL) || (sInstanceName == NULL) || (sInstanceName[0] == '\0') ) {
-		return NULL;
-	}
-
-	for ( int i = 0; i < xrtListCount(pPackage->lstInstances); i++ ) {
-		PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, i);
-		if ( pInstance && pInstance->sInstanceName && (strcmp((const char*)pInstance->sInstanceName, sInstanceName) == 0) ) {
-			return pInstance;
-		}
-	}
-	return NULL;
+	str sXid = PS_PackageKey(pPackage);
+	return sXid ? (const char*)sXid : "(unknown)";
 }
 
 #endif

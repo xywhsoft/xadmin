@@ -96,12 +96,12 @@ PluginSystemServiceRegistration* PS_ServiceCreateRegistration(PluginSystemGenera
 	}
 	memset(pRegistration, 0, sizeof(PluginSystemServiceRegistration));
 
-	const char* sProviderInstanceId = decl->provider_xid ? decl->provider_xid : (const char*)PS_PackageKey(pGeneration->pPackage);
+	const char* sProviderXid = decl->provider_xid ? decl->provider_xid : (const char*)PS_PackageKey(pGeneration->pPackage);
 	const char* sCapabilitiesRequired = decl->capabilities_required ? decl->capabilities_required : "";
 
 	pRegistration->pGeneration = pGeneration;
 	pRegistration->sServiceName = xrtCopyStr((str)decl->service_name, 0);
-	pRegistration->sProviderInstanceId = xrtCopyStr((str)sProviderInstanceId, 0);
+	pRegistration->sProviderXid = xrtCopyStr((str)sProviderXid, 0);
 	pRegistration->sCapabilitiesRequired = xrtCopyStr((str)sCapabilitiesRequired, 0);
 	pRegistration->iMajorVersion = decl->major_version;
 	pRegistration->iMinorVersion = decl->minor_version;
@@ -110,9 +110,9 @@ PluginSystemServiceRegistration* PS_ServiceCreateRegistration(PluginSystemGenera
 	pRegistration->pVtable = pVTable;
 	pRegistration->bPublished = FALSE;
 
-	if ( (pRegistration->sServiceName == NULL) || (pRegistration->sProviderInstanceId == NULL) || (pRegistration->sCapabilitiesRequired == NULL) ) {
+	if ( (pRegistration->sServiceName == NULL) || (pRegistration->sProviderXid == NULL) || (pRegistration->sCapabilitiesRequired == NULL) ) {
 		PS_FreeString(&pRegistration->sServiceName);
-		PS_FreeString(&pRegistration->sProviderInstanceId);
+		PS_FreeString(&pRegistration->sProviderXid);
 		PS_FreeString(&pRegistration->sCapabilitiesRequired);
 		xrtFree(pRegistration);
 		return NULL;
@@ -128,7 +128,7 @@ void PS_ServiceFreeRegistration(PluginSystemServiceRegistration* pRegistration)
 	}
 
 	PS_FreeString(&pRegistration->sServiceName);
-	PS_FreeString(&pRegistration->sProviderInstanceId);
+	PS_FreeString(&pRegistration->sProviderXid);
 	PS_FreeString(&pRegistration->sCapabilitiesRequired);
 	xrtFree(pRegistration);
 }
@@ -260,7 +260,7 @@ int PS_HostRegisterService(void* plugin_handle, const XAdminServiceDecl* decl, c
 	PluginSystemServiceRegistration* pRegistration;
 	str sResourceKey;
 
-	if ( (pGeneration == NULL) || (pGeneration->pInstance == NULL) || (decl == NULL) || (decl->service_name == NULL) || (decl->service_name[0] == '\0') || (decl->major_version < 0) || (decl->minor_version < 0) || (decl->vtable_size <= 0) || (vtable == NULL) ) {
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (decl == NULL) || (decl->service_name == NULL) || (decl->service_name[0] == '\0') || (decl->major_version < 0) || (decl->minor_version < 0) || (decl->vtable_size <= 0) || (vtable == NULL) ) {
 		return -1;
 	}
 	if ( decl->provider_xid && !PS_ServiceTextEquals(decl->provider_xid, (const char*)PS_PackageKey(pGeneration->pPackage)) ) {
@@ -285,7 +285,7 @@ int PS_HostRegisterService(void* plugin_handle, const XAdminServiceDecl* decl, c
 		"generation",
 		"service",
 		sResourceKey ? sResourceKey : (str)decl->service_name,
-		pRegistration->sProviderInstanceId,
+		pRegistration->sProviderXid,
 		"lease_drain"
 	);
 	pRegistration->iServiceRowId = PS_StorageSaveService(pGeneration, decl->service_name, decl->major_version, decl->minor_version, "staged");

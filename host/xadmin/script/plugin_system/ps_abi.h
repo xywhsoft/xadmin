@@ -84,6 +84,14 @@ const char* PS_HostGetActorXid(void* plugin_handle)
 	return "(system)";
 }
 
+const char* PS_HostGenerationXid(PluginSystemGeneration* pGeneration)
+{
+	if ( pGeneration && pGeneration->pPackage && PS_PackageKey(pGeneration->pPackage) ) {
+		return (const char*)PS_PackageKey(pGeneration->pPackage);
+	}
+	return "(unknown)";
+}
+
 void PS_HostAppendToken(xlist lstTokens, ptr pToken)
 {
 	int iIndex;
@@ -122,10 +130,10 @@ bool PS_HostMatchOwnedRow(const char* sSQL, int iRowId, PluginSystemGeneration* 
 {
 	sqlite3_stmt* stmt = NULL;
 	bool bMatch = FALSE;
-	const unsigned char* sInstanceId = NULL;
+	const unsigned char* sXid = NULL;
 	int iGeneration = 0;
 
-	if ( (G_DB == NULL) || (sSQL == NULL) || (iRowId <= 0) || (pGeneration == NULL) || (pGeneration->pInstance == NULL) ) {
+	if ( (G_DB == NULL) || (sSQL == NULL) || (iRowId <= 0) || (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
 		return FALSE;
 	}
 
@@ -135,9 +143,9 @@ bool PS_HostMatchOwnedRow(const char* sSQL, int iRowId, PluginSystemGeneration* 
 
 	sqlite3_bind_int(stmt, 1, iRowId);
 	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
-		sInstanceId = sqlite3_column_text(stmt, 0);
+		sXid = sqlite3_column_text(stmt, 0);
 		iGeneration = sqlite3_column_int(stmt, 1);
-		bMatch = PS_HostTextEquals((const char*)sInstanceId, pGeneration->pInstance->sInstanceId) && (iGeneration == (int)pGeneration->iGeneration);
+		bMatch = PS_HostTextEquals((const char*)sXid, PS_HostGenerationXid(pGeneration)) && (iGeneration == (int)pGeneration->iGeneration);
 	}
 
 	sqlite3_finalize(stmt);
@@ -380,21 +388,21 @@ int PS_HostFindMenuId(PluginSystemGeneration* pGeneration, const XAdminMenuDecl*
 	sqlite3_stmt* stmt = NULL;
 	int iMenuId = 0;
 
-	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pInstance == NULL) || (decl == NULL) ) {
+	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (decl == NULL) ) {
 		return 0;
 	}
 
 	if ( decl->href && decl->href[0] ) {
-		if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM menu WHERE plugin_instance_id = ? AND href = ? ORDER BY id DESC LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM menu WHERE plugin_xid = ? AND href = ? ORDER BY id DESC LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return 0;
 		}
-		PS_StorageBindText(stmt, 1, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 1, PS_HostGenerationXid(pGeneration));
 		PS_StorageBindText(stmt, 2, decl->href);
 	} else {
-		if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM menu WHERE plugin_instance_id = ? AND parent = ? AND title = ? AND type = ? ORDER BY id DESC LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM menu WHERE plugin_xid = ? AND parent = ? AND title = ? AND type = ? ORDER BY id DESC LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return 0;
 		}
-		PS_StorageBindText(stmt, 1, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 1, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 2, decl->parent_id);
 		PS_StorageBindText(stmt, 3, decl->title);
 		sqlite3_bind_int(stmt, 4, decl->type);
@@ -416,14 +424,14 @@ int PS_HostRegisterMenu(void* plugin_handle, const XAdminMenuDecl* decl, int* ou
 	int iMenuId = 0;
 	int64 iNow;
 
-	if ( (decl == NULL) || (decl->title == NULL) || (decl->title[0] == '\0') || (pGeneration == NULL) || (pGeneration->pInstance == NULL) ) {
+	if ( (decl == NULL) || (decl->title == NULL) || (decl->title[0] == '\0') || (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
 		return -1;
 	}
 
 	iMenuId = PS_HostFindMenuId(pGeneration, decl);
 	iNow = xrtNow();
 	if ( iMenuId > 0 ) {
-		if ( sqlite3_prepare_v3(G_DB, "UPDATE menu SET parent = ?, title = ?, icon = ?, type = ?, openType = ?, href = ?, sort = ?, visible = ?, remark = ?, updateTime = ?, plugin_instance_id = ?, plugin_generation = ?, isDelete = 0 WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE menu SET parent = ?, title = ?, icon = ?, type = ?, openType = ?, href = ?, sort = ?, visible = ?, remark = ?, updateTime = ?, plugin_xid = ?, plugin_generation = ?, isDelete = 0 WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return -1;
 		}
 		sqlite3_bind_int(stmt, 1, decl->parent_id);
@@ -436,11 +444,11 @@ int PS_HostRegisterMenu(void* plugin_handle, const XAdminMenuDecl* decl, int* ou
 		sqlite3_bind_int(stmt, 8, decl->visible ? 1 : 0);
 		PS_StorageBindText(stmt, 9, decl->remark);
 		sqlite3_bind_int64(stmt, 10, iNow);
-		PS_StorageBindText(stmt, 11, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 11, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 12, (int)pGeneration->iGeneration);
 		sqlite3_bind_int(stmt, 13, iMenuId);
 	} else {
-		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, plugin_instance_id, plugin_generation, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO menu (parent, title, icon, type, openType, href, sort, visible, remark, createTime, updateTime, plugin_xid, plugin_generation, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return -1;
 		}
 		sqlite3_bind_int(stmt, 1, decl->parent_id);
@@ -454,7 +462,7 @@ int PS_HostRegisterMenu(void* plugin_handle, const XAdminMenuDecl* decl, int* ou
 		PS_StorageBindText(stmt, 9, decl->remark);
 		sqlite3_bind_int64(stmt, 10, iNow);
 		sqlite3_bind_int64(stmt, 11, iNow);
-		PS_StorageBindText(stmt, 12, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 12, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 13, (int)pGeneration->iGeneration);
 	}
 
@@ -504,7 +512,7 @@ int PS_HostUnregisterMenu(XAdminMenuToken token)
 		PS_HostDetachToken(pToken->base.pGeneration->lstMenuTokens, pToken);
 	}
 
-	if ( PS_HostMatchOwnedRow("SELECT plugin_instance_id, plugin_generation FROM menu WHERE id = ?", pToken->iMenuId, pToken->base.pGeneration) ) {
+	if ( PS_HostMatchOwnedRow("SELECT plugin_xid, plugin_generation FROM menu WHERE id = ?", pToken->iMenuId, pToken->base.pGeneration) ) {
 		if ( sqlite3_prepare_v3(G_DB, "UPDATE menu SET isDelete = 1, updateTime = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_int64(stmt, 1, xrtNow());
 			sqlite3_bind_int(stmt, 2, pToken->iMenuId);
@@ -524,11 +532,11 @@ int PS_HostFindAuthGroupId(PluginSystemGeneration* pGeneration, int iScope, cons
 	str sSQL = NULL;
 	int iGroupId = 0;
 
-	if ( (pGeneration == NULL) || (pGeneration->pInstance == NULL) || (sName == NULL) || (sName[0] == '\0') ) {
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (sName == NULL) || (sName[0] == '\0') ) {
 		return 0;
 	}
 
-	sSQL = xrtFormat("SELECT id FROM %s WHERE plugin_instance_id = ? AND name = ? ORDER BY id DESC LIMIT 1", PS_HostAuthGroupTable(iScope));
+	sSQL = xrtFormat("SELECT id FROM %s WHERE plugin_xid = ? AND name = ? ORDER BY id DESC LIMIT 1", PS_HostAuthGroupTable(iScope));
 	if ( (sSQL == NULL) || (sqlite3_prepare_v3(G_DB, sSQL, -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK) ) {
 		if ( sSQL ) {
 			xrtFree(sSQL);
@@ -536,7 +544,7 @@ int PS_HostFindAuthGroupId(PluginSystemGeneration* pGeneration, int iScope, cons
 		return 0;
 	}
 
-	PS_StorageBindText(stmt, 1, pGeneration->pInstance->sInstanceId);
+	PS_StorageBindText(stmt, 1, PS_HostGenerationXid(pGeneration));
 	PS_StorageBindText(stmt, 2, sName);
 	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 		iGroupId = sqlite3_column_int(stmt, 0);
@@ -558,7 +566,7 @@ int PS_HostRegisterAuthGroup(void* plugin_handle, const XAdminAuthGroupDecl* dec
 	int iScope;
 	int64 iNow;
 
-	if ( (decl == NULL) || (decl->name == NULL) || (decl->name[0] == '\0') || (pGeneration == NULL) || (pGeneration->pInstance == NULL) ) {
+	if ( (decl == NULL) || (decl->name == NULL) || (decl->name[0] == '\0') || (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
 		return -1;
 	}
 
@@ -566,9 +574,9 @@ int PS_HostRegisterAuthGroup(void* plugin_handle, const XAdminAuthGroupDecl* dec
 	iGroupId = PS_HostFindAuthGroupId(pGeneration, iScope, decl->name);
 	iNow = xrtNow();
 	if ( iGroupId > 0 ) {
-		sSQL = xrtFormat("UPDATE %s SET name = ?, desc = ?, sort = ?, updateTime = ?, plugin_instance_id = ?, plugin_generation = ?, isDelete = 0 WHERE id = ?", PS_HostAuthGroupTable(iScope));
+		sSQL = xrtFormat("UPDATE %s SET name = ?, desc = ?, sort = ?, updateTime = ?, plugin_xid = ?, plugin_generation = ?, isDelete = 0 WHERE id = ?", PS_HostAuthGroupTable(iScope));
 	} else {
-		sSQL = xrtFormat("INSERT INTO %s (name, desc, sort, createTime, updateTime, plugin_instance_id, plugin_generation, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", PS_HostAuthGroupTable(iScope));
+		sSQL = xrtFormat("INSERT INTO %s (name, desc, sort, createTime, updateTime, plugin_xid, plugin_generation, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, 0)", PS_HostAuthGroupTable(iScope));
 	}
 	if ( (sSQL == NULL) || (sqlite3_prepare_v3(G_DB, sSQL, -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK) ) {
 		if ( sSQL ) {
@@ -582,13 +590,13 @@ int PS_HostRegisterAuthGroup(void* plugin_handle, const XAdminAuthGroupDecl* dec
 	sqlite3_bind_int(stmt, 3, decl->sort);
 	if ( iGroupId > 0 ) {
 		sqlite3_bind_int64(stmt, 4, iNow);
-		PS_StorageBindText(stmt, 5, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 5, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 6, (int)pGeneration->iGeneration);
 		sqlite3_bind_int(stmt, 7, iGroupId);
 	} else {
 		sqlite3_bind_int64(stmt, 4, iNow);
 		sqlite3_bind_int64(stmt, 5, iNow);
-		PS_StorageBindText(stmt, 6, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 6, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 7, (int)pGeneration->iGeneration);
 	}
 
@@ -647,7 +655,7 @@ int PS_HostUnregisterAuthGroup(XAdminAuthGroupToken token)
 		PS_HostDetachToken(pToken->base.pGeneration->lstAuthGroupTokens, pToken);
 	}
 
-	sSQL = xrtFormat("SELECT plugin_instance_id, plugin_generation FROM %s WHERE id = ?", PS_HostAuthGroupTable(pToken->iScope));
+	sSQL = xrtFormat("SELECT plugin_xid, plugin_generation FROM %s WHERE id = ?", PS_HostAuthGroupTable(pToken->iScope));
 	if ( (sSQL != NULL) && PS_HostMatchOwnedRow(sSQL, pToken->iGroupId, pToken->base.pGeneration) ) {
 		str sMoveSQL = xrtFormat("UPDATE %s SET groupID = 1, updateTime = ? WHERE groupID = ? AND isDelete = 0", PS_HostAuthTable(pToken->iScope));
 		if ( (sMoveSQL != NULL) && (sqlite3_prepare_v3(G_DB, sMoveSQL, -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK) ) {
@@ -689,11 +697,11 @@ int PS_HostFindAuthId(PluginSystemGeneration* pGeneration, int iScope, const cha
 	str sSQL = NULL;
 	int iAuthId = 0;
 
-	if ( (pGeneration == NULL) || (pGeneration->pInstance == NULL) || (sName == NULL) || (sName[0] == '\0') ) {
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (sName == NULL) || (sName[0] == '\0') ) {
 		return 0;
 	}
 
-	sSQL = xrtFormat("SELECT id FROM %s WHERE plugin_instance_id = ? AND name = ? ORDER BY id DESC LIMIT 1", PS_HostAuthTable(iScope));
+	sSQL = xrtFormat("SELECT id FROM %s WHERE plugin_xid = ? AND name = ? ORDER BY id DESC LIMIT 1", PS_HostAuthTable(iScope));
 	if ( (sSQL == NULL) || (sqlite3_prepare_v3(G_DB, sSQL, -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK) ) {
 		if ( sSQL ) {
 			xrtFree(sSQL);
@@ -701,7 +709,7 @@ int PS_HostFindAuthId(PluginSystemGeneration* pGeneration, int iScope, const cha
 		return 0;
 	}
 
-	PS_StorageBindText(stmt, 1, pGeneration->pInstance->sInstanceId);
+	PS_StorageBindText(stmt, 1, PS_HostGenerationXid(pGeneration));
 	PS_StorageBindText(stmt, 2, sName);
 	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 		iAuthId = sqlite3_column_int(stmt, 0);
@@ -723,7 +731,7 @@ int PS_HostRegisterAuth(void* plugin_handle, const XAdminAuthDecl* decl, int* ou
 	int iScope;
 	int64 iNow;
 
-	if ( (decl == NULL) || (decl->name == NULL) || (decl->name[0] == '\0') || (pGeneration == NULL) || (pGeneration->pInstance == NULL) || (decl->group_id <= 0) ) {
+	if ( (decl == NULL) || (decl->name == NULL) || (decl->name[0] == '\0') || (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (decl->group_id <= 0) ) {
 		return -1;
 	}
 
@@ -731,9 +739,9 @@ int PS_HostRegisterAuth(void* plugin_handle, const XAdminAuthDecl* decl, int* ou
 	iAuthId = PS_HostFindAuthId(pGeneration, iScope, decl->name);
 	iNow = xrtNow();
 	if ( iAuthId > 0 ) {
-		sSQL = xrtFormat("UPDATE %s SET groupID = ?, name = ?, desc = ?, sort = ?, updateTime = ?, plugin_instance_id = ?, plugin_generation = ?, isDelete = 0 WHERE id = ?", PS_HostAuthTable(iScope));
+		sSQL = xrtFormat("UPDATE %s SET groupID = ?, name = ?, desc = ?, sort = ?, updateTime = ?, plugin_xid = ?, plugin_generation = ?, isDelete = 0 WHERE id = ?", PS_HostAuthTable(iScope));
 	} else {
-		sSQL = xrtFormat("INSERT INTO %s (groupID, name, desc, sort, createTime, updateTime, plugin_instance_id, plugin_generation, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)", PS_HostAuthTable(iScope));
+		sSQL = xrtFormat("INSERT INTO %s (groupID, name, desc, sort, createTime, updateTime, plugin_xid, plugin_generation, isDelete) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)", PS_HostAuthTable(iScope));
 	}
 	if ( (sSQL == NULL) || (sqlite3_prepare_v3(G_DB, sSQL, -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK) ) {
 		if ( sSQL ) {
@@ -748,13 +756,13 @@ int PS_HostRegisterAuth(void* plugin_handle, const XAdminAuthDecl* decl, int* ou
 	sqlite3_bind_int(stmt, 4, decl->sort);
 	if ( iAuthId > 0 ) {
 		sqlite3_bind_int64(stmt, 5, iNow);
-		PS_StorageBindText(stmt, 6, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 6, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 7, (int)pGeneration->iGeneration);
 		sqlite3_bind_int(stmt, 8, iAuthId);
 	} else {
 		sqlite3_bind_int64(stmt, 5, iNow);
 		sqlite3_bind_int64(stmt, 6, iNow);
-		PS_StorageBindText(stmt, 7, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 7, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 8, (int)pGeneration->iGeneration);
 	}
 
@@ -813,7 +821,7 @@ int PS_HostUnregisterAuth(XAdminAuthToken token)
 		PS_HostDetachToken(pToken->base.pGeneration->lstAuthTokens, pToken);
 	}
 
-	sSQL = xrtFormat("SELECT plugin_instance_id, plugin_generation FROM %s WHERE id = ?", PS_HostAuthTable(pToken->iScope));
+	sSQL = xrtFormat("SELECT plugin_xid, plugin_generation FROM %s WHERE id = ?", PS_HostAuthTable(pToken->iScope));
 	if ( (sSQL != NULL) && PS_HostMatchOwnedRow(sSQL, pToken->iAuthId, pToken->base.pGeneration) ) {
 		str sMoveSQL = xrtCopyStr((pToken->iScope == XADMIN_AUTH_SCOPE_MEMBER) ? "UPDATE uris SET authID = 1, updateTime = ? WHERE authID = ? AND isBackend = 0" : "UPDATE uris SET authID = 1, updateTime = ? WHERE authID = ? AND isBackend = 1", 0);
 		if ( (sMoveSQL != NULL) && (sqlite3_prepare_v3(G_DB, sMoveSQL, -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK) ) {
@@ -882,7 +890,7 @@ int PS_HostRegisterUriAuth(void* plugin_handle, const XAdminUriAuthDecl* decl, i
 	int iScope;
 	int64 iNow;
 
-	if ( (decl == NULL) || (decl->uri == NULL) || (decl->uri[0] == '\0') || (decl->auth_id <= 0) || (pGeneration == NULL) || (pGeneration->pInstance == NULL) ) {
+	if ( (decl == NULL) || (decl->uri == NULL) || (decl->uri[0] == '\0') || (decl->auth_id <= 0) || (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
 		return -1;
 	}
 
@@ -895,7 +903,7 @@ int PS_HostRegisterUriAuth(void* plugin_handle, const XAdminUriAuthDecl* decl, i
 	iUriId = PS_HostFindUriId(decl->uri);
 	iNow = xrtNow();
 	if ( iUriId > 0 ) {
-		if ( sqlite3_prepare_v3(G_DB, "UPDATE uris SET authID = ?, uri = ?, desc = ?, isBackend = ?, needAuth = ?, needLog = ?, keepActive = ?, sort = ?, updateTime = ?, plugin_instance_id = ?, plugin_generation = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE uris SET authID = ?, uri = ?, desc = ?, isBackend = ?, needAuth = ?, needLog = ?, keepActive = ?, sort = ?, updateTime = ?, plugin_xid = ?, plugin_generation = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return -1;
 		}
 		sqlite3_bind_int(stmt, 1, decl->auth_id);
@@ -907,11 +915,11 @@ int PS_HostRegisterUriAuth(void* plugin_handle, const XAdminUriAuthDecl* decl, i
 		sqlite3_bind_int(stmt, 7, decl->keep_active ? 1 : 0);
 		sqlite3_bind_int(stmt, 8, decl->sort);
 		sqlite3_bind_int64(stmt, 9, iNow);
-		PS_StorageBindText(stmt, 10, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 10, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 11, (int)pGeneration->iGeneration);
 		sqlite3_bind_int(stmt, 12, iUriId);
 	} else {
-		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO uris (authID, uri, desc, isBackend, needAuth, needLog, keepActive, sort, createTime, updateTime, plugin_instance_id, plugin_generation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO uris (authID, uri, desc, isBackend, needAuth, needLog, keepActive, sort, createTime, updateTime, plugin_xid, plugin_generation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return -1;
 		}
 		sqlite3_bind_int(stmt, 1, decl->auth_id);
@@ -924,7 +932,7 @@ int PS_HostRegisterUriAuth(void* plugin_handle, const XAdminUriAuthDecl* decl, i
 		sqlite3_bind_int(stmt, 8, decl->sort);
 		sqlite3_bind_int64(stmt, 9, iNow);
 		sqlite3_bind_int64(stmt, 10, iNow);
-		PS_StorageBindText(stmt, 11, pGeneration->pInstance->sInstanceId);
+		PS_StorageBindText(stmt, 11, PS_HostGenerationXid(pGeneration));
 		sqlite3_bind_int(stmt, 12, (int)pGeneration->iGeneration);
 	}
 
@@ -988,7 +996,7 @@ int PS_HostUnregisterUriAuth(XAdminUriAuthToken token)
 		PS_HostDetachToken(pToken->base.pGeneration->lstUriAuthTokens, pToken);
 	}
 
-	if ( PS_HostMatchOwnedRow("SELECT plugin_instance_id, plugin_generation FROM uris WHERE id = ?", pToken->iUriId, pToken->base.pGeneration) ) {
+	if ( PS_HostMatchOwnedRow("SELECT plugin_xid, plugin_generation FROM uris WHERE id = ?", pToken->iUriId, pToken->base.pGeneration) ) {
 		if ( sqlite3_prepare_v3(G_DB, "DELETE FROM uris WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_int(stmt, 1, pToken->iUriId);
 			sqlite3_step(stmt);

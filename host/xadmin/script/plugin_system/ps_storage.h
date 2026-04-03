@@ -11,6 +11,34 @@ void PS_StorageExecIgnore(const char* sSQL)
 	sqlite3_exec(G_DB, sSQL, NULL, NULL, NULL);
 }
 
+const char* PS_StoragePackageXid(PluginSystemPackage* pPackage)
+{
+	return PS_PackageLogId(pPackage);
+}
+
+const char* PS_StorageGenerationXid(PluginSystemGeneration* pGeneration)
+{
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
+		return "(unknown)";
+	}
+	return PS_StoragePackageXid(pGeneration->pPackage);
+}
+
+void PS_StorageMigrateLegacyState()
+{
+	PS_StorageExecIgnore("INSERT OR IGNORE INTO plugin_runtime (package_id, xid, mount_path, data_path, private_db_path, enabled, installed, config_json, status, active_generation, create_time, update_time) SELECT COALESCE(package_id, xid, instance_id), COALESCE(xid, package_id, instance_id), mount_path, data_path, private_db_path, enabled, installed, config_json, status, active_generation, create_time, update_time FROM plugin_instance");
+	PS_StorageExecIgnore("UPDATE plugin_generation SET xid = instance_id WHERE (xid IS NULL OR xid = '') AND instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE plugin_resource SET xid = instance_id WHERE (xid IS NULL OR xid = '') AND instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE plugin_migration_log SET xid = instance_id WHERE (xid IS NULL OR xid = '') AND instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE plugin_service SET xid = instance_id WHERE (xid IS NULL OR xid = '') AND instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE menu SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE uris SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE authGroup SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE auth SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE memberAuthGroup SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
+	PS_StorageExecIgnore("UPDATE memberAuth SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
+}
+
 void PS_StorageInit()
 {
 	if ( G_DB == NULL ) {
@@ -18,29 +46,37 @@ void PS_StorageInit()
 	}
 
 	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_package (package_id TEXT PRIMARY KEY, xid TEXT, plugin_id TEXT, version TEXT, source_type TEXT, install_path TEXT, checksum TEXT, signature TEXT, trust_level TEXT, manifest_json TEXT, install_time INTEGER)");
-	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_instance (instance_id TEXT PRIMARY KEY, package_id TEXT, xid TEXT, instance_name TEXT, mount_path TEXT, data_path TEXT, private_db_path TEXT, enabled INTEGER, config_json TEXT, status TEXT, active_generation INTEGER, create_time INTEGER, update_time INTEGER)");
-	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_generation (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT, generation INTEGER, package_version TEXT, state TEXT, compile_hash TEXT, load_time INTEGER, start_time INTEGER, stop_time INTEGER, health_status TEXT, error_message TEXT)");
+	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_runtime (package_id TEXT PRIMARY KEY, xid TEXT, mount_path TEXT, data_path TEXT, private_db_path TEXT, enabled INTEGER, installed INTEGER, config_json TEXT, status TEXT, active_generation INTEGER, create_time INTEGER, update_time INTEGER)");
+	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_instance (instance_id TEXT PRIMARY KEY, package_id TEXT, xid TEXT, instance_name TEXT, mount_path TEXT, data_path TEXT, private_db_path TEXT, enabled INTEGER, installed INTEGER, config_json TEXT, status TEXT, active_generation INTEGER, create_time INTEGER, update_time INTEGER)");
+	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_generation (id INTEGER PRIMARY KEY AUTOINCREMENT, xid TEXT, generation INTEGER, package_version TEXT, state TEXT, compile_hash TEXT, load_time INTEGER, start_time INTEGER, stop_time INTEGER, health_status TEXT, error_message TEXT)");
 	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_dependency (id INTEGER PRIMARY KEY AUTOINCREMENT, package_id TEXT, dependency_type TEXT, dependency_name TEXT, min_version TEXT, max_version TEXT)");
-	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_resource (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT, generation INTEGER, owner_scope TEXT, resource_type TEXT, resource_key TEXT, resource_ref TEXT, destroy_policy TEXT, create_time INTEGER, status TEXT)");
-	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_migration_log (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT, migration_name TEXT, direction TEXT, status TEXT, message TEXT, exec_time INTEGER)");
-	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_service (id INTEGER PRIMARY KEY AUTOINCREMENT, instance_id TEXT, generation INTEGER, service_name TEXT, major_version INTEGER, minor_version INTEGER, status TEXT)");
+	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_resource (id INTEGER PRIMARY KEY AUTOINCREMENT, xid TEXT, generation INTEGER, owner_scope TEXT, resource_type TEXT, resource_key TEXT, resource_ref TEXT, destroy_policy TEXT, create_time INTEGER, status TEXT)");
+	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_migration_log (id INTEGER PRIMARY KEY AUTOINCREMENT, xid TEXT, migration_name TEXT, direction TEXT, status TEXT, message TEXT, exec_time INTEGER)");
+	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_service (id INTEGER PRIMARY KEY AUTOINCREMENT, xid TEXT, generation INTEGER, service_name TEXT, major_version INTEGER, minor_version INTEGER, status TEXT)");
 	PS_StorageExecIgnore("ALTER TABLE plugin_package ADD COLUMN xid TEXT");
-	PS_StorageExecIgnore("ALTER TABLE plugin_instance ADD COLUMN xid TEXT");
-	PS_StorageExecIgnore("ALTER TABLE plugin_instance ADD COLUMN data_path TEXT");
-	PS_StorageExecIgnore("ALTER TABLE plugin_instance ADD COLUMN private_db_path TEXT");
+	PS_StorageExecIgnore("ALTER TABLE plugin_runtime ADD COLUMN xid TEXT");
+	PS_StorageExecIgnore("ALTER TABLE plugin_runtime ADD COLUMN data_path TEXT");
+	PS_StorageExecIgnore("ALTER TABLE plugin_runtime ADD COLUMN private_db_path TEXT");
+	PS_StorageExecIgnore("ALTER TABLE plugin_runtime ADD COLUMN installed INTEGER");
+	PS_StorageExecIgnore("ALTER TABLE plugin_generation ADD COLUMN xid TEXT");
+	PS_StorageExecIgnore("ALTER TABLE plugin_resource ADD COLUMN xid TEXT");
+	PS_StorageExecIgnore("ALTER TABLE plugin_migration_log ADD COLUMN xid TEXT");
+	PS_StorageExecIgnore("ALTER TABLE plugin_service ADD COLUMN xid TEXT");
 
-	PS_StorageExecIgnore("ALTER TABLE menu ADD COLUMN plugin_instance_id TEXT");
+	PS_StorageExecIgnore("ALTER TABLE menu ADD COLUMN plugin_xid TEXT");
 	PS_StorageExecIgnore("ALTER TABLE menu ADD COLUMN plugin_generation INTEGER");
-	PS_StorageExecIgnore("ALTER TABLE uris ADD COLUMN plugin_instance_id TEXT");
+	PS_StorageExecIgnore("ALTER TABLE uris ADD COLUMN plugin_xid TEXT");
 	PS_StorageExecIgnore("ALTER TABLE uris ADD COLUMN plugin_generation INTEGER");
-	PS_StorageExecIgnore("ALTER TABLE authGroup ADD COLUMN plugin_instance_id TEXT");
+	PS_StorageExecIgnore("ALTER TABLE authGroup ADD COLUMN plugin_xid TEXT");
 	PS_StorageExecIgnore("ALTER TABLE authGroup ADD COLUMN plugin_generation INTEGER");
-	PS_StorageExecIgnore("ALTER TABLE auth ADD COLUMN plugin_instance_id TEXT");
+	PS_StorageExecIgnore("ALTER TABLE auth ADD COLUMN plugin_xid TEXT");
 	PS_StorageExecIgnore("ALTER TABLE auth ADD COLUMN plugin_generation INTEGER");
-	PS_StorageExecIgnore("ALTER TABLE memberAuthGroup ADD COLUMN plugin_instance_id TEXT");
+	PS_StorageExecIgnore("ALTER TABLE memberAuthGroup ADD COLUMN plugin_xid TEXT");
 	PS_StorageExecIgnore("ALTER TABLE memberAuthGroup ADD COLUMN plugin_generation INTEGER");
-	PS_StorageExecIgnore("ALTER TABLE memberAuth ADD COLUMN plugin_instance_id TEXT");
+	PS_StorageExecIgnore("ALTER TABLE memberAuth ADD COLUMN plugin_xid TEXT");
 	PS_StorageExecIgnore("ALTER TABLE memberAuth ADD COLUMN plugin_generation INTEGER");
+
+	PS_StorageMigrateLegacyState();
 }
 
 void PS_StorageUnit()
@@ -56,19 +92,21 @@ int PS_StorageTrackResource(PluginSystemGeneration* pGeneration, const char* sOw
 {
 	sqlite3_stmt* stmt = NULL;
 	int iResourceId = 0;
+	const char* sXid;
 
-	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pInstance == NULL) ) {
+	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
 		return 0;
 	}
 
-	if ( sqlite3_prepare_v3(G_DB, "INSERT INTO plugin_resource (instance_id, generation, owner_scope, resource_type, resource_key, resource_ref, destroy_policy, create_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+	sXid = PS_StorageGenerationXid(pGeneration);
+	if ( sqlite3_prepare_v3(G_DB, "INSERT INTO plugin_resource (xid, generation, owner_scope, resource_type, resource_key, resource_ref, destroy_policy, create_time, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 		return 0;
 	}
 
 	if ( sResourceType && sResourceKey ) {
 		sqlite3_stmt* stmtCleanup = NULL;
-		if ( sqlite3_prepare_v3(G_DB, "UPDATE plugin_resource SET status = 'removed' WHERE instance_id = ? AND resource_type = ? AND resource_key = ? AND status = 'active'", -1, SQL_PREPARE_DEFAULT, &stmtCleanup, NULL) == SQLITE_OK ) {
-			PS_StorageBindText(stmtCleanup, 1, pGeneration->pInstance->sInstanceId);
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE plugin_resource SET status = 'removed' WHERE xid = ? AND resource_type = ? AND resource_key = ? AND status = 'active'", -1, SQL_PREPARE_DEFAULT, &stmtCleanup, NULL) == SQLITE_OK ) {
+			PS_StorageBindText(stmtCleanup, 1, sXid);
 			PS_StorageBindText(stmtCleanup, 2, sResourceType);
 			PS_StorageBindText(stmtCleanup, 3, sResourceKey);
 			sqlite3_step(stmtCleanup);
@@ -76,7 +114,7 @@ int PS_StorageTrackResource(PluginSystemGeneration* pGeneration, const char* sOw
 		}
 	}
 
-	PS_StorageBindText(stmt, 1, pGeneration->pInstance->sInstanceId);
+	PS_StorageBindText(stmt, 1, sXid);
 	sqlite3_bind_int(stmt, 2, (int)pGeneration->iGeneration);
 	PS_StorageBindText(stmt, 3, sOwnerScope ? sOwnerScope : "generation");
 	PS_StorageBindText(stmt, 4, sResourceType);
@@ -116,21 +154,23 @@ int PS_StorageSaveService(PluginSystemGeneration* pGeneration, const char* sServ
 {
 	sqlite3_stmt* stmt = NULL;
 	int iServiceId = 0;
+	const char* sXid;
 
-	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pInstance == NULL) || (sServiceName == NULL) || (sServiceName[0] == '\0') ) {
+	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (sServiceName == NULL) || (sServiceName[0] == '\0') ) {
 		return 0;
 	}
 
-	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_service (id, instance_id, generation, service_name, major_version, minor_version, status) VALUES ((SELECT id FROM plugin_service WHERE instance_id = ? AND generation = ? AND service_name = ? AND major_version = ? AND minor_version = ? LIMIT 1), ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+	sXid = PS_StorageGenerationXid(pGeneration);
+	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_service (id, xid, generation, service_name, major_version, minor_version, status) VALUES ((SELECT id FROM plugin_service WHERE xid = ? AND generation = ? AND service_name = ? AND major_version = ? AND minor_version = ? LIMIT 1), ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 		return 0;
 	}
 
-	PS_StorageBindText(stmt, 1, pGeneration->pInstance->sInstanceId);
+	PS_StorageBindText(stmt, 1, sXid);
 	sqlite3_bind_int(stmt, 2, (int)pGeneration->iGeneration);
 	PS_StorageBindText(stmt, 3, sServiceName);
 	sqlite3_bind_int(stmt, 4, iMajorVersion);
 	sqlite3_bind_int(stmt, 5, iMinorVersion);
-	PS_StorageBindText(stmt, 6, pGeneration->pInstance->sInstanceId);
+	PS_StorageBindText(stmt, 6, sXid);
 	sqlite3_bind_int(stmt, 7, (int)pGeneration->iGeneration);
 	PS_StorageBindText(stmt, 8, sServiceName);
 	sqlite3_bind_int(stmt, 9, iMajorVersion);
@@ -198,33 +238,37 @@ bool PS_StorageSavePackage(PluginSystemPackage* pPackage)
 	return bOK;
 }
 
-bool PS_StorageLoadInstanceState(PluginSystemInstance* pInstance)
+bool PS_StorageLoadRuntime(PluginSystemPackage* pPackage)
 {
 	sqlite3_stmt* stmt = NULL;
 	bool bFound = FALSE;
+	const char* sPackageId;
 
-	if ( (G_DB == NULL) || (pInstance == NULL) || (pInstance->sInstanceId == NULL) ) {
+	if ( (G_DB == NULL) || (pPackage == NULL) ) {
 		return FALSE;
 	}
 
-	if ( sqlite3_prepare_v3(G_DB, "SELECT enabled, status, active_generation, config_json, create_time, update_time, data_path, private_db_path FROM plugin_instance WHERE instance_id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+	sPackageId = PS_StoragePackageXid(pPackage);
+	if ( sqlite3_prepare_v3(G_DB, "SELECT enabled, installed, status, active_generation, config_json, create_time, update_time, data_path, private_db_path FROM plugin_runtime WHERE package_id = ? OR xid = ? LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 		return FALSE;
 	}
 
-	sqlite3_bind_text(stmt, 1, pInstance->sInstanceId, -1, NULL);
+	sqlite3_bind_text(stmt, 1, sPackageId, -1, NULL);
+	sqlite3_bind_text(stmt, 2, sPackageId, -1, NULL);
 	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 		bFound = TRUE;
-		pInstance->bEnabled = sqlite3_column_int(stmt, 0) ? TRUE : FALSE;
-		pInstance->iStatus = PS_InstanceStatusFromText((str)sqlite3_column_text(stmt, 1));
-		pInstance->iActiveGeneration = (uint32_t)sqlite3_column_int(stmt, 2);
-		pInstance->iCreateTime = sqlite3_column_int64(stmt, 4);
-		pInstance->iUpdateTime = sqlite3_column_int64(stmt, 5);
-		PS_FreeString(&pInstance->sDataPath);
-		PS_FreeString(&pInstance->sPrivateDbPath);
-		pInstance->sDataPath = xrtCopyStr((str)(sqlite3_column_text(stmt, 6) ? sqlite3_column_text(stmt, 6) : (const unsigned char*)""), 0);
-		pInstance->sPrivateDbPath = xrtCopyStr((str)(sqlite3_column_text(stmt, 7) ? sqlite3_column_text(stmt, 7) : (const unsigned char*)""), 0);
-		if ( pInstance->iActiveGeneration >= pInstance->iNextGeneration ) {
-			pInstance->iNextGeneration = pInstance->iActiveGeneration + 1;
+		pPackage->bEnabled = sqlite3_column_int(stmt, 0) ? TRUE : FALSE;
+		pPackage->bInstalled = sqlite3_column_int(stmt, 1) ? TRUE : FALSE;
+		pPackage->iStatus = PS_PackageStatusFromText((str)sqlite3_column_text(stmt, 2));
+		pPackage->iActiveGeneration = (uint32_t)sqlite3_column_int(stmt, 3);
+		pPackage->iCreateTime = sqlite3_column_int64(stmt, 5);
+		pPackage->iUpdateTime = sqlite3_column_int64(stmt, 6);
+		PS_FreeString(&pPackage->sDataPath);
+		PS_FreeString(&pPackage->sPrivateDbPath);
+		pPackage->sDataPath = xrtCopyStr((str)(sqlite3_column_text(stmt, 7) ? sqlite3_column_text(stmt, 7) : (const unsigned char*)""), 0);
+		pPackage->sPrivateDbPath = xrtCopyStr((str)(sqlite3_column_text(stmt, 8) ? sqlite3_column_text(stmt, 8) : (const unsigned char*)""), 0);
+		if ( pPackage->iActiveGeneration >= pPackage->iNextGeneration ) {
+			pPackage->iNextGeneration = pPackage->iActiveGeneration + 1;
 		}
 	}
 
@@ -232,118 +276,37 @@ bool PS_StorageLoadInstanceState(PluginSystemInstance* pInstance)
 	return bFound;
 }
 
-int PS_StorageLoadPackageInstances(PluginSystemPackage* pPackage)
-{
-	sqlite3_stmt* stmt = NULL;
-	int iCount = 0;
-	const char* sPackageId;
-
-	if ( (G_DB == NULL) || (pPackage == NULL) || (pPackage->lstInstances == NULL) ) {
-		return 0;
-	}
-
-	sPackageId = (const char*)PS_PackageKey(pPackage);
-	if ( (sPackageId == NULL) || (sPackageId[0] == '\0') ) {
-		return 0;
-	}
-
-	if ( sqlite3_prepare_v3(G_DB, "SELECT instance_id, instance_name, mount_path, enabled, status, active_generation, config_json, create_time, update_time, data_path, private_db_path FROM plugin_instance WHERE package_id = ? OR xid = ? ORDER BY create_time ASC, instance_id ASC", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
-		return 0;
-	}
-
-	PS_StorageBindText(stmt, 1, sPackageId);
-	PS_StorageBindText(stmt, 2, sPackageId);
-	while ( sqlite3_step(stmt) == SQLITE_ROW ) {
-		const unsigned char* sInstanceId = sqlite3_column_text(stmt, 0);
-		const unsigned char* sInstanceName = sqlite3_column_text(stmt, 1);
-		const unsigned char* sMountPath = sqlite3_column_text(stmt, 2);
-		const unsigned char* sConfigJson = sqlite3_column_text(stmt, 6);
-		PluginSystemInstance* pInstance;
-		xvalue tblConfig = NULL;
-
-		if ( (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
-			continue;
-		}
-		if ( PS_FindInstanceById(pPackage, (const char*)sInstanceId) != NULL ) {
-			continue;
-		}
-
-		pInstance = PS_CreateInstance((str)sInstanceId, (str)sPackageId);
-		if ( pInstance == NULL ) {
-			continue;
-		}
-
-		if ( pInstance->tblConfig ) {
-			xvoUnref(pInstance->tblConfig);
-			pInstance->tblConfig = NULL;
-		}
-		pInstance->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
-
-		PS_FreeString(&pInstance->sInstanceName);
-		pInstance->sInstanceName = xrtCopyStr((str)(sInstanceName ? sInstanceName : sInstanceId), 0);
-		PS_FreeString(&pInstance->sMountPath);
-		pInstance->sMountPath = xrtCopyStr((str)(sMountPath ? sMountPath : (const unsigned char*)""), 0);
-		PS_FreeString(&pInstance->sDataPath);
-		PS_FreeString(&pInstance->sPrivateDbPath);
-		pInstance->sDataPath = xrtCopyStr((str)(sqlite3_column_text(stmt, 9) ? sqlite3_column_text(stmt, 9) : (const unsigned char*)""), 0);
-		pInstance->sPrivateDbPath = xrtCopyStr((str)(sqlite3_column_text(stmt, 10) ? sqlite3_column_text(stmt, 10) : (const unsigned char*)""), 0);
-		pInstance->bEnabled = sqlite3_column_int(stmt, 3) ? TRUE : FALSE;
-		pInstance->iStatus = PS_InstanceStatusFromText((str)sqlite3_column_text(stmt, 4));
-		pInstance->iActiveGeneration = (uint32_t)sqlite3_column_int(stmt, 5);
-		pInstance->iCreateTime = sqlite3_column_int64(stmt, 7);
-		pInstance->iUpdateTime = sqlite3_column_int64(stmt, 8);
-		if ( pInstance->iActiveGeneration >= pInstance->iNextGeneration ) {
-			pInstance->iNextGeneration = pInstance->iActiveGeneration + 1;
-		}
-
-		if ( sConfigJson && sConfigJson[0] ) {
-			tblConfig = xrtParseJSON((str)sConfigJson, strlen((str)sConfigJson));
-			if ( tblConfig ) {
-				if ( pInstance->tblConfig ) {
-					xvoUnref(pInstance->tblConfig);
-				}
-				pInstance->tblConfig = tblConfig;
-			}
-		}
-
-		xrtListSetPtr(pPackage->lstInstances, xrtListCount(pPackage->lstInstances), pInstance, NULL);
-		iCount++;
-	}
-
-	sqlite3_finalize(stmt);
-	return iCount;
-}
-
-bool PS_StorageSaveInstance(PluginSystemInstance* pInstance)
+bool PS_StorageSaveRuntime(PluginSystemPackage* pPackage)
 {
 	sqlite3_stmt* stmt = NULL;
 	bool bOK = FALSE;
 	int64 iNow;
+	const char* sPackageId;
 
-	if ( (G_DB == NULL) || (pInstance == NULL) ) {
+	if ( (G_DB == NULL) || (pPackage == NULL) ) {
 		return FALSE;
 	}
 
 	iNow = xrtNow();
-	if ( pInstance->iCreateTime <= 0 ) {
-		pInstance->iCreateTime = iNow;
+	if ( pPackage->iCreateTime <= 0 ) {
+		pPackage->iCreateTime = iNow;
 	}
-	pInstance->iUpdateTime = iNow;
+	pPackage->iUpdateTime = iNow;
+	sPackageId = PS_StoragePackageXid(pPackage);
 
-	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_instance (instance_id, package_id, xid, instance_name, mount_path, data_path, private_db_path, enabled, config_json, status, active_generation, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
-		sqlite3_bind_text(stmt, 1, (const char*)(pInstance->sInstanceId ? pInstance->sInstanceId : (str)""), -1, NULL);
-		sqlite3_bind_text(stmt, 2, (const char*)(pInstance->sPackageId ? pInstance->sPackageId : (str)""), -1, NULL);
-		sqlite3_bind_text(stmt, 3, (const char*)(pInstance->sPackageId ? pInstance->sPackageId : (str)""), -1, NULL);
-		sqlite3_bind_text(stmt, 4, (const char*)(pInstance->sInstanceName ? pInstance->sInstanceName : (str)""), -1, NULL);
-		sqlite3_bind_text(stmt, 5, (const char*)(pInstance->sMountPath ? pInstance->sMountPath : (str)""), -1, NULL);
-		sqlite3_bind_text(stmt, 6, (const char*)(pInstance->sDataPath ? pInstance->sDataPath : (str)""), -1, NULL);
-		sqlite3_bind_text(stmt, 7, (const char*)(pInstance->sPrivateDbPath ? pInstance->sPrivateDbPath : (str)""), -1, NULL);
-		sqlite3_bind_int(stmt, 8, pInstance->bEnabled ? 1 : 0);
-		sqlite3_bind_text(stmt, 9, "{}", -1, NULL);
-		sqlite3_bind_text(stmt, 10, PS_InstanceStatusText(pInstance->iStatus), -1, NULL);
-		sqlite3_bind_int(stmt, 11, (int)pInstance->iActiveGeneration);
-		sqlite3_bind_int64(stmt, 12, pInstance->iCreateTime);
-		sqlite3_bind_int64(stmt, 13, pInstance->iUpdateTime);
+	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_runtime (package_id, xid, mount_path, data_path, private_db_path, enabled, installed, config_json, status, active_generation, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_text(stmt, 1, sPackageId, -1, NULL);
+		sqlite3_bind_text(stmt, 2, sPackageId, -1, NULL);
+		sqlite3_bind_text(stmt, 3, (const char*)(pPackage->sMountPath ? pPackage->sMountPath : (str)""), -1, NULL);
+		sqlite3_bind_text(stmt, 4, (const char*)(pPackage->sDataPath ? pPackage->sDataPath : (str)""), -1, NULL);
+		sqlite3_bind_text(stmt, 5, (const char*)(pPackage->sPrivateDbPath ? pPackage->sPrivateDbPath : (str)""), -1, NULL);
+		sqlite3_bind_int(stmt, 6, pPackage->bEnabled ? 1 : 0);
+		sqlite3_bind_int(stmt, 7, pPackage->bInstalled ? 1 : 0);
+		sqlite3_bind_text(stmt, 8, "{}", -1, NULL);
+		sqlite3_bind_text(stmt, 9, PS_PackageStatusText(pPackage->iStatus), -1, NULL);
+		sqlite3_bind_int(stmt, 10, (int)pPackage->iActiveGeneration);
+		sqlite3_bind_int64(stmt, 11, pPackage->iCreateTime);
+		sqlite3_bind_int64(stmt, 12, pPackage->iUpdateTime);
 		bOK = (sqlite3_step(stmt) == SQLITE_DONE);
 	}
 
@@ -353,21 +316,23 @@ bool PS_StorageSaveInstance(PluginSystemInstance* pInstance)
 	return bOK;
 }
 
-bool PS_StorageSaveGeneration(PluginSystemInstance* pInstance, PluginSystemGeneration* pGeneration)
+bool PS_StorageSaveGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration)
 {
 	sqlite3_stmt* stmt = NULL;
 	bool bOK = FALSE;
+	const char* sXid;
 
-	if ( (G_DB == NULL) || (pInstance == NULL) || (pGeneration == NULL) ) {
+	if ( (G_DB == NULL) || (pPackage == NULL) || (pGeneration == NULL) ) {
 		return FALSE;
 	}
 
-	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_generation (id, instance_id, generation, package_version, state, compile_hash, load_time, start_time, stop_time, health_status, error_message) VALUES ((SELECT id FROM plugin_generation WHERE instance_id = ? AND generation = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
-		sqlite3_bind_text(stmt, 1, (const char*)(pInstance->sInstanceId ? pInstance->sInstanceId : (str)""), -1, NULL);
+	sXid = PS_StoragePackageXid(pPackage);
+	if ( sqlite3_prepare_v3(G_DB, "INSERT OR REPLACE INTO plugin_generation (id, xid, generation, package_version, state, compile_hash, load_time, start_time, stop_time, health_status, error_message) VALUES ((SELECT id FROM plugin_generation WHERE xid = ? AND generation = ? LIMIT 1), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_text(stmt, 1, sXid, -1, NULL);
 		sqlite3_bind_int(stmt, 2, (int)pGeneration->iGeneration);
-		sqlite3_bind_text(stmt, 3, (const char*)(pInstance->sInstanceId ? pInstance->sInstanceId : (str)""), -1, NULL);
+		sqlite3_bind_text(stmt, 3, sXid, -1, NULL);
 		sqlite3_bind_int(stmt, 4, (int)pGeneration->iGeneration);
-		sqlite3_bind_text(stmt, 5, "", -1, NULL);
+		sqlite3_bind_text(stmt, 5, (const char*)(pPackage->sVersion ? pPackage->sVersion : (str)""), -1, NULL);
 		sqlite3_bind_text(stmt, 6, PS_GenerationStateText(pGeneration->iState), -1, NULL);
 		sqlite3_bind_text(stmt, 7, (const char*)(pGeneration->sCompileHash ? pGeneration->sCompileHash : (str)""), -1, NULL);
 		sqlite3_bind_int64(stmt, 8, pGeneration->iLoadTime);
@@ -382,66 +347,6 @@ bool PS_StorageSaveGeneration(PluginSystemInstance* pInstance, PluginSystemGener
 		sqlite3_finalize(stmt);
 	}
 	return bOK;
-}
-
-bool PS_StorageDeleteInstanceRows(const char* sTable, const char* sInstanceId)
-{
-	sqlite3_stmt* stmt = NULL;
-	str sSQL = NULL;
-	bool bOK = FALSE;
-
-	if ( (G_DB == NULL) || (sTable == NULL) || (sTable[0] == '\0') || (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
-		return FALSE;
-	}
-
-	sSQL = xrtFormat("DELETE FROM %s WHERE instance_id = ?", sTable);
-	if ( (sSQL == NULL) || (sqlite3_prepare_v3(G_DB, sSQL, -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK) ) {
-		if ( sSQL ) {
-			xrtFree(sSQL);
-		}
-		return FALSE;
-	}
-
-	PS_StorageBindText(stmt, 1, sInstanceId);
-	bOK = (sqlite3_step(stmt) == SQLITE_DONE);
-	sqlite3_finalize(stmt);
-	xrtFree(sSQL);
-	return bOK;
-}
-
-bool PS_StorageDeleteInstance(const char* sInstanceId)
-{
-	sqlite3_stmt* stmt = NULL;
-	bool bOK = FALSE;
-
-	if ( (G_DB == NULL) || (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
-		return FALSE;
-	}
-
-	sqlite3_exec(G_DB, "BEGIN IMMEDIATE", NULL, NULL, NULL);
-	if ( !PS_StorageDeleteInstanceRows("plugin_generation", sInstanceId)
-		|| !PS_StorageDeleteInstanceRows("plugin_resource", sInstanceId)
-		|| !PS_StorageDeleteInstanceRows("plugin_service", sInstanceId)
-		|| !PS_StorageDeleteInstanceRows("plugin_migration_log", sInstanceId) ) {
-		sqlite3_exec(G_DB, "ROLLBACK", NULL, NULL, NULL);
-		return FALSE;
-	}
-
-	if ( sqlite3_prepare_v3(G_DB, "DELETE FROM plugin_instance WHERE instance_id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
-		sqlite3_exec(G_DB, "ROLLBACK", NULL, NULL, NULL);
-		return FALSE;
-	}
-
-	PS_StorageBindText(stmt, 1, sInstanceId);
-	bOK = (sqlite3_step(stmt) == SQLITE_DONE);
-	sqlite3_finalize(stmt);
-	if ( !bOK ) {
-		sqlite3_exec(G_DB, "ROLLBACK", NULL, NULL, NULL);
-		return FALSE;
-	}
-
-	sqlite3_exec(G_DB, "COMMIT", NULL, NULL, NULL);
-	return TRUE;
 }
 
 #endif

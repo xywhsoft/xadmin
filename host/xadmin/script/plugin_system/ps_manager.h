@@ -4,11 +4,7 @@
 #include "ps_runtime.h"
 #include "ps_manifest.h"
 
-bool PS_ManagerEnsureDefaultInstance(PluginSystemPackage* pPackage);
-int PS_ManagerLoadPackageInstances(PluginSystemPackage* pPackage);
-PluginSystemPackage* PS_ManagerFindPackageByInstanceRef(const char* sInstanceRef);
-PluginSystemInstance* PS_ManagerFindPackageInstanceByRef(PluginSystemPackage* pPackage, const char* sInstanceRef);
-xvalue PS_ManagerBuildInstanceData(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance);
+bool PS_ManagerEnsurePackageRuntime(PluginSystemPackage* pPackage);
 bool PS_ManagerValidateConfigSchema(PluginSystemPackage* pPackage, xvalue tblConfig, str* psError);
 
 PluginSystemPackage* PluginSystem_FindPackage(str sName)
@@ -29,89 +25,14 @@ PluginSystemPackage* PluginSystem_FindPackage(str sName)
 	return NULL;
 }
 
-PluginSystemInstance* PluginSystem_FindInstance(str sName)
-{
-	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
-	PluginSystemPackage* pInstancePackage;
-
-	if ( pPackage ) {
-		return PS_GetDefaultInstance(pPackage);
-	}
-	pInstancePackage = PS_ManagerFindPackageByInstanceRef((const char*)sName);
-	return pInstancePackage ? PS_ManagerFindPackageInstanceByRef(pInstancePackage, (const char*)sName) : NULL;
-}
-
-PluginSystemPackage* PS_ManagerFindPackageByInstanceRef(const char* sInstanceRef)
-{
-	if ( (G_PluginSystem == NULL) || (G_PluginSystem->lstPackages == NULL) || (sInstanceRef == NULL) || (sInstanceRef[0] == '\0') ) {
-		return NULL;
-	}
-
-	for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
-		PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
-		if ( PS_ManagerFindPackageInstanceByRef(pPackage, sInstanceRef) ) {
-			return pPackage;
-		}
-	}
-	return NULL;
-}
-
-PluginSystemInstance* PS_ManagerFindPackageInstanceByRef(PluginSystemPackage* pPackage, const char* sInstanceRef)
-{
-	PluginSystemInstance* pInstance;
-
-	if ( (pPackage == NULL) || (sInstanceRef == NULL) || (sInstanceRef[0] == '\0') ) {
-		return NULL;
-	}
-
-	pInstance = PS_FindInstanceById(pPackage, sInstanceRef);
-	if ( pInstance ) {
-		return pInstance;
-	}
-	return PS_FindInstanceByName(pPackage, sInstanceRef);
-}
-
-xvalue PS_ManagerBuildInstanceData(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance)
-{
-	xvalue tblData;
-
-	if ( (pPackage == NULL) || (pInstance == NULL) ) {
-		return NULL;
-	}
-
-	tblData = xvoCreateTable();
-	xvoTableSetText(tblData, "packageId", 9, PS_PackageKey(pPackage) ? PS_PackageKey(pPackage) : (str)"", 0, FALSE);
-	xvoTableSetText(tblData, "xid", 3, pPackage->sXid ? pPackage->sXid : (str)"", 0, FALSE);
-	xvoTableSetText(tblData, "instanceId", 10, pInstance->sInstanceId ? pInstance->sInstanceId : (str)"", 0, FALSE);
-	xvoTableSetText(tblData, "instanceName", 12, pInstance->sInstanceName ? pInstance->sInstanceName : (str)"", 0, FALSE);
-	xvoTableSetText(tblData, "mountPath", 9, pInstance->sMountPath ? pInstance->sMountPath : (str)"", 0, FALSE);
-	xvoTableSetText(tblData, "dataPath", 8, pInstance->sDataPath ? pInstance->sDataPath : (str)"", 0, FALSE);
-	xvoTableSetText(tblData, "privateDbPath", 13, pInstance->sPrivateDbPath ? pInstance->sPrivateDbPath : (str)"", 0, FALSE);
-	xvoTableSetBool(tblData, "enabled", 7, pInstance->bEnabled);
-	xvoTableSetBool(tblData, "loaded", 6, pInstance->pActiveGeneration != NULL);
-	xvoTableSetText(tblData, "status", 6, (str)PS_InstanceStatusText(pInstance->iStatus), 0, FALSE);
-	xvoTableSetInt(tblData, "generation", 10, (int)pInstance->iActiveGeneration);
-	xvoTableSetInt(tblData, "createTime", 10, pInstance->iCreateTime);
-	xvoTableSetInt(tblData, "updateTime", 10, pInstance->iUpdateTime);
-	if ( pInstance->tblConfig ) {
-		xvalue tblConfig = PS_ValueDup(pInstance->tblConfig);
-		if ( tblConfig ) {
-			xvoTableSetValue(tblData, "settings", 8, tblConfig, TRUE);
-		}
-	}
-	return tblData;
-}
-
 xvalue PS_ManagerBuildPackageData(PluginSystemPackage* pPackage)
 {
-	PluginSystemInstance* pInstance;
 	xvalue tblData;
 
 	if ( pPackage == NULL ) {
 		return NULL;
 	}
 
-	pInstance = PS_GetDefaultInstance(pPackage);
 	tblData = xvoCreateTable();
 	xvoTableSetInt(tblData, "formatVersion", 13, pPackage->iFormatVersion);
 	xvoTableSetText(tblData, "id", 2, pPackage->sXid ? pPackage->sXid : (str)"", 0, FALSE);
@@ -132,23 +53,25 @@ xvalue PS_ManagerBuildPackageData(PluginSystemPackage* pPackage)
 		}
 	}
 
-	if ( pInstance ) {
-		xvoTableSetText(tblData, "dataPath", 8, pInstance->sDataPath ? pInstance->sDataPath : (str)"", 0, FALSE);
-		xvoTableSetText(tblData, "privateDbPath", 13, pInstance->sPrivateDbPath ? pInstance->sPrivateDbPath : (str)"", 0, FALSE);
-		xvoTableSetBool(tblData, "enabled", 7, pInstance->bEnabled);
-		xvoTableSetBool(tblData, "loaded", 6, pInstance->pActiveGeneration != NULL);
-		xvoTableSetText(tblData, "status", 6, (str)PS_InstanceStatusText(pInstance->iStatus), 0, FALSE);
-		xvoTableSetInt(tblData, "generation", 10, (int)pInstance->iActiveGeneration);
-		if ( pInstance->tblConfig ) {
-			xvalue tblConfig = PS_ValueDup(pInstance->tblConfig);
+	if ( pPackage->sDataPath || pPackage->tblConfig || pPackage->bEnabled || pPackage->bInstalled || pPackage->pActiveGeneration || pPackage->iActiveGeneration > 0 ) {
+		xvoTableSetText(tblData, "dataPath", 8, pPackage->sDataPath ? pPackage->sDataPath : (str)"", 0, FALSE);
+		xvoTableSetText(tblData, "privateDbPath", 13, pPackage->sPrivateDbPath ? pPackage->sPrivateDbPath : (str)"", 0, FALSE);
+		xvoTableSetBool(tblData, "enabled", 7, pPackage->bEnabled);
+		xvoTableSetBool(tblData, "installed", 9, pPackage->bInstalled);
+		xvoTableSetBool(tblData, "loaded", 6, pPackage->pActiveGeneration != NULL);
+		xvoTableSetText(tblData, "status", 6, (str)PS_PackageStatusText(pPackage->iStatus), 0, FALSE);
+		xvoTableSetInt(tblData, "generation", 10, (int)pPackage->iActiveGeneration);
+		if ( pPackage->tblConfig ) {
+			xvalue tblConfig = PS_ValueDup(pPackage->tblConfig);
 			if ( tblConfig ) {
 				xvoTableSetValue(tblData, "settings", 8, tblConfig, TRUE);
 			}
 		}
 	} else {
 		xvoTableSetBool(tblData, "enabled", 7, FALSE);
+		xvoTableSetBool(tblData, "installed", 9, FALSE);
 		xvoTableSetBool(tblData, "loaded", 6, FALSE);
-		xvoTableSetText(tblData, "status", 6, (str)PS_InstanceStatusText(PS_INSTANCE_STATUS_DISCOVERED), 0, FALSE);
+		xvoTableSetText(tblData, "status", 6, (str)PS_PackageStatusText(PS_PACKAGE_STATUS_DISCOVERED), 0, FALSE);
 		xvoTableSetInt(tblData, "generation", 10, 0);
 	}
 
@@ -184,35 +107,6 @@ bool PS_ManagerIsValidXid(const char* sXid)
 	return TRUE;
 }
 
-bool PS_ManagerIsValidInstanceName(const char* sInstanceName)
-{
-	size_t iLen;
-
-	if ( (sInstanceName == NULL) || (sInstanceName[0] == '\0') ) {
-		return FALSE;
-	}
-
-	iLen = strlen(sInstanceName);
-	if ( (iLen <= 0) || (iLen > 96) ) {
-		return FALSE;
-	}
-
-	for ( size_t i = 0; i < iLen; i++ ) {
-		char ch = sInstanceName[i];
-		if ( ((ch >= 'a') && (ch <= 'z'))
-			|| ((ch >= 'A') && (ch <= 'Z'))
-			|| ((ch >= '0') && (ch <= '9'))
-			|| (ch == '.')
-			|| (ch == '_')
-			|| (ch == '-') ) {
-			continue;
-		}
-		return FALSE;
-	}
-
-	return TRUE;
-}
-
 bool PS_ManagerIsSafeRelativePath(const char* sRelPath)
 {
 	if ( (sRelPath == NULL) || (sRelPath[0] == '\0') ) {
@@ -230,12 +124,12 @@ bool PS_ManagerIsSafeRelativePath(const char* sRelPath)
 	return TRUE;
 }
 
-void PS_ManagerAssignInstancePaths(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance)
+void PS_ManagerAssignPackagePaths(PluginSystemPackage* pPackage)
 {
 	str sDataRoot = NULL;
 	str sXid;
 
-	if ( (pPackage == NULL) || (pInstance == NULL) || (AppPath == NULL) ) {
+	if ( (pPackage == NULL) || (AppPath == NULL) ) {
 		return;
 	}
 
@@ -249,45 +143,43 @@ void PS_ManagerAssignInstancePaths(PluginSystemPackage* pPackage, PluginSystemIn
 		return;
 	}
 
-	PS_FreeString(&pInstance->sDataPath);
-	pInstance->sDataPath = xrtCopyStr(sDataRoot, 0);
-	PS_FreeString(&pInstance->sPrivateDbPath);
-	pInstance->sPrivateDbPath = xrtPathJoin(2, sDataRoot, "plugin.db");
+	PS_FreeString(&pPackage->sDataPath);
+	pPackage->sDataPath = xrtCopyStr(sDataRoot, 0);
+	PS_FreeString(&pPackage->sPrivateDbPath);
+	pPackage->sPrivateDbPath = xrtPathJoin(2, sDataRoot, "plugin.db");
 
-	if ( pInstance->sDataPath ) {
-		xrtDirCreateAll(pInstance->sDataPath);
+	if ( pPackage->sDataPath ) {
+		xrtDirCreateAll(pPackage->sDataPath);
 	}
 	xrtFree(sDataRoot);
 }
 
-str PS_ManagerBuildConfigPath(PluginSystemInstance* pInstance)
+str PS_ManagerBuildConfigPath(PluginSystemPackage* pPackage)
 {
-	if ( (pInstance == NULL) || (pInstance->sDataPath == NULL) || (pInstance->sDataPath[0] == '\0') ) {
+	if ( (pPackage == NULL) || (pPackage->sDataPath == NULL) || (pPackage->sDataPath[0] == '\0') ) {
 		return NULL;
 	}
-	return xrtPathJoin(2, pInstance->sDataPath, "config.json");
+	return xrtPathJoin(2, pPackage->sDataPath, "config.json");
 }
 
-void PS_ManagerLoadConfigFile(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance)
+void PS_ManagerLoadConfigFile(PluginSystemPackage* pPackage)
 {
 	str sConfigPath;
 	xvalue tblConfig = NULL;
 
-	(void)pPackage;
-
-	if ( (pPackage == NULL) || (pInstance == NULL) ) {
+	if ( pPackage == NULL ) {
 		return;
 	}
 
-	sConfigPath = PS_ManagerBuildConfigPath(pInstance);
+	sConfigPath = PS_ManagerBuildConfigPath(pPackage);
 	if ( sConfigPath && xrtFileExists(sConfigPath) ) {
 		tblConfig = xrtParseJSON_File(sConfigPath);
 	}
 	if ( tblConfig && (xvoType(tblConfig) == XVO_DT_TABLE) ) {
-		if ( pInstance->tblConfig ) {
-			xvoUnref(pInstance->tblConfig);
+		if ( pPackage->tblConfig ) {
+			xvoUnref(pPackage->tblConfig);
 		}
-		pInstance->tblConfig = tblConfig;
+		pPackage->tblConfig = tblConfig;
 		tblConfig = NULL;
 	} else if ( tblConfig ) {
 		xvoUnref(tblConfig);
@@ -297,42 +189,29 @@ void PS_ManagerLoadConfigFile(PluginSystemPackage* pPackage, PluginSystemInstanc
 	}
 }
 
-bool PS_ManagerSaveConfigFile(PluginSystemInstance* pInstance)
+bool PS_ManagerSaveConfigFile(PluginSystemPackage* pPackage)
 {
 	str sConfigPath;
 	xvalue tblConfig = NULL;
 	int iRet;
 
-	if ( (pInstance == NULL) || (pInstance->sDataPath == NULL) ) {
+	if ( (pPackage == NULL) || (pPackage->sDataPath == NULL) ) {
 		return FALSE;
 	}
 
-	xrtDirCreateAll(pInstance->sDataPath);
-	sConfigPath = PS_ManagerBuildConfigPath(pInstance);
+	xrtDirCreateAll(pPackage->sDataPath);
+	sConfigPath = PS_ManagerBuildConfigPath(pPackage);
 	if ( sConfigPath == NULL ) {
 		return FALSE;
 	}
 
-	tblConfig = pInstance->tblConfig ? pInstance->tblConfig : xvoCreateTable();
+	tblConfig = pPackage->tblConfig ? pPackage->tblConfig : xvoCreateTable();
 	iRet = xrtStringifyJSON_File(sConfigPath, tblConfig, TRUE);
-	if ( tblConfig && (tblConfig != pInstance->tblConfig) ) {
+	if ( tblConfig && (tblConfig != pPackage->tblConfig) ) {
 		xvoUnref(tblConfig);
 	}
 	xrtFree(sConfigPath);
 	return iRet >= 0;
-}
-
-str PS_ManagerBuildInstanceId(PluginSystemPackage* pPackage, const char* sInstanceName)
-{
-	if ( (pPackage == NULL) || (sInstanceName == NULL) || (sInstanceName[0] == '\0') || (PS_PackageKey(pPackage) == NULL) ) {
-		return NULL;
-	}
-
-	if ( strcmp((const char*)PS_PackageKey(pPackage), sInstanceName) == 0 ) {
-		return xrtCopyStr(PS_PackageKey(pPackage), 0);
-	}
-
-	return xrtFormat("%s.%s", PS_PackageKey(pPackage), sInstanceName);
 }
 
 void PS_ManagerSetSchemaError(str* psError, str sMessage)
@@ -585,7 +464,6 @@ void PS_ManagerClearPackageMetadata(PluginSystemPackage* pPackage)
 
 	pPackage->iFormatVersion = 0;
 	pPackage->iSort = 0;
-	pPackage->bMultiInstance = FALSE;
 	PS_FreeString(&pPackage->sXid);
 	PS_FreeString(&pPackage->sName);
 	PS_FreeString(&pPackage->sTitle);
@@ -606,7 +484,6 @@ void PS_ManagerAdoptPackageMetadata(PluginSystemPackage* pDest, PluginSystemPack
 
 	pDest->iFormatVersion = pSrc->iFormatVersion;
 	pDest->iSort = pSrc->iSort;
-	pDest->bMultiInstance = pSrc->bMultiInstance;
 	pDest->sXid = pSrc->sXid;
 	pDest->sName = pSrc->sName;
 	pDest->sTitle = pSrc->sTitle;
@@ -704,10 +581,7 @@ PluginSystemPackage* PS_ManagerDiscoverPackagePath(str sPath, bool bRefreshExist
 	if ( pExisting ) {
 		if ( bRefreshExisting && PS_ManagerRefreshPackage(pExisting, sPath) ) {
 			PS_StorageSavePackage(pExisting);
-			if ( PS_GetInstanceCount(pExisting) <= 0 ) {
-				PS_ManagerLoadPackageInstances(pExisting);
-				PS_ManagerEnsureDefaultInstance(pExisting);
-			}
+			PS_ManagerEnsurePackageRuntime(pExisting);
 		}
 		PS_DestroyPackage(pPackage);
 		if ( sDirName ) {
@@ -717,8 +591,7 @@ PluginSystemPackage* PS_ManagerDiscoverPackagePath(str sPath, bool bRefreshExist
 	}
 
 	PS_StorageSavePackage(pPackage);
-	PS_ManagerLoadPackageInstances(pPackage);
-	PS_ManagerEnsureDefaultInstance(pPackage);
+	PS_ManagerEnsurePackageRuntime(pPackage);
 	printf("        [PluginSystem] Discovered package: %s\n", PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)");
 
 	iIndex = xrtListCount(G_PluginSystem->lstPackages);
@@ -865,47 +738,30 @@ cleanup:
 	return bOK;
 }
 
-bool PS_ManagerEnsureDefaultInstance(PluginSystemPackage* pPackage)
+bool PS_ManagerEnsurePackageRuntime(PluginSystemPackage* pPackage)
 {
-	PluginSystemInstance* pInstance;
-	int iIndex;
-
 	if ( pPackage == NULL ) {
 		return FALSE;
 	}
 
-	if ( PS_GetInstanceCount(pPackage) > 0 ) {
-		return TRUE;
+	if ( pPackage->sPackageId == NULL ) {
+		pPackage->sPackageId = xrtCopyStr(PS_PackageKey(pPackage), 0);
 	}
-
-	pInstance = PS_CreateInstance(PS_PackageKey(pPackage), PS_PackageKey(pPackage));
-	if ( pInstance == NULL ) {
-		return FALSE;
+	if ( pPackage->tblConfig == NULL ) {
+		pPackage->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
 	}
-
-	pInstance->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
-	PS_ManagerAssignInstancePaths(pPackage, pInstance);
-	if ( !PS_StorageLoadInstanceState(pInstance) ) {
-		PS_StorageSaveInstance(pInstance);
+	PS_ManagerAssignPackagePaths(pPackage);
+	if ( !PS_StorageLoadRuntime(pPackage) ) {
+		PS_StorageSaveRuntime(pPackage);
 	} else {
-		PS_ManagerAssignInstancePaths(pPackage, pInstance);
-		PS_StorageSaveInstance(pInstance);
+		PS_ManagerAssignPackagePaths(pPackage);
+		PS_StorageSaveRuntime(pPackage);
 	}
-	PS_ManagerLoadConfigFile(pPackage, pInstance);
-	if ( pInstance->tblConfig == NULL ) {
-		pInstance->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
+	PS_ManagerLoadConfigFile(pPackage);
+	if ( pPackage->tblConfig == NULL ) {
+		pPackage->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
 	}
-	PS_ManagerSaveConfigFile(pInstance);
-
-	iIndex = xrtListCount(pPackage->lstInstances);
-	xrtListSetPtr(pPackage->lstInstances, iIndex, pInstance, NULL);
-	return TRUE;
-}
-
-int PS_ManagerLoadPackageInstances(PluginSystemPackage* pPackage)
-{
-	(void)pPackage;
-	return 0;
+	return PS_ManagerSaveConfigFile(pPackage);
 }
 
 int PS_ManagerScanPluginProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iPathSize)
@@ -952,20 +808,15 @@ void PS_ManagerAutoStartEnabled()
 
 	for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
 		PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
-		for ( int j = 0; j < PS_GetInstanceCount(pPackage); j++ ) {
-			PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, j);
-			printf("        [PluginSystem] AutoStart check: package=%s instance=%s enabled=%d status=%d active=%u\n",
-				PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
-				(pInstance && pInstance->sInstanceId) ? (const char*)pInstance->sInstanceId : "(unknown)",
-				pInstance ? pInstance->bEnabled : 0,
-				pInstance ? pInstance->iStatus : -1,
-				pInstance ? pInstance->iActiveGeneration : 0);
-			if ( pInstance && pInstance->bEnabled ) {
-				if ( !PS_RuntimeStartInstance(pPackage, pInstance) ) {
-					printf("        [PluginSystem] AutoStart failed: package=%s instance=%s\n",
-						PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
-						pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)");
-				}
+		printf("        [PluginSystem] AutoStart check: package=%s enabled=%d status=%d active=%u\n",
+			PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
+			pPackage ? pPackage->bEnabled : 0,
+			pPackage ? pPackage->iStatus : -1,
+			pPackage ? pPackage->iActiveGeneration : 0);
+		if ( pPackage && pPackage->bEnabled ) {
+			if ( !PS_RuntimeStartPackage(pPackage) ) {
+				printf("        [PluginSystem] AutoStart failed: package=%s\n",
+					PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)");
 			}
 		}
 	}
@@ -995,43 +846,23 @@ xvalue PluginSystem_GetPackageData(str sName)
 	return pPackage ? PS_ManagerBuildPackageData(pPackage) : NULL;
 }
 
-xvalue PluginSystem_GetInstances(str sName)
-{
-	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
-	xvalue arrInstances = xvoCreateArray();
-
-	if ( pPackage == NULL ) {
-		return arrInstances;
-	}
-
-	for ( int i = 0; i < PS_GetInstanceCount(pPackage); i++ ) {
-		PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, i);
-		xvalue tblInstance = PS_ManagerBuildInstanceData(pPackage, pInstance);
-		if ( tblInstance ) {
-			xvoArrayAppendValue(arrInstances, tblInstance, TRUE);
-		}
-	}
-	return arrInstances;
-}
-
 xvalue PluginSystem_GetSettings(str sName)
 {
-	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
-	if ( (pInstance == NULL) || (pInstance->tblConfig == NULL) ) {
+	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
+	if ( (pPackage == NULL) || (pPackage->tblConfig == NULL) ) {
 		return xvoCreateTable();
 	}
-	return PS_ValueDup(pInstance->tblConfig);
+	return PS_ValueDup(pPackage->tblConfig);
 }
 
 bool PluginSystem_SaveSettings(str sName, xvalue tblSettings)
 {
-	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
-	PluginSystemPackage* pPackage = pInstance ? PluginSystem_FindPackage(pInstance->sPackageId) : PluginSystem_FindPackage(sName);
+	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
 	xvalue tblNewConfig;
 	xvalue tblOldConfig;
 	str sSchemaError = NULL;
 
-	if ( (pPackage == NULL) || (pInstance == NULL) ) {
+	if ( pPackage == NULL ) {
 		return FALSE;
 	}
 
@@ -1040,9 +871,8 @@ bool PluginSystem_SaveSettings(str sName, xvalue tblSettings)
 		tblNewConfig = xvoCreateTable();
 	}
 	if ( !PS_ManagerValidateConfigSchema(pPackage, tblNewConfig, &sSchemaError) ) {
-		printf("        [PluginSystem] Config schema validation failed: package=%s instance=%s reason=%s\n",
+		printf("        [PluginSystem] Config schema validation failed: package=%s reason=%s\n",
 			PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
-			pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)",
 			sSchemaError ? (const char*)sSchemaError : "(unknown)");
 		if ( sSchemaError ) {
 			xrtFree(sSchemaError);
@@ -1053,18 +883,18 @@ bool PluginSystem_SaveSettings(str sName, xvalue tblSettings)
 		return FALSE;
 	}
 
-	tblOldConfig = pInstance->tblConfig ? PS_ValueDup(pInstance->tblConfig) : NULL;
-	if ( pInstance->tblConfig ) {
-		xvoUnref(pInstance->tblConfig);
+	tblOldConfig = pPackage->tblConfig ? PS_ValueDup(pPackage->tblConfig) : NULL;
+	if ( pPackage->tblConfig ) {
+		xvoUnref(pPackage->tblConfig);
 	}
-	pInstance->tblConfig = tblNewConfig;
+	pPackage->tblConfig = tblNewConfig;
 
-	if ( pInstance->pActiveGeneration && pInstance->pActiveGeneration->pDescriptor && pInstance->pActiveGeneration->pDescriptor->OnConfigChanged ) {
-		if ( pInstance->pActiveGeneration->pDescriptor->OnConfigChanged((XAdminPluginHandle)pInstance->pActiveGeneration, pInstance->tblConfig) != 0 ) {
-			if ( pInstance->tblConfig ) {
-				xvoUnref(pInstance->tblConfig);
+	if ( pPackage->pActiveGeneration && pPackage->pActiveGeneration->pDescriptor && pPackage->pActiveGeneration->pDescriptor->OnConfigChanged ) {
+		if ( pPackage->pActiveGeneration->pDescriptor->OnConfigChanged((XAdminPluginHandle)pPackage->pActiveGeneration, pPackage->tblConfig) != 0 ) {
+			if ( pPackage->tblConfig ) {
+				xvoUnref(pPackage->tblConfig);
 			}
-			pInstance->tblConfig = tblOldConfig ? tblOldConfig : xvoCreateTable();
+			pPackage->tblConfig = tblOldConfig ? tblOldConfig : xvoCreateTable();
 			return FALSE;
 		}
 	}
@@ -1073,159 +903,63 @@ bool PluginSystem_SaveSettings(str sName, xvalue tblSettings)
 		xvoUnref(tblOldConfig);
 	}
 
-	pInstance->iUpdateTime = xrtNow();
-	return PS_ManagerSaveConfigFile(pInstance) && PS_StorageSaveInstance(pInstance);
+	pPackage->iUpdateTime = xrtNow();
+	return PS_ManagerSaveConfigFile(pPackage) && PS_StorageSaveRuntime(pPackage);
 }
 
 bool PluginSystem_Enable(str sName)
 {
-	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
-	PluginSystemPackage* pPackage = pInstance ? PluginSystem_FindPackage(pInstance->sPackageId) : PluginSystem_FindPackage(sName);
+	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
 	str sSchemaError = NULL;
-	if ( (pPackage == NULL) || (pInstance == NULL) ) {
+	if ( pPackage == NULL ) {
 		return FALSE;
 	}
-	if ( pInstance->pActiveGeneration ) {
+	if ( pPackage->pActiveGeneration ) {
 		return TRUE;
 	}
-	if ( !PS_ManagerValidateConfigSchema(pPackage, pInstance->tblConfig, &sSchemaError) ) {
-		printf("        [PluginSystem] Start blocked by invalid config: package=%s instance=%s reason=%s\n",
+	if ( !PS_ManagerValidateConfigSchema(pPackage, pPackage->tblConfig, &sSchemaError) ) {
+		printf("        [PluginSystem] Start blocked by invalid config: package=%s reason=%s\n",
 			PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
-			pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)",
 			sSchemaError ? (const char*)sSchemaError : "(unknown)");
 		if ( sSchemaError ) {
 			xrtFree(sSchemaError);
 		}
 		return FALSE;
 	}
-	return PS_RuntimeStartInstance(pPackage, pInstance);
+	return PS_RuntimeStartPackage(pPackage);
 }
 
 bool PluginSystem_Disable(str sName)
 {
-	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
-	if ( pInstance == NULL ) {
+	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
+	if ( pPackage == NULL ) {
 		return FALSE;
 	}
-	return PS_RuntimeStopInstance(pInstance);
+	return PS_RuntimeStopPackage(pPackage);
 }
 
 bool PluginSystem_Reload(str sName)
 {
-	PluginSystemInstance* pInstance = PluginSystem_FindInstance(sName);
-	PluginSystemPackage* pPackage = pInstance ? PluginSystem_FindPackage(pInstance->sPackageId) : PluginSystem_FindPackage(sName);
+	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
 	str sSchemaError = NULL;
-	if ( (pPackage == NULL) || (pInstance == NULL) ) {
+	if ( pPackage == NULL ) {
 		return FALSE;
 	}
-	if ( !PS_ManagerValidateConfigSchema(pPackage, pInstance->tblConfig, &sSchemaError) ) {
-		printf("        [PluginSystem] Reload blocked by invalid config: package=%s instance=%s reason=%s\n",
+	if ( !PS_ManagerValidateConfigSchema(pPackage, pPackage->tblConfig, &sSchemaError) ) {
+		printf("        [PluginSystem] Reload blocked by invalid config: package=%s reason=%s\n",
 			PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)",
-			pInstance->sInstanceId ? (const char*)pInstance->sInstanceId : "(unknown)",
 			sSchemaError ? (const char*)sSchemaError : "(unknown)");
 		if ( sSchemaError ) {
 			xrtFree(sSchemaError);
 		}
 		return FALSE;
 	}
-	return PS_RuntimeReloadInstance(pPackage, pInstance);
-}
-
-bool PluginSystem_CreateInstance(str sName, str sInstanceName, str sMountPath)
-{
-	PluginSystemPackage* pPackage = PluginSystem_FindPackage(sName);
-	PluginSystemInstance* pInstance;
-	str sInstanceId = NULL;
-
-	if ( (pPackage == NULL) || !PS_ManagerIsValidInstanceName((const char*)sInstanceName) ) {
-		return FALSE;
-	}
-	if ( !pPackage->bMultiInstance && (PS_GetInstanceCount(pPackage) > 0) ) {
-		return FALSE;
-	}
-	if ( PS_FindInstanceByName(pPackage, (const char*)sInstanceName) ) {
-		return FALSE;
-	}
-
-	sInstanceId = PS_ManagerBuildInstanceId(pPackage, (const char*)sInstanceName);
-	if ( (sInstanceId == NULL) || PS_FindInstanceById(pPackage, (const char*)sInstanceId) ) {
-		if ( sInstanceId ) {
-			xrtFree(sInstanceId);
-		}
-		return FALSE;
-	}
-
-	pInstance = PS_CreateInstance(sInstanceId, PS_PackageKey(pPackage));
-	xrtFree(sInstanceId);
-	if ( pInstance == NULL ) {
-		return FALSE;
-	}
-
-	PS_FreeString(&pInstance->sInstanceName);
-	pInstance->sInstanceName = xrtCopyStr(sInstanceName, 0);
-	if ( sMountPath && sMountPath[0] ) {
-		PS_FreeString(&pInstance->sMountPath);
-		pInstance->sMountPath = xrtCopyStr(sMountPath, 0);
-	}
-	pInstance->bEnabled = FALSE;
-	pInstance->bInstalled = FALSE;
-	pInstance->iStatus = PS_INSTANCE_STATUS_DISABLED;
-	pInstance->tblConfig = pPackage->tblDefaultConfig ? PS_ValueDup(pPackage->tblDefaultConfig) : xvoCreateTable();
-	PS_ManagerAssignInstancePaths(pPackage, pInstance);
-	if ( !PS_StorageSaveInstance(pInstance) ) {
-		PS_DestroyInstance(pInstance);
-		return FALSE;
-	}
-
-	xrtListSetPtr(pPackage->lstInstances, xrtListCount(pPackage->lstInstances), pInstance, NULL);
-	return TRUE;
-}
-
-bool PluginSystem_DeleteInstance(str sInstanceId)
-{
-	PluginSystemPackage* pPackage = PS_ManagerFindPackageByInstanceRef((const char*)sInstanceId);
-	PluginSystemInstance* pInstance;
-	int iIndex = -1;
-
-	if ( (pPackage == NULL) || (sInstanceId == NULL) || (sInstanceId[0] == '\0') ) {
-		return FALSE;
-	}
-
-	pInstance = PS_FindInstanceById(pPackage, (const char*)sInstanceId);
-	if ( pInstance == NULL ) {
-		return FALSE;
-	}
-	if ( PS_GetInstanceCount(pPackage) <= 1 ) {
-		return FALSE;
-	}
-
-	if ( pInstance->pActiveGeneration ) {
-		PS_RuntimeStopInstance(pInstance);
-	}
-	PS_RuntimeForceDrainInstance(pInstance);
-	if ( !PS_StorageDeleteInstance((const char*)pInstance->sInstanceId) ) {
-		return FALSE;
-	}
-
-	for ( int i = 0; i < PS_GetInstanceCount(pPackage); i++ ) {
-		if ( xrtListGetPtr(pPackage->lstInstances, i) == pInstance ) {
-			iIndex = i;
-			break;
-		}
-	}
-	if ( iIndex < 0 ) {
-		return FALSE;
-	}
-
-	xrtListRemovePtr(pPackage->lstInstances, iIndex);
-	PS_DestroyInstance(pInstance);
-	return TRUE;
+	return PS_RuntimeReloadPackage(pPackage);
 }
 
 bool PluginSystem_Generate(const XAdminGeneratedPluginSpec* spec)
 {
 	PluginSystemPackage* pPackage;
-	PluginSystemInstance* pInstance;
 	str sRootPath = NULL;
 	bool bExists;
 
@@ -1260,8 +994,7 @@ bool PluginSystem_Generate(const XAdminGeneratedPluginSpec* spec)
 	}
 
 	if ( spec->auto_enable ) {
-		pInstance = PS_GetDefaultInstance(pPackage);
-		if ( pInstance && pInstance->bEnabled && bExists ) {
+		if ( pPackage->bEnabled && bExists ) {
 			return PluginSystem_Reload((str)spec->xid);
 		}
 		return PluginSystem_Enable((str)spec->xid);
@@ -1320,20 +1053,14 @@ void PluginSystem_Unit()
 		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
 			PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
 			printf("        [PluginSystem] Destroy package: %s\n", PS_PackageKey(pPackage) ? (const char*)PS_PackageKey(pPackage) : "(unknown)");
-			for ( int j = 0; j < PS_GetInstanceCount(pPackage); j++ ) {
-				PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, j);
-				if ( pInstance && pInstance->pActiveGeneration ) {
-					PS_RuntimeStopInstance(pInstance);
-				}
+			if ( pPackage && pPackage->pActiveGeneration ) {
+				PS_RuntimeStopPackage(pPackage);
 			}
 		}
 		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
 			PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
-			for ( int j = 0; j < PS_GetInstanceCount(pPackage); j++ ) {
-				PluginSystemInstance* pInstance = xrtListGetPtr(pPackage->lstInstances, j);
-				if ( pInstance ) {
-					PS_RuntimeForceDrainInstance(pInstance);
-				}
+			if ( pPackage ) {
+				PS_RuntimeForceDrainPackage(pPackage);
 			}
 		}
 		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {

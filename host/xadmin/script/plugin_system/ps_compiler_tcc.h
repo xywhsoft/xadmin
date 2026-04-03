@@ -134,7 +134,7 @@ bool PS_TCCCompileSourceFile(TCCState* pTcc, str sRootPath, str sRelPath)
 	return (iRet >= 0);
 }
 
-bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemInstance* pInstance, PluginSystemGeneration* pGeneration)
+bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration)
 {
 	TCCState* pTcc;
 	xvalue tblBuild;
@@ -145,11 +145,11 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemInstance* p
 	const XAdminPluginDescriptor* (*procGetDescriptor)(void);
 	XAdminPluginSetGlobalDataProc procSetGlobalData = NULL;
 
-	if ( (pPackage == NULL) || (pInstance == NULL) || (pGeneration == NULL) || (pPackage->sRootPath == NULL) ) {
+	if ( (pPackage == NULL) || (pGeneration == NULL) || (pPackage->sRootPath == NULL) ) {
 		return FALSE;
 	}
 
-	sGenerationName = xrtFormat("%s_%u", pInstance->sInstanceId ? pInstance->sInstanceId : pPackage->sName, pGeneration->iGeneration);
+	sGenerationName = xrtFormat("%s_%u", PS_PackageKey(pPackage) ? PS_PackageKey(pPackage) : pPackage->sName, pGeneration->iGeneration);
 	pGeneration->sWorkDir = xrtPathJoin(3, G_PluginSystem->sDataPath, "generation", sGenerationName);
 	xrtFree(sGenerationName);
 	if ( pGeneration->sWorkDir ) {
@@ -217,8 +217,8 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemInstance* p
 		procSetGlobalData(XADMIN_GLOBAL_OPTION_TABLE, G_Option);
 		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_XID, pPackage->sXid);
 		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_ROOT_PATH, pPackage->sRootPath);
-		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_DATA_PATH, pInstance->sDataPath);
-		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH, pInstance->sPrivateDbPath);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_DATA_PATH, pPackage->sDataPath);
+		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH, pPackage->sPrivateDbPath);
 	}
 
 	procGetDescriptor = (const XAdminPluginDescriptor* (*)(void))tcc_get_symbol(pTcc, "XAdmin_GetPluginDescriptor");
