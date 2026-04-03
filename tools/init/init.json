@@ -1,0 +1,17 @@
+{
+	"services": [
+		{
+			"enabled": true,
+			"class": "custom",
+			"name": "xAdmin init tools",
+			"desc": "xAdmin init tools",
+			"param": "",
+			"ip": "0.0.0.0",
+			"port": 16511,
+			"debug": false,
+			"path": "tools/init",
+			"devlang": "c",
+			"devfile": "main.c"
+		}
+	]
+}
