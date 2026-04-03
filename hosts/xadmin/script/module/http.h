@@ -394,24 +394,34 @@ static void MemberRequestAuth(XS_ServerObject objServer, XS_HostObject objHost, 
 	}
 }
 
-// current http request dispatcher
+
+
+// 处理 HTTP 请求的回调函数
 bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp)
 {
+	
+	// 安全检查
+	if ( (objReq == NULL) || (objResp == NULL) ) {
+		return FALSE;
+	}
+	
+	// 获取 URI
 	const char* sPath = xsReqPath(objReq);
-	RouteInfo* pInfo;
+	if ( (sPath == NULL) || (sPath[0] == '\0') ) {
+		return FALSE;
+	}
+	
+	// 查询路由表
+	RouteInfo* pInfo = xrtDictGet(G_StaticRouteTableHTTP, sPath, strlen(sPath));
+	if ( pInfo == NULL ) {
+		return FALSE;
+	}
+	
+	
 	RouteInfo tInfo;
 	xvalue objSession = NULL;
 	bool bOwnSession = FALSE;
 	str sSessionID = NULL;
-
-	if ( sPath == NULL || sPath[0] == '\0' ) {
-		return FALSE;
-	}
-
-	pInfo = xrtDictGet(G_StaticRouteTableHTTP, sPath, strlen(sPath));
-	if ( pInfo == NULL ) {
-		return FALSE;
-	}
 	tInfo = *pInfo;
 	pInfo = &tInfo;
 

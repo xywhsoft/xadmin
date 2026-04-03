@@ -1,7 +1,7 @@
 #ifndef XADMIN_PLUGIN_SYSTEM_TYPES_H
 #define XADMIN_PLUGIN_SYSTEM_TYPES_H
 
-#include "ps_plugin_api.h"
+#include <xs_plugin.h>
 
 typedef struct PluginSystemGeneration PluginSystemGeneration;
 typedef struct PluginSystemPackage PluginSystemPackage;

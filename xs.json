@@ -21,12 +21,12 @@
 				"desc": "xadmin host",
 				"param": "",
 				"debug": false,
-				"path": "host/xadmin/wwwroot",
-				"tls_ca": "host/xadmin/tls/ca.pem",
-				"tls_cert": "host/xadmin/tls/cert.pem",
-				"tls_key": "host/xadmin/tls/key.pem",
+				"path": "hosts/xadmin/wwwroot",
+				"tls_ca": "hosts/xadmin/tls/ca.pem",
+				"tls_cert": "hosts/xadmin/tls/cert.pem",
+				"tls_key": "hosts/xadmin/tls/key.pem",
 				"devlang": "c",
-				"devfile": "host/xadmin/script/main.c"
+				"devfile": "hosts/xadmin/script/main.c"
 			},
 			"hosts": []
 		}

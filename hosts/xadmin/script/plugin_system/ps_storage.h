@@ -24,21 +24,6 @@ const char* PS_StorageGenerationXid(PluginSystemGeneration* pGeneration)
 	return PS_StoragePackageXid(pGeneration->pPackage);
 }
 
-void PS_StorageMigrateLegacyState()
-{
-	PS_StorageExecIgnore("INSERT OR IGNORE INTO plugin_runtime (package_id, xid, mount_path, data_path, private_db_path, enabled, installed, config_json, status, active_generation, create_time, update_time) SELECT COALESCE(package_id, xid, instance_id), COALESCE(xid, package_id, instance_id), mount_path, data_path, private_db_path, enabled, installed, config_json, status, active_generation, create_time, update_time FROM plugin_instance");
-	PS_StorageExecIgnore("UPDATE plugin_generation SET xid = instance_id WHERE (xid IS NULL OR xid = '') AND instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE plugin_resource SET xid = instance_id WHERE (xid IS NULL OR xid = '') AND instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE plugin_migration_log SET xid = instance_id WHERE (xid IS NULL OR xid = '') AND instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE plugin_service SET xid = instance_id WHERE (xid IS NULL OR xid = '') AND instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE menu SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE uris SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE authGroup SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE auth SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE memberAuthGroup SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
-	PS_StorageExecIgnore("UPDATE memberAuth SET plugin_xid = plugin_instance_id WHERE (plugin_xid IS NULL OR plugin_xid = '') AND plugin_instance_id IS NOT NULL");
-}
-
 void PS_StorageInit()
 {
 	if ( G_DB == NULL ) {
@@ -47,7 +32,6 @@ void PS_StorageInit()
 
 	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_package (package_id TEXT PRIMARY KEY, xid TEXT, plugin_id TEXT, version TEXT, source_type TEXT, install_path TEXT, checksum TEXT, signature TEXT, trust_level TEXT, manifest_json TEXT, install_time INTEGER)");
 	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_runtime (package_id TEXT PRIMARY KEY, xid TEXT, mount_path TEXT, data_path TEXT, private_db_path TEXT, enabled INTEGER, installed INTEGER, config_json TEXT, status TEXT, active_generation INTEGER, create_time INTEGER, update_time INTEGER)");
-	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_instance (instance_id TEXT PRIMARY KEY, package_id TEXT, xid TEXT, instance_name TEXT, mount_path TEXT, data_path TEXT, private_db_path TEXT, enabled INTEGER, installed INTEGER, config_json TEXT, status TEXT, active_generation INTEGER, create_time INTEGER, update_time INTEGER)");
 	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_generation (id INTEGER PRIMARY KEY AUTOINCREMENT, xid TEXT, generation INTEGER, package_version TEXT, state TEXT, compile_hash TEXT, load_time INTEGER, start_time INTEGER, stop_time INTEGER, health_status TEXT, error_message TEXT)");
 	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_dependency (id INTEGER PRIMARY KEY AUTOINCREMENT, package_id TEXT, dependency_type TEXT, dependency_name TEXT, min_version TEXT, max_version TEXT)");
 	PS_StorageExecIgnore("CREATE TABLE IF NOT EXISTS plugin_resource (id INTEGER PRIMARY KEY AUTOINCREMENT, xid TEXT, generation INTEGER, owner_scope TEXT, resource_type TEXT, resource_key TEXT, resource_ref TEXT, destroy_policy TEXT, create_time INTEGER, status TEXT)");
@@ -75,8 +59,6 @@ void PS_StorageInit()
 	PS_StorageExecIgnore("ALTER TABLE memberAuthGroup ADD COLUMN plugin_generation INTEGER");
 	PS_StorageExecIgnore("ALTER TABLE memberAuth ADD COLUMN plugin_xid TEXT");
 	PS_StorageExecIgnore("ALTER TABLE memberAuth ADD COLUMN plugin_generation INTEGER");
-
-	PS_StorageMigrateLegacyState();
 }
 
 void PS_StorageUnit()

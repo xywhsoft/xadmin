@@ -111,7 +111,7 @@ generation 负责：
 ## 7. 插件目录结构
 
 ```text
-script/plugin/<xid>/
+plugin/<xid>/
 ├── plugin.json
 ├── config.defaults.json
 ├── config.schema.json

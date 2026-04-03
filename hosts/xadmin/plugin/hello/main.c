@@ -1,4 +1,4 @@
-#include "plugin.h"
+#include <xs_plugin.h>
 
 static XAdminPluginHandle G_HelloHandle = NULL;
 static sqlite3* G_HelloMainDb = NULL;
@@ -76,7 +76,7 @@ bool Hello_IsValidGeneratedXid(const char* sXid)
 str Hello_BuildGeneratedMainSource(const char* sXid)
 {
 	return xrtFormat(
-		"#include \"plugin.h\"\n"
+		"#include <xs_plugin.h>\n"
 		"\n"
 		"static char G_Message[256] = \"Hello from generated plugin %s\";\n"
 		"\n"

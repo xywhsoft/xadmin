@@ -1718,7 +1718,7 @@ void PluginMgr_Init()
 
 	printf("[xadmin:plugin] path begin\n");
 	fflush(stdout);
-	PluginPath = xrtPathJoin(2, AppPath, "script/plugin");
+	PluginPath = xrtPathJoin(2, AppPath, "plugin");
 	PluginDataPath = xrtPathJoin(2, AppPath, "data/plugin");
 	printf("[xadmin:plugin] path done\n");
 	fflush(stdout);

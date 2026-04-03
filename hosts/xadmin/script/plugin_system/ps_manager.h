@@ -1370,7 +1370,7 @@ void PluginSystem_Init()
 	G_PluginSystem->lstEventSnapshots = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	G_PluginSystem->lstHooks = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	G_PluginSystem->lstHookSnapshots = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
-	G_PluginSystem->sPluginRootPath = xrtPathJoin(2, AppPath, "script/plugin");
+	G_PluginSystem->sPluginRootPath = xrtPathJoin(2, AppPath, "plugin");
 	G_PluginSystem->sDataPath = xrtPathJoin(3, AppPath, "data", "plugin_system");
 
 	if ( G_PluginSystem->sPluginRootPath ) {
