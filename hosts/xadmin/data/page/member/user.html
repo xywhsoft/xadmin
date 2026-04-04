@@ -42,36 +42,69 @@
 		var table = layui.table;
 		var layer = layui.layer;
 		var $ = layui.$;
+		var memberGroupMap = {};
+
+		function getGroupName(groupId, groupName) {
+			if (groupName) {
+				return groupName;
+			}
+			if (memberGroupMap[groupId]) {
+				return memberGroupMap[groupId];
+			}
+			return groupId || '-';
+		}
+
+		function loadMemberGroups() {
+			return fetch('/admin/member/group?page=1&limit=1000', {
+				credentials: 'same-origin',
+				headers: { 'Accept': 'application/json' }
+			})
+			.then(function(response){ return response.json(); })
+			.then(function(result){
+				var data = (result && result.data) || [];
+				memberGroupMap = {};
+				data.forEach(function(item){
+					if (item && item.id) {
+						memberGroupMap[item.id] = item.name || ('#' + item.id);
+					}
+				});
+			})
+			.catch(function(){
+				memberGroupMap = {};
+			});
+		}
 		
 		// 创建渲染实例
-		table.render({
-			elem: '#Table_Member_User',
-			toolbar: '#Toolbar_Member_User',
-			url: '/admin/member/user',
-			defaultToolbar: ['filter', 'exports', 'print'],
-			height: 'full-135',
-			css: "",
-			cellMinWidth: 60,
-			skin: "line",
-			totalRow: false,
-			page: {
-				limit: 20,
-				groups: 11,
-				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
-			},
-			cols: [[
-				{field:'id', width:80, title: 'ID'},
-				{title: '用户名', templet: '<code>{{= d.username }}</code>'},
-				{field:'nickname', width:140, title: '昵称'},
-				{width:120, title: '用户组', templet: '<span class="layui-badge layui-bg-blue">{{= d.groupId }}</span>'},
-				{width:100, title: '权限级别', templet: '<span class="layui-badge layui-bg-orange">{{= d.authLevel }}</span>'},
-				{width:120, title: '余额(元)', templet: function(d){ return '<span class="layui-badge layui-bg-green">' + (d.balance / 100).toFixed(2) + '</span>'; }},
-				{width:100, title: '状态', templet: function(d){ return d.status == 1 ? '<span class="layui-badge layui-bg-green">正常</span>' : '<span class="layui-badge layui-bg-gray">禁用</span>'; }},
-				{field:'createTime', width:180, title: '注册时间'},
-				{width:260, title: '操作', templet: '#Tool_Member_User'},
-			]],
-			done: function(){},
-			error: function(res, msg){ console.log(res, msg); }
+		loadMemberGroups().finally(function(){
+			table.render({
+				elem: '#Table_Member_User',
+				toolbar: '#Toolbar_Member_User',
+				url: '/admin/member/user',
+				defaultToolbar: ['filter', 'exports', 'print'],
+				height: 'full-135',
+				css: "",
+				cellMinWidth: 60,
+				skin: "line",
+				totalRow: false,
+				page: {
+					limit: 20,
+					groups: 11,
+					layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+				},
+				cols: [[
+					{field:'id', width:80, title: 'ID'},
+					{title: '用户名', templet: '<code>{{= d.username }}</code>'},
+					{field:'nickname', width:140, title: '昵称'},
+					{width:120, title: '用户组', templet: function(d){ return '<span class="layui-badge layui-bg-blue">' + getGroupName(d.groupId, d.groupName) + '</span>'; }},
+					{width:100, title: '权限级别', templet: '<span class="layui-badge layui-bg-orange">{{= d.authLevel }}</span>'},
+					{width:120, title: '余额(元)', templet: function(d){ return '<span class="layui-badge layui-bg-green">' + (d.balance / 100).toFixed(2) + '</span>'; }},
+					{width:100, title: '状态', templet: function(d){ return d.status == 1 ? '<span class="layui-badge layui-bg-green">正常</span>' : '<span class="layui-badge layui-bg-gray">禁用</span>'; }},
+					{field:'createTime', width:180, title: '注册时间'},
+					{width:260, title: '操作', templet: '#Tool_Member_User'},
+				]],
+				done: function(){},
+				error: function(res, msg){ console.log(res, msg); }
+			});
 		});
 		
 		// 工具栏事件

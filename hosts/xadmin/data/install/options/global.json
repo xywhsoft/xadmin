@@ -100,6 +100,13 @@
 					"title": "SMTP 主机",
 					"type": "text",
 					"desc": "例如 smtp.qq.com、smtp.exmail.qq.com、smtp.feishu.cn",
+					"actions": [
+						{
+							"style": "layui-btn-primary",
+							"key": "test_smtp",
+							"text": "测试发信"
+						}
+					],
 					"name": "smtp_host"
 				},
 				{
@@ -144,6 +151,13 @@
 					"name": "smtp_auth"
 				},
 				{
+					"value": false,
+					"title": "启用 TLS 严格验证",
+					"type": "switch",
+					"desc": "开启后校验证书链与主机名，部分邮件服务商可能因证书域名不匹配导致发送失败",
+					"name": "smtp_verify_peer"
+				},
+				{
 					"value": "",
 					"title": "SMTP 用户名",
 					"type": "text",
@@ -181,12 +195,30 @@
 				},
 				{
 					"value": 60,
+					"min": 5,
+					"max": 86400,
+					"title": "队列扫描间隔秒数",
+					"type": "int",
+					"desc": "调度器自动扫描并执行待发送邮件任务的间隔",
+					"name": "mail_queue_scan_interval_sec"
+				},
+				{
+					"value": 60,
 					"min": 1,
 					"max": 10000,
 					"title": "每分钟最大发送数",
 					"type": "int",
 					"desc": "用于限制发送速率，避免触发服务商风控",
 					"name": "mail_rate_limit_per_minute"
+				},
+				{
+					"value": 5,
+					"min": 1,
+					"max": 32,
+					"title": "队列并发发送数",
+					"type": "int",
+					"desc": "单轮队列执行时并发发送的邮件数量上限，建议从 3 到 10 之间逐步调优",
+					"name": "mail_queue_concurrency"
 				},
 				{
 					"value": 3,

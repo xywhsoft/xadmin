@@ -35,3 +35,48 @@ void Request_Option_AdminEntryGenerate(XS_ServerObject objServer, XS_HostObject 
 	}
 	xvoUnref(tblRet);
 }
+
+void Request_Option_SMTPTest(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblReq = NULL;
+	xvalue tblRet = NULL;
+	xvalue tblData = NULL;
+	xvalue tblConfig = NULL;
+	str sToEmail = NULL;
+	str sMessage = NULL;
+	bool bOK;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+		return;
+	}
+
+	tblReq = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+	if ( tblReq == NULL || xvoType(tblReq) != XVO_DT_TABLE ) {
+		if ( tblReq ) xvoUnref(tblReq);
+		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"%s\"}", "Invalid request body");
+		return;
+	}
+
+	sToEmail = xvoTableGetText(tblReq, "toEmail", 7);
+	tblConfig = xvoTableGetValue(tblReq, "data", 4);
+	bOK = MemberMessage_TestSMTPWithData(tblConfig, sToEmail, &sMessage);
+
+	tblRet = xvoCreateTable();
+	tblData = xvoCreateTable();
+	xvoTableSetBool(tblRet, "result", 6, bOK);
+	xvoTableSetText(tblRet, "message", 7, sMessage ? sMessage : (str)"", 0, FALSE);
+	xvoTableSetText(tblData, "toEmail", 7, sToEmail ? sToEmail : (str)"", 0, FALSE);
+	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
+	OptionToolReplyJSON(objResp, tblRet);
+
+	if ( sMessage ) {
+		xrtFree(sMessage);
+	}
+	xvoUnref(tblReq);
+	xvoUnref(tblRet);
+}

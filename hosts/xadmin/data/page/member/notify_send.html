@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>发送站内信</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+</head>
+<body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+	<form class="layui-form" lay-filter="Form_Member_Notify_Send" style="height: 100%; display: flex; flex-direction: column;">
+		<div style="flex: 1; overflow-y: auto; padding: 20px;">
+			<div class="layui-form-item">
+				<label class="layui-form-label">标题</label>
+				<div class="layui-input-block">
+					<input type="text" name="title" required lay-verify="required" placeholder="请输入站内信标题" autocomplete="off" class="layui-input">
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">发送范围</label>
+				<div class="layui-input-block">
+					<select name="sendType">
+						<option value="users">指定用户</option>
+						<option value="single">单个用户</option>
+						<option value="groups">指定用户组</option>
+						<option value="all">全部用户</option>
+					</select>
+				</div>
+			</div>
+			<div class="layui-form-item layui-form-text">
+				<label class="layui-form-label">用户 ID</label>
+				<div class="layui-input-block">
+					<textarea name="memberIds" placeholder="发送给单个或多个用户时填写，支持逗号、空格、换行分隔" class="layui-textarea" style="min-height: 90px;"></textarea>
+				</div>
+			</div>
+			<div class="layui-form-item layui-form-text">
+				<label class="layui-form-label">用户组 ID</label>
+				<div class="layui-input-block">
+					<textarea name="groupIds" placeholder="发送给指定用户组时填写，支持逗号、空格、换行分隔" class="layui-textarea" style="min-height: 90px;"></textarea>
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">跳转地址</label>
+				<div class="layui-input-block">
+					<input type="text" name="actionUrl" placeholder="可选，前台点击消息时可跳转到对应地址" autocomplete="off" class="layui-input">
+				</div>
+			</div>
+			<div class="layui-form-item layui-form-text">
+				<label class="layui-form-label">内容</label>
+				<div class="layui-input-block">
+					<textarea name="content" required lay-verify="required" placeholder="请输入站内信内容" class="layui-textarea" style="min-height: 220px;"></textarea>
+				</div>
+			</div>
+		</div>
+		<div style="padding: 10px 20px; border-top: 1px solid #e6e6e6; text-align: right;">
+			<button class="layui-btn layui-bg-blue" lay-submit lay-filter="submitMemberNotifySend"><i class="layui-icon layui-icon-ok"></i> 立即发送</button>
+			<button type="button" class="layui-btn layui-btn-primary" id="btnCancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
+		</div>
+	</form>
+
+	<script src="/layui/layui.js"></script>
+	<script>
+	layui.use(['form', 'layer'], function(){
+		var form = layui.form;
+		var layer = layui.layer;
+
+		form.render();
+
+		document.getElementById('btnCancel').onclick = function(){
+			var frameIndex = parent.layer.getFrameIndex(window.name);
+			parent.layer.close(frameIndex);
+		};
+
+		form.on('submit(submitMemberNotifySend)', function(data){
+			fetch('/admin/member/notify', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(data.field)
+			})
+			.then(function(response){ return response.json(); })
+			.then(function(result){
+				if ( result && result.result ) {
+					layer.msg(result.message || '发送成功', {icon: 1}, function(){
+						if ( parent.layui && parent.layui.table ) {
+							parent.layui.table.reloadData('Table_Member_Notify');
+						}
+						var frameIndex = parent.layer.getFrameIndex(window.name);
+						parent.layer.close(frameIndex);
+					});
+				} else {
+					layer.msg((result && result.message) || '发送失败', {icon: 2});
+				}
+			})
+			.catch(function(error){
+				layer.msg('请求失败', {icon: 2});
+				console.error(error);
+			});
+			return false;
+		});
+	});
+	</script>
+</body>
+</html>

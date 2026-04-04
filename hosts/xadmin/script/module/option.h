@@ -28,6 +28,92 @@ static xvalue Option_CreateSharedTableValue()
 	return pVal;
 }
 
+static xvalue Option_CreateSharedArrayValue()
+{
+	xvalue pVal = xvoCreateArrayEx(XRT_OBJMODE_SHARED);
+	if ( pVal != NULL ) {
+		XAdminValuePublishShared(pVal);
+	}
+	return pVal;
+}
+
+typedef struct OptionSharedCloneTableContext {
+	xvalue tblSrc;
+	xvalue tblDst;
+} OptionSharedCloneTableContext;
+
+static xvalue Option_CloneSharedValue(xvalue objSrc);
+
+static bool Option_CloneSharedTableItemProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+{
+	OptionSharedCloneTableContext* pCtx = (OptionSharedCloneTableContext*)pArg;
+	xvalue objSrcVal;
+	xvalue objDstVal;
+
+	(void)pVal;
+
+	if ( (pCtx == NULL) || (pCtx->tblSrc == NULL) || (pCtx->tblDst == NULL) || (pKey == NULL) ) {
+		return FALSE;
+	}
+
+	objSrcVal = xvoTableGetValue(pCtx->tblSrc, pKey->Key, pKey->KeyLen);
+	objDstVal = Option_CloneSharedValue(objSrcVal);
+	if ( objDstVal != NULL ) {
+		xvoTableSetValue(pCtx->tblDst, pKey->Key, pKey->KeyLen, objDstVal, TRUE);
+	}
+
+	return FALSE;
+}
+
+static xvalue Option_CloneSharedValue(xvalue objSrc)
+{
+	xvalue objDst = NULL;
+	int iType;
+
+	if ( objSrc == NULL ) {
+		return NULL;
+	}
+
+	iType = xvoType(objSrc);
+	switch ( iType ) {
+		case XVO_DT_NULL:
+			return xvoCreateNull();
+		case XVO_DT_BOOL:
+			return xvoCreateBool(xvoGetBool(objSrc));
+		case XVO_DT_INT:
+			return xvoCreateInt(xvoGetInt(objSrc));
+		case XVO_DT_FLOAT:
+			return xvoCreateFloat(xvoGetFloat(objSrc));
+		case XVO_DT_TEXT:
+			return xvoCreateText(xvoGetText(objSrc), 0, FALSE);
+		case XVO_DT_TIME:
+			return xvoCreateTime(xvoGetTime(objSrc));
+		case XVO_DT_ARRAY:
+			objDst = Option_CreateSharedArrayValue();
+			if ( objDst != NULL ) {
+				uint32 iCount = xvoArrayItemCount(objSrc);
+				for ( uint32 i = 0; i < iCount; i++ ) {
+					xvalue objItem = Option_CloneSharedValue(xvoArrayGetValue(objSrc, i));
+					if ( objItem != NULL ) {
+						xvoArrayAppendValue(objDst, objItem, TRUE);
+					}
+				}
+			}
+			return objDst;
+		case XVO_DT_TABLE:
+			objDst = Option_CreateSharedTableValue();
+			if ( objDst != NULL ) {
+				OptionSharedCloneTableContext tCtx;
+				tCtx.tblSrc = objSrc;
+				tCtx.tblDst = objDst;
+				xrtDictWalk(objSrc->vTable, (ptr)Option_CloneSharedTableItemProc, &tCtx);
+			}
+			return objDst;
+		default:
+			return xvoCopy(objSrc);
+	}
+}
+
 static bool Option_HasNonSpaceText(const char* sText)
 {
 	if ( sText == NULL ) {
@@ -470,8 +556,12 @@ int ScanOptionFileProc(str sPath, size_t iSize, int bDir, ptr pData, ptr Param)
 											xvalue varValue = xvoTableGetValue(tblOpt, "value", 5);
 											if ( sName != NULL ) {
 												if ( varValue != NULL ) {
-													xvoAddRef(varValue);
-													xvoTableSetValue(tblNamespace, sName, 0, varValue, TRUE);
+													xvalue varSharedValue = Option_CloneSharedValue(varValue);
+													if ( varSharedValue != NULL ) {
+														xvoTableSetValue(tblNamespace, sName, 0, varSharedValue, TRUE);
+													} else {
+														xvoTableSetText(tblNamespace, sName, 0, "", 0, FALSE);
+													}
 												} else {
 													xvoTableSetText(tblNamespace, sName, 0, "", 0, FALSE);
 												}

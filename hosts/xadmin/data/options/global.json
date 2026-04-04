@@ -42,7 +42,7 @@
 			"style":	"",
 			"options":	[
 				{
-					"value":	false,
+					"value":	true,
 					"title":	"启用邮件功能",
 					"type":	"switch",
 					"desc":	"关闭时，系统不执行邮件发送任务",
@@ -66,7 +66,7 @@
 					"desc":	"邮件中显示的发件人名称",
 					"name":	"mail_from_name"
 				}, {
-					"value":	"",
+					"value":	"xywhsoft@qq.com",
 					"title":	"发件人邮箱",
 					"type":	"text",
 					"desc":	"建议与 SMTP 账号一致，例如 no-reply@example.com",
@@ -84,9 +84,16 @@
 			"style":	"",
 			"options":	[
 				{
-					"value":	"smtp.example.com",
+					"value":	"smtp.qq.com",
 					"title":	"SMTP 主机",
 					"type":	"text",
+					"actions":	[
+						{
+							"style":	"layui-btn-primary",
+							"key":	"test_smtp",
+							"text":	"测试发信"
+						}
+					],
 					"desc":	"例如 smtp.qq.com、smtp.exmail.qq.com、smtp.feishu.cn",
 					"name":	"smtp_host"
 				}, {
@@ -125,13 +132,19 @@
 					"desc":	"大多数邮件服务商都需要开启",
 					"name":	"smtp_auth"
 				}, {
-					"value":	"",
+					"value":	false,
+					"title":	"启用 TLS 严格验证",
+					"type":	"switch",
+					"desc":	"开启后校验证书链与主机名，部分邮件服务商可能因证书域名不匹配导致发送失败",
+					"name":	"smtp_verify_peer"
+				}, {
+					"value":	"xywhsoft@qq.com",
 					"title":	"SMTP 用户名",
 					"type":	"text",
 					"desc":	"通常为完整邮箱地址或服务商分配的账号名",
 					"name":	"smtp_username"
 				}, {
-					"value":	"",
+					"value":	"vztloectwqqmbdgg",
 					"title":	"SMTP 密码 / 授权码",
 					"type":	"password",
 					"desc":	"建议填写服务商提供的授权码，而不是邮箱登录密码",
@@ -158,12 +171,28 @@
 					"name":	"mail_queue_enabled"
 				}, {
 					"value":	60,
+					"min":	5,
+					"title":	"队列扫描间隔秒数",
+					"type":	"int",
+					"max":	86400,
+					"desc":	"调度器自动扫描并执行待发送邮件任务的间隔",
+					"name":	"mail_queue_scan_interval_sec"
+				}, {
+					"value":	60,
 					"min":	1,
 					"title":	"每分钟最大发送数",
 					"type":	"int",
 					"max":	10000,
 					"desc":	"用于限制发送速率，避免触发服务商风控",
 					"name":	"mail_rate_limit_per_minute"
+				}, {
+					"value":	5,
+					"min":	1,
+					"title":	"队列并发发送数",
+					"type":	"int",
+					"max":	32,
+					"desc":	"单轮队列执行时并发发送的邮件数量上限，建议从 3 到 10 之间逐步调优",
+					"name":	"mail_queue_concurrency"
 				}, {
 					"value":	3,
 					"min":	0,

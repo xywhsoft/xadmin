@@ -41,6 +41,17 @@ typedef struct SchedWorkerContext {
 	str sTriggerSource;
 } SchedWorkerContext;
 
+typedef void (*SchedSystemTickHookProc)(sqlite3* pDB, int64 iNow, ptr pUserData);
+
+typedef struct SchedSystemTickHook {
+	bool used;
+	char sName[64];
+	int64 intervalSec;
+	int64 nextRunAt;
+	SchedSystemTickHookProc proc;
+	ptr pUserData;
+} SchedSystemTickHook;
+
 typedef struct SchedCronExpr {
 	bool second[60];
 	bool minute[60];
@@ -62,6 +73,7 @@ static int G_SchedWorkerCount = 0;
 static str G_SchedPath = NULL;
 static str G_SchedCachePath = NULL;
 static str G_SchedXSPath = NULL;
+static SchedSystemTickHook G_SchedHooks[8];
 
 typedef struct SchedTccErrorBuffer {
 	str sText;
@@ -70,6 +82,8 @@ typedef struct SchedTccErrorBuffer {
 static bool Sched_SaveTaskRequest(xvalue tblBody, bool bUpdate, str* psMessage, int64* pTaskId);
 static bool Sched_StartTaskRunInternal(int64 id, const char* sTriggerSource, bool bAllowDisabled, str* psMessage);
 bool Sched_RunNow(int64 id, str* psMessage);
+
+bool Sched_RegisterSystemTickHook(const char* sName, int64 iIntervalSec, SchedSystemTickHookProc proc, ptr pUserData);
 
 static str Sched_CopyText(const char* sText)
 {
@@ -290,6 +304,106 @@ static bool Sched_ExecSQL(sqlite3* pDB, const char* sSQL)
 		return FALSE;
 	}
 	return TRUE;
+}
+
+bool Sched_RegisterSystemTickHook(const char* sName, int64 iIntervalSec, SchedSystemTickHookProc proc, ptr pUserData)
+{
+	int iSlot = -1;
+	int i;
+
+	if ( proc == NULL ) {
+		return FALSE;
+	}
+	if ( iIntervalSec <= 0 ) {
+		iIntervalSec = 60;
+	}
+	if ( G_SchedLock ) {
+		xrtMutexLock(G_SchedLock);
+	}
+
+	for ( i = 0; i < (int)(sizeof(G_SchedHooks) / sizeof(G_SchedHooks[0])); i++ ) {
+		if ( G_SchedHooks[i].used && sName && sName[0] && strcmp(G_SchedHooks[i].sName, sName) == 0 ) {
+			iSlot = i;
+			break;
+		}
+		if ( iSlot < 0 && !G_SchedHooks[i].used ) {
+			iSlot = i;
+		}
+	}
+
+	if ( iSlot >= 0 ) {
+		memset(&G_SchedHooks[iSlot], 0, sizeof(G_SchedHooks[iSlot]));
+		G_SchedHooks[iSlot].used = TRUE;
+		G_SchedHooks[iSlot].intervalSec = iIntervalSec;
+		G_SchedHooks[iSlot].nextRunAt = xrtNow() + iIntervalSec;
+		G_SchedHooks[iSlot].proc = proc;
+		G_SchedHooks[iSlot].pUserData = pUserData;
+		snprintf(G_SchedHooks[iSlot].sName, sizeof(G_SchedHooks[iSlot].sName), "%s", sName ? sName : "hook");
+	}
+
+	if ( G_SchedCond ) {
+		xrtCondSignal(G_SchedCond);
+	}
+	if ( G_SchedLock ) {
+		xrtMutexUnlock(G_SchedLock);
+	}
+	return iSlot >= 0;
+}
+
+static void Sched_RunDueHooks(sqlite3* pDB, int64 iNow)
+{
+	SchedSystemTickHook arrHooks[8];
+	int iCount = 0;
+	int i;
+
+	memset(arrHooks, 0, sizeof(arrHooks));
+	if ( G_SchedLock ) {
+		xrtMutexLock(G_SchedLock);
+	}
+	for ( i = 0; i < (int)(sizeof(G_SchedHooks) / sizeof(G_SchedHooks[0])); i++ ) {
+		if ( !G_SchedHooks[i].used || G_SchedHooks[i].proc == NULL ) {
+			continue;
+		}
+		if ( G_SchedHooks[i].nextRunAt <= 0 ) {
+			G_SchedHooks[i].nextRunAt = iNow + G_SchedHooks[i].intervalSec;
+		}
+		if ( G_SchedHooks[i].nextRunAt <= iNow && iCount < (int)(sizeof(arrHooks) / sizeof(arrHooks[0])) ) {
+			arrHooks[iCount] = G_SchedHooks[i];
+			iCount++;
+			G_SchedHooks[i].nextRunAt = iNow + G_SchedHooks[i].intervalSec;
+		}
+	}
+	if ( G_SchedLock ) {
+		xrtMutexUnlock(G_SchedLock);
+	}
+
+	for ( i = 0; i < iCount; i++ ) {
+		if ( arrHooks[i].proc ) {
+			arrHooks[i].proc(pDB, iNow, arrHooks[i].pUserData);
+		}
+	}
+}
+
+static int64 Sched_QueryNextHookWakeTime(void)
+{
+	int64 iNext = 0;
+	int i;
+
+	if ( G_SchedLock ) {
+		xrtMutexLock(G_SchedLock);
+	}
+	for ( i = 0; i < (int)(sizeof(G_SchedHooks) / sizeof(G_SchedHooks[0])); i++ ) {
+		if ( !G_SchedHooks[i].used || G_SchedHooks[i].proc == NULL || G_SchedHooks[i].nextRunAt <= 0 ) {
+			continue;
+		}
+		if ( iNext <= 0 || G_SchedHooks[i].nextRunAt < iNext ) {
+			iNext = G_SchedHooks[i].nextRunAt;
+		}
+	}
+	if ( G_SchedLock ) {
+		xrtMutexUnlock(G_SchedLock);
+	}
+	return iNext;
 }
 
 static bool Sched_TableColumnExists(sqlite3* pDB, const char* sTableName, const char* sColumnName)
@@ -3447,6 +3561,7 @@ static uint32 Sched_ThreadProc(ptr pParam)
 		SchedTaskSnapshot tTask;
 		int64 iNow;
 		int64 iNextWake;
+		int64 iHookWake;
 		bool bShouldStart = FALSE;
 
 		xrtMutexLock(G_SchedLock);
@@ -3457,6 +3572,7 @@ static uint32 Sched_ThreadProc(ptr pParam)
 		xrtMutexUnlock(G_SchedLock);
 
 		iNow = xrtNow();
+		Sched_RunDueHooks(pDB, iNow);
 		memset(&tTask, 0, sizeof(tTask));
 		if ( Sched_FetchDueTask(pDB, iNow, &tTask) ) {
 			bShouldStart = Sched_ProcessDueTask(pDB, &tTask, iNow, NULL);
@@ -3468,6 +3584,10 @@ static uint32 Sched_ThreadProc(ptr pParam)
 		}
 
 		iNextWake = Sched_QueryNextWakeTime(pDB);
+		iHookWake = Sched_QueryNextHookWakeTime();
+		if ( iNextWake <= 0 || (iHookWake > 0 && iHookWake < iNextWake) ) {
+			iNextWake = iHookWake;
+		}
 		xrtMutexLock(G_SchedLock);
 		if ( G_SchedStop ) {
 			xrtMutexUnlock(G_SchedLock);

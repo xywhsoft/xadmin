@@ -47,6 +47,7 @@
 
 // 前台用户模块
 #include "module/member.h"
+#include "module/member_message.h"
 
 // 前台权限缓存模块
 #include "module/member_auth.h"
@@ -72,7 +73,9 @@
 #include "route_http/menu.h"
 #include "route_http/trace.h"
 #include "route_http/api.h"
+#include "route_http/member_notify_api.h"
 #include "route_http/member.h"
+#include "route_http/member_message.h"
 #include "route_http/attachment.h"
 #include "route_http/attachment_api.h"
 #include "route_http/plugin.h"
@@ -182,6 +185,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	printf("[xadmin:init] Member_Init done\n");
 	fflush(stdout);
 
+	printf("[xadmin:init] MemberMessage_Init begin\n");
+	fflush(stdout);
+	MemberMessage_Init();
+	printf("[xadmin:init] MemberMessage_Init done\n");
+	fflush(stdout);
+
 	printf("[xadmin:init] MemberAuth_Init begin\n");
 	fflush(stdout);
 	MemberAuth_Init();
@@ -221,6 +230,7 @@ void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 	
 	// 卸载前台权限缓存模块
 	MemberAuth_Unit();
+	MemberMessage_Unit();
 	
 	// 卸载前台权限缓存模块
 	Member_Unit();

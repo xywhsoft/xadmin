@@ -9,6 +9,7 @@
 
 
 #include "inline_xrt.h"
+#include "inline_xsmtp.h"
 #include "inline_libtcc.h"
 #include "inline_sqlite3.h"
 //#include "inline_xdo.h"

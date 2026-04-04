@@ -70,6 +70,7 @@ void RouteHTTP_Init()
 	// 添加 HTTP 静态路由 - Option
 	AddStaticRouteHTTP("/admin/option",								Request_Option);
 	AddStaticRouteHTTP("/admin/option/tool/admin-entry",			Request_Option_AdminEntryGenerate);
+	AddStaticRouteHTTP("/admin/option/tool/test-smtp",				Request_Option_SMTPTest);
 	AddStaticRouteHTTP("/admin/view/option",						Request_View_Option);
 	AddStaticRouteHTTP("/admin/option/files",						Request_Option_Files);
 	AddStaticRouteHTTP("/admin/option/file",						Request_Option_File);
@@ -142,6 +143,18 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/view/member/auth",					Request_View_Member_Auth);
 	AddStaticRouteHTTP("/admin/view/member/auth/add",				Request_View_Member_Auth_Add);
 	AddStaticRouteHTTP("/admin/view/member/auth/edit",				Request_View_Member_Auth_Edit);
+
+	// member message center
+	AddStaticRouteHTTP("/admin/member/notify",						Request_Member_Notify);
+	AddStaticRouteHTTP("/admin/view/member/notify",				Request_View_Member_Notify);
+	AddStaticRouteHTTP("/admin/view/member/notify/send",			Request_View_Member_Notify_Send);
+	AddStaticRouteHTTP("/admin/member/mail",						Request_Member_Mail);
+	AddStaticRouteHTTP("/admin/member/mail/delete",				Request_Member_Mail_Delete);
+	AddStaticRouteHTTP("/admin/member/mail/retry",					Request_Member_Mail_Retry);
+	AddStaticRouteHTTP("/admin/member/mail/status",				Request_Member_Mail_Status);
+	AddStaticRouteHTTP("/admin/member/mail/run_pending",			Request_Member_Mail_RunPending);
+	AddStaticRouteHTTP("/admin/view/member/mail",					Request_View_Member_Mail);
+	AddStaticRouteHTTP("/admin/view/member/mail/send",				Request_View_Member_Mail_Send);
 	
 	// ==================== 附件管理路由 ====================
 	
@@ -172,6 +185,24 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/api/v1/profile/password",					API_Password);
 	AddStaticRouteHTTP("/api/v1/balance",							API_Balance);
 	AddStaticRouteHTTP("/api/v1/balance/log",						API_BalanceLog);
+	AddStaticRouteHTTP("/api/v1/notify/list",						API_Notify_List);
+	AddStaticRouteHTTP("/api/v1/notify/unread_count",				API_Notify_UnreadCount);
+	AddStaticRouteHTTP("/api/v1/notify/detail",					API_Notify_Detail);
+	AddStaticRouteHTTP("/api/v1/notify/read",						API_Notify_Read);
+	AddStaticRouteHTTP("/api/v1/notify/read_all",					API_Notify_ReadAll);
+	AddStaticRouteHTTP("/api/v1/notify/delete",					API_Notify_Delete);
+	RouteInfo* pNotifyListRoute = xrtDictGet(G_StaticRouteTableHTTP, "/api/v1/notify/list", 19);
+	RouteInfo* pNotifyUnreadRoute = xrtDictGet(G_StaticRouteTableHTTP, "/api/v1/notify/unread_count", 27);
+	RouteInfo* pNotifyDetailRoute = xrtDictGet(G_StaticRouteTableHTTP, "/api/v1/notify/detail", 21);
+	RouteInfo* pNotifyReadRoute = xrtDictGet(G_StaticRouteTableHTTP, "/api/v1/notify/read", 19);
+	RouteInfo* pNotifyReadAllRoute = xrtDictGet(G_StaticRouteTableHTTP, "/api/v1/notify/read_all", 23);
+	RouteInfo* pNotifyDeleteRoute = xrtDictGet(G_StaticRouteTableHTTP, "/api/v1/notify/delete", 21);
+	if ( pNotifyListRoute ) pNotifyListRoute->bAdmin = FALSE;
+	if ( pNotifyUnreadRoute ) pNotifyUnreadRoute->bAdmin = FALSE;
+	if ( pNotifyDetailRoute ) pNotifyDetailRoute->bAdmin = FALSE;
+	if ( pNotifyReadRoute ) pNotifyReadRoute->bAdmin = FALSE;
+	if ( pNotifyReadAllRoute ) pNotifyReadAllRoute->bAdmin = FALSE;
+	if ( pNotifyDeleteRoute ) pNotifyDeleteRoute->bAdmin = FALSE;
 	
 	// 前台附件 API
 	AddStaticRouteHTTP("/api/v1/attachment/upload",					Request_Api_Attachment_Upload);

@@ -560,8 +560,57 @@
 			initComboboxes(arrClassList);
 		}
 
+		function triggerSMTPTest(objButton)
+		{
+			layer.prompt({
+				title: '请输入测试收件邮箱',
+				value: $('[name="mail_from_email"]').val() || ''
+			}, function(value, index){
+				var sToEmail = (value || '').trim();
+				if ( !sToEmail ) {
+					layer.msg('请输入测试收件邮箱', {icon: 0});
+					return;
+				}
+
+				layer.close(index);
+				objButton.addClass('layui-btn-disabled');
+				objButton.prop('disabled', true);
+
+				fetch('/admin/option/tool/test-smtp', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						toEmail: sToEmail,
+						data: collectFormData()
+					})
+				})
+				.then(function(response){ return response.json(); })
+				.then(function(result){
+					if ( result && result.result ) {
+						layer.msg((result && result.message) || '测试邮件发送成功', {icon: 1, time: 2500});
+					} else {
+						layer.alert((result && result.message) || '测试邮件发送失败', {icon: 2});
+					}
+				})
+				.catch(function(error){
+					console.error('test smtp failed:', error);
+					layer.alert('测试请求失败，请稍后重试', {icon: 2});
+				})
+				.finally(function(){
+					objButton.removeClass('layui-btn-disabled');
+					objButton.prop('disabled', false);
+				});
+			});
+		}
+
 		$('#optionGroups').on('click', '.option-action-btn', function(){
 			var objButton = $(this);
+			if ( objButton.attr('data-action-key') === 'test_smtp' ) {
+				triggerSMTPTest(objButton);
+				return;
+			}
 			handleOptionAction(objButton.attr('data-action-key'), objButton.attr('data-target-name'), objButton);
 		});
 		
