@@ -309,7 +309,7 @@ int Guestbook_ReadIntQuery(XS_RequestObject objReq, const char* sName, int iDefa
 void Guestbook_SetTimeText(xvalue tblItem, const char* sKey, int iKeyLen, xtime iTime)
 {
 	str sValue = (iTime > 0) ? xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME) : xrtCopyStr("", 0);
-	xvoTableSetText(tblItem, sKey, iKeyLen, sValue ? sValue : "", 0, TRUE);
+	xvoTableSetText(tblItem, sKey, iKeyLen, sValue ? sValue : (str)"", 0, TRUE);
 }
 
 void Guestbook_AppendMessageRow(xvalue arrList, sqlite3_stmt* stmt)
@@ -767,7 +767,7 @@ void Guestbook_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, X
 			Guestbook_SendError(objResp, "reply is too long");
 			return;
 		}
-		sReplyCopy = xrtCopyStr(sReply ? sReply : "", 0);
+		sReplyCopy = xrtCopyStr(sReply ? sReply : (str)"", 0);
 		if ( sReplyCopy == NULL ) {
 			xvoUnref(tblForm);
 			Guestbook_SendError(objResp, "failed to copy reply");
@@ -781,7 +781,7 @@ void Guestbook_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, X
 		Guestbook_SendError(objResp, "invalid id");
 		return;
 	}
-	if ( !Guestbook_UpdateMessage(iId, bHasStatus, iStatus, bHasReply, sReplyCopy ? sReplyCopy : "") ) {
+	if ( !Guestbook_UpdateMessage(iId, bHasStatus, iStatus, bHasReply, sReplyCopy ? sReplyCopy : (str)"") ) {
 		if ( sReplyCopy ) xrtFree(sReplyCopy);
 		Guestbook_SendError(objResp, "failed to update message");
 		return;

@@ -1,48 +1,42 @@
 {
-	"namespace":	"global",
-	"authLevel":	999,
+	"locked":	true,
+	"namespace":	"example",
 	"classList":	[
 		{
 			"style":	"",
 			"options":	[
 				{
-					"value":	"CC",
-					"title":	"后台入口地址",
-					"type":	"text",
-					"desc":	"为空则不使用",
-					"name":	"cp_url"
-				}
-			],
-			"title":	"全局配置"
-		}, {
-			"style":	"",
-			"options":	[
-				{
-					"value":	"DD",
-					"title":	"网站后台标题",
-					"type":	"text",
-					"desc":	"",
-					"name":	"adminTitle"
-				}
-			],
-			"title":	"其他配置"
-		}, {
-			"style":	"",
-			"options":	[
-				{
-					"value":	"哈哈哈哈",
+					"value":	"这个",
 					"title":	"文本输入框",
 					"type":	"text",
 					"desc":	"",
 					"name":	"input_text"
 				}, {
 					"height":	"240px",
-					"value":	"黑黑嘿嘿",
+					"value":	"那个",
 					"title":	"文本域",
 					"type":	"textarea",
 					"desc":	"可以设置 height 属性决定表单高度",
 					"name":	"input_textarea"
 				}, {
+					"value":	"123456",
+					"title":	"密码",
+					"type":	"password",
+					"desc":	"内容会使用符号代替显示",
+					"name":	"input_password"
+				}, {
+					"value":	true,
+					"title":	"开关",
+					"type":	"switch",
+					"desc":	"可以设置布尔值",
+					"name":	"input_switch"
+				}
+			],
+			"title":	"基础输入"
+		}, {
+			"style":	"",
+			"options":	[
+				{
 					"value":	50,
 					"min":	0,
 					"title":	"整数输入",
@@ -72,19 +66,13 @@
 					"type":	"numrange",
 					"desc":	"选择数字范围，包含两个值，分别为开始数字和结束数字",
 					"name":	"input_numrange"
-				}, {
-					"value":	true,
-					"title":	"开关",
-					"type":	"switch",
-					"desc":	"可以设置布尔值",
-					"name":	"input_switch"
-				}, {
-					"value":	"123456",
-					"title":	"密码",
-					"type":	"password",
-					"desc":	"内容会使用符号代替显示",
-					"name":	"input_password"
-				}, {
+				}
+			],
+			"title":	"数值类型"
+		}, {
+			"style":	"",
+			"options":	[
+				{
 					"value":	"00:00:00",
 					"title":	"时间",
 					"type":	"time",
@@ -120,7 +108,13 @@
 					"type":	"datetimerange",
 					"desc":	"选择日期时间范围，值为 2026-01-05 00:00:00 格式字符串的数组，包含两个值，分别为开始日期时间和结束日期时间",
 					"name":	"input_datetimerange"
-				}, {
+				}
+			],
+			"title":	"时间类型"
+		}, {
+			"style":	"",
+			"options":	[
+				{
 					"value":	3.14,
 					"list":	[
 						{
@@ -185,8 +179,9 @@
 					"name":	"input_checklist"
 				}
 			],
-			"title":	"表单测试"
+			"title":	"选择类型"
 		}
 	],
-	"title":	"全局配置"
+	"authLevel":	200,
+	"title":	"配置演示"
 }

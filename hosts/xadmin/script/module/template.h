@@ -55,6 +55,42 @@ char* MakePageWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 	return sPage;
 }
 
+char* MakeTextWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
+{
+	xtetemplate hTemplate;
+	XTE_Error tError = { 0 };
+	str sFilePath;
+	str sText;
+	char* sOutput;
+	size_t iSize = 0;
+
+	if ( (sTemplate == NULL) || (sTemplate[0] == '\0') ) {
+		return xrtCopyStr("template name required", 0);
+	}
+
+	sFilePath = xrtPathJoin(2, TemplatePath, sTemplate);
+	sText = xrtFileReadAll(sFilePath, XRT_CP_BINARY, NULL);
+	xrtFree(sFilePath);
+	if ( sText == NULL ) {
+		return xrtFormat("template not found: %s", sTemplate);
+	}
+
+	iSize = strlen(sText);
+	hTemplate = xteParseEx(NULL, sText, iSize, &G_TemplateParseOptions, &tError);
+	xrtFree(sText);
+	if ( hTemplate == NULL ) {
+		return xrtFormat("template parse failed: %s (%s at %u:%u)", sTemplate, tError.sDesc ? tError.sDesc : "unknown error", tError.iLine, tError.iColumn);
+	}
+
+	sOutput = xteMake(hTemplate, tblData, tblENV, G_Template, pRetSize);
+	xteDestroyTemplate(hTemplate);
+	if ( sOutput == NULL ) {
+		return xrtFormat("template render failed: %s", sTemplate);
+	}
+
+	return sOutput;
+}
+
 
 
 void Template_Init()

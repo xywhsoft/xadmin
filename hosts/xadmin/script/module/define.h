@@ -67,6 +67,8 @@ xdict G_MemberSessionMap = NULL;
 
 // 全局配置
 xvalue G_Option = NULL;
+bool G_AdminEntryEnabled = FALSE;
+str G_AdminEntryPath = NULL;
 
 
 

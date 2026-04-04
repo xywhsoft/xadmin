@@ -39,6 +39,9 @@
 // 配置管理模块
 #include "module/option.h"
 
+// scheduler module
+#include "module/sched.h"
+
 // 菜单管理模块
 #include "module/menu.h"
 
@@ -58,10 +61,14 @@
 
 // 路由调用 - HTTP
 #include "route_http/index.h"
+#include "route_http/brand.h"
 #include "route_http/login.h"
 #include "route_http/logs.h"
 #include "route_http/auth.h"
 #include "route_http/option.h"
+#include "route_http/option_tool.h"
+#include "route_http/sched.h"
+#include "route_http/option_file.h"
 #include "route_http/menu.h"
 #include "route_http/trace.h"
 #include "route_http/api.h"
@@ -151,6 +158,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	printf("[xadmin:init] Option_Init done\n");
 	fflush(stdout);
 
+	printf("[xadmin:init] Sched_Init begin\n");
+	fflush(stdout);
+	Sched_Init();
+	printf("[xadmin:init] Sched_Init done\n");
+	fflush(stdout);
+
 	printf("[xadmin:init] Menu_Init begin\n");
 	fflush(stdout);
 	Menu_Init();
@@ -217,6 +230,9 @@ void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 	
 	// 卸载配置管理模块
 	Option_Unit();
+
+	// 卸载计划任务模块
+	Sched_Unit();
 	
 	// 卸载后台功能模块
 	Admin_Unit();

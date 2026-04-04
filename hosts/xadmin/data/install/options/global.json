@@ -1,192 +1,235 @@
 {
-	"namespace":	"global",
-	"classList":	[
+	"locked": true,
+	"namespace": "global",
+	"classList": [
 		{
-			"style":	"",
-			"options":	[
+			"style": "",
+			"title": "全局配置",
+			"options": [
 				{
-					"value":	"A",
-					"title":	"后台入口地址",
-					"type":	"text",
-					"desc":	"为空则不使用",
-					"name":	"cp_url"
-				}
-			],
-			"title":	"全局配置"
-		}, {
-			"style":	"",
-			"options":	[
-				{
-					"value":	"B",
-					"title":	"网站后台标题",
-					"type":	"text",
-					"desc":	"",
-					"name":	"adminTitle"
-				}
-			],
-			"title":	"其他配置"
-		}, {
-			"style":	"",
-			"options":	[
-				{
-					"value":	"这个",
-					"title":	"文本输入框",
-					"type":	"text",
-					"desc":	"",
-					"name":	"input_text"
-				}, {
-					"height":	"240px",
-					"value":	"那个",
-					"title":	"文本域",
-					"type":	"textarea",
-					"desc":	"可以设置 height 属性决定表单高度",
-					"name":	"input_textarea"
-				}, {
-					"value":	50,
-					"min":	0,
-					"title":	"整数输入",
-					"type":	"int",
-					"max":	100,
-					"desc":	"可以设置 step 属性调整步长，可以设置 min、max 属性锁定范围，默认 step 为 1，默认范围不限制",
-					"step":	10,
-					"name":	"input_int"
-				}, {
-					"value":	[0, 100],
-					"title":	"整数范围",
-					"type":	"intrange",
-					"desc":	"选择整数范围，包含两个值，分别为开始数字和结束数字",
-					"name":	"input_intrange"
-				}, {
-					"value":	100,
-					"min":	0.0,
-					"title":	"数字输入",
-					"type":	"num",
-					"max":	100.0,
-					"desc":	"可以设置 step 属性调整步长，可以设置 min、max 属性锁定范围，默认 step 为 0.01，默认范围不限制",
-					"step":	0.1,
-					"name":	"input_num"
-				}, {
-					"value":	[0, 100],
-					"title":	"数字范围",
-					"type":	"numrange",
-					"desc":	"选择数字范围，包含两个值，分别为开始数字和结束数字",
-					"name":	"input_numrange"
-				}, {
-					"value":	true,
-					"title":	"开关",
-					"type":	"switch",
-					"desc":	"可以设置布尔值",
-					"name":	"input_switch"
-				}, {
-					"value":	"123456",
-					"title":	"密码",
-					"type":	"password",
-					"desc":	"内容会使用符号代替显示",
-					"name":	"input_password"
-				}, {
-					"value":	"00:00:00",
-					"title":	"时间",
-					"type":	"time",
-					"desc":	"选择时间，值为 00:00:00 格式的字符串",
-					"name":	"input_time"
-				}, {
-					"value":	"2026-01-05",
-					"title":	"日期",
-					"type":	"date",
-					"desc":	"选择时间，值为 2026-01-05 格式的字符串",
-					"name":	"input_date"
-				}, {
-					"value":	"2026-01-05 00:00:00",
-					"title":	"日期 + 时间",
-					"type":	"datetime",
-					"desc":	"选择日期时间，值为 2026-01-05 00:00:00 格式的字符串",
-					"name":	"input_datetime"
-				}, {
-					"value":	["00:00:00", "00:00:00"],
-					"title":	"时间范围",
-					"type":	"timerange",
-					"desc":	"选择时间范围，值为 00:00:00 格式字符串的数组，包含两个值，分别为开始时间和结束时间",
-					"name":	"input_timerange"
-				}, {
-					"value":	["2026-01-05", "2026-01-05"],
-					"title":	"日期范围",
-					"type":	"daterange",
-					"desc":	"选择日期范围，值为 2026-01-05 格式字符串的数组，包含两个值，分别为开始日期和结束日期",
-					"name":	"input_daterange"
-				}, {
-					"value":	["2026-01-05 00:00:00", "2026-01-05 00:00:00"],
-					"title":	"日期时间范围",
-					"type":	"datetimerange",
-					"desc":	"选择日期时间范围，值为 2026-01-05 00:00:00 格式字符串的数组，包含两个值，分别为开始日期时间和结束日期时间",
-					"name":	"input_datetimerange"
-				}, {
-					"value":	3.14,
-					"list":	[
+					"value": "",
+					"title": "后台入口地址",
+					"type": "text",
+					"desc": "为空则不使用，例如 /admin 或 /cp，也可以点击右侧按钮自动生成",
+					"actions": [
 						{
-							"value":	"值1",
-							"label":	"选项1"
-						}, {
-							"value":	123,
-							"label":	"值也可以用整数"
-						}, {
-							"value":	3.14,
-							"label":	"值也可以用数字"
-						}, {
-							"value":	true,
-							"label":	"或者布尔值"
+							"key": "generate_admin_entry",
+							"text": "自动生成",
+							"style": "layui-btn-normal"
 						}
 					],
-					"title":	"下拉选择",
-					"type":	"select",
-					"desc":	"下拉选择框，可以通过 list 属性设置下拉内容",
-					"name":	"input_select"
-				}, {
-					"value":	"值3",
-					"list":	[
-						{
-							"value":	"值1",
-							"label":	"选项1"
-						}, {
-							"value":	"值2",
-							"label":	"值不可以用整数"
-						}, {
-							"value":	"值3",
-							"label":	"值不可以用数字"
-						}, {
-							"value":	"值4",
-							"label":	"也不可以用布尔值"
-						}
-					],
-					"title":	"组合框",
-					"type":	"combobox",
-					"desc":	"组合框，既能下拉选择，又能输入，值限制为字符串类型",
-					"name":	"input_combobox"
-				}, {
-					"value":	["值1", true],
-					"list":	[
-						{
-							"value":	"值1",
-							"label":	"选项1"
-						}, {
-							"value":	123,
-							"label":	"值也可以用整数"
-						}, {
-							"value":	3.14,
-							"label":	"值也可以用数字"
-						}, {
-							"value":	true,
-							"label":	"或者布尔值"
-						}
-					],
-					"title":	"复选框组",
-					"type":	"checklist",
-					"desc":	"可以选择清单里的多个值，形成一个数组",
-					"name":	"input_checklist"
+					"name": "cp_url"
+				},
+				{
+					"value": "xadmin 后台管理系统",
+					"title": "网站后台标题",
+					"type": "text",
+					"desc": "显示在后台登录页、后台页面标题等位置",
+					"name": "adminTitle"
+				},
+				{
+					"value": "xadmin",
+					"title": "站点名称",
+					"type": "text",
+					"desc": "用于邮件签名、前台站点标识等通用展示",
+					"name": "siteTitle"
+				},
+				{
+					"value": "",
+					"title": "站点地址",
+					"type": "text",
+					"desc": "建议填写完整 URL，例如 https://example.com，用于邮件链接拼接",
+					"name": "siteUrl"
 				}
-			],
-			"title":	"表单测试"
+			]
+		},
+		{
+			"style": "",
+			"title": "邮箱功能",
+			"options": [
+				{
+					"value": false,
+					"title": "启用邮件功能",
+					"type": "switch",
+					"desc": "关闭时，系统不执行邮件发送任务",
+					"name": "mail_enabled"
+				},
+				{
+					"value": true,
+					"title": "注册要求邮箱",
+					"type": "switch",
+					"desc": "开启后，前台用户注册时必须填写邮箱",
+					"name": "member_register_require_email"
+				},
+				{
+					"value": true,
+					"title": "注册后验证邮箱",
+					"type": "switch",
+					"desc": "开启后，新注册用户需完成邮箱验证",
+					"name": "member_register_verify_email"
+				},
+				{
+					"value": "xadmin",
+					"title": "发件人名称",
+					"type": "text",
+					"desc": "邮件中显示的发件人名称",
+					"name": "mail_from_name"
+				},
+				{
+					"value": "",
+					"title": "发件人邮箱",
+					"type": "text",
+					"desc": "建议与 SMTP 账号一致，例如 no-reply@example.com",
+					"name": "mail_from_email"
+				},
+				{
+					"value": "",
+					"title": "回复邮箱",
+					"type": "text",
+					"desc": "为空则默认使用发件人邮箱",
+					"name": "mail_reply_to"
+				}
+			]
+		},
+		{
+			"style": "",
+			"title": "SMTP 配置",
+			"options": [
+				{
+					"value": "smtp.example.com",
+					"title": "SMTP 主机",
+					"type": "text",
+					"desc": "例如 smtp.qq.com、smtp.exmail.qq.com、smtp.feishu.cn",
+					"name": "smtp_host"
+				},
+				{
+					"value": 465,
+					"min": 1,
+					"max": 65535,
+					"title": "SMTP 端口",
+					"type": "int",
+					"desc": "常见端口为 465、587、25",
+					"name": "smtp_port"
+				},
+				{
+					"value": "ssl",
+					"title": "加密方式",
+					"type": "select",
+					"desc": "按邮件服务商要求选择",
+					"name": "smtp_secure",
+					"list": [
+						{
+							"value": "none",
+							"label": "无加密"
+						},
+						{
+							"value": "ssl",
+							"label": "SSL"
+						},
+						{
+							"value": "tls",
+							"label": "TLS"
+						},
+						{
+							"value": "starttls",
+							"label": "STARTTLS"
+						}
+					]
+				},
+				{
+					"value": true,
+					"title": "启用 SMTP 认证",
+					"type": "switch",
+					"desc": "大多数邮件服务商都需要开启",
+					"name": "smtp_auth"
+				},
+				{
+					"value": "",
+					"title": "SMTP 用户名",
+					"type": "text",
+					"desc": "通常为完整邮箱地址或服务商分配的账号名",
+					"name": "smtp_username"
+				},
+				{
+					"value": "",
+					"title": "SMTP 密码 / 授权码",
+					"type": "password",
+					"desc": "建议填写服务商提供的授权码，而不是邮箱登录密码",
+					"name": "smtp_password"
+				},
+				{
+					"value": 15,
+					"min": 3,
+					"max": 120,
+					"title": "连接超时秒数",
+					"type": "int",
+					"desc": "用于 SMTP 建连和发送超时控制",
+					"name": "smtp_timeout_sec"
+				}
+			]
+		},
+		{
+			"style": "",
+			"title": "发送策略",
+			"options": [
+				{
+					"value": true,
+					"title": "启用邮件队列",
+					"type": "switch",
+					"desc": "建议开启，邮件通过队列异步发送",
+					"name": "mail_queue_enabled"
+				},
+				{
+					"value": 60,
+					"min": 1,
+					"max": 10000,
+					"title": "每分钟最大发送数",
+					"type": "int",
+					"desc": "用于限制发送速率，避免触发服务商风控",
+					"name": "mail_rate_limit_per_minute"
+				},
+				{
+					"value": 3,
+					"min": 0,
+					"max": 20,
+					"title": "失败重试次数",
+					"type": "int",
+					"desc": "单封邮件发送失败后的最大重试次数",
+					"name": "mail_retry_count"
+				},
+				{
+					"value": 300,
+					"min": 10,
+					"max": 86400,
+					"title": "重试间隔秒数",
+					"type": "int",
+					"desc": "邮件发送失败后再次尝试的等待时间",
+					"name": "mail_retry_interval_sec"
+				},
+				{
+					"value": "[xadmin]",
+					"title": "通知邮件主题前缀",
+					"type": "text",
+					"desc": "例如 [xadmin]、[示例站点]",
+					"name": "mail_subject_prefix"
+				},
+				{
+					"value": "邮箱验证",
+					"title": "邮箱验证邮件主题",
+					"type": "text",
+					"desc": "用于注册验证、修改邮箱验证等场景",
+					"name": "mail_verify_subject"
+				},
+				{
+					"value": "找回密码",
+					"title": "找回密码邮件主题",
+					"type": "text",
+					"desc": "用于用户找回密码场景",
+					"name": "mail_reset_password_subject"
+				}
+			]
 		}
 	],
-	"authLevel":	200,
-	"title":	"全局配置"
+	"authLevel": 200,
+	"title": "全局配置"
 }

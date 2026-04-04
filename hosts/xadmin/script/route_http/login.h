@@ -141,7 +141,7 @@ void Request_Logout(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 		}
 		
 		// 清除 Cookie 并跳转到登录�?
-		str sHeader = xrtFormat("%sSet-Cookie: XSID=; Path=/; HttpOnly; Max-Age=0\r\nLocation: /admin/login\r\n", HTTP_CT_JSON);
+		str sHeader = xrtFormat("%sSet-Cookie: XSID=; Path=/; HttpOnly; Max-Age=0\r\nLocation: %s\r\n", HTTP_CT_JSON, Option_GetAdminLoginPath());
 		http_reply(objResp, 302, sHeader, "{\"result\": true, \"message\": \"注销成功！\"}", 0);
 		xrtFree(sHeader);
 		

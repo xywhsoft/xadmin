@@ -3,7 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-	<title>登录</title>
+	<title>后台登录</title>
 	<link rel="stylesheet" href="/pear/css/pear.css" />
 	<link rel="stylesheet" href="/css/other/login.css" />
 	<link rel="stylesheet" href="/css/variables.css" />
@@ -22,9 +22,9 @@
 						<div class="form-center-box">
 							<div class="top-log-title">
 								<img class="top-log" src="/img/logo.png" alt="" />
-								<span>xAdmin</span>
+								<span id="adminBrandTitle">xAdmin</span>
 							</div>
-							<div class="top-desc">
+							<div class="top-desc" id="adminBrandDesc">
 								通 用 的 网 站 后 台 管 理 系 统
 							</div>
 		
@@ -77,11 +77,30 @@
 			const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
 			return hashHex;
 		}
+
+		function loadAdminBranding() {
+			fetch('/brand/admin?_=' + Date.now(), {
+				cache: 'no-store'
+			})
+			.then(function(response){ return response.json(); })
+			.then(function(result){
+				if ( !result || !result.result || !result.data ) {
+					return;
+				}
+				var adminTitle = result.data.adminTitle || 'xAdmin';
+				document.title = adminTitle + ' - 登录';
+			})
+			.catch(function(error){
+				console.error('load admin brand failed:', error);
+			});
+		}
 		
 		layui.use(['form', 'button', 'popup'], function () {
 			var form = layui.form;
 			var button = layui.button;
 			var popup = layui.popup;
+
+			loadAdminBranding();
 
 			// 登 录 提 交
 			form.on('submit(login)', async function (data) {
@@ -99,7 +118,7 @@
 				const pwdHash = await sha256(formData.username + '_xywhsoft_' + formData.password);
 				
 				// 发送请求（传输哈希值而非明文）
-				fetch("/admin/login", {
+				fetch(window.location.pathname, {
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json'

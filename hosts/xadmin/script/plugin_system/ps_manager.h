@@ -787,14 +787,14 @@ bool PS_ManagerEnsurePackageRuntime(PluginSystemPackage* pPackage)
 	return PS_StorageSaveRuntime(pPackage);
 }
 
-int PS_ManagerScanPluginProc(str sPath, size_t iSize, int bDir, ptr pData, size_t iPathSize)
+int PS_ManagerScanPluginProc(str sPath, size_t iSize, int bDir, ptr pData, ptr Param)
 {
 	PluginSystemPackage* pPackage;
 	str sName;
 
 	(void)iSize;
 	(void)pData;
-	(void)iPathSize;
+	(void)Param;
 
 	if ( bDir != 1 ) {
 		return FALSE;

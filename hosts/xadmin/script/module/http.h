@@ -362,7 +362,13 @@ static void AdminRequestAuth(XS_ServerObject objServer, XS_HostObject objHost, X
 			LoadPage(objResp, 403, HTTP_CT_HTML, "status/403.html");
 		}
 	} else {
-		http_reply(objResp, 302, "Location: /admin/login\r\n", NULL, 0);
+		str sHeader = xrtFormat("Content-Type: text/plain\r\nLocation: %s\r\n", Option_GetAdminLoginPath());
+		if ( sHeader != NULL ) {
+			http_reply(objResp, 302, sHeader, "", 0);
+			xrtFree(sHeader);
+		} else {
+			http_reply(objResp, 302, "Content-Type: text/plain\r\nLocation: /admin/login\r\n", "", 0);
+		}
 	}
 }
 
@@ -412,18 +418,20 @@ bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 	}
 	
 	// 查询路由表
-	RouteInfo* pInfo = xrtDictGet(G_StaticRouteTableHTTP, sPath, strlen(sPath));
-	if ( pInfo == NULL ) {
+	bool bAdminEntryAlias = Option_AdminEntryIsMatch(sPath);
+	const char* sLookupPath = bAdminEntryAlias ? "/admin/login" : sPath;
+	const RouteInfo* pRoute = (const RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, (str)sLookupPath, strlen(sLookupPath));
+	if ( pRoute == NULL ) {
 		return FALSE;
 	}
 	
 	
 	RouteInfo tInfo;
+	RouteInfo* pInfo = &tInfo;
 	xvalue objSession = NULL;
 	bool bOwnSession = FALSE;
 	str sSessionID = NULL;
-	tInfo = *pInfo;
-	pInfo = &tInfo;
+	tInfo = *pRoute;
 
 	if ( G_Install == FALSE ) {
 		objSession = xvoCreateNull();
@@ -467,6 +475,19 @@ bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 		}
 		objSession = xvoCreateNull();
 		bOwnSession = (objSession != NULL);
+	}
+
+	if ( Option_AdminEntryEnabled() && pInfo->bAdmin && (objSession->Type != XVO_DT_TABLE) ) {
+		if ( !bAdminEntryAlias ) {
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			if ( sSessionID ) {
+				xrtFree(sSessionID);
+			}
+			if ( bOwnSession && objSession ) {
+				xvoUnref(objSession);
+			}
+			return TRUE;
+		}
 	}
 
 	if ( pInfo->bAuth ) {

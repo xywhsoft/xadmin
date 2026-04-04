@@ -1,0 +1,665 @@
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Sched" lay-filter="Table_Sched"></table>
+</div>
+
+<style>
+	#Table_Sched + .layui-table-view .layui-table-body td {
+		height: 76px;
+	}
+
+	#Table_Sched + .layui-table-view .layui-table-body .layui-table-cell {
+		height: auto;
+		min-height: 60px;
+		line-height: 1.5;
+		padding-top: 8px;
+		padding-bottom: 8px;
+		white-space: normal;
+	}
+
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="id"] .layui-table-cell,
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="name"] .layui-table-cell,
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="status"] .layui-table-cell,
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="runtime"] .layui-table-cell,
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="LAY_CHECKED"] .layui-table-cell,
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="workDir"] .layui-table-cell,
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="actions"] .layui-table-cell {
+		display: flex;
+		align-items: center;
+		min-height: 60px;
+		padding-top: 0;
+		padding-bottom: 0;
+	}
+
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="status"] .layui-table-cell {
+		justify-content: center;
+	}
+
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="LAY_CHECKED"] .layui-form-checkbox {
+		margin-top: 0;
+	}
+
+	#Table_Sched + .layui-table-view .layui-table-body td.layui-table-col-special {
+		padding: 0;
+	}
+
+	#Table_Sched + .layui-table-view .layui-table-body td.layui-table-col-special .layui-table-cell {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		height: 76px;
+		min-height: 76px;
+		padding: 0;
+	}
+
+	#Table_Sched + .layui-table-view .layui-table-body td.layui-table-col-special .layui-form-checkbox {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	#Table_Sched + .layui-table-view .layui-table-body td[data-field="actions"] .layui-table-cell {
+		justify-content: center;
+		white-space: nowrap;
+	}
+
+	.sched-type-cell,
+	.sched-next-cell {
+		line-height: 1.45;
+	}
+
+	.sched-type-cell .meta,
+	.sched-next-cell .meta,
+	.sched-runtime-cell .meta {
+		color: #999;
+		font-size: 12px;
+	}
+
+	.sched-actions {
+		display: flex;
+		flex-wrap: nowrap;
+		gap: 4px;
+		align-items: center;
+	}
+
+	.sched-actions .layui-btn {
+		margin: 0;
+		padding: 0 6px;
+		min-width: auto;
+	}
+</style>
+
+<script type="text/html" id="Toolbar_Sched">
+	<div class="layui-inline">
+		<input type="text" id="sched_search" placeholder="搜索任务名称" class="layui-input" style="width: 220px; height: 32px; margin-right: 8px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" id="sched_batch_dropdown">
+			批量操作
+			<i class="layui-icon layui-icon-down layui-font-12"></i>
+		</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm layui-btn-primary" id="sched_export_dropdown">
+			导出
+			<i class="layui-icon layui-icon-down layui-font-12"></i>
+		</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="import_tasks">导入</button>
+		<button class="layui-btn layui-btn-sm" lay-event="add"><i class="layui-icon layui-icon-addition"></i> 新建任务</button>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Sched_Status">
+	{{# if(d.isRunning){ }}
+		<span class="layui-badge layui-bg-blue">运行中</span>
+	{{# } else if(d.enabled){ }}
+		<span class="layui-badge layui-bg-green">已启用</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-gray">已停用</span>
+	{{# } }}
+</script>
+
+<script type="text/html" id="Tpl_Sched_Type">
+	<div class="sched-type-cell">
+		<div><strong>{{= d.scheduleTypeText || '-' }}</strong></div>
+		<div class="meta">{{= d.scheduleDetail || '-' }}</div>
+		<div class="meta">执行：{{= d.execTypeText || '-' }}</div>
+		<div class="meta">策略：{{= d.policyShortText || '-' }}</div>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Sched_Runtime">
+	<div class="sched-runtime-cell">
+		<div>并发：{{= d.runningCount || 0 }}{{# if(d.parallelLimit > 0){ }} / {{= d.parallelLimit }}{{# } }}</div>
+		<div class="meta">待补跑：{{= d.pendingRun || 0 }}</div>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Sched_Next">
+	<div class="sched-next-cell">
+		<div>下次：{{= d.nextRunText || '-' }}</div>
+		<div class="meta">上次：{{= d.lastFinishText || d.lastRunText || '-' }}</div>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Sched_WorkDir">
+	<span title="{{= d.workDir || '-' }}">{{= d.workDir || '-' }}</span>
+</script>
+
+<script type="text/html" id="Tool_Sched">
+	<div class="sched-actions">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="copy">复制</a>
+		<a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="export">导出</a>
+		<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="run">立即执行</a>
+		{{# if(d.enabled){ }}
+			<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="toggle">停用</a>
+		{{# } else { }}
+			<a class="layui-btn layui-btn-xs" lay-event="toggle">启用</a>
+		{{# } }}
+		<a class="layui-btn layui-btn-xs" lay-event="logs">日志</a>
+		<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<script>
+layui.use(['table', 'layer', 'form', 'dropdown'], function(){
+	var table = layui.table;
+	var layer = layui.layer;
+	var form = layui.form;
+	var dropdown = layui.dropdown;
+	var $ = layui.$;
+	var searchKeyword = '';
+
+	function formatScheduleType(row) {
+		if ( row.scheduleType === 'once' ) return '单次任务';
+		if ( row.scheduleType === 'interval' ) return '间隔任务';
+		if ( row.scheduleType === 'cron' ) return 'Cron 任务';
+		return row.scheduleType || '-';
+	}
+
+	function formatExecType(row) {
+		if ( row.execType === 'shell' ) {
+			return 'Shell' + (row.shellType ? ' / ' + row.shellType : '');
+		}
+		if ( row.execType === 'c' ) {
+			return 'C';
+		}
+		return row.execType || '-';
+	}
+
+	function formatScheduleDetail(row) {
+		if ( row.scheduleType === 'once' ) {
+			return row.onceAtText ? ('执行时间：' + row.onceAtText) : '等待设置执行时间';
+		}
+		if ( row.scheduleType === 'interval' ) {
+			var unitMap = {
+				second: '秒',
+				minute: '分钟',
+				hour: '小时',
+				day: '天'
+			};
+			var unit = unitMap[row.intervalUnit] || row.intervalUnit || '';
+			var text = '每隔 ' + (row.intervalValue || 0) + ' ' + unit;
+			if ( row.startAtText ) {
+				text += '，起始于 ' + row.startAtText;
+			}
+			return text;
+		}
+		if ( row.scheduleType === 'cron' ) {
+			return row.cronExpr || '-';
+		}
+		return '-';
+	}
+
+	function formatPolicyShort(row) {
+		var overlapMap = {
+			skip: '跳过',
+			queue_one: '排队一次',
+			parallel: '并行'
+		};
+		var parts = [];
+		if ( row.overlapPolicy ) {
+			parts.push(overlapMap[row.overlapPolicy] || row.overlapPolicy);
+		}
+		if ( row.parallelLimit > 0 ) {
+			parts.push('上限 ' + row.parallelLimit);
+		}
+		if ( row.retryCount > 0 ) {
+			parts.push('重试 ' + row.retryCount);
+		}
+		return parts.join(' / ') || '-';
+	}
+
+	function normalizeRows(list) {
+		(list || []).forEach(function(item){
+			item.scheduleTypeText = formatScheduleType(item);
+			item.execTypeText = formatExecType(item);
+			item.scheduleDetail = formatScheduleDetail(item);
+			item.policyShortText = formatPolicyShort(item);
+		});
+		return list || [];
+	}
+
+	function reloadTable() {
+		table.reload('Table_Sched', {
+			where: { search: searchKeyword },
+			page: { curr: 1 }
+		});
+	}
+
+	function initBatchDropdown() {
+		var elem = document.getElementById('sched_batch_dropdown');
+		if ( !elem || elem.getAttribute('data-dropdown-init') === '1' ) {
+			return;
+		}
+		dropdown.render({
+			elem: '#sched_batch_dropdown',
+			trigger: 'click',
+			data: [
+				{ title: '批量执行', id: 'batch_run' },
+				{ title: '批量启用', id: 'batch_enable' },
+				{ title: '批量停用', id: 'batch_disable' },
+				{ title: '批量删除', id: 'batch_delete' }
+			],
+			click: function(item){
+				if ( item.id === 'batch_run' ) {
+					batchRun();
+					return;
+				}
+				if ( item.id === 'batch_enable' ) {
+					batchEnable(true);
+					return;
+				}
+				if ( item.id === 'batch_disable' ) {
+					batchEnable(false);
+					return;
+				}
+				if ( item.id === 'batch_delete' ) {
+					batchDelete();
+				}
+			}
+		});
+		elem.setAttribute('data-dropdown-init', '1');
+	}
+
+	function initExportDropdown() {
+		var elem = document.getElementById('sched_export_dropdown');
+		if ( !elem || elem.getAttribute('data-dropdown-init') === '1' ) {
+			return;
+		}
+		dropdown.render({
+			elem: '#sched_export_dropdown',
+			trigger: 'click',
+			data: [
+				{ title: '导出选中', id: 'export_selected' },
+				{ title: '导出全部', id: 'export_all' }
+			],
+			click: function(item){
+				if ( item.id === 'export_selected' ) {
+					exportSelected();
+					return;
+				}
+				if ( item.id === 'export_all' ) {
+					exportTasks(0);
+				}
+			}
+		});
+		elem.setAttribute('data-dropdown-init', '1');
+	}
+
+	function openEdit(id) {
+		var url = '/admin/view/sched/edit';
+		if ( id ) {
+			url += '?id=' + id;
+		}
+		layer.open({
+			title: id ? '编辑计划任务' : '新建计划任务',
+			type: 2,
+			shadeClose: true,
+			area: ['860px', '860px'],
+			content: url,
+			end: function(){
+				reloadTable();
+			}
+		});
+	}
+
+	function postJson(url, data, callback) {
+		fetch(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data || {})
+		})
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( callback ) callback(result || {});
+		})
+		.catch(function(error){
+			layer.msg('请求失败', {icon: 2});
+			console.error(error);
+		});
+	}
+
+	function getSelectedIds() {
+		var checkStatus = table.checkStatus('Table_Sched');
+		var ids = [];
+		(checkStatus.data || []).forEach(function(item){
+			if ( item && item.id ) {
+				ids.push(item.id);
+			}
+		});
+		return ids;
+	}
+
+	function batchEnable(enabled) {
+		var ids = getSelectedIds();
+		var title = enabled ? '批量启用' : '批量停用';
+		if ( !ids.length ) {
+			layer.msg('请先勾选任务', {icon: 0});
+			return;
+		}
+		layer.confirm('确定要' + title + '选中的 ' + ids.length + ' 个任务吗？', {icon: 3, title: title}, function(index){
+			postJson('/admin/sched/task/batch_enable', { ids: ids, enabled: enabled ? 1 : 0 }, function(result){
+				layer.msg(result.message || (result.result ? '批量操作成功' : '批量操作失败'), {icon: result.result ? 1 : 2});
+				reloadTable();
+			});
+			layer.close(index);
+		});
+	}
+
+	function batchRun() {
+		var ids = getSelectedIds();
+		if ( !ids.length ) {
+			layer.msg('请先勾选任务', {icon: 0});
+			return;
+		}
+		layer.confirm('确定要立即执行选中的 ' + ids.length + ' 个任务吗？', {icon: 3, title: '批量执行'}, function(index){
+			postJson('/admin/sched/task/batch_run', { ids: ids }, function(result){
+				layer.msg(result.message || (result.result ? '批量执行已提交' : '批量执行失败'), {icon: result.result ? 1 : 2});
+				reloadTable();
+			});
+			layer.close(index);
+		});
+	}
+
+	function batchDelete() {
+		var ids = getSelectedIds();
+		if ( !ids.length ) {
+			layer.msg('请先勾选任务', {icon: 0});
+			return;
+		}
+		layer.confirm('确定要删除选中的 ' + ids.length + ' 个任务吗？运行中的任务会被跳过。', {icon: 3, title: '批量删除'}, function(index){
+			postJson('/admin/sched/task/batch_delete', { ids: ids }, function(result){
+				layer.msg(result.message || (result.result ? '批量删除成功' : '批量删除失败'), {icon: result.result ? 1 : 2});
+				reloadTable();
+			});
+			layer.close(index);
+		});
+	}
+
+	function showExportDialog(title, tasks) {
+		var payload = { tasks: tasks || [] };
+		var content = [
+			'<div style="padding:16px;">',
+			'<div style="margin-bottom:10px;color:#666;">将下面的 JSON 保存下来，之后可通过“导入”恢复这些计划任务。</div>',
+			'<textarea id="sched_export_json" class="layui-textarea" style="min-height:460px;font-family:Consolas,monospace;">' + JSON.stringify(payload, null, 2) + '</textarea>',
+			'</div>'
+		].join('');
+		layer.open({
+			title: title,
+			type: 1,
+			shadeClose: true,
+			area: ['900px', '680px'],
+			content: content
+		});
+	}
+
+	function exportTasks(id) {
+		var url = '/admin/sched/export';
+		var params = new URLSearchParams();
+		if ( id ) {
+			params.set('id', id);
+		} else if ( searchKeyword ) {
+			params.set('search', searchKeyword);
+		}
+		if ( params.toString() ) {
+			url += '?' + params.toString();
+		}
+
+		fetch(url)
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( !result.result ) {
+				layer.msg(result.message || '导出失败', {icon: 2});
+				return;
+			}
+			showExportDialog(id ? '导出任务' : '导出任务列表', result.data || []);
+		})
+		.catch(function(error){
+			layer.msg('导出失败', {icon: 2});
+			console.error(error);
+		});
+	}
+
+	function exportSelected() {
+		var ids = getSelectedIds();
+		if ( !ids.length ) {
+			layer.msg('请先勾选任务', {icon: 0});
+			return;
+		}
+		postJson('/admin/sched/export_selected', { ids: ids }, function(result){
+			if ( !result.result ) {
+				layer.msg(result.message || '导出失败', {icon: 2});
+				return;
+			}
+			showExportDialog('导出选中任务', result.data || []);
+		});
+	}
+
+	function openImportDialog() {
+		var content = [
+			'<div style="padding:16px;">',
+			'<div style="margin-bottom:10px;color:#666;">粘贴之前导出的 JSON。支持单个任务对象、任务数组，或者 `{ "tasks": [...] }` 格式。</div>',
+			'<div class="layui-form" style="margin-bottom:12px;">',
+			'<div class="layui-form-item" style="margin-bottom:12px;">',
+			'<label class="layui-form-label" style="width:90px;">冲突处理</label>',
+			'<div class="layui-input-block" style="margin-left:120px;">',
+			'<select id="sched_import_conflict_policy">',
+			'<option value="skip">跳过重名任务</option>',
+			'<option value="rename">重命名为导入副本</option>',
+			'<option value="overwrite">覆盖已有任务</option>',
+			'</select>',
+			'</div>',
+			'</div>',
+			'</div>',
+			'<textarea id="sched_import_json" class="layui-textarea" style="min-height:460px;font-family:Consolas,monospace;" placeholder=\'{"tasks":[...]}\'></textarea>',
+			'</div>'
+		].join('');
+		layer.open({
+			title: '导入计划任务',
+			type: 1,
+			shadeClose: true,
+			area: ['900px', '680px'],
+			content: content,
+			success: function(){
+				form.render('select');
+			},
+			btn: ['开始导入', '取消'],
+			yes: function(index){
+				var raw = $.trim($('#sched_import_json').val());
+				var payload;
+				var conflictPolicy = $('#sched_import_conflict_policy').val() || 'skip';
+				if ( !raw ) {
+					layer.msg('请先粘贴 JSON 内容', {icon: 2});
+					return;
+				}
+				try {
+					payload = JSON.parse(raw);
+				} catch (error) {
+					layer.msg('JSON 格式无效', {icon: 2});
+					return;
+				}
+				if ( Array.isArray(payload) ) {
+					payload = {
+						tasks: payload,
+						conflictPolicy: conflictPolicy
+					};
+				} else if ( payload && typeof payload === 'object' ) {
+					payload.conflictPolicy = conflictPolicy;
+				}
+				fetch('/admin/sched/import', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload)
+				})
+				.then(function(response){ return response.json(); })
+				.then(function(result){
+					layer.msg(result.message || (result.result ? '导入完成' : '导入失败'), {icon: result.result ? 1 : 2});
+					if ( result.result || result.count > 0 || result.skipped > 0 ) {
+						layer.close(index);
+						reloadTable();
+					}
+				})
+				.catch(function(error){
+					layer.msg('导入失败', {icon: 2});
+					console.error(error);
+				});
+			}
+		});
+	}
+
+	table.render({
+		elem: '#Table_Sched',
+		id: 'Table_Sched',
+		url: '/admin/sched/tasks',
+		toolbar: '#Toolbar_Sched',
+		defaultToolbar: ['filter', 'exports', 'print'],
+		height: 'full-135',
+			page: {
+				limit: 10,
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+			},
+		skin: 'line',
+		cellMinWidth: 80,
+		parseData: function(res){
+			res = res || {};
+			res.data = normalizeRows(res.data);
+			return res;
+		},
+		cols: [[
+			{type: 'checkbox', width: 48},
+			{field: 'id', title: 'ID', width: 60, sort: true},
+			{field: 'name', title: '任务名称', width: 240},
+			{field: 'typeInfo', title: '调度 / 执行', width: 180, templet: '#Tpl_Sched_Type'},
+			{field: 'status', title: '状态', width: 90, align: 'center', templet: '#Tpl_Sched_Status'},
+			{field: 'runtime', title: '运行态', width: 100, templet: '#Tpl_Sched_Runtime'},
+			{field: 'nextInfo', title: '下次 / 上次', width: 220, templet: '#Tpl_Sched_Next'},
+			{field: 'workDir', title: '工作目录', templet: '#Tpl_Sched_WorkDir'},
+			{field: 'actions', title: '操作', width: 390, toolbar: '#Tool_Sched'}
+		]]
+	});
+
+	$(document).off('keydown.sched_search').on('keydown.sched_search', '#sched_search', function(event){
+		if ( event.keyCode === 13 ) {
+			searchKeyword = $.trim($(this).val());
+			reloadTable();
+		}
+	});
+
+	table.on('toolbar(Table_Sched)', function(obj){
+		if ( obj.event === 'search' ) {
+			searchKeyword = $.trim($('#sched_search').val());
+			reloadTable();
+			return;
+		}
+		if ( obj.event === 'refresh' ) {
+			searchKeyword = '';
+			$('#sched_search').val('');
+			reloadTable();
+			return;
+		}
+		if ( obj.event === 'add' ) {
+			openEdit(0);
+			return;
+		}
+		if ( obj.event === 'import_tasks' ) {
+			openImportDialog();
+			return;
+		}
+	});
+
+	table.on('tool(Table_Sched)', function(obj){
+		var data = obj.data;
+
+		if ( obj.event === 'edit' ) {
+			openEdit(data.id);
+			return;
+		}
+
+		if ( obj.event === 'copy' ) {
+			postJson('/admin/sched/task/copy', { id: data.id }, function(result){
+				layer.msg(result.message || (result.result ? '任务复制成功' : '任务复制失败'), {icon: result.result ? 1 : 2});
+				reloadTable();
+				if ( result.result && result.id ) {
+					openEdit(result.id);
+				}
+			});
+			return;
+		}
+
+		if ( obj.event === 'export' ) {
+			exportTasks(data.id);
+			return;
+		}
+
+		if ( obj.event === 'run' ) {
+			postJson('/admin/sched/task/run', { id: data.id }, function(result){
+				layer.msg(result.message || (result.result ? '任务已加入执行队列' : '执行失败'), {icon: result.result ? 1 : 2});
+				reloadTable();
+			});
+			return;
+		}
+
+		if ( obj.event === 'toggle' ) {
+			postJson('/admin/sched/task/enable', { id: data.id, enabled: data.enabled ? 0 : 1 }, function(result){
+				layer.msg(result.message || (result.result ? '操作成功' : '操作失败'), {icon: result.result ? 1 : 2});
+				reloadTable();
+			});
+			return;
+		}
+
+		if ( obj.event === 'logs' ) {
+			layer.open({
+				title: '执行日志',
+				type: 2,
+				shadeClose: true,
+				area: ['1080px', '760px'],
+				content: '/admin/view/sched/log?taskId=' + data.id
+			});
+			return;
+		}
+
+		if ( obj.event === 'delete' ) {
+			layer.confirm('确定要删除任务“' + (data.name || data.id) + '”吗？', {icon: 3, title: '删除任务'}, function(index){
+				fetch('/admin/sched/task?id=' + data.id, {
+					method: 'DELETE'
+				})
+				.then(function(response){ return response.json(); })
+				.then(function(result){
+					layer.msg(result.message || (result.result ? '删除成功' : '删除失败'), {icon: result.result ? 1 : 2});
+					reloadTable();
+				})
+				.catch(function(error){
+					layer.msg('删除失败', {icon: 2});
+					console.error(error);
+				});
+				layer.close(index);
+			});
+		}
+	});
+
+	initBatchDropdown();
+	initExportDropdown();
+});
+</script>

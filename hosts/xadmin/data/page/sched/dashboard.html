@@ -1,0 +1,589 @@
+<style>
+	.sched-dashboard-wrapper {
+		height: calc(100vh - 106px);
+		overflow-y: auto;
+		background:
+			radial-gradient(circle at top right, rgba(245, 166, 35, 0.18), transparent 26%),
+			radial-gradient(circle at left bottom, rgba(0, 150, 136, 0.12), transparent 24%),
+			linear-gradient(180deg, #f6f8fb 0%, #eef3f7 100%);
+	}
+
+	.sched-dashboard-container {
+		max-width: 1380px;
+		margin: 0 auto;
+		padding: 24px;
+	}
+
+	.sched-dashboard-hero {
+		display: grid;
+		grid-template-columns: 1.35fr 1fr;
+		gap: 18px;
+		margin-bottom: 18px;
+	}
+
+	.sched-dashboard-panel {
+		background: rgba(255, 255, 255, 0.94);
+		border: 1px solid rgba(15, 33, 55, 0.06);
+		border-radius: 18px;
+		box-shadow: 0 18px 48px rgba(15, 33, 55, 0.08);
+	}
+
+	.sched-dashboard-main {
+		padding: 26px 28px;
+		background: linear-gradient(135deg, #0f766e 0%, #155e75 45%, #1d4ed8 100%);
+		color: #fff;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.sched-dashboard-main:before {
+		content: "";
+		position: absolute;
+		top: -80px;
+		right: -40px;
+		width: 220px;
+		height: 220px;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.12);
+	}
+
+	.sched-dashboard-main h1 {
+		margin: 0 0 10px;
+		font-size: 30px;
+		font-weight: 700;
+		letter-spacing: 0.5px;
+	}
+
+	.sched-dashboard-main p {
+		margin: 0;
+		font-size: 15px;
+		line-height: 1.8;
+		max-width: 680px;
+		opacity: 0.92;
+	}
+
+	.sched-dashboard-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		margin-top: 22px;
+	}
+
+	.sched-dashboard-actions .layui-btn {
+		border-radius: 999px;
+		padding: 0 18px;
+		height: 38px;
+		line-height: 38px;
+	}
+
+	.sched-dashboard-btn-primary {
+		background: #2d8cf0;
+		border-color: #2d8cf0;
+		color: #fff;
+	}
+
+	.sched-dashboard-btn-primary:hover {
+		background: #1f7ae0;
+		border-color: #1f7ae0;
+		color: #fff;
+	}
+
+	.sched-dashboard-btn-ghost {
+		background: rgba(255, 255, 255, 0.08);
+		border: 1px solid rgba(255, 255, 255, 0.72);
+		color: #fff;
+	}
+
+	.sched-dashboard-btn-ghost:hover {
+		background: rgba(255, 255, 255, 0.16);
+		color: #fff;
+		border-color: rgba(255, 255, 255, 0.9);
+	}
+
+	.sched-dashboard-side {
+		padding: 22px;
+	}
+
+	.sched-dashboard-title {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 16px;
+	}
+
+	.sched-dashboard-title h3 {
+		margin: 0;
+		font-size: 18px;
+		color: #0f172a;
+	}
+
+	.sched-dashboard-sub {
+		font-size: 12px;
+		color: #64748b;
+	}
+
+	.sched-dashboard-health {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px;
+	}
+
+	.sched-dashboard-health-item {
+		padding: 14px;
+		border-radius: 14px;
+		background: #f8fafc;
+	}
+
+	.sched-dashboard-health-item strong {
+		display: block;
+		font-size: 24px;
+		color: #0f172a;
+		margin-bottom: 6px;
+	}
+
+	.sched-dashboard-health-item span {
+		font-size: 13px;
+		color: #64748b;
+	}
+
+	.sched-dashboard-metrics {
+		display: grid;
+		grid-template-columns: repeat(6, minmax(0, 1fr));
+		gap: 14px;
+		margin-bottom: 18px;
+	}
+
+	.sched-dashboard-metric {
+		padding: 18px 16px;
+		border-radius: 16px;
+		background: rgba(255, 255, 255, 0.92);
+		border: 1px solid rgba(15, 33, 55, 0.06);
+		box-shadow: 0 14px 34px rgba(15, 33, 55, 0.06);
+	}
+
+	.sched-dashboard-metric .label {
+		font-size: 13px;
+		color: #64748b;
+		margin-bottom: 12px;
+	}
+
+	.sched-dashboard-metric .value {
+		font-size: 30px;
+		font-weight: 700;
+		color: #0f172a;
+	}
+
+	.sched-dashboard-metric .desc {
+		margin-top: 8px;
+		font-size: 12px;
+		color: #94a3b8;
+	}
+
+	.sched-dashboard-grid {
+		display: grid;
+		grid-template-columns: 1.2fr 0.8fr;
+		gap: 18px;
+		margin-bottom: 18px;
+	}
+
+	.sched-dashboard-section {
+		padding: 22px;
+	}
+
+	.sched-dashboard-list {
+		display: grid;
+		gap: 12px;
+	}
+
+	.sched-dashboard-item {
+		padding: 14px 16px;
+		border-radius: 14px;
+		background: #f8fafc;
+		border: 1px solid rgba(148, 163, 184, 0.16);
+	}
+
+	.sched-dashboard-item strong {
+		display: block;
+		font-size: 15px;
+		color: #0f172a;
+		margin-bottom: 6px;
+	}
+
+	.sched-dashboard-meta {
+		font-size: 12px;
+		color: #64748b;
+		line-height: 1.8;
+	}
+
+	.sched-dashboard-empty {
+		padding: 24px 12px;
+		text-align: center;
+		font-size: 13px;
+		color: #94a3b8;
+	}
+
+	.sched-dashboard-badges {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin-top: 8px;
+	}
+
+	.sched-dashboard-badge {
+		padding: 8px 12px;
+		border-radius: 999px;
+		background: #eff6ff;
+		color: #1d4ed8;
+		font-size: 12px;
+	}
+
+	.sched-dashboard-actions-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 12px;
+	}
+
+	.sched-dashboard-action {
+		padding: 16px 14px;
+		border-radius: 14px;
+		background: #f8fafc;
+		color: #0f172a;
+		text-decoration: none;
+		border: 1px solid rgba(148, 163, 184, 0.16);
+		transition: all .2s ease;
+	}
+
+	.sched-dashboard-action:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 10px 18px rgba(15, 33, 55, 0.08);
+	}
+
+	.sched-dashboard-action strong {
+		display: block;
+		margin-bottom: 6px;
+		font-size: 15px;
+	}
+
+	.sched-dashboard-action span {
+		font-size: 12px;
+		color: #64748b;
+		line-height: 1.7;
+	}
+
+	.sched-dashboard-footer {
+		padding: 14px 4px 22px;
+		text-align: center;
+		font-size: 12px;
+		color: #94a3b8;
+	}
+
+	@media (max-width: 1200px) {
+		.sched-dashboard-metrics {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 980px) {
+		.sched-dashboard-hero,
+		.sched-dashboard-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.sched-dashboard-metrics {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+	}
+
+	@media (max-width: 640px) {
+		.sched-dashboard-container {
+			padding: 16px;
+		}
+
+		.sched-dashboard-metrics,
+		.sched-dashboard-actions-grid,
+		.sched-dashboard-health {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
+
+<div class="sched-dashboard-wrapper">
+	<div class="sched-dashboard-container">
+		<div class="sched-dashboard-hero">
+			<div class="sched-dashboard-panel sched-dashboard-main">
+				<h1>计划任务看板</h1>
+				<p>这里聚合计划任务的规模、运行状态、近 24 小时健康度、即将执行任务和最近执行记录，适合长期挂在数据看板分类里做日常观察。</p>
+				<div class="sched-dashboard-actions">
+					<button class="layui-btn sched-dashboard-btn-primary" data-open-url="/admin/view/sched" data-open-title="计划任务">进入任务列表</button>
+					<button class="layui-btn sched-dashboard-btn-ghost" data-open-url="/admin/view/sched/log" data-open-title="执行日志" data-open-type="_iframe">执行日志</button>
+				</div>
+			</div>
+			<div class="sched-dashboard-panel sched-dashboard-side">
+				<div class="sched-dashboard-title">
+					<h3>近 24 小时健康度</h3>
+					<span class="sched-dashboard-sub">自动汇总执行日志</span>
+				</div>
+				<div class="sched-dashboard-health">
+					<div class="sched-dashboard-health-item">
+						<strong id="health_run_count">0</strong>
+						<span>总执行次数</span>
+					</div>
+					<div class="sched-dashboard-health-item">
+						<strong id="health_success_count">0</strong>
+						<span>成功次数</span>
+					</div>
+					<div class="sched-dashboard-health-item">
+						<strong id="health_failed_count">0</strong>
+						<span>失败次数</span>
+					</div>
+					<div class="sched-dashboard-health-item">
+						<strong id="health_timeout_count">0</strong>
+						<span>超时次数</span>
+					</div>
+				</div>
+				<div class="sched-dashboard-badges" id="strategy_badges">
+					<span class="sched-dashboard-badge">等待数据</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="sched-dashboard-metrics">
+			<div class="sched-dashboard-metric">
+				<div class="label">任务总数</div>
+				<div class="value" id="metric_total_tasks">0</div>
+				<div class="desc">当前库中所有计划任务</div>
+			</div>
+			<div class="sched-dashboard-metric">
+				<div class="label">启用任务</div>
+				<div class="value" id="metric_enabled_tasks">0</div>
+				<div class="desc">等待调度的任务数量</div>
+			</div>
+			<div class="sched-dashboard-metric">
+				<div class="label">运行实例</div>
+				<div class="value" id="metric_running_instances">0</div>
+				<div class="desc">当前正在执行中的实例</div>
+			</div>
+			<div class="sched-dashboard-metric">
+				<div class="label">待补跑</div>
+				<div class="value" id="metric_pending_runs">0</div>
+				<div class="desc">queue_one 挂起中的补跑</div>
+			</div>
+			<div class="sched-dashboard-metric">
+				<div class="label">今日执行</div>
+				<div class="value" id="metric_today_runs">0</div>
+				<div class="desc">今天触发过的执行次数</div>
+			</div>
+			<div class="sched-dashboard-metric">
+				<div class="label">今日失败</div>
+				<div class="value" id="metric_today_failed">0</div>
+				<div class="desc">失败与超时都值得关注</div>
+			</div>
+		</div>
+
+		<div class="sched-dashboard-grid">
+			<div class="sched-dashboard-panel sched-dashboard-section">
+				<div class="sched-dashboard-title">
+					<h3>即将执行</h3>
+					<span class="sched-dashboard-sub">按下一次触发时间排序</span>
+				</div>
+				<div class="sched-dashboard-list" id="upcoming_list">
+					<div class="sched-dashboard-empty">正在加载...</div>
+				</div>
+			</div>
+			<div class="sched-dashboard-panel sched-dashboard-section">
+				<div class="sched-dashboard-title">
+					<h3>快速入口</h3>
+					<span class="sched-dashboard-sub">常用运维动作</span>
+				</div>
+				<div class="sched-dashboard-actions-grid">
+					<a href="javascript:;" class="sched-dashboard-action" data-open-url="/admin/view/sched" data-open-title="计划任务">
+						<strong>计划任务</strong>
+						<span>查看、筛选、批量操作任务。</span>
+					</a>
+					<a href="javascript:;" class="sched-dashboard-action" data-open-url="/admin/view/sched/log" data-open-title="执行日志" data-open-type="_iframe">
+						<strong>执行日志</strong>
+						<span>查看任务执行结果、失败说明与输出内容。</span>
+					</a>
+				</div>
+			</div>
+		</div>
+
+		<div class="sched-dashboard-panel sched-dashboard-section">
+			<div class="sched-dashboard-title">
+				<h3>最近执行记录</h3>
+				<span class="sched-dashboard-sub">按日志时间倒序显示最近 8 条</span>
+			</div>
+			<div class="sched-dashboard-list" id="recent_runs">
+				<div class="sched-dashboard-empty">正在加载...</div>
+			</div>
+		</div>
+
+		<div class="sched-dashboard-footer">
+			xAdmin · Scheduler Dashboard
+		</div>
+	</div>
+</div>
+
+<script>
+layui.use(['jquery', 'admin', 'layer'], function() {
+	var $ = layui.jquery;
+	var admin = layui.admin;
+	var layer = layui.layer;
+
+	function openAdminPage(url, title, type) {
+		var root = null;
+		var openType = type || '_component';
+
+		if ( window.top && window.top.PearAdmin && typeof window.top.PearAdmin.changePage === 'function' ) {
+			root = window.top;
+		} else if ( window.parent && window.parent.PearAdmin && typeof window.parent.PearAdmin.changePage === 'function' ) {
+			root = window.parent;
+		}
+
+		if ( root ) {
+			root.PearAdmin.changePage({
+				id: url,
+				title: title,
+				url: url,
+				type: openType
+			});
+			return;
+		}
+
+		if ( admin && typeof admin.changePage === 'function' ) {
+			admin.changePage({
+				id: url,
+				title: title,
+				url: url,
+				type: openType
+			});
+			return;
+		}
+
+		window.location.href = url;
+	}
+
+	function formatStatus(status) {
+		if ( status === 'success' ) return '成功';
+		if ( status === 'failed' ) return '失败';
+		if ( status === 'timeout' ) return '超时';
+		if ( status === 'retrying' ) return '重试中';
+		if ( status === 'queued' ) return '已排队';
+		if ( status === 'running' ) return '运行中';
+		return status || '-';
+	}
+
+	function setText(id, value) {
+		var el = document.getElementById(id);
+		if ( el ) {
+			el.textContent = value == null ? 0 : value;
+		}
+	}
+
+	function buildStrategyBadges(stats) {
+		var badges = [];
+		if ( Number(stats.parallelTasks || 0) > 0 ) {
+			badges.push('并行策略 ' + stats.parallelTasks + ' 项');
+		}
+		if ( Number(stats.queueTasks || 0) > 0 ) {
+			badges.push('排队补跑 ' + stats.queueTasks + ' 项');
+		}
+		if ( Number(stats.retryTasks || 0) > 0 ) {
+			badges.push('启用失败重试 ' + stats.retryTasks + ' 项');
+		}
+		badges.push('Shell ' + Number(stats.shellTasks || 0) + ' 项');
+		badges.push('C ' + Number(stats.cTasks || 0) + ' 项');
+		return badges.map(function(item){
+			return '<span class="sched-dashboard-badge">' + item + '</span>';
+		}).join('');
+	}
+
+	function renderUpcoming(list) {
+		var html = '';
+		if ( !list.length ) {
+			$('#upcoming_list').html('<div class="sched-dashboard-empty">暂无待执行任务</div>');
+			return;
+		}
+		list.forEach(function(item){
+			html += [
+				'<div class="sched-dashboard-item">',
+				'<strong>' + (item.name || ('任务 #' + item.id)) + '</strong>',
+				'<div class="sched-dashboard-meta">下次执行：' + (item.nextRunText || '-') + '</div>',
+				'<div class="sched-dashboard-meta">类型：' + (item.scheduleType || '-') + ' / ' + (item.execType || '-') + '</div>',
+				'<div class="sched-dashboard-meta">启用：' + (item.enabled ? '是' : '否') + ' / 并发：' + Number(item.runningCount || 0) + '</div>',
+				'</div>'
+			].join('');
+		});
+		$('#upcoming_list').html(html);
+	}
+
+	function renderRecent(list) {
+		var html = '';
+		if ( !list.length ) {
+			$('#recent_runs').html('<div class="sched-dashboard-empty">暂无执行记录</div>');
+			return;
+		}
+		list.forEach(function(item){
+			html += [
+				'<div class="sched-dashboard-item">',
+				'<strong>' + (item.taskName || ('任务 #' + item.taskId)) + '</strong>',
+				'<div class="sched-dashboard-meta">状态：' + formatStatus(item.status) + ' / 触发来源：' + (item.triggerSource || '-') + '</div>',
+				'<div class="sched-dashboard-meta">开始：' + (item.startText || '-') + ' / 结束：' + (item.finishText || '-') + '</div>',
+				'<div class="sched-dashboard-meta">说明：' + (item.message || '-') + '</div>',
+				'</div>'
+			].join('');
+		});
+		$('#recent_runs').html(html);
+	}
+
+	function loadDashboard() {
+		fetch('/admin/sched/dashboard')
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			var data;
+			var stats;
+			var health;
+
+			if ( !result || !result.result ) {
+				layer.msg((result && result.message) || '计划任务看板加载失败', {icon: 2});
+				return;
+			}
+
+			data = result.data || {};
+			stats = data.stats || {};
+			health = data.health || {};
+
+			setText('metric_total_tasks', stats.totalTasks || 0);
+			setText('metric_enabled_tasks', stats.enabledTasks || 0);
+			setText('metric_running_instances', stats.runningInstances || 0);
+			setText('metric_pending_runs', stats.pendingRuns || 0);
+			setText('metric_today_runs', stats.todayRuns || 0);
+			setText('metric_today_failed', Number(stats.todayFailed || 0) + Number(stats.todayTimeout || 0));
+
+			setText('health_run_count', health.runCount24h || 0);
+			setText('health_success_count', health.success24h || 0);
+			setText('health_failed_count', health.failed24h || 0);
+			setText('health_timeout_count', health.timeout24h || 0);
+
+			$('#strategy_badges').html(buildStrategyBadges(stats));
+			renderUpcoming(data.upcoming || []);
+			renderRecent(data.recentRuns || []);
+		})
+		.catch(function(error){
+			layer.msg('计划任务看板加载失败', {icon: 2});
+			console.error(error);
+		});
+	}
+
+	$('[data-open-url]').on('click', function(){
+		var title = $(this).attr('data-open-title') || $.trim($(this).text());
+		var url = $(this).attr('data-open-url');
+		var type = $(this).attr('data-open-type') || '_component';
+		if ( title && url ) {
+			openAdminPage(url, title, type);
+		}
+	});
+
+	loadDashboard();
+});
+</script>

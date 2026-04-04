@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<title>xAdmin - 网站后台管理系统</title>
+		<title>后台管理系统</title>
 		<meta charset="utf-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 		<link rel="stylesheet" href="/pear/css/pear.css" />
@@ -21,7 +21,7 @@
 					<!-- 图 标 -->
 					<img class="logo">
 					<!-- 标 题 -->
-					<span class="title"></span>
+					<span class="title">xAdmin</span>
 				</div>
 				<!-- 顶 部 左 侧 功 能 -->
 				<ul class="layui-nav layui-layout-left">
@@ -53,7 +53,7 @@
 					<!-- 图 标 -->
 					<img class="logo">
 					<!-- 标 题 -->
-					<span class="title"></span>
+					<span class="title">xAdmin</span>
 				</div>
 				<!-- 菜 单 内 容 -->
 				<div class="layui-side-scroll">
@@ -88,12 +88,39 @@
 				var admin = layui.admin;
 				var popup = layui.popup;
 				var $ = layui.jquery;
+				var sAdminTitle = document.title;
+
+				function applyAdminBranding(title) {
+					var sTitle = title || 'xAdmin';
+					sAdminTitle = sTitle;
+					document.title = sTitle;
+				}
+
+				function loadAdminBranding() {
+					return fetch('/brand/admin?_=' + Date.now(), {
+						cache: 'no-store'
+					})
+					.then(function(response){ return response.json(); })
+					.then(function(result){
+						if ( result && result.result && result.data && result.data.adminTitle ) {
+							applyAdminBranding(result.data.adminTitle);
+						}
+					})
+					.catch(function(error){
+						console.error('load admin brand failed:', error);
+					});
+				}
 				
 				// yml | json | api
 				admin.setConfigurationPath("data/pear.config.json");
 				
-				// 渲染
-				admin.render();
+				loadAdminBranding().finally(function(){
+					// 渲染
+					admin.render();
+					setTimeout(function(){
+						applyAdminBranding(sAdminTitle);
+					}, 0);
+				});
 				
 				// 刷新左侧菜单（供子窗口调用）
 				window.refreshMenu = function() {
@@ -102,19 +129,7 @@
 				 
 				// 注销
 				admin.logout(function(){
-					// 调用后端注销接口
-					fetch('/admin/logout', {
-						method: 'POST'
-					}).then(function() {
-						// 清空 tabs 缓存
-						popup.success("注销成功",function(){
-							location.href = "/admin/login";
-						});
-					}).catch(function() {
-						// 即使接口失败也跳转到登录页
-						location.href = "/admin/login";
-					});
-					
+					window.location.href = '/admin/logout';
 					return new Promise((resolve) => {
 						resolve(true)
 					});

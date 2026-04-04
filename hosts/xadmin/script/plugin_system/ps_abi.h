@@ -655,7 +655,7 @@ int PS_HostApplyMenuToken(PluginSystemMenuToken* pToken, bool bForce)
 		PS_StorageBindText(stmt, 2, pToken->sTitle);
 		PS_StorageBindText(stmt, 3, pToken->sIcon);
 		sqlite3_bind_int(stmt, 4, pToken->iType);
-		PS_StorageBindText(stmt, 5, pToken->sOpenType ? pToken->sOpenType : "_component");
+		PS_StorageBindText(stmt, 5, pToken->sOpenType ? pToken->sOpenType : (str)"_component");
 		PS_StorageBindText(stmt, 6, pToken->sHref);
 		sqlite3_bind_int(stmt, 7, pToken->iSort);
 		sqlite3_bind_int(stmt, 8, pToken->bVisible ? 1 : 0);
@@ -672,7 +672,7 @@ int PS_HostApplyMenuToken(PluginSystemMenuToken* pToken, bool bForce)
 		PS_StorageBindText(stmt, 2, pToken->sTitle);
 		PS_StorageBindText(stmt, 3, pToken->sIcon);
 		sqlite3_bind_int(stmt, 4, pToken->iType);
-		PS_StorageBindText(stmt, 5, pToken->sOpenType ? pToken->sOpenType : "_component");
+		PS_StorageBindText(stmt, 5, pToken->sOpenType ? pToken->sOpenType : (str)"_component");
 		PS_StorageBindText(stmt, 6, pToken->sHref);
 		sqlite3_bind_int(stmt, 7, pToken->iSort);
 		sqlite3_bind_int(stmt, 8, pToken->bVisible ? 1 : 0);

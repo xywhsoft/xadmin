@@ -1,0 +1,205 @@
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_OptionFiles" lay-filter="Table_OptionFiles"></table>
+</div>
+
+<script type="text/html" id="Toolbar_OptionFiles">
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm layui-bg-blue" lay-event="create"><i class="layui-icon layui-icon-addition"></i> 新建配置文件</button>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_MenuStatus">
+	{{# if(d.inMenu){ }}
+		<span class="layui-badge layui-bg-green">已加入菜单</span>
+	{{# } else { }}
+		<span class="layui-badge-rim">未加入</span>
+	{{# } }}
+</script>
+
+<script type="text/html" id="Tpl_Locked">
+	{{# if(d.locked){ }}
+		<span class="layui-badge layui-bg-orange">已锁定</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-blue">可编辑</span>
+	{{# } }}
+</script>
+
+<script type="text/html" id="Tool_OptionFiles">
+	<div class="layui-clear-space">
+		{{# if(d.canEditDefinition !== false){ }}
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑结构</a>
+		{{# } else { }}
+		<a class="layui-btn layui-btn-xs layui-btn-disabled">结构已锁定</a>
+		{{# } }}
+		<a class="layui-btn layui-btn-xs" lay-event="values">编辑配置</a>
+		{{# if(!d.inMenu){ }}
+		<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="menu">加入菜单</a>
+		{{# } }}
+		{{# if(d.canDelete){ }}
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+		{{# } }}
+	</div>
+</script>
+
+<script>
+layui.use(['table', 'layer'], function(){
+	var table = layui.table;
+	var layer = layui.layer;
+
+	function loadData()
+	{
+		var loading = layer.load(2);
+		fetch('/admin/option/files')
+		.then(response => response.json())
+		.then(result => {
+			layer.close(loading);
+			if ( !result.result ) {
+				layer.msg(result.message || '加载失败', {icon: 2});
+				return;
+			}
+			renderTable(result.data || []);
+		})
+		.catch(error => {
+			layer.close(loading);
+			layer.msg('请求失败', {icon: 2});
+			console.error('Error:', error);
+		});
+	}
+
+	function renderTable(arrData)
+	{
+		table.render({
+			elem: '#Table_OptionFiles',
+			id: 'Table_OptionFiles',
+			toolbar: '#Toolbar_OptionFiles',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			skin: 'line',
+			cellMinWidth: 100,
+			data: arrData,
+			cols: [[
+				{field: 'file', title: '文件名', minWidth: 140},
+				{field: 'title', title: '标题', minWidth: 140},
+				{field: 'namespace', title: 'Namespace', minWidth: 120},
+				{field: 'authLevel', title: '权限级别', width: 100, align: 'center'},
+				{field: 'groupCount', title: '分组数', width: 90, align: 'center'},
+				{field: 'fieldCount', title: '字段数', width: 90, align: 'center'},
+				{field: 'inMenu', title: '菜单状态', width: 100, align: 'center', templet: '#Tpl_MenuStatus'},
+				{field: 'locked', title: '锁定状态', width: 100, align: 'center', templet: '#Tpl_Locked'},
+				{field: 'desc', title: '说明', minWidth: 160, templet: function(d){ return d.desc || '-'; }},
+				{fixed: 'right', title: '操作', minWidth: 300, align: 'center', toolbar: '#Tool_OptionFiles'}
+			]]
+		});
+	}
+
+	function openEditor(sFileName)
+	{
+		var sURL = '/admin/view/option/file';
+		if ( sFileName ) {
+			sURL += '?file=' + encodeURIComponent(sFileName);
+		}
+		layer.open({
+			title: sFileName ? ('编辑设置文件 - ' + sFileName) : '新建设置文件',
+			type: 2,
+			shadeClose: true,
+			area: ['92%', '92%'],
+			content: sURL,
+			end: function(){
+				loadData();
+			}
+		});
+	}
+
+	function openValueEditor(sFileName)
+	{
+		layer.open({
+			title: '编辑配置值 - ' + sFileName,
+			type: 2,
+			shadeClose: true,
+			area: ['92%', '92%'],
+			content: '/admin/view/option?file=' + encodeURIComponent(sFileName)
+		});
+	}
+
+	table.on('toolbar(Table_OptionFiles)', function(obj){
+		if ( obj.event === 'refresh' ) {
+			loadData();
+		} else if ( obj.event === 'create' ) {
+			openEditor('');
+		}
+	});
+
+	table.on('tool(Table_OptionFiles)', function(obj){
+		var data = obj.data;
+		if ( obj.event === 'edit' ) {
+			if ( data.canEditDefinition === false ) {
+				layer.msg('该配置文件已锁定，不允许编辑结构', {icon: 0});
+				return;
+			}
+			openEditor(data.file);
+			return;
+		}
+
+		if ( obj.event === 'values' ) {
+			openValueEditor(data.file);
+			return;
+		}
+
+		if ( obj.event === 'menu' ) {
+			fetch('/admin/option/file/menu', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					file: data.file
+				})
+			})
+			.then(response => response.json())
+			.then(result => {
+				if ( result.result ) {
+					layer.msg(result.message || '操作成功', {icon: 1});
+					loadData();
+				} else {
+					layer.msg(result.message || '操作失败', {icon: 2});
+				}
+			})
+			.catch(error => {
+				layer.msg('请求失败', {icon: 2});
+				console.error('Error:', error);
+			});
+			return;
+		}
+
+		if ( obj.event === 'delete' ) {
+			layer.confirm('确定要删除配置文件 "' + data.file + '" 吗？相关菜单项也会一并移除。', {
+				icon: 3,
+				title: '删除确认'
+			}, function(index){
+				fetch('/admin/option/file?file=' + encodeURIComponent(data.file), {
+					method: 'DELETE'
+				})
+				.then(response => response.json())
+				.then(result => {
+					if ( result.result ) {
+						layer.msg(result.message || '删除成功', {icon: 1});
+						loadData();
+					} else {
+						layer.msg(result.message || '删除失败', {icon: 2});
+					}
+				})
+				.catch(error => {
+					layer.msg('请求失败', {icon: 2});
+					console.error('Error:', error);
+				});
+				layer.close(index);
+			});
+		}
+	});
+
+	loadData();
+});
+</script>

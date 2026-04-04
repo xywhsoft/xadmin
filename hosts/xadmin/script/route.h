@@ -13,11 +13,18 @@ void RouteHTTP_Init()
 	// ==================== 后台路由 ====================
 	
 	// 添加 HTTP 静态路由 - Index
+	AddStaticRouteHTTP("/",										Request_Index);
 	AddStaticRouteHTTP("/admin",									Request_Index);
 	
 	// 添加 HTTP 静态路由 - Login
 	AddStaticRouteHTTP("/admin/login",								Request_Login);
 	AddStaticRouteHTTP("/admin/logout",								Request_Logout);
+	AddStaticRouteHTTP("/brand/admin",								Request_Admin_Brand);
+	RouteInfo* pBrandRoute = xrtDictGet(G_StaticRouteTableHTTP, "/brand/admin", 12);
+	if ( pBrandRoute ) {
+		pBrandRoute->bAuth = FALSE;
+		pBrandRoute->bAdmin = FALSE;
+	}
 	
 	// 添加 HTTP 静态路由 - Menu
 	AddStaticRouteHTTP("/admin/menu",								Request_Menu);
@@ -62,7 +69,13 @@ void RouteHTTP_Init()
 	
 	// 添加 HTTP 静态路由 - Option
 	AddStaticRouteHTTP("/admin/option",								Request_Option);
+	AddStaticRouteHTTP("/admin/option/tool/admin-entry",			Request_Option_AdminEntryGenerate);
 	AddStaticRouteHTTP("/admin/view/option",						Request_View_Option);
+	AddStaticRouteHTTP("/admin/option/files",						Request_Option_Files);
+	AddStaticRouteHTTP("/admin/option/file",						Request_Option_File);
+	AddStaticRouteHTTP("/admin/option/file/menu",					Request_Option_File_Menu);
+	AddStaticRouteHTTP("/admin/view/option/files",					Request_View_Option_Files);
+	AddStaticRouteHTTP("/admin/view/option/file",					Request_View_Option_File);
 	
 	// 添加 HTTP 静态路由 - Option - Menu
 	AddStaticRouteHTTP("/admin/option/menu",						Request_Option_Menu);
@@ -70,6 +83,29 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/view/option/menu/add",				Request_View_Option_Menu_Add);
 	AddStaticRouteHTTP("/admin/view/option/menu/add/category",		Request_View_Option_Menu_Add_Category);
 	AddStaticRouteHTTP("/admin/view/option/menu/edit",				Request_View_Option_Menu_Edit);
+
+	// 添加 HTTP 静态路由 - Scheduler
+	AddStaticRouteHTTP("/admin/view/sched",							Request_View_Sched);
+	AddStaticRouteHTTP("/admin/view/sched/edit",					Request_View_Sched_Edit);
+	AddStaticRouteHTTP("/admin/view/sched/log",						Request_View_Sched_Log);
+	AddStaticRouteHTTP("/admin/view/sched/dashboard",				Request_View_Sched_Dashboard);
+	AddStaticRouteHTTP("/admin/sched/tasks",						Request_Sched_Tasks);
+	AddStaticRouteHTTP("/admin/sched/task",							Request_Sched_Task);
+	AddStaticRouteHTTP("/admin/sched/task/enable",					Request_Sched_Task_Enable);
+	AddStaticRouteHTTP("/admin/sched/task/batch_enable",			Request_Sched_Task_Batch_Enable);
+	AddStaticRouteHTTP("/admin/sched/task/batch_delete",			Request_Sched_Task_Batch_Delete);
+	AddStaticRouteHTTP("/admin/sched/task/batch_run",				Request_Sched_Task_Batch_Run);
+	AddStaticRouteHTTP("/admin/sched/task/run",						Request_Sched_Task_Run);
+	AddStaticRouteHTTP("/admin/sched/task/copy",					Request_Sched_Task_Copy);
+	AddStaticRouteHTTP("/admin/sched/task/example",					Request_Sched_Task_Example);
+	AddStaticRouteHTTP("/admin/sched/dashboard",					Request_Sched_Dashboard);
+	AddStaticRouteHTTP("/admin/sched/export",						Request_Sched_Export);
+	AddStaticRouteHTTP("/admin/sched/export_selected",				Request_Sched_Export_Selected);
+	AddStaticRouteHTTP("/admin/sched/import",						Request_Sched_Import);
+	AddStaticRouteHTTP("/admin/sched/preview",						Request_Sched_Preview);
+	AddStaticRouteHTTP("/admin/sched/logs",							Request_Sched_Logs);
+	AddStaticRouteHTTP("/admin/sched/logs/export",					Request_Sched_Logs_Export);
+	AddStaticRouteHTTP("/admin/sched/logs/clear",					Request_Sched_Logs_Clear);
 	
 	// 添加 HTTP 静态路由 - Trace (调试接口)
 	AddStaticRouteHTTP("/admin/trace",								Request_Trace_Overview);

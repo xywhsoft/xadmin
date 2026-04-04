@@ -95,6 +95,20 @@
 	.option-item-control {
 		flex: 1;
 	}
+	.option-control-row {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+	}
+	.option-control-main {
+		flex: 1;
+		min-width: 0;
+	}
+	.option-control-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
 	.option-item-control .layui-input,
 	.option-item-control .layui-textarea {
 		width: 100%;
@@ -212,6 +226,26 @@
 		
 		// 存储配置数据
 		var tblConfigData = null;
+
+		function renderOptionActions(option)
+		{
+			var arrActions = Array.isArray(option.actions) ? option.actions : [];
+			var sHTML = '';
+
+			for ( var i = 0; i < arrActions.length; i++ ) {
+				var item = arrActions[i] || {};
+				var sKey = item.key || '';
+				var sText = item.text || '操作';
+				var sStyle = item.style || 'layui-btn-primary';
+
+				if ( !sKey ) {
+					continue;
+				}
+				sHTML += '<button type="button" class="layui-btn layui-btn-sm ' + sStyle + ' option-action-btn" data-action-key="' + sKey + '" data-target-name="' + (option.name || '') + '">' + sText + '</button>';
+			}
+
+			return sHTML;
+		}
 		
 		// 根据类型生成表单控件
 		function renderFormItem(option)
@@ -221,6 +255,7 @@
 			var sType = option.type || 'text';
 			var sDesc = option.desc || '';
 			var sValue = option.value;
+			var sActionsHTML = renderOptionActions(option);
 			if ( sValue === undefined || sValue === null ) sValue = '';
 			
 			var sHTML = '<div class="option-item">';
@@ -231,6 +266,10 @@
 			}
 			sHTML += '</div>';
 			sHTML += '<div class="option-item-control">';
+			if ( sActionsHTML ) {
+				sHTML += '<div class="option-control-row">';
+				sHTML += '<div class="option-control-main">';
+			}
 			
 			// 根据类型渲染不同控件
 			switch ( sType ) {
@@ -339,6 +378,11 @@
 					break;
 			}
 			
+			if ( sActionsHTML ) {
+				sHTML += '</div>';
+				sHTML += '<div class="option-control-actions">' + sActionsHTML + '</div>';
+				sHTML += '</div>';
+			}
 			sHTML += '</div>';
 			sHTML += '</div>';
 			
@@ -434,6 +478,37 @@
 				}
 			}
 		}
+
+		function handleOptionAction(sActionKey, sTargetName, objButton)
+		{
+			if ( sActionKey === 'generate_admin_entry' ) {
+				objButton.addClass('layui-btn-disabled');
+				objButton.prop('disabled', true);
+				fetch('/admin/option/tool/admin-entry')
+				.then(function(response){ return response.json(); })
+				.then(function(result){
+					if ( result && result.result && result.data && result.data.path ) {
+						var objInput = $('[name="' + sTargetName + '"]');
+						objInput.val(result.data.path);
+						objInput.trigger('input');
+						layer.msg('已生成新的后台安全入口，保存后生效', {icon: 1});
+					} else {
+						layer.msg((result && result.message) || '生成失败', {icon: 2});
+					}
+				})
+				.catch(function(error){
+					console.error('generate admin entry failed:', error);
+					layer.msg('生成失败，请稍后重试', {icon: 2});
+				})
+				.finally(function(){
+					objButton.removeClass('layui-btn-disabled');
+					objButton.prop('disabled', false);
+				});
+				return;
+			}
+
+			layer.msg('暂不支持该操作: ' + sActionKey, {icon: 0});
+		}
 		
 		// 渲染配置表单
 		function renderOptionForm(data)
@@ -484,6 +559,11 @@
 			// 初始化组合框
 			initComboboxes(arrClassList);
 		}
+
+		$('#optionGroups').on('click', '.option-action-btn', function(){
+			var objButton = $(this);
+			handleOptionAction(objButton.attr('data-action-key'), objButton.attr('data-target-name'), objButton);
+		});
 		
 		// 加载配置数据
 		function loadOptionData()

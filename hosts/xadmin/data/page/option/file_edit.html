@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>设置文件编辑器</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+	<style>
+	body {
+		height: 100vh;
+		overflow: hidden;
+		background: #f6f7fb;
+	}
+	.editor-page {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+	.editor-scroll {
+		flex: 1;
+		overflow-y: auto;
+		padding: 16px;
+	}
+	.editor-card {
+		background: #fff;
+		border-radius: 6px;
+		box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+		margin-bottom: 16px;
+	}
+	.editor-card .layui-card-header {
+		font-weight: 600;
+	}
+	.group-card,
+	.field-card {
+		border: 1px solid #eceef3;
+		border-radius: 6px;
+		background: #fff;
+	}
+	.group-card {
+		margin-bottom: 16px;
+	}
+	.group-header,
+	.field-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 12px 16px;
+		background: #fafbfc;
+		border-bottom: 1px solid #eceef3;
+	}
+	.group-title,
+	.field-title {
+		font-weight: 600;
+		color: #333;
+	}
+	.group-body,
+	.field-body {
+		padding: 16px 16px 0;
+	}
+	.field-card {
+		margin-bottom: 12px;
+	}
+	.field-empty {
+		padding: 24px 0;
+		text-align: center;
+		color: #999;
+	}
+	.section-actions {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0 16px 16px;
+	}
+	.toolbar {
+		padding: 12px 16px;
+		background: #fff;
+		border-top: 1px solid #eceef3;
+		text-align: right;
+	}
+	.muted {
+		color: #999;
+		font-size: 12px;
+	}
+	</style>
+</head>
+<body>
+	<div class="editor-page layui-form">
+		<div class="editor-scroll">
+			<div class="layui-card editor-card">
+				<div class="layui-card-header">基础信息</div>
+				<div class="layui-card-body" style="padding: 16px 16px 0;">
+					<div class="layui-row layui-col-space16">
+						<div class="layui-col-md4">
+							<div class="layui-form-item">
+								<label class="layui-form-label">文件名</label>
+								<div class="layui-input-block">
+									<input type="text" id="inputFileName" placeholder="如：site.json" autocomplete="off" class="layui-input">
+									<div class="muted" style="margin-top: 6px;">仅允许字母、数字、下划线和中划线。</div>
+								</div>
+							</div>
+						</div>
+						<div class="layui-col-md4">
+							<div class="layui-form-item">
+								<label class="layui-form-label">标题</label>
+								<div class="layui-input-block">
+									<input type="text" id="inputTitle" placeholder="显示在配置页和菜单中的标题" autocomplete="off" class="layui-input">
+								</div>
+							</div>
+						</div>
+						<div class="layui-col-md4">
+							<div class="layui-form-item">
+								<label class="layui-form-label">Namespace</label>
+								<div class="layui-input-block">
+									<input type="text" id="inputNamespace" placeholder="运行时配置命名空间" autocomplete="off" class="layui-input">
+								</div>
+							</div>
+						</div>
+					</div>
+					<div class="layui-row layui-col-space16">
+						<div class="layui-col-md4">
+							<div class="layui-form-item">
+								<label class="layui-form-label">权限级别</label>
+								<div class="layui-input-block">
+									<input type="number" id="inputAuthLevel" value="200" class="layui-input">
+								</div>
+							</div>
+						</div>
+						<div class="layui-col-md8">
+							<div class="layui-form-item layui-form-text">
+								<label class="layui-form-label">说明</label>
+								<div class="layui-input-block">
+									<textarea id="inputDesc" class="layui-textarea" placeholder="可选，显示在配置页顶部"></textarea>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="layui-card editor-card">
+				<div class="layui-card-header">分组与字段</div>
+				<div class="layui-card-body" style="padding: 16px;">
+					<div id="groupContainer"></div>
+					<button type="button" class="layui-btn layui-btn-primary" id="btnAddGroup"><i class="layui-icon layui-icon-addition"></i> 添加分组</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="toolbar">
+			<button type="button" class="layui-btn layui-btn-primary" id="btnPreview"><i class="layui-icon layui-icon-survey"></i> 预览配置页</button>
+			<button type="button" class="layui-btn layui-btn-primary" id="btnCancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
+			<button type="button" class="layui-btn layui-bg-blue" id="btnSave"><i class="layui-icon layui-icon-ok"></i> 保存</button>
+		</div>
+	</div>
+
+	<script src="/layui/layui.js"></script>
+	<script>
+	layui.use(['form', 'layer'], function(){
+		var form = layui.form;
+		var layer = layui.layer;
+		var $ = layui.$;
+		var urlParams = new URLSearchParams(window.location.search);
+		var sOriginalFile = urlParams.get('file') || '';
+		var tblState = createDefaultState();
+
+		initLockControls();
+
+		function initLockControls()
+		{
+			var sHtml = '';
+			sHtml += '<div class="layui-row layui-col-space16">';
+			sHtml += '<div class="layui-col-md4">';
+			sHtml += '<div class="layui-form-item">';
+			sHtml += '<label class="layui-form-label">锁定结构</label>';
+			sHtml += '<div class="layui-input-block" style="padding-top: 6px;">';
+			sHtml += '<input type="checkbox" id="inputLocked" lay-skin="switch" lay-text="锁定|开放">';
+			sHtml += '<div class="muted" style="margin-top: 6px;">锁定后不允许删除，也不允许在后台编辑结构。</div>';
+			sHtml += '</div>';
+			sHtml += '</div>';
+			sHtml += '</div>';
+			sHtml += '</div>';
+			$('#inputDesc').closest('.layui-row').after(sHtml + '<div class="layui-form-item" id="lockedNotice" style="display:none;"><div class="layui-input-block"><div class="layui-bg-orange" style="padding: 10px 12px; color: #fff; border-radius: 4px;">当前配置文件已锁定，仅可预览和编辑配置值，不能修改结构。</div></div></div>');
+			form.render('checkbox');
+		}
+
+		function createDefaultState()
+		{
+			return {
+				file: '',
+				title: '',
+				namespace: '',
+				locked: false,
+				authLevel: 200,
+				desc: '',
+				classList: [createEmptyGroup()]
+			};
+		}
+
+		function createEmptyGroup()
+		{
+			return {
+				title: '新分组',
+				icon: '',
+				style: '',
+				options: [createEmptyField()]
+			};
+		}
+
+		function createEmptyField()
+		{
+			return {
+				name: '',
+				title: '',
+				desc: '',
+				dataType: 'string',
+				formType: 'text',
+				defaultValue: '',
+				min: '',
+				max: '',
+				step: '',
+				height: '',
+				listText: '',
+				extraText: ''
+			};
+		}
+
+		function escapeHtml(sText)
+		{
+			return $('<div/>').text(sText == null ? '' : String(sText)).html();
+		}
+
+		function valueToEditorText(value)
+		{
+			if ( value === undefined || value === null ) return '';
+			if ( Array.isArray(value) || (typeof value === 'object') ) {
+				return JSON.stringify(value, null, 2);
+			}
+			if ( typeof value === 'boolean' ) {
+				return value ? 'true' : 'false';
+			}
+			return String(value);
+		}
+
+		function inferDataType(opt)
+		{
+			if ( opt.dataType ) return opt.dataType;
+			switch ( opt.type ) {
+				case 'int': return 'integer';
+				case 'num': return 'number';
+				case 'switch': return 'boolean';
+				case 'intrange':
+				case 'numrange':
+				case 'timerange':
+				case 'daterange':
+				case 'datetimerange':
+				case 'checklist':
+					return 'array';
+				default:
+					return 'string';
+			}
+		}
+
+		function normalizeField(opt)
+		{
+			var knownKeys = {
+				name: 1,
+				title: 1,
+				desc: 1,
+				type: 1,
+				formType: 1,
+				dataType: 1,
+				value: 1,
+				min: 1,
+				max: 1,
+				step: 1,
+				height: 1,
+				list: 1
+			};
+			var tblExtra = {};
+			for ( var key in opt ) {
+				if ( !knownKeys[key] ) {
+					tblExtra[key] = opt[key];
+				}
+			}
+			return {
+				name: opt.name || '',
+				title: opt.title || '',
+				desc: opt.desc || '',
+				dataType: inferDataType(opt),
+				formType: opt.formType || opt.type || 'text',
+				defaultValue: valueToEditorText(opt.value),
+				min: opt.min === undefined ? '' : String(opt.min),
+				max: opt.max === undefined ? '' : String(opt.max),
+				step: opt.step === undefined ? '' : String(opt.step),
+				height: opt.height || '',
+				listText: opt.list ? JSON.stringify(opt.list, null, 2) : '',
+				extraText: Object.keys(tblExtra).length ? JSON.stringify(tblExtra, null, 2) : ''
+			};
+		}
+
+		function normalizeGroup(tblGroup)
+		{
+			var arrOptions = tblGroup.options || [];
+			var arrFields = [];
+			for ( var i = 0; i < arrOptions.length; i++ ) {
+				arrFields.push(normalizeField(arrOptions[i]));
+			}
+			if ( arrFields.length === 0 ) {
+				arrFields.push(createEmptyField());
+			}
+			return {
+				title: tblGroup.title || '未命名分组',
+				icon: tblGroup.icon || '',
+				style: tblGroup.style || '',
+				options: arrFields
+			};
+		}
+
+		function loadDetail()
+		{
+			if ( !sOriginalFile ) {
+				renderState();
+				return;
+			}
+
+			var loading = layer.load(2);
+			fetch('/admin/option/file?file=' + encodeURIComponent(sOriginalFile))
+			.then(response => response.json())
+			.then(result => {
+				layer.close(loading);
+				if ( !result.result ) {
+					layer.msg(result.message || '加载失败', {icon: 2});
+					return;
+				}
+				var data = result.data || {};
+				tblState.file = sOriginalFile;
+				tblState.title = data.title || '';
+				tblState.namespace = data.namespace || '';
+				tblState.locked = !!data.locked;
+				tblState.authLevel = data.authLevel || 0;
+				tblState.desc = data.desc || '';
+				tblState.classList = [];
+				var arrClassList = data.classList || [];
+				for ( var i = 0; i < arrClassList.length; i++ ) {
+					tblState.classList.push(normalizeGroup(arrClassList[i]));
+				}
+				if ( tblState.classList.length === 0 ) {
+					tblState.classList.push(createEmptyGroup());
+				}
+				renderState();
+			})
+			.catch(error => {
+				layer.close(loading);
+				layer.msg('请求失败', {icon: 2});
+				console.error('Error:', error);
+			});
+		}
+
+		function renderState()
+		{
+			$('#inputFileName').val(tblState.file);
+			$('#inputTitle').val(tblState.title);
+			$('#inputNamespace').val(tblState.namespace);
+			$('#inputLocked').prop('checked', !!tblState.locked);
+			$('#inputAuthLevel').val(tblState.authLevel);
+			$('#inputDesc').val(tblState.desc);
+			if ( sOriginalFile ) {
+				$('#inputFileName').prop('disabled', true);
+			}
+
+			var sHtml = '';
+			for ( var i = 0; i < tblState.classList.length; i++ ) {
+				var group = tblState.classList[i];
+				sHtml += '<div class="group-card" data-group-index="' + i + '">';
+				sHtml += '<div class="group-header">';
+				sHtml += '<div class="group-title">分组 ' + (i + 1) + '：' + escapeHtml(group.title || '未命名分组') + '</div>';
+				sHtml += '<div>';
+				sHtml += '<button type="button" class="layui-btn layui-btn-xs layui-btn-primary btn-group-up">上移</button> ';
+				sHtml += '<button type="button" class="layui-btn layui-btn-xs layui-btn-primary btn-group-down">下移</button> ';
+				sHtml += '<button type="button" class="layui-btn layui-btn-xs layui-bg-orange btn-group-delete">删除分组</button>';
+				sHtml += '</div>';
+				sHtml += '</div>';
+				sHtml += '<div class="group-body">';
+				sHtml += '<div class="layui-row layui-col-space16">';
+				sHtml += '<div class="layui-col-md4"><div class="layui-form-item"><label class="layui-form-label">分组标题</label><div class="layui-input-block"><input type="text" class="layui-input group-title-input" value="' + escapeHtml(group.title || '') + '"></div></div></div>';
+				sHtml += '<div class="layui-col-md4"><div class="layui-form-item"><label class="layui-form-label">分组图标</label><div class="layui-input-block"><input type="text" class="layui-input group-icon-input" value="' + escapeHtml(group.icon || '') + '" placeholder="可选"></div></div></div>';
+				sHtml += '<div class="layui-col-md4"><div class="layui-form-item"><label class="layui-form-label">分组样式</label><div class="layui-input-block"><input type="text" class="layui-input group-style-input" value="' + escapeHtml(group.style || '') + '" placeholder="可选"></div></div></div>';
+				sHtml += '</div>';
+
+				for ( var j = 0; j < group.options.length; j++ ) {
+					var field = group.options[j];
+					sHtml += '<div class="field-card" data-field-index="' + j + '">';
+					sHtml += '<div class="field-header">';
+					sHtml += '<div class="field-title">字段 ' + (j + 1) + '：' + escapeHtml(field.title || field.name || '未命名字段') + '</div>';
+					sHtml += '<div>';
+					sHtml += '<button type="button" class="layui-btn layui-btn-xs layui-btn-primary btn-field-up">上移</button> ';
+					sHtml += '<button type="button" class="layui-btn layui-btn-xs layui-btn-primary btn-field-down">下移</button> ';
+					sHtml += '<button type="button" class="layui-btn layui-btn-xs layui-bg-orange btn-field-delete">删除字段</button>';
+					sHtml += '</div>';
+					sHtml += '</div>';
+					sHtml += '<div class="field-body">';
+					sHtml += '<div class="layui-row layui-col-space16">';
+					sHtml += '<div class="layui-col-md3"><div class="layui-form-item"><label class="layui-form-label">字段名</label><div class="layui-input-block"><input type="text" class="layui-input field-name" value="' + escapeHtml(field.name || '') + '"></div></div></div>';
+					sHtml += '<div class="layui-col-md3"><div class="layui-form-item"><label class="layui-form-label">显示名</label><div class="layui-input-block"><input type="text" class="layui-input field-title-input" value="' + escapeHtml(field.title || '') + '"></div></div></div>';
+					sHtml += '<div class="layui-col-md3"><div class="layui-form-item"><label class="layui-form-label">表单类型</label><div class="layui-input-block"><select class="field-form-type">';
+					sHtml += buildOption(['text','textarea','password','int','intrange','num','numrange','switch','time','date','datetime','timerange','daterange','datetimerange','select','combobox','checklist'], field.formType);
+					sHtml += '</select></div></div></div>';
+					sHtml += '<div class="layui-col-md3"><div class="layui-form-item"><label class="layui-form-label">数据类型</label><div class="layui-input-block"><select class="field-data-type">';
+					sHtml += buildOption(['string','integer','number','boolean','array','mixed'], field.dataType);
+					sHtml += '</select></div></div></div>';
+					sHtml += '</div>';
+					sHtml += '<div class="layui-row layui-col-space16">';
+					sHtml += '<div class="layui-col-md6"><div class="layui-form-item layui-form-text"><label class="layui-form-label">字段说明</label><div class="layui-input-block"><textarea class="layui-textarea field-desc" placeholder="可选">' + escapeHtml(field.desc || '') + '</textarea></div></div></div>';
+					sHtml += '<div class="layui-col-md6"><div class="layui-form-item layui-form-text"><label class="layui-form-label">默认值</label><div class="layui-input-block"><textarea class="layui-textarea field-default-value" placeholder="按字段类型填写，数组请写 JSON">' + escapeHtml(field.defaultValue || '') + '</textarea></div></div></div>';
+					sHtml += '</div>';
+					sHtml += '<div class="layui-row layui-col-space16">';
+					sHtml += '<div class="layui-col-md3"><div class="layui-form-item"><label class="layui-form-label">最小值</label><div class="layui-input-block"><input type="text" class="layui-input field-min" value="' + escapeHtml(field.min || '') + '"></div></div></div>';
+					sHtml += '<div class="layui-col-md3"><div class="layui-form-item"><label class="layui-form-label">最大值</label><div class="layui-input-block"><input type="text" class="layui-input field-max" value="' + escapeHtml(field.max || '') + '"></div></div></div>';
+					sHtml += '<div class="layui-col-md3"><div class="layui-form-item"><label class="layui-form-label">步长</label><div class="layui-input-block"><input type="text" class="layui-input field-step" value="' + escapeHtml(field.step || '') + '"></div></div></div>';
+					sHtml += '<div class="layui-col-md3"><div class="layui-form-item"><label class="layui-form-label">高度</label><div class="layui-input-block"><input type="text" class="layui-input field-height" value="' + escapeHtml(field.height || '') + '" placeholder="如：240px"></div></div></div>';
+					sHtml += '</div>';
+					sHtml += '<div class="layui-row layui-col-space16">';
+					sHtml += '<div class="layui-col-md6"><div class="layui-form-item layui-form-text"><label class="layui-form-label">选项列表</label><div class="layui-input-block"><textarea class="layui-textarea field-list" placeholder="select / combobox / checklist 使用 JSON 数组">' + escapeHtml(field.listText || '') + '</textarea></div></div></div>';
+					sHtml += '<div class="layui-col-md6"><div class="layui-form-item layui-form-text"><label class="layui-form-label">扩展属性</label><div class="layui-input-block"><textarea class="layui-textarea field-extra" placeholder="可选，JSON 对象">' + escapeHtml(field.extraText || '') + '</textarea></div></div></div>';
+					sHtml += '</div>';
+					sHtml += '</div>';
+					sHtml += '</div>';
+				}
+
+				if ( group.options.length === 0 ) {
+					sHtml += '<div class="field-empty">当前分组还没有字段</div>';
+				}
+
+				sHtml += '<div class="section-actions">';
+				sHtml += '<div class="muted">字段编辑完成后，保存即可生成对应的配置页。</div>';
+				sHtml += '<button type="button" class="layui-btn layui-btn-sm layui-btn-primary btn-add-field"><i class="layui-icon layui-icon-addition"></i> 添加字段</button>';
+				sHtml += '</div>';
+				sHtml += '</div>';
+				sHtml += '</div>';
+			}
+
+			$('#groupContainer').html(sHtml);
+			form.render('select');
+			form.render('checkbox');
+			applyLockState();
+		}
+
+		function applyLockState()
+		{
+			var bLocked = !!(sOriginalFile && tblState.locked);
+			$('#lockedNotice').toggle(bLocked);
+			if ( bLocked ) {
+				$('#inputTitle, #inputNamespace, #inputLocked, #inputAuthLevel, #inputDesc').prop('disabled', true);
+				$('#groupContainer').find('input, textarea, select, button').prop('disabled', true);
+				$('#btnAddGroup, #btnSave').prop('disabled', true).addClass('layui-btn-disabled');
+			} else {
+				$('#inputTitle, #inputNamespace, #inputLocked, #inputAuthLevel, #inputDesc').prop('disabled', false);
+				$('#groupContainer').find('input, textarea, select, button').prop('disabled', false);
+				$('#btnAddGroup, #btnSave').prop('disabled', false).removeClass('layui-btn-disabled');
+			}
+			if ( sOriginalFile ) {
+				$('#inputFileName').prop('disabled', true);
+			}
+			form.render('select');
+			form.render('checkbox');
+		}
+
+		function buildOption(arrValues, sCurrent)
+		{
+			var sHtml = '';
+			for ( var i = 0; i < arrValues.length; i++ ) {
+				var sValue = arrValues[i];
+				sHtml += '<option value="' + sValue + '"' + (sValue === sCurrent ? ' selected' : '') + '>' + sValue + '</option>';
+			}
+			return sHtml;
+		}
+
+		function syncStateFromDOM()
+		{
+			tblState.file = $.trim($('#inputFileName').val());
+			tblState.title = $.trim($('#inputTitle').val());
+			tblState.namespace = $.trim($('#inputNamespace').val());
+			tblState.locked = $('#inputLocked').prop('checked');
+			tblState.authLevel = parseInt($('#inputAuthLevel').val(), 10) || 0;
+			tblState.desc = $('#inputDesc').val() || '';
+			tblState.classList = [];
+
+			$('#groupContainer .group-card').each(function(){
+				var $group = $(this);
+				var tblGroup = {
+					title: $.trim($group.find('.group-title-input').val()),
+					icon: $.trim($group.find('.group-icon-input').val()),
+					style: $.trim($group.find('.group-style-input').val()),
+					options: []
+				};
+
+				$group.find('.field-card').each(function(){
+					var $field = $(this);
+					tblGroup.options.push({
+						name: $.trim($field.find('.field-name').val()),
+						title: $.trim($field.find('.field-title-input').val()),
+						desc: $field.find('.field-desc').val() || '',
+						dataType: $field.find('.field-data-type').val() || 'string',
+						formType: $field.find('.field-form-type').val() || 'text',
+						defaultValue: $field.find('.field-default-value').val() || '',
+						min: $.trim($field.find('.field-min').val()),
+						max: $.trim($field.find('.field-max').val()),
+						step: $.trim($field.find('.field-step').val()),
+						height: $.trim($field.find('.field-height').val()),
+						listText: $field.find('.field-list').val() || '',
+						extraText: $field.find('.field-extra').val() || ''
+					});
+				});
+
+				tblState.classList.push(tblGroup);
+			});
+		}
+
+		function parseBoolean(sValue)
+		{
+			var sText = $.trim(String(sValue || '')).toLowerCase();
+			return sText === 'true' || sText === '1' || sText === 'yes' || sText === 'on';
+		}
+
+		function parseMixed(sValue)
+		{
+			var sText = $.trim(String(sValue || ''));
+			if ( !sText ) return '';
+			if ( sText === 'true' ) return true;
+			if ( sText === 'false' ) return false;
+			if ( /^-?\d+$/.test(sText) ) return parseInt(sText, 10);
+			if ( /^-?\d+\.\d+$/.test(sText) ) return parseFloat(sText);
+			if ( (sText[0] === '[' && sText[sText.length - 1] === ']') || (sText[0] === '{' && sText[sText.length - 1] === '}') ) {
+				return JSON.parse(sText);
+			}
+			return sText;
+		}
+
+		function parseScalarByDataType(sValue, sDataType)
+		{
+			var sText = $.trim(String(sValue || ''));
+			if ( sDataType === 'integer' ) return parseInt(sText || '0', 10) || 0;
+			if ( sDataType === 'number' ) return parseFloat(sText || '0') || 0;
+			if ( sDataType === 'boolean' ) return parseBoolean(sText);
+			if ( sDataType === 'mixed' ) return parseMixed(sText);
+			return sText;
+		}
+
+		function parseJSONArray(sText, sErrorPrefix)
+		{
+			var arrValue;
+			try {
+				arrValue = JSON.parse($.trim(sText || '[]') || '[]');
+			} catch (error) {
+				throw new Error(sErrorPrefix + ' 不是合法 JSON');
+			}
+			if ( !Array.isArray(arrValue) ) {
+				throw new Error(sErrorPrefix + ' 必须是 JSON 数组');
+			}
+			return arrValue;
+		}
+
+		function serializeField(tblField)
+		{
+			if ( !tblField.name ) {
+				throw new Error('字段名不能为空');
+			}
+
+			var tblOption = {
+				name: tblField.name,
+				title: tblField.title || tblField.name,
+				desc: tblField.desc || '',
+				type: tblField.formType || 'text',
+				formType: tblField.formType || 'text',
+				dataType: tblField.dataType || 'string'
+			};
+
+			switch ( tblField.formType ) {
+				case 'switch':
+					tblOption.value = parseBoolean(tblField.defaultValue);
+					break;
+				case 'int':
+					tblOption.value = parseInt($.trim(tblField.defaultValue || '0'), 10) || 0;
+					break;
+				case 'num':
+					tblOption.value = parseFloat($.trim(tblField.defaultValue || '0')) || 0;
+					break;
+				case 'intrange':
+					tblOption.value = parseJSONArray(tblField.defaultValue || '[0,0]', '整数范围默认值');
+					break;
+				case 'numrange':
+					tblOption.value = parseJSONArray(tblField.defaultValue || '[0,0]', '数字范围默认值');
+					break;
+				case 'timerange':
+				case 'daterange':
+				case 'datetimerange':
+				case 'checklist':
+					tblOption.value = parseJSONArray(tblField.defaultValue || '[]', '数组默认值');
+					break;
+				case 'select':
+					tblOption.value = parseScalarByDataType(tblField.defaultValue, tblField.dataType);
+					break;
+				default:
+					tblOption.value = parseScalarByDataType(tblField.defaultValue, tblField.dataType === 'mixed' ? 'string' : tblField.dataType);
+					break;
+			}
+
+			if ( tblField.min !== '' ) {
+				tblOption.min = parseScalarByDataType(tblField.min, tblField.formType === 'int' ? 'integer' : 'number');
+			}
+			if ( tblField.max !== '' ) {
+				tblOption.max = parseScalarByDataType(tblField.max, tblField.formType === 'int' ? 'integer' : 'number');
+			}
+			if ( tblField.step !== '' ) {
+				tblOption.step = parseScalarByDataType(tblField.step, tblField.formType === 'int' ? 'integer' : 'number');
+			}
+			if ( tblField.height ) {
+				tblOption.height = tblField.height;
+			}
+
+			if ( tblField.listText && $.trim(tblField.listText) ) {
+				tblOption.list = parseJSONArray(tblField.listText, '选项列表');
+			}
+
+			if ( tblField.extraText && $.trim(tblField.extraText) ) {
+				var tblExtra;
+				try {
+					tblExtra = JSON.parse(tblField.extraText);
+				} catch (error) {
+					throw new Error('扩展属性 JSON 格式错误');
+				}
+				if ( Object.prototype.toString.call(tblExtra) !== '[object Object]' ) {
+					throw new Error('扩展属性必须是 JSON 对象');
+				}
+				for ( var key in tblExtra ) {
+					tblOption[key] = tblExtra[key];
+				}
+			}
+
+			return tblOption;
+		}
+
+		function buildPayload()
+		{
+			syncStateFromDOM();
+
+			if ( !tblState.file ) {
+				throw new Error('文件名不能为空');
+			}
+			if ( tblState.file.indexOf('.json') < 0 ) {
+				tblState.file += '.json';
+			}
+			if ( !tblState.namespace ) {
+				throw new Error('namespace 不能为空');
+			}
+			if ( tblState.classList.length === 0 ) {
+				throw new Error('至少需要一个分组');
+			}
+
+			var tblConfig = {
+				title: tblState.title || tblState.file.replace('.json', ''),
+				desc: tblState.desc || '',
+				namespace: tblState.namespace,
+				locked: !!tblState.locked,
+				authLevel: tblState.authLevel,
+				classList: []
+			};
+
+			for ( var i = 0; i < tblState.classList.length; i++ ) {
+				var tblGroupState = tblState.classList[i];
+				var tblGroup = {
+					title: tblGroupState.title || ('分组' + (i + 1)),
+					style: tblGroupState.style || '',
+					options: []
+				};
+				if ( tblGroupState.icon ) {
+					tblGroup.icon = tblGroupState.icon;
+				}
+				for ( var j = 0; j < tblGroupState.options.length; j++ ) {
+					tblGroup.options.push(serializeField(tblGroupState.options[j]));
+				}
+				tblConfig.classList.push(tblGroup);
+			}
+
+			return {
+				file: tblState.file,
+				data: tblConfig
+			};
+		}
+
+		function isDefinitionLockedReadonly()
+		{
+			return !!(sOriginalFile && tblState.locked);
+		}
+
+		function saveConfig()
+		{
+			var tblPayload;
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) {
+				layer.msg('该配置文件已锁定，不允许编辑结构', {icon: 0});
+				return;
+			}
+			try {
+				tblPayload = buildPayload();
+			} catch (error) {
+				layer.msg(error.message, {icon: 2});
+				return;
+			}
+
+			var loading = layer.load(2);
+			fetch('/admin/option/file', {
+				method: sOriginalFile ? 'PUT' : 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(tblPayload)
+			})
+			.then(response => response.json())
+			.then(result => {
+				layer.close(loading);
+				if ( result.result ) {
+					layer.msg(result.message || '保存成功', {icon: 1});
+					var index = parent.layer.getFrameIndex(window.name);
+					parent.layer.close(index);
+				} else {
+					layer.msg(result.message || '保存失败', {icon: 2});
+				}
+			})
+			.catch(error => {
+				layer.close(loading);
+				layer.msg('请求失败', {icon: 2});
+				console.error('Error:', error);
+			});
+		}
+
+		$('#btnAddGroup').on('click', function(){
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) return;
+			tblState.classList.push(createEmptyGroup());
+			renderState();
+		});
+
+		$('#groupContainer').on('click', '.btn-add-field', function(){
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) return;
+			var iGroupIndex = parseInt($(this).closest('.group-card').attr('data-group-index'), 10) || 0;
+			tblState.classList[iGroupIndex].options.push(createEmptyField());
+			renderState();
+		});
+
+		$('#groupContainer').on('click', '.btn-group-delete', function(){
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) return;
+			var iGroupIndex = parseInt($(this).closest('.group-card').attr('data-group-index'), 10) || 0;
+			tblState.classList.splice(iGroupIndex, 1);
+			if ( tblState.classList.length === 0 ) {
+				tblState.classList.push(createEmptyGroup());
+			}
+			renderState();
+		});
+
+		$('#groupContainer').on('click', '.btn-group-up', function(){
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) return;
+			var iGroupIndex = parseInt($(this).closest('.group-card').attr('data-group-index'), 10) || 0;
+			if ( iGroupIndex <= 0 ) return;
+			var tblTemp = tblState.classList[iGroupIndex - 1];
+			tblState.classList[iGroupIndex - 1] = tblState.classList[iGroupIndex];
+			tblState.classList[iGroupIndex] = tblTemp;
+			renderState();
+		});
+
+		$('#groupContainer').on('click', '.btn-group-down', function(){
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) return;
+			var iGroupIndex = parseInt($(this).closest('.group-card').attr('data-group-index'), 10) || 0;
+			if ( iGroupIndex >= tblState.classList.length - 1 ) return;
+			var tblTemp = tblState.classList[iGroupIndex + 1];
+			tblState.classList[iGroupIndex + 1] = tblState.classList[iGroupIndex];
+			tblState.classList[iGroupIndex] = tblTemp;
+			renderState();
+		});
+
+		$('#groupContainer').on('click', '.btn-field-delete', function(){
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) return;
+			var $group = $(this).closest('.group-card');
+			var iGroupIndex = parseInt($group.attr('data-group-index'), 10) || 0;
+			var iFieldIndex = parseInt($(this).closest('.field-card').attr('data-field-index'), 10) || 0;
+			tblState.classList[iGroupIndex].options.splice(iFieldIndex, 1);
+			if ( tblState.classList[iGroupIndex].options.length === 0 ) {
+				tblState.classList[iGroupIndex].options.push(createEmptyField());
+			}
+			renderState();
+		});
+
+		$('#groupContainer').on('click', '.btn-field-up', function(){
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) return;
+			var $group = $(this).closest('.group-card');
+			var iGroupIndex = parseInt($group.attr('data-group-index'), 10) || 0;
+			var iFieldIndex = parseInt($(this).closest('.field-card').attr('data-field-index'), 10) || 0;
+			if ( iFieldIndex <= 0 ) return;
+			var arrFields = tblState.classList[iGroupIndex].options;
+			var tblTemp = arrFields[iFieldIndex - 1];
+			arrFields[iFieldIndex - 1] = arrFields[iFieldIndex];
+			arrFields[iFieldIndex] = tblTemp;
+			renderState();
+		});
+
+		$('#groupContainer').on('click', '.btn-field-down', function(){
+			syncStateFromDOM();
+			if ( isDefinitionLockedReadonly() ) return;
+			var $group = $(this).closest('.group-card');
+			var iGroupIndex = parseInt($group.attr('data-group-index'), 10) || 0;
+			var iFieldIndex = parseInt($(this).closest('.field-card').attr('data-field-index'), 10) || 0;
+			var arrFields = tblState.classList[iGroupIndex].options;
+			if ( iFieldIndex >= arrFields.length - 1 ) return;
+			var tblTemp = arrFields[iFieldIndex + 1];
+			arrFields[iFieldIndex + 1] = arrFields[iFieldIndex];
+			arrFields[iFieldIndex] = tblTemp;
+			renderState();
+		});
+
+		$('#btnSave').on('click', saveConfig);
+
+		$('#btnPreview').on('click', function(){
+			var sFile = sOriginalFile || $.trim($('#inputFileName').val());
+			if ( !sFile ) {
+				layer.msg('请先输入文件名并保存', {icon: 0});
+				return;
+			}
+			if ( sFile.indexOf('.json') < 0 ) {
+				sFile += '.json';
+			}
+			window.open('/admin/view/option?file=' + encodeURIComponent(sFile));
+		});
+
+		$('#btnCancel').on('click', function(){
+			var index = parent.layer.getFrameIndex(window.name);
+			parent.layer.close(index);
+		});
+
+		loadDetail();
+	});
+	</script>
+</body>
+</html>
