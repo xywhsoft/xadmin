@@ -16,16 +16,12 @@ void xsDestroyTCC(TCCState* s);
 // ==================== 工具函数 ====================
 
 // SQL 字符串转义（防止 SQL 注入）
-char* sql_escape(const char* str, size_t len);
 
-// HTTP 响应（根据 mg_http_reply 修改而来，不会进行 printf 代入）
-void http_reply(struct mg_connection* c, int code, const char* headers, const char* sBody, size_t iSize);
+// HTTP 响应辅助函数
 
 // 解析 cookies
-xdict ParseCookies(struct mg_http_message* hm);
 
 // 释放 Cookies 表
-void FreeCookies(xdict tblCookies);
 
 // 将函数映射到 TCC 执行环境
 void ImportAll(TCCState* s);
@@ -63,5 +59,6 @@ int xsReloadDefaultHost(XS_ServerObject objServer);
 //   objServer - 服务器对象
 // 返回: 成功加载的 Host 数量，负数=失败
 int xsReloadServer(XS_ServerObject objServer);
+int xsReloadAllServer(int bForce);
 
 

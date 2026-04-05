@@ -39,6 +39,12 @@
 // 配置管理模块
 #include "module/option.h"
 
+// 通用表单模块
+#include "module/form.h"
+
+// 工具 - 重新加载
+#include "module/tool_reload.h"
+
 // scheduler module
 #include "module/sched.h"
 
@@ -65,8 +71,11 @@
 #include "route_http/brand.h"
 #include "route_http/login.h"
 #include "route_http/logs.h"
+#include "route_http/template.h"
 #include "route_http/auth.h"
 #include "route_http/option.h"
+#include "route_http/form.h"
+#include "route_http/tool_reload.h"
 #include "route_http/option_tool.h"
 #include "route_http/sched.h"
 #include "route_http/option_file.h"
@@ -161,6 +170,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	printf("[xadmin:init] Option_Init done\n");
 	fflush(stdout);
 
+	printf("[xadmin:init] Form_Init begin\n");
+	fflush(stdout);
+	Form_Init();
+	printf("[xadmin:init] Form_Init done\n");
+	fflush(stdout);
+
 	printf("[xadmin:init] Sched_Init begin\n");
 	fflush(stdout);
 	Sched_Init();
@@ -171,6 +186,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	fflush(stdout);
 	Menu_Init();
 	printf("[xadmin:init] Menu_Init done\n");
+	fflush(stdout);
+
+	printf("[xadmin:init] ToolReload_Init begin\n");
+	fflush(stdout);
+	ToolReload_Init();
+	printf("[xadmin:init] ToolReload_Init done\n");
 	fflush(stdout);
 
 	printf("[xadmin:init] PluginRoute_EnsureMenus begin\n");
@@ -214,6 +235,7 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	PluginSystem_Init();
 	printf("[xadmin:init] PluginSystem_Init done\n");
 	fflush(stdout);
+	
 }
 
 
@@ -237,9 +259,15 @@ void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 	
 	// 卸载菜单管理模块
 	Menu_Unit();
+
+	// 卸载重新加载工具模块
+	ToolReload_Unit();
 	
 	// 卸载配置管理模块
 	Option_Unit();
+
+	// 卸载通用表单模块
+	Form_Unit();
 
 	// 卸载计划任务模块
 	Sched_Unit();

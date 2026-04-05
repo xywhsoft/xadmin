@@ -115,7 +115,7 @@ void Session_Init()
 	printf("        Session_Init \n");
 	
 	// 初始化后台管理员 Session 表
-	G_AdminSession = xvoCreateTable();
+	G_AdminSession = xvoCreateTableEx(XRT_OBJMODE_SHARED);
 	if ( G_AdminSession == NULL ) {
 		printf("!!! ERROR !!! Create admin sessions table failed !\n");
 		exit(1);
@@ -129,7 +129,7 @@ void Session_Init()
 	Session_PublishDict(G_AdminSessionMap);
 	
 	// 初始化前台用户 Session 表
-	G_MemberSession = xvoCreateTable();
+	G_MemberSession = xvoCreateTableEx(XRT_OBJMODE_SHARED);
 	if ( G_MemberSession == NULL ) {
 		printf("!!! ERROR !!! Create member sessions table failed !\n");
 		exit(1);
@@ -158,7 +158,7 @@ void Session_UpdateActiveTime(xvalue session)
 // 创建新的后台 Session 并设置过期时间
 xvalue Session_CreateAdmin(str sessionId)
 {
-	xvalue session = xvoCreateTable();
+	xvalue session = xvoCreateTableEx(XRT_OBJMODE_SHARED);
 	(void)sessionId;
 	if ( session ) {
 		int64 now = xrtNow();
@@ -174,7 +174,7 @@ xvalue Session_CreateAdmin(str sessionId)
 // 创建新的前台 Session 并设置过期时间
 xvalue Session_CreateMember(str sessionId)
 {
-	xvalue session = xvoCreateTable();
+	xvalue session = xvoCreateTableEx(XRT_OBJMODE_SHARED);
 	(void)sessionId;
 	if ( session ) {
 		int64 now = xrtNow();

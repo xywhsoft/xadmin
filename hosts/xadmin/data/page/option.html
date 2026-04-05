@@ -39,6 +39,21 @@
 		color: #666;
 		font-size: 14px;
 	}
+	.option-header-bar {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 16px;
+	}
+	.option-header-main {
+		flex: 1;
+		min-width: 0;
+	}
+	.option-header-actions {
+		display: flex;
+		gap: 10px;
+		flex-shrink: 0;
+	}
 	.option-group {
 		margin-bottom: 20px;
 		background: #fff;
@@ -188,8 +203,15 @@
 		<div class="option-panel layui-form" id="optionContainer">
 			<!-- 页面标题 -->
 			<div class="option-header" id="optionHeader">
-				<h1 id="optionTitle">配置管理</h1>
-				<p id="optionDesc"></p>
+				<div class="option-header-bar">
+					<div class="option-header-main">
+						<h1 id="optionTitle">配置管理</h1>
+						<p id="optionDesc"></p>
+					</div>
+					<div class="option-header-actions">
+						<button type="button" class="layui-btn layui-btn-primary" id="btnOpenXForm"><i class="layui-icon layui-icon-form"></i> XForm View</button>
+					</div>
+				</div>
 			</div>
 			<!-- 配置分组容器 -->
 			<div class="option-content">
@@ -226,6 +248,17 @@
 		
 		// 存储配置数据
 		var tblConfigData = null;
+		
+		$('#btnOpenXForm').on('click', function(){
+			var sHref = '/admin/view/option?file=' + encodeURIComponent(sFileName) + '&renderer=xform';
+			if ( window.top && window.top.PearAdmin && window.top.PearAdmin.changePage ) {
+				window.top.PearAdmin.changePage(false, sHref, 'XForm - ' + sFileName, true);
+			} else if ( window.parent && window.parent.PearAdmin && window.parent.PearAdmin.changePage ) {
+				window.parent.PearAdmin.changePage(false, sHref, 'XForm - ' + sFileName, true);
+			} else {
+				window.location.href = sHref;
+			}
+		});
 
 		function renderOptionActions(option)
 		{

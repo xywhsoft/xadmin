@@ -5,7 +5,24 @@
 // 获取配置页面视图
 void Request_View_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
 	if ( HttpMethodIs(objReq, "GET") ) {
+		char sRenderer[32];
+		char sFileName[128];
+
+		if ( (HttpGetQueryVar(objReq, "renderer", sRenderer, sizeof(sRenderer)) > 0) && (strcmp(sRenderer, "xform") == 0) ) {
+			if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) > 0 ) {
+				str sHeader = xrtFormat("Content-Type: text/plain\r\nLocation: /admin/view/form?source=option&file=%s\r\n", sFileName);
+				http_reply(objResp, 302, sHeader, "", 0);
+				xrtFree(sHeader);
+				return;
+			}
+			http_reply(objResp, 302, "Content-Type: text/plain\r\nLocation: /admin/view/form?source=option\r\n", "", 0);
+			return;
+		}
 		
 		// 配置页面
 		LoadPage(objResp, 200, HTTP_CT_HTML, "option.html");

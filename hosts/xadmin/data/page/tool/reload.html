@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>重新加载</title>
+	<link rel="stylesheet" href="/layui/css/layui.css">
+	<style>
+		body{background:#f5f7fb;padding:18px}
+		.reload-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+		.reload-card{background:#fff;border:1px solid #edf1f7;border-radius:12px;padding:18px;box-shadow:0 8px 24px rgba(15,23,42,.04)}
+		.reload-card h3{margin:0 0 8px;font-size:18px;color:#1f2937}
+		.reload-card p{margin:0 0 14px;color:#667085;line-height:1.7;min-height:48px}
+		.reload-card .meta{font-size:12px;color:#98a2b3;margin-top:10px}
+		.reload-result{margin-top:18px;background:#fff;border:1px solid #edf1f7;border-radius:12px;padding:16px}
+		.reload-result pre{margin:0;background:#101828;color:#e5e7eb;padding:14px;border-radius:10px;overflow:auto;min-height:120px}
+	</style>
+</head>
+<body>
+	<div class="layui-card">
+		<div class="layui-card-header">重新加载</div>
+		<div class="layui-card-body">
+			<div class="reload-grid">
+				<div class="reload-card">
+					<h3>模板缓存重新加载</h3>
+					<p>重新扫描并预编译 <code>data/template</code> 下的所有模板文件，适合模板调试和热更新。</p>
+					<button type="button" class="layui-btn" data-action="template">执行</button>
+					<div class="meta">接口：<code>/admin/tool/reload/template</code></div>
+				</div>
+				<div class="reload-card">
+					<h3>当前 Host 重新加载</h3>
+					<p>仅重新加载当前 Host 的脚本上下文，影响范围最小，适合常规脚本热更新。</p>
+					<button type="button" class="layui-btn layui-btn-normal" data-action="host">执行</button>
+					<div class="meta">接口：<code>/admin/tool/reload/host</code></div>
+				</div>
+				<div class="reload-card">
+					<h3>当前服务重新加载</h3>
+					<p>重新加载当前服务下的全部 Host，适合一次性刷新当前服务的脚本宿主状态。</p>
+					<button type="button" class="layui-btn layui-btn-warm" data-action="server">执行</button>
+					<div class="meta">接口：<code>/admin/tool/reload/server</code></div>
+				</div>
+				<div class="reload-card">
+					<h3>xs 整体重新加载</h3>
+					<p>遍历当前进程中的全部服务并逐个 reload，适合全局同步变更后统一刷新。</p>
+					<button type="button" class="layui-btn layui-btn-danger" data-action="xs">执行</button>
+					<div class="meta">接口：<code>/admin/tool/reload/xs</code></div>
+				</div>
+			</div>
+			<div class="reload-result">
+				<div style="margin-bottom:10px;font-weight:600;color:#344054">结果</div>
+				<pre id="resultBox">等待操作...</pre>
+			</div>
+		</div>
+	</div>
+
+	<script src="/layui/layui.js"></script>
+	<script>
+	layui.use(['layer'], function(){
+		var layer = layui.layer;
+		var resultBox = document.getElementById('resultBox');
+		var actionMap = {
+			template: '/admin/tool/reload/template',
+			host: '/admin/tool/reload/host',
+			server: '/admin/tool/reload/server',
+			xs: '/admin/tool/reload/xs'
+		};
+
+		function setResult(obj){
+			resultBox.textContent = typeof obj === 'string' ? obj : JSON.stringify(obj, null, 2);
+		}
+
+		async function callAction(action){
+			var url = actionMap[action];
+			if (!url) {
+				setResult('unknown action: ' + action);
+				return;
+			}
+			setResult('执行中: ' + action + ' ...');
+			try {
+				var response = await fetch(url, { method: 'POST', cache: 'no-store' });
+				var json = await response.json();
+				setResult(json);
+				layer.msg(json && json.message ? json.message : '完成');
+			} catch (err) {
+				setResult({ result: false, message: err && err.message ? err.message : String(err) });
+				layer.alert(err && err.message ? err.message : String(err), { icon: 2, title: '执行失败' });
+			}
+		}
+
+		Array.prototype.forEach.call(document.querySelectorAll('[data-action]'), function(btn){
+			btn.addEventListener('click', function(){
+				var action = btn.getAttribute('data-action');
+				var title = btn.parentNode.querySelector('h3').textContent;
+				layer.confirm('确认执行“' + title + '”吗？', { icon: 3, title: '确认' }, function(index){
+					layer.close(index);
+					callAction(action);
+				});
+			});
+		});
+	});
+	</script>
+</body>
+</html>

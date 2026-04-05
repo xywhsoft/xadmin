@@ -10,6 +10,10 @@
 
 #include "inline_xrt.h"
 #include "inline_xsmtp.h"
+#include "inline_lz4.h"
+#include "inline_zstd.h"
+#include "inline_lzma.h"
+#include "inline_xpack.h"
 #include "inline_libtcc.h"
 #include "inline_sqlite3.h"
 //#include "inline_xdo.h"
@@ -258,13 +262,21 @@ xvalue xsXtpClientCallSimpleBodyValue(
 int xsDgramSendTo(void* pSock, const char* sIP, unsigned short iPort, const void* pData, size_t iLen);
 int xsDgramReply(void* pSock, const void* pFromAddr, const void* pData, size_t iLen);
 const char* xsAddrText(const void* pAddr);
+TCCState* xsCreateTCC(const char* sWorkPath);
+void xsDestroyTCC(TCCState* s);
+void ImportAll(TCCState* s);
+int xsReloadHost(XS_ServerObject objServer, XS_HostObject objHost);
+int xsReloadHostByDomain(XS_ServerObject objServer, const char* sDomain);
+int xsReloadDefaultHost(XS_ServerObject objServer);
+int xsReloadServer(XS_ServerObject objServer);
+int xsReloadAllServer(int bForce);
 int xsReloadCurrentHost(XS_ServerObject objServer, XS_HostObject objHost, int bForce);
 int xsReloadHostByName(XS_ServerObject objServer, const char* sHostName, int bForce);
+int xsRequestReloadCurrentHost(XS_ServerObject objServer, XS_HostObject objHost, int bForce);
+int xsRequestReloadServer(XS_ServerObject objServer, int bForce);
+int xsRequestReloadAllServer(int bForce);
 
 
-
-// xCore
-xrtGlobalData* g_pXCore = NULL;
 
 // 全局事件循环
 void* g_pXsLoop = NULL;
@@ -280,7 +292,7 @@ static inline void XS_SetGlobalDate(int idx, void* ptr)
 	} else if ( idx == 2 ) {
 		g_arrXsServerList = (xarray)ptr;
 	} else if ( idx == 3 ) {
-		g_pXCore = (xrtGlobalData*)ptr;
+		xCore = (xrtGlobalData*)ptr;
 	}
 }
 

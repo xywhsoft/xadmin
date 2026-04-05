@@ -36,6 +36,12 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/view/logs",							Request_View_Logs);
 	AddStaticRouteHTTP("/admin/logs",								Request_Logs);
 	AddStaticRouteHTTP("/admin/logs/clear",							Request_Logs_Clear);
+	AddStaticRouteHTTP("/admin/template/rebuild",					Request_Template_Rebuild);
+	AddStaticRouteHTTP("/admin/view/tool/reload",					Request_View_Tool_Reload);
+	AddStaticRouteHTTP("/admin/tool/reload/template",				Request_Tool_Reload_Template);
+	AddStaticRouteHTTP("/admin/tool/reload/host",					Request_Tool_Reload_Host);
+	AddStaticRouteHTTP("/admin/tool/reload/server",				Request_Tool_Reload_Server);
+	AddStaticRouteHTTP("/admin/tool/reload/xs",					Request_Tool_Reload_XS);
 	
 	// 添加 HTTP 静态路由 - Auth - User
 	AddStaticRouteHTTP("/admin/auth/user",							Request_Auth_User);
@@ -69,9 +75,11 @@ void RouteHTTP_Init()
 	
 	// 添加 HTTP 静态路由 - Option
 	AddStaticRouteHTTP("/admin/option",								Request_Option);
+	AddStaticRouteHTTP("/admin/form",								Request_Form);
 	AddStaticRouteHTTP("/admin/option/tool/admin-entry",			Request_Option_AdminEntryGenerate);
 	AddStaticRouteHTTP("/admin/option/tool/test-smtp",				Request_Option_SMTPTest);
 	AddStaticRouteHTTP("/admin/view/option",						Request_View_Option);
+	AddStaticRouteHTTP("/admin/view/form",							Request_View_Form);
 	AddStaticRouteHTTP("/admin/option/files",						Request_Option_Files);
 	AddStaticRouteHTTP("/admin/option/file",						Request_Option_File);
 	AddStaticRouteHTTP("/admin/option/file/menu",					Request_Option_File_Menu);
@@ -235,7 +243,10 @@ void RouteHTTP_Init()
 void RouteHTTP_Unit()
 {
 	printf("        RouteHTTP_Unit \n");
-	xrtDictDestroy(G_StaticRouteTableHTTP);
+	if ( G_StaticRouteTableHTTP ) {
+		xrtDictDestroy(G_StaticRouteTableHTTP);
+		G_StaticRouteTableHTTP = NULL;
+	}
 }
 
 

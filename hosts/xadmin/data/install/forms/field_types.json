@@ -1,0 +1,17 @@
+{
+	"title": "XForm Field Types",
+	"types": [
+		{"name": "text", "label": "Text", "category": "basic"},
+		{"name": "textarea", "label": "Textarea", "category": "basic"},
+		{"name": "number", "label": "Number", "category": "basic"},
+		{"name": "switch", "label": "Switch", "category": "basic"},
+		{"name": "select", "label": "Select", "category": "basic"},
+		{"name": "radio", "label": "Radio", "category": "basic"},
+		{"name": "checkbox", "label": "Checkbox", "category": "basic"},
+		{"name": "editor_md", "label": "Markdown Editor", "category": "editor"},
+		{"name": "editor_html", "label": "Rich Text Editor", "category": "editor"},
+		{"name": "editor_code", "label": "Code Editor", "category": "editor"},
+		{"name": "icon_picker", "label": "Icon Picker", "category": "custom"},
+		{"name": "badge_picker", "label": "Badge Picker", "category": "custom", "script": "/lib/xform/ext/badge_picker.js"}
+	]
+}
