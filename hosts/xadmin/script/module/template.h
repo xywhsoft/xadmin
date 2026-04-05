@@ -1,5 +1,7 @@
 // template runtime env
 xvalue tblENV = NULL;
+xteengine G_TemplateEngine = NULL;
+static char* Form_RenderTemplateBlockHTML(xvalue tblSpec, str* psError);
 
 // shared include table (kept for compatibility)
 xdict G_Template = NULL;
@@ -20,6 +22,202 @@ typedef struct TemplateCacheLoadContext
 	uint32 iFailed;
 	xdict hCache;
 } TemplateCacheLoadContext;
+
+typedef struct TemplateFormStmtData
+{
+	str sHTML;
+} TemplateFormStmtData;
+
+static const char* Template_CStrOr(str sText, const char* sDefault)
+{
+	return sText ? (const char*)sText : sDefault;
+}
+
+static int TemplateStmt_Form_Parse(XTE_StmtParseCtx* pCtx, void** ppData)
+{
+	str sJSON = NULL;
+	xvalue tblSpec = NULL;
+	str sError = NULL;
+	char* sHTML = NULL;
+	TemplateFormStmtData* pData = NULL;
+	str sPreview = NULL;
+
+	if ( (pCtx == NULL) || (ppData == NULL) ) {
+		return xteStmtParseSetError(pCtx, -1, "invalid form stmt context");
+	}
+
+	if ( (pCtx->sRawBody == NULL) || (pCtx->iRawBodySize == 0) ) {
+		return xteStmtParseSetError(pCtx, -1, "form block json required");
+	}
+
+	sJSON = xrtMalloc((uint32)pCtx->iRawBodySize + 1);
+	if ( sJSON == NULL ) {
+		return xteStmtParseSetError(pCtx, -1, "form block alloc failed");
+	}
+	memcpy(sJSON, pCtx->sRawBody, pCtx->iRawBodySize);
+	sJSON[pCtx->iRawBodySize] = '\0';
+	sPreview = xrtCopyStr(sJSON, 160);
+	printf("[template][form] parse begin: json=%s\n", Template_CStrOr(sPreview, "(null)"));
+	fflush(stdout);
+	if ( sPreview ) {
+		xrtFree(sPreview);
+		sPreview = NULL;
+	}
+
+	tblSpec = xrtParseJSON(sJSON, pCtx->iRawBodySize);
+	xrtFree(sJSON);
+	if ( tblSpec == NULL ) {
+		printf("[template][form] json parse failed\n");
+		fflush(stdout);
+		return xteStmtParseSetError(pCtx, -1, "form block json parse failed");
+	}
+
+	sHTML = Form_RenderTemplateBlockHTML(tblSpec, &sError);
+	xvoUnref(tblSpec);
+	if ( sHTML == NULL ) {
+		printf("[template][form] html render failed: error=%s\n",
+			Template_CStrOr(sError, "(null)"));
+		fflush(stdout);
+		const char* sDesc = sError ? (const char*)sError : "form block render failed";
+		int iRet = xteStmtParseSetError(pCtx, -1, sDesc);
+		if ( sError ) {
+			xrtFree(sError);
+		}
+		return iRet;
+	}
+	if ( sError ) {
+		xrtFree(sError);
+	}
+	printf("[template][form] parse success: html=%u bytes\n", (uint32)strlen(sHTML));
+	fflush(stdout);
+
+	pData = xrtMalloc(sizeof(TemplateFormStmtData));
+	if ( pData == NULL ) {
+		xrtFree(sHTML);
+		return xteStmtParseSetError(pCtx, -1, "form block data alloc failed");
+	}
+	memset(pData, 0, sizeof(*pData));
+	pData->sHTML = sHTML;
+	*ppData = pData;
+	return 1;
+}
+
+static XTE_Flow TemplateStmt_Form_Render(XTE_StmtRenderCtx* pCtx)
+{
+	TemplateFormStmtData* pData = (TemplateFormStmtData*)pCtx->pData;
+	if ( (pData == NULL) || (pData->sHTML == NULL) ) {
+		printf("[template][form] render missing cached html\n");
+		fflush(stdout);
+		return xteStmtSetError(pCtx, -1, "form block cached html missing");
+	}
+	if ( !xteStmtWrite(pCtx, pData->sHTML, strlen(pData->sHTML)) ) {
+		printf("[template][form] render write failed\n");
+		fflush(stdout);
+		return xteStmtSetError(pCtx, -1, "form block write failed");
+	}
+	printf("[template][form] render success: html=%u bytes\n", (uint32)strlen(pData->sHTML));
+	fflush(stdout);
+	return XTE_FLOW_OK;
+}
+
+static void TemplateStmt_Form_FreeData(void* pData)
+{
+	TemplateFormStmtData* pStmtData = (TemplateFormStmtData*)pData;
+	if ( pStmtData == NULL ) {
+		return;
+	}
+	if ( pStmtData->sHTML ) {
+		xrtFree(pStmtData->sHTML);
+		pStmtData->sHTML = NULL;
+	}
+	xrtFree(pStmtData);
+}
+
+static bool Template_RegisterCustomStatements(xteengine hEngine)
+{
+	static XTE_StatementDef s_FormStatement = {
+		"form",
+		XTE_STMT_BLOCK | XTE_STMT_RAW_BODY,
+		0,
+		0,
+		NULL,
+		TemplateStmt_Form_Parse,
+		TemplateStmt_Form_Render,
+		TemplateStmt_Form_FreeData
+	};
+
+	if ( hEngine == NULL ) {
+		return FALSE;
+	}
+
+	return xteRegisterStatement(hEngine, &s_FormStatement) >= 0;
+}
+
+static int Template_BufferWriterProc(void* pUserData, const char* sText, size_t iSize)
+{
+	xbuffer pBuf = (xbuffer)pUserData;
+	if ( (pBuf == NULL) || (sText == NULL) ) {
+		return 0;
+	}
+	return xrtBufferAppend(pBuf, (ptr)sText, (uint32)iSize, XBUF_BINARY) ? 1 : 0;
+}
+
+static char* Template_RenderCompiledTemplate(xtetemplate hTemplate, xvalue tblData, size_t* pRetSize, str* psError)
+{
+	XTE_RenderOptions tOptions = { 0 };
+	XTE_Writer tWriter = { 0 };
+	XTE_Error tError = { 0 };
+	xbuffer_struct tBuf = { 0 };
+	char chZero = 0;
+	char* sOutput = NULL;
+
+	if ( psError ) {
+		*psError = NULL;
+	}
+
+	xrtBufferInit(&tBuf, 0);
+	tWriter.procWrite = Template_BufferWriterProc;
+	tWriter.pUserData = &tBuf;
+	tOptions.pCurrent = tblData;
+	tOptions.pRoot = tblData;
+	tOptions.pGlobal = tblENV;
+	tOptions.pIncludeMap = G_Template;
+	tOptions.pWriter = &tWriter;
+
+	if ( !xteRenderEx(hTemplate, &tOptions, &tError) ) {
+		if ( psError != NULL ) {
+			*psError = xrtFormat(
+				"xte render failed: code=%d desc=%s line=%u col=%u",
+				tError.iCode,
+				tError.sDesc ? tError.sDesc : "unknown",
+				tError.iLine,
+				tError.iColumn
+			);
+		}
+		xrtBufferUnit(&tBuf);
+		if ( pRetSize ) {
+			*pRetSize = 0u;
+		}
+		return NULL;
+	}
+
+	if ( !xrtBufferAppend(&tBuf, &chZero, 1, XBUF_BINARY) ) {
+		if ( psError != NULL ) {
+			*psError = xrtCopyStr("template output buffer append failed", 0);
+		}
+		xrtBufferUnit(&tBuf);
+		if ( pRetSize ) {
+			*pRetSize = 0u;
+		}
+		return NULL;
+	}
+
+	if ( pRetSize ) {
+		*pRetSize = tBuf.Length - 1u;
+	}
+	sOutput = (char*)tBuf.Buffer;
+	return sOutput;
+}
 
 
 
@@ -72,7 +270,7 @@ static xtetemplate Template_ParseTemplateFile(str sFilePath, str sTemplateKey, X
 	}
 
 	iSize = strlen(sText);
-	hTemplate = xteParseEx(NULL, sText, iSize, &G_TemplateParseOptions, pError);
+	hTemplate = xteParseEx(G_TemplateEngine, sText, iSize, &G_TemplateParseOptions, pError);
 	xrtFree(sText);
 	if ( hTemplate == NULL ) {
 		printf("[template] parse failed: %s (%s at %u:%u)\n",
@@ -137,6 +335,10 @@ static int Template_LoadCacheProc(str sPath, size_t iSize, int bDir, ptr pData, 
 
 	if ( pCtx ) {
 		pCtx->iLoaded++;
+	}
+	if ( strcmp((const char*)sKey, "form/block_demo.html") == 0 ) {
+		printf("[template] cache loaded key=form/block_demo.html\n");
+		fflush(stdout);
 	}
 
 	xrtFree(sKey);
@@ -229,6 +431,10 @@ static xtetemplate Template_GetCompiledTemplate(str sTemplate, str* psTemplateKe
 	if ( sKey == NULL ) {
 		return NULL;
 	}
+	if ( strcmp((const char*)sKey, "form/block_demo.html") == 0 ) {
+		printf("[template] lookup key=form/block_demo.html\n");
+		fflush(stdout);
+	}
 
 	hTemplate = (xtetemplate)xrtDictGetPtr(G_Template, sKey, (uint32)strlen(sKey));
 	if ( psTemplateKey != NULL ) {
@@ -318,6 +524,7 @@ char* MakePageWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 	xtetemplate hTemplate;
 	str sTemplateKey = NULL;
 	char* sPage;
+	str sError = NULL;
 
 	if ( (sTemplate == NULL) || (sTemplate[0] == '\0') ) {
 		return xrtCopyStr("<!DOCTYPE html><html><body><p>template name required</p></body></html>", 0);
@@ -336,13 +543,23 @@ char* MakePageWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 		return sError;
 	}
 
-	sPage = xteMake(hTemplate, tblData, tblENV, G_Template, pRetSize);
+	sPage = Template_RenderCompiledTemplate(hTemplate, tblData, pRetSize, &sError);
 	if ( G_TemplateLock ) {
 		xrtMutexUnlock(G_TemplateLock);
 	}
 	xrtFree(sTemplateKey);
 	if ( sPage == NULL ) {
-		return xrtFormat("<!DOCTYPE html><html><body><p>template render failed: %s</p></body></html>", sTemplate);
+		printf("[template] render failed: %s (%s)\n", sTemplate, Template_CStrOr(sError, "unknown"));
+		fflush(stdout);
+		sPage = xrtFormat(
+			"<!DOCTYPE html><html><body><p>template render failed: %s</p><pre>%s</pre></body></html>",
+			sTemplate,
+			Template_CStrOr(sError, "unknown")
+		);
+		if ( sError ) {
+			xrtFree(sError);
+		}
+		return sPage;
 	}
 
 	return sPage;
@@ -353,6 +570,7 @@ char* MakeTextWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 	xtetemplate hTemplate;
 	str sTemplateKey = NULL;
 	char* sOutput;
+	str sError = NULL;
 
 	if ( (sTemplate == NULL) || (sTemplate[0] == '\0') ) {
 		return xrtCopyStr("template name required", 0);
@@ -371,13 +589,17 @@ char* MakeTextWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 		return sError;
 	}
 
-	sOutput = xteMake(hTemplate, tblData, tblENV, G_Template, pRetSize);
+	sOutput = Template_RenderCompiledTemplate(hTemplate, tblData, pRetSize, &sError);
 	if ( G_TemplateLock ) {
 		xrtMutexUnlock(G_TemplateLock);
 	}
 	xrtFree(sTemplateKey);
 	if ( sOutput == NULL ) {
-		return xrtFormat("template render failed: %s", sTemplate);
+		sOutput = xrtFormat("template render failed: %s (%s)", sTemplate, Template_CStrOr(sError, "unknown"));
+		if ( sError ) {
+			xrtFree(sError);
+		}
+		return sOutput;
 	}
 
 	return sOutput;
@@ -392,6 +614,13 @@ void Template_Init()
 	printf("        Template_Init \n");
 
 	G_TemplateLock = xrtMutexCreate();
+	G_TemplateEngine = xteCreateEngine();
+	if ( G_TemplateEngine ) {
+		xteRegisterBuiltinStatements(G_TemplateEngine);
+		if ( !Template_RegisterCustomStatements(G_TemplateEngine) ) {
+			printf("        Template custom statements register failed\n");
+		}
+	}
 	G_Template = Template_CreateCacheDict();
 	tblENV = xvoCreateTable();
 	xvoTableSetFunc(tblENV, "MakeXID", 7, TemplateProc_Project_MakeXID);
@@ -440,6 +669,15 @@ void Template_Unit()
 		xvoUnref(tblENV);
 		tblENV = NULL;
 		printf("        Template_Unit: unref env done\n");
+		fflush(stdout);
+	}
+
+	if ( G_TemplateEngine ) {
+		printf("        Template_Unit: destroy engine begin\n");
+		fflush(stdout);
+		xteDestroyEngine(G_TemplateEngine);
+		G_TemplateEngine = NULL;
+		printf("        Template_Unit: destroy engine done\n");
 		fflush(stdout);
 	}
 

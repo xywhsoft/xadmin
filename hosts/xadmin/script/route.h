@@ -37,6 +37,7 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/logs",								Request_Logs);
 	AddStaticRouteHTTP("/admin/logs/clear",							Request_Logs_Clear);
 	AddStaticRouteHTTP("/admin/template/rebuild",					Request_Template_Rebuild);
+	AddStaticRouteHTTP("/admin/view/template/form_demo",			Request_View_Template_Form_Demo);
 	AddStaticRouteHTTP("/admin/view/tool/reload",					Request_View_Tool_Reload);
 	AddStaticRouteHTTP("/admin/tool/reload/template",				Request_Tool_Reload_Template);
 	AddStaticRouteHTTP("/admin/tool/reload/host",					Request_Tool_Reload_Host);

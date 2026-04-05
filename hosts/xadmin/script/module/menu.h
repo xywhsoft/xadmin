@@ -219,7 +219,6 @@ static void Menu_EnsureOptionManagerMenu()
 void Menu_Init()
 {
 	printf("        Menu_Init \n");
-	Menu_EnsureOptionManagerMenu();
 	Menu_CompileSQL();
 }
 

@@ -1,0 +1,10 @@
+{
+	"pageSize":	15,
+	"maxContentLength":	500,
+	"requireApproval":	false,
+	"maxNicknameLength":	32,
+	"categories":	"General,Feedback,Question,Bug Report,Feature Request",
+	"allowReactions":	true,
+	"boardTitle":	"Message Board",
+	"boardSubtitle":	"Share your thoughts with us"
+}

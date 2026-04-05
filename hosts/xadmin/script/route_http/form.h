@@ -15,7 +15,6 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 {
 	(void)objServer;
 	(void)objHost;
-	(void)objSession;
 
 	if ( HttpMethodIs(objReq, "GET") ) {
 		char sFileName[128];
@@ -25,35 +24,50 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		xvalue tblData;
 		xvalue tblRetData;
 		bool bOptionSource = FALSE;
+		int64 iAuthLevelRequired = 0;
+		int64 iAuthLevelUser = 0;
 
-		if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
-			memcpy(sFileName, "demo_form.json", sizeof("demo_form.json"));
-		}
 		if ( HttpGetQueryVar(objReq, "source", sSource, sizeof(sSource)) > 0 ) {
 			bOptionSource = (strcmp(sSource, "option") == 0);
 		}
+		if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
+			if ( bOptionSource ) {
+				memcpy(sFileName, "global.json", sizeof("global.json"));
+			} else {
+				memcpy(sFileName, "demo_form.json", sizeof("demo_form.json"));
+			}
+		}
 
 		if ( !Form_IsValidFileName(sFileName) ) {
-			Form_ReplyError(objResp, "非法的表单文件名");
+			Form_ReplyError(objResp, "�Ƿ��ı���ļ���");
 			return;
 		}
 
 		if ( bOptionSource ) {
 			xvalue tblConfig = Option_LoadFile(sFileName);
 			if ( tblConfig == NULL ) {
-				Form_ReplyError(objResp, "配置文件不存在或解析失败");
+				Form_ReplyError(objResp, "�����ļ������ڻ����ʧ��");
+				return;
+			}
+			iAuthLevelRequired = xvoTableGetInt(tblConfig, "authLevel", 9);
+			if ( objSession && (objSession->Type == XVO_DT_TABLE) ) {
+				iAuthLevelUser = xvoTableGetInt(objSession, "authLevel", 9);
+			}
+			if ( (iAuthLevelRequired > 0) && (iAuthLevelUser < iAuthLevelRequired) ) {
+				xvoUnref(tblConfig);
+				Form_ReplyError(objResp, "Ȩ�޲���");
 				return;
 			}
 			tblForm = Form_CreateSchemaFromOptionConfig(tblConfig, &tblData);
 			xvoUnref(tblConfig);
 			if ( tblForm == NULL ) {
-				Form_ReplyError(objResp, "配置文件转表单失败");
+				Form_ReplyError(objResp, "�����ļ�ת���ʧ��");
 				return;
 			}
 		} else {
 			tblForm = Form_LoadFile(sFileName);
 			if ( tblForm == NULL ) {
-				Form_ReplyError(objResp, "表单文件不存在或解析失败");
+				Form_ReplyError(objResp, "����ļ������ڻ����ʧ��");
 				return;
 			}
 
@@ -74,7 +88,7 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		xvoTableSetValue(tblRetData, "fieldTypes", 10, tblTypes, TRUE);
 		xvoTableSetValue(tblRetData, "values", 6, tblData, TRUE);
 
-		Form_ReplySuccess(objResp, "表单数据获取成功", tblRetData);
+		Form_ReplySuccess(objResp, "������ݻ�ȡ�ɹ�", tblRetData);
 		return;
 	}
 
@@ -83,11 +97,14 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		str sFileName;
 		str sSource;
 		xvalue tblData;
+		xvalue tblConfig = NULL;
 		str sError = NULL;
 		bool bRet;
+		int64 iAuthLevelRequired = 0;
+		int64 iAuthLevelUser = 0;
 
 		if ( tblBody == NULL ) {
-			Form_ReplyError(objResp, "请求数据格式错误");
+			Form_ReplyError(objResp, "�������ݸ�ʽ����");
 			return;
 		}
 
@@ -96,19 +113,35 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		tblData = xvoTableGetValue(tblBody, "data", 4);
 		if ( !Form_IsValidFileName(sFileName) ) {
 			xvoUnref(tblBody);
-			Form_ReplyError(objResp, "非法的表单文件名");
+			Form_ReplyError(objResp, "�Ƿ��ı���ļ���");
 			return;
 		}
 		if ( (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) ) {
 			xvoUnref(tblBody);
-			Form_ReplyError(objResp, "缺少 data 参数");
+			Form_ReplyError(objResp, "ȱ�� data ����");
 			return;
 		}
 
 		if ( (sSource != NULL) && (strcmp(sSource, "option") == 0) ) {
+			tblConfig = Option_LoadFile(sFileName);
+			if ( tblConfig == NULL ) {
+				xvoUnref(tblBody);
+				Form_ReplyError(objResp, "�����ļ������ڻ����ʧ��");
+				return;
+			}
+			iAuthLevelRequired = xvoTableGetInt(tblConfig, "authLevel", 9);
+			xvoUnref(tblConfig);
+			if ( objSession && (objSession->Type == XVO_DT_TABLE) ) {
+				iAuthLevelUser = xvoTableGetInt(objSession, "authLevel", 9);
+			}
+			if ( (iAuthLevelRequired > 0) && (iAuthLevelUser < iAuthLevelRequired) ) {
+				xvoUnref(tblBody);
+				Form_ReplyError(objResp, "Ȩ�޲���");
+				return;
+			}
 			bRet = Option_SaveFile(sFileName, tblData);
 			if ( !bRet ) {
-				sError = xrtCopyStr("配置保存失败", 0);
+				sError = xrtCopyStr("���ñ���ʧ��", 0);
 			}
 		} else {
 			bRet = Form_SaveDemoData(sFileName, tblData, &sError);
@@ -118,14 +151,14 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 			if ( sError != NULL ) {
 				Form_ReplyError(objResp, (const char*)sError);
 			} else {
-				Form_ReplyError(objResp, "表单保存失败");
+				Form_ReplyError(objResp, "�������ʧ��");
 			}
 			if ( sError ) xrtFree(sError);
 			return;
 		}
 		if ( sError ) xrtFree(sError);
 
-		Form_ReplySuccess(objResp, "表单保存成功", NULL);
+		Form_ReplySuccess(objResp, "�������ɹ�", NULL);
 		return;
 	}
 

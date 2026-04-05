@@ -1,7 +1,3 @@
-
-
-
-
 // 获取配置页面视图
 void Request_View_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
@@ -10,165 +6,138 @@ void Request_View_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	(void)objSession;
 
 	if ( HttpMethodIs(objReq, "GET") ) {
-		char sRenderer[32];
 		char sFileName[128];
+		str sHeader;
 
-		if ( (HttpGetQueryVar(objReq, "renderer", sRenderer, sizeof(sRenderer)) > 0) && (strcmp(sRenderer, "xform") == 0) ) {
-			if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) > 0 ) {
-				str sHeader = xrtFormat("Content-Type: text/plain\r\nLocation: /admin/view/form?source=option&file=%s\r\n", sFileName);
-				http_reply(objResp, 302, sHeader, "", 0);
-				xrtFree(sHeader);
-				return;
-			}
-			http_reply(objResp, 302, "Content-Type: text/plain\r\nLocation: /admin/view/form?source=option\r\n", "", 0);
+		if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
+			memcpy(sFileName, "global.json", sizeof("global.json"));
+		}
+		if ( !Form_IsValidFileName(sFileName) ) {
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 			return;
 		}
-		
-		// 配置页面
-		LoadPage(objResp, 200, HTTP_CT_HTML, "option.html");
-		
+
+		sHeader = xrtFormat("Content-Type: text/plain\r\nLocation: /admin/view/form?source=option&file=%s\r\n", sFileName);
+		http_reply(objResp, 302, sHeader, "", 0);
+		xrtFree(sHeader);
 	} else {
-		
-		// 其他请求方法返回 404 页面
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
-		
 	}
 }
 
-
-
-// 配置数据接口
+// 配置数据接口（正式切换为动态表单版本）
 void Request_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
+	(void)objServer;
+	(void)objHost;
+
 	if ( HttpMethodIs(objReq, "GET") ) {
-		
-		// 获取文件名参�?
 		char sFileName[128];
-		int iSize = HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName));
-		
-		if ( iSize <= 0 ) {
-			// 缺少文件名参�?
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"缺少 file 参数\"}", 0);
+		xvalue tblConfig;
+		xvalue tblSchema;
+		xvalue tblValues = NULL;
+		xvalue tblTypes;
+		xvalue tblRetData;
+		int64 iAuthLevelRequired;
+		int64 iAuthLevelUser = 0;
+
+		if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
+			memcpy(sFileName, "global.json", sizeof("global.json"));
+		}
+		if ( !Form_IsValidFileName(sFileName) ) {
+			Form_ReplyError(objResp, "非法的表单文件名");
 			return;
 		}
-		
-		// 安全检查：防止路径遍历攻击
-		if ( (strstr(sFileName, "..") != NULL) || (strstr(sFileName, "/") != NULL) || (strstr(sFileName, "\\") != NULL) ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"非法的文件名\"}", 0);
-			return;
-		}
-		
-		// 加载配置文件
-		xvalue tblConfig = Option_LoadFile(sFileName);
+
+		tblConfig = Option_LoadFile(sFileName);
 		if ( tblConfig == NULL ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"配置文件不存在或解析失败\"}", 0);
+			Form_ReplyError(objResp, "配置文件不存在或解析失败");
 			return;
 		}
-		
-		// 检查权限级�?
-		int64 iAuthLevelRequired = xvoTableGetInt(tblConfig, "authLevel", 9);
-		if ( iAuthLevelRequired > 0 ) {
-			// 获取当前用户的权限级�?
-			int64 iAuthLevelUser = 0;
-			if ( objSession && (objSession->Type == XVO_DT_TABLE) ) {
-				iAuthLevelUser = xvoTableGetInt(objSession, "authLevel", 9);
-			}
-			
-			// 如果用户权限级别低于要求，返�?03
-			if ( iAuthLevelUser < iAuthLevelRequired ) {
-				xvoUnref(tblConfig);
-				http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限不足\"}", 0);
-				return;
-			}
+
+		iAuthLevelRequired = xvoTableGetInt(tblConfig, "authLevel", 9);
+		if ( objSession && (objSession->Type == XVO_DT_TABLE) ) {
+			iAuthLevelUser = xvoTableGetInt(objSession, "authLevel", 9);
 		}
-		
-		// 构建返回�?
-		xvalue tblRet = xvoCreateTable();
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetText(tblRet, "message", 7, "配置数据获取成功", 0, FALSE);
-		xvoTableSetValue(tblRet, "data", 4, tblConfig, TRUE);
-		
-		// 生成 JSON
-		size_t iRetSize = 0;
-		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-		http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
-		xrtFree(sRet);
-		xvoUnref(tblRet);
-		
-	} else if ( HttpMethodIs(objReq, "POST") ) {
-		
-		// 解析请求�?
-		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( tblBody == NULL ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
+		if ( (iAuthLevelRequired > 0) && (iAuthLevelUser < iAuthLevelRequired) ) {
+			xvoUnref(tblConfig);
+			Form_ReplyError(objResp, "权限不足");
 			return;
 		}
-		
-		// 获取文件�?
-		str sFileName = xvoTableGetText(tblBody, "file", 4);
-		if ( (sFileName == NULL) || (strlen(sFileName) == 0) ) {
-			xvoUnref(tblBody);
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"缺少 file 参数\"}", 0);
-			return;
-		}
-		
-		// 安全检查：防止路径遍历攻击
-		if ( (strstr(sFileName, "..") != NULL) || (strstr(sFileName, "/") != NULL) || (strstr(sFileName, "\\") != NULL) ) {
-			xvoUnref(tblBody);
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"非法的文件名\"}", 0);
-			return;
-		}
-		
-		// 加载配置文件以检查权限级�?
-		xvalue tblConfig = Option_LoadFile(sFileName);
-		if ( tblConfig == NULL ) {
-			xvoUnref(tblBody);
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"配置文件不存在或解析失败\"}", 0);
-			return;
-		}
-		
-		// 检查权限级�?
-		int64 iAuthLevelRequired = xvoTableGetInt(tblConfig, "authLevel", 9);
+
+		tblSchema = Form_CreateSchemaFromOptionConfig(tblConfig, &tblValues);
 		xvoUnref(tblConfig);
-		if ( iAuthLevelRequired > 0 ) {
-			// 获取当前用户的权限级�?
-			int64 iAuthLevelUser = 0;
-			if ( objSession && (objSession->Type == XVO_DT_TABLE) ) {
-				iAuthLevelUser = xvoTableGetInt(objSession, "authLevel", 9);
-			}
-			
-			// 如果用户权限级别低于要求，返�?03
-			if ( iAuthLevelUser < iAuthLevelRequired ) {
-				xvoUnref(tblBody);
-				http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限不足\"}", 0);
-				return;
-			}
-		}
-		
-		// 获取表单数据
-		xvalue tblFormData = xvoTableGetValue(tblBody, "data", 4);
-		if ( tblFormData == NULL ) {
-			xvoUnref(tblBody);
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"缺少 data 参数\"}", 0);
+		if ( tblSchema == NULL ) {
+			Form_ReplyError(objResp, "配置文件转表单失败");
 			return;
 		}
-		
-		// 保存配置
-		bool bRet = Option_SaveFile(sFileName, tblFormData);
-		xvoUnref(tblBody);
-		
-		if ( bRet ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"配置保存成功\"}", 0);
-		} else {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"配置保存失败\"}", 0);
-		}
-		
-	} else {
-		
-		// 其他请求方法返回 404 页面
-		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
-		
+
+		tblTypes = Form_LoadFieldTypes();
+		tblRetData = xvoCreateTable();
+		xvoTableSetText(tblRetData, "file", 4, sFileName, 0, FALSE);
+		xvoTableSetText(tblRetData, "source", 6, "option", 0, FALSE);
+		xvoTableSetValue(tblRetData, "schema", 6, tblSchema, TRUE);
+		xvoTableSetValue(tblRetData, "fieldTypes", 10, tblTypes, TRUE);
+		xvoTableSetValue(tblRetData, "values", 6, tblValues, TRUE);
+
+		Form_ReplySuccess(objResp, "表单数据获取成功", tblRetData);
+		return;
 	}
+
+	if ( HttpMethodIs(objReq, "POST") ) {
+		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		str sFileName;
+		xvalue tblData;
+		xvalue tblConfig;
+		int64 iAuthLevelRequired;
+		int64 iAuthLevelUser = 0;
+		bool bRet;
+
+		if ( tblBody == NULL ) {
+			Form_ReplyError(objResp, "请求数据格式错误");
+			return;
+		}
+
+		sFileName = xvoTableGetText(tblBody, "file", 4);
+		tblData = xvoTableGetValue(tblBody, "data", 4);
+		if ( !Form_IsValidFileName(sFileName) ) {
+			xvoUnref(tblBody);
+			Form_ReplyError(objResp, "非法的表单文件名");
+			return;
+		}
+		if ( (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) ) {
+			xvoUnref(tblBody);
+			Form_ReplyError(objResp, "缺少 data 参数");
+			return;
+		}
+
+		tblConfig = Option_LoadFile(sFileName);
+		if ( tblConfig == NULL ) {
+			xvoUnref(tblBody);
+			Form_ReplyError(objResp, "配置文件不存在或解析失败");
+			return;
+		}
+		iAuthLevelRequired = xvoTableGetInt(tblConfig, "authLevel", 9);
+		xvoUnref(tblConfig);
+		if ( objSession && (objSession->Type == XVO_DT_TABLE) ) {
+			iAuthLevelUser = xvoTableGetInt(objSession, "authLevel", 9);
+		}
+		if ( (iAuthLevelRequired > 0) && (iAuthLevelUser < iAuthLevelRequired) ) {
+			xvoUnref(tblBody);
+			Form_ReplyError(objResp, "权限不足");
+			return;
+		}
+
+		bRet = Option_SaveFile(sFileName, tblData);
+		xvoUnref(tblBody);
+		if ( !bRet ) {
+			Form_ReplyError(objResp, "配置保存失败");
+			return;
+		}
+
+		Form_ReplySuccess(objResp, "表单保存成功", NULL);
+		return;
+	}
+
+	LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 }
-
-

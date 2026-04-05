@@ -1,0 +1,134 @@
+[xs:info] mode : normal
+[xs:info] XServer vNext bootstrap
+[xs:info] loading config : D:\Git\x-admin\xs.json
+[xs:info] config file : D:\Git\x-admin\xs.json
+[xs:info] config base : D:\Git\x-admin
+[xs:info] server count : 1
+[xs:info] server[0] class=http host_aware=true name=xAdmin Server dev=protocol
+[xs:info] server[0] default_host=true host_count=0
+[xs:info] runtime servers : 1
+[xs:info] runtime engine workers : 12
+[xs:info] runtime server[0] class=http addr=0.0.0.0:80 name=xAdmin Server
+[xs:info] script host loaded: server=xAdmin Server host=xAdmin file=D:\Git\x-admin\hosts/xadmin/script/main.c
+[xadmin:init] Define_Init begin
+        Define_Init 
+[xadmin:init] Define_Init done
+[xadmin:init] Guard_Init begin
+        Guard_Init 
+[xadmin:init] Guard_Init done
+[xadmin:init] Form_Init begin
+        Form_Init 
+[xadmin:init] Form_Init done
+[xadmin:init] Template_Init begin
+        Template_Init 
+[template][form] parse begin: json=
+{
+	"source": "form",
+	"file": "demo_form.json"
+}
+
+[template][form] parse success: html=5375 bytes
+[template] cache loaded key=form/block_demo.html
+        Template cache ready: loaded=20 failed=0
+[xadmin:init] Template_Init done
+[xadmin:init] Install_Init begin
+        Install_Init 
+[xadmin:init] Install_Init done
+[xadmin:init] Session_Init begin
+        Session_Init 
+[xadmin:init] Session_Init done
+[xadmin:init] DB_Init begin
+        DB_Init 
+[xadmin:init] DB_Init done
+[xadmin:init] RouteHTTP_Init begin
+        RouteHTTP_Init 
+[xadmin:init] RouteHTTP_Init done
+[xadmin:init] Admin_Init begin
+        Admin_Init 
+[xadmin:init] Admin_Init done
+[xadmin:init] Auth_Init begin
+        Auth_Init 
+[xadmin:init] Auth_Init done
+[xadmin:init] Logs_Init begin
+        Logs_Init 
+[xadmin:init] Logs_Init done
+[xadmin:init] Option_Init begin
+        Option_Init 
+[option] Option_RebuildCache begin
+[option] admin entry protected: /jvb5umu0000a0az05tjn9q0ttrnms888
+[option] Option_RebuildCache done
+[xadmin:init] Option_Init done
+[xadmin:init] Sched_Init begin
+        Sched_Init 
+[xadmin:init] Sched_Init done
+[xadmin:init] Menu_Init begin
+        Menu_Init 
+[xadmin:init] Menu_Init done
+[xadmin:init] ToolReload_Init begin
+[xadmin:init] ToolReload_Init done
+[xadmin:init] PluginRoute_EnsureMenus begin
+[xadmin:init] PluginRoute_EnsureMenus done
+[xadmin:init] Member_Init begin
+        Member_Init 
+[xadmin:init] Member_Init done
+[xadmin:init] MemberMessage_Init begin
+        MemberMessage_Init 
+[xadmin:init] MemberMessage_Init done
+[xadmin:init] MemberAuth_Init begin
+        MemberAuth_Init 
+[xadmin:init] MemberAuth_Init done
+[xadmin:init] Attachment_Init begin
+        Attachment_Init 
+[xadmin:init] Attachment_Init done
+[xadmin:init] Auth_SyncURIS begin
+[xadmin:init] Auth_SyncURIS done
+[xadmin:init] PluginSystem_Init begin
+        PluginSystem_Init 
+        [PluginSystem] Discovered package: gbdemo
+        [PluginSystem] Discovered package: guestbook_v3
+        [PluginSystem] Discovered package: hello
+        [PluginSystem] AutoStart check: package=gbdemo enabled=0 status=0 active=0
+        [PluginSystem] AutoStart check: package=guestbook_v3 enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=hello enabled=0 status=0 active=0
+[xadmin:init] PluginSystem_Init done
+[xs:info] http init: name=xAdmin Server addr=0.0.0.0:80 default_host=true hosts=0
+[xs:info] http default host: name=xAdmin path=D:\Git\x-admin\hosts/xadmin/wwwroot dev=script-c
+[xs:error] http start failed: xrtHttpdStart returned error
+[xs:error] runtime start failed
+[xs:info] unload host: procServiceUnit begin
+        PluginSystem_Unit 
+        [PluginSystem] Destroy package: gbdemo
+        [PluginSystem] Destroy package: guestbook_v3
+        [PluginSystem] Destroy package: hello
+        Attachment_Unit 
+        MemberAuth_Unit 
+        MemberMessage_Unit 
+        Member_Unit 
+        Menu_Unit 
+        Option_Unit 
+        Form_Unit 
+        Sched_Unit 
+        Admin_Unit 
+        Logs_Unit 
+        Auth_Unit 
+        RouteHTTP_Unit 
+        DB_Unit 
+        Session_Unit 
+        Install_Unit 
+        Template_Unit 
+        Template_Unit: destroy active cache begin
+        Template_Unit: destroy active cache done
+        Template_Unit: destroy retired caches begin
+        Template_Unit: destroy retired caches done
+        Template_Unit: destroy mutex begin
+        Template_Unit: destroy mutex done
+        Template_Unit: unref env begin
+        Template_Unit: unref env done
+        Template_Unit: destroy engine begin
+        Template_Unit: destroy engine done
+        Template_Unit: done
+        Guard_Unit 
+        Define_Unit 
+[xs:info] unload host: procServiceUnit done
+[xs:info] unload host: XS_DestroyTCC begin
+[xs:info] unload host: XS_DestroyTCC done

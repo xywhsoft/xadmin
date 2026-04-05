@@ -2194,7 +2194,6 @@ void MemberMessage_Init()
 	}
 	MemberMessage_EnsureSchema();
 	MemberMessage_EnsureMemberAPIRoutes();
-	MemberMessage_EnsureMenus();
 	if ( !Sched_RegisterSystemTickHook("member_mail_queue", 5, MemberMessage_SchedTick, NULL) ) {
 		printf("[mail_queue] failed to register scheduler hook\n");
 	}

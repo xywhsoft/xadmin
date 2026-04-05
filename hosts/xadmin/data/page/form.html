@@ -14,14 +14,17 @@
 <link rel="stylesheet" href="/lib/CodeMirror/theme/monokai.css">
 <style>
 html,body{height:100%;background:#f5f7fb}
-.xform-page{padding:20px}
+.xform-page{padding:20px;box-sizing:border-box}
 .xform-header,.xform-card{background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(15,35,95,.05)}
 .xform-header{padding:18px 20px;margin-bottom:16px}
 .xform-title{font-size:22px;font-weight:700;color:#243047;margin-bottom:8px}
 .xform-desc{color:#667085;line-height:1.7}
 .xform-card{margin-bottom:16px;overflow:hidden}
 .xform-toolbar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #eef2f7}
+.xform-footer-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-top:1px solid #eef2f7;background:#fff}
 .xform-toolbar .meta{margin-left:auto;color:#667085;font-size:12px}
+.xform-footer-bar .meta{color:#667085;font-size:12px}
+.xform-footer-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end}
 .xform-body{padding:20px 20px 8px}
 .xform-group{border:1px solid #eef2f7;border-radius:8px;margin-bottom:18px;overflow:hidden}
 .xform-group-title{padding:12px 16px;font-size:16px;font-weight:700;color:#243047;background:linear-gradient(90deg,#f8fbff 0%,#fff 100%);border-bottom:1px solid #eef2f7}
@@ -43,6 +46,12 @@ html,body{height:100%;background:#f5f7fb}
 .xform-icon-item:hover,.xform-icon-item.active{border-color:#1677ff;color:#1677ff;background:#eff6ff}
 .xform-json{background:#101828;color:#d0d5dd;padding:16px 18px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:12px;line-height:1.7}
 .xform-loading,.xform-empty{padding:60px 20px;text-align:center;color:#667085}
+.xform-page.is-option{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden}
+.xform-page.is-option .xform-main-card{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
+.xform-page.is-option .xform-body{flex:1;min-height:0;overflow-y:auto;padding-bottom:12px}
+.xform-page.is-option .xform-output-card{display:none}
+.xform-page.is-option .layui-form-label{width:140px;white-space:normal;line-height:1.5;padding-top:10px;padding-bottom:10px}
+.xform-page.is-option .layui-input-block{margin-left:170px}
 </style>
 </head>
 <body>
@@ -51,16 +60,17 @@ html,body{height:100%;background:#f5f7fb}
 		<div class="xform-title" id="xformTitle">XForm</div>
 		<div class="xform-desc" id="xformDesc">Loading schema...</div>
 	</div>
-	<div class="xform-card">
-		<div class="xform-toolbar">
-			<button type="button" class="layui-btn layui-bg-blue" id="btnSave"><i class="layui-icon layui-icon-ok"></i> Save</button>
-			<button type="button" class="layui-btn layui-btn-primary" id="btnReload"><i class="layui-icon layui-icon-refresh"></i> Reload</button>
-			<button type="button" class="layui-btn layui-btn-primary" id="btnOpenClassic" style="display:none;"><i class="layui-icon layui-icon-return"></i> Classic Option View</button>
-			<div class="meta" id="xformMeta">schema: -</div>
-		</div>
+	<div class="xform-card xform-main-card">
 		<div class="xform-body" id="xformContainer"><div class="xform-loading">Rendering form...</div></div>
+		<div class="xform-footer-bar">
+			<div class="meta" id="xformMeta">schema: -</div>
+			<div class="xform-footer-actions">
+				<button type="button" class="layui-btn layui-bg-blue" id="btnSave"><i class="layui-icon layui-icon-ok"></i> 保存配置</button>
+				<button type="button" class="layui-btn layui-btn-primary" id="btnReload"><i class="layui-icon layui-icon-refresh"></i> 重新加载</button>
+			</div>
+		</div>
 	</div>
-	<div class="xform-card">
+	<div class="xform-card xform-output-card" id="xformOutputCard">
 		<div class="xform-toolbar">
 			<div style="font-weight:700;color:#243047;">Collected Data</div>
 			<div class="meta">Useful for comparing control behavior and saved values.</div>
@@ -78,20 +88,6 @@ layui.use(['layer'], function(){
 	var fileName = params.get('file') || 'demo_form.json';
 	var source = params.get('source') || 'form';
 	var formInstance = null;
-
-	function openInAdmin(href, title) {
-		if (window.top && window.top.PearAdmin && window.top.PearAdmin.changePage) {
-			window.top.PearAdmin.changePage(false, href, title, true);
-		} else if (window.parent && window.parent.PearAdmin && window.parent.PearAdmin.changePage) {
-			window.parent.PearAdmin.changePage(false, href, title, true);
-		} else {
-			window.location.href = href;
-		}
-	}
-
-	function openClassicOption() {
-		openInAdmin('/admin/view/option?file=' + encodeURIComponent(fileName), 'Option - ' + fileName);
-	}
 
 	function updateOutput() {
 		if (!formInstance) {
@@ -125,7 +121,7 @@ layui.use(['layer'], function(){
 				layer.msg('Please fill SMTP username or sender email first', { icon: 0 });
 				return;
 			}
-			var response = await fetch('/admin/option/tool/smtp-test', {
+			var response = await fetch('/admin/option/tool/test-smtp', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ toEmail: toEmail, data: current })
@@ -144,17 +140,30 @@ layui.use(['layer'], function(){
 			if (!window.XForm || window.XForm.version !== '20260405_12') {
 				throw new Error('XForm script version mismatch: expected 20260405_12, got ' + ((window.XForm && window.XForm.version) || 'none'));
 			}
-			var response = await fetch('/admin/form?source=' + encodeURIComponent(source) + '&file=' + encodeURIComponent(fileName), { cache: 'no-store' });
+			var sApiGet = source === 'option'
+				? ('/admin/option?file=' + encodeURIComponent(fileName))
+				: ('/admin/form?source=' + encodeURIComponent(source) + '&file=' + encodeURIComponent(fileName));
+			var response = await fetch(sApiGet, { cache: 'no-store' });
 			var result = await response.json();
 			if (!result || !result.result) throw new Error((result && result.message) || 'Load failed');
 			var payload = result.data || {};
 			var schema = payload.schema || {};
+			var pageEl = document.querySelector('.xform-page');
 			document.getElementById('xformTitle').textContent = schema.title || 'XForm';
-			document.getElementById('xformDesc').textContent = source === 'option'
-				? (schema.desc || 'This page renders an existing option JSON file through XForm.')
-				: (schema.desc || 'This is a lightweight schema-driven form rendering demo.');
+			var descEl = document.getElementById('xformDesc');
+			if (schema.desc) {
+				descEl.textContent = schema.desc;
+				descEl.style.display = '';
+			} else {
+				descEl.textContent = '';
+				descEl.style.display = 'none';
+			}
 			document.getElementById('xformMeta').textContent = 'source: ' + source + ' / schema: ' + fileName + (schema.persistDemoData ? ' / demoData persisted' : ' / live preview');
-			document.getElementById('btnOpenClassic').style.display = source === 'option' ? '' : 'none';
+			if ( source === 'option' ) {
+				pageEl.classList.add('is-option');
+			} else {
+				pageEl.classList.remove('is-option');
+			}
 			formInstance = await window.XForm.render(
 				document.getElementById('xformContainer'),
 				schema,
@@ -173,7 +182,6 @@ layui.use(['layer'], function(){
 	}
 
 	document.getElementById('btnReload').addEventListener('click', loadForm);
-	document.getElementById('btnOpenClassic').addEventListener('click', openClassicOption);
 	document.getElementById('btnSave').addEventListener('click', async function(){
 		if (!formInstance) {
 			layer.msg('Form is not ready', { icon: 2 });
@@ -186,7 +194,8 @@ layui.use(['layer'], function(){
 		}
 		updateOutput();
 		try {
-			var response = await fetch('/admin/form', {
+			var sApiPost = source === 'option' ? '/admin/option' : '/admin/form';
+			var response = await fetch(sApiPost, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ file: fileName, source: source, data: formInstance.collect() })

@@ -234,5 +234,6 @@
 	],
 	"locked":	true,
 	"authLevel":	200,
-	"title":	"全局配置"
+	"title":	"全局配置",
+	"desc": "全局配置"
 }

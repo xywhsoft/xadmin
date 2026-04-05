@@ -116,6 +116,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	printf("[xadmin:init] Guard_Init done\n");
 	fflush(stdout);
 
+	printf("[xadmin:init] Form_Init begin\n");
+	fflush(stdout);
+	Form_Init();
+	printf("[xadmin:init] Form_Init done\n");
+	fflush(stdout);
+
 	printf("[xadmin:init] Template_Init begin\n");
 	fflush(stdout);
 	Template_Init();
@@ -170,12 +176,6 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	printf("[xadmin:init] Option_Init done\n");
 	fflush(stdout);
 
-	printf("[xadmin:init] Form_Init begin\n");
-	fflush(stdout);
-	Form_Init();
-	printf("[xadmin:init] Form_Init done\n");
-	fflush(stdout);
-
 	printf("[xadmin:init] Sched_Init begin\n");
 	fflush(stdout);
 	Sched_Init();
@@ -186,12 +186,6 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	fflush(stdout);
 	Menu_Init();
 	printf("[xadmin:init] Menu_Init done\n");
-	fflush(stdout);
-
-	printf("[xadmin:init] ToolReload_Init begin\n");
-	fflush(stdout);
-	ToolReload_Init();
-	printf("[xadmin:init] ToolReload_Init done\n");
 	fflush(stdout);
 
 	printf("[xadmin:init] PluginRoute_EnsureMenus begin\n");

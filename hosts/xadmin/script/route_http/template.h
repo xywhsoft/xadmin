@@ -35,3 +35,25 @@ void Request_Template_Rebuild(XS_ServerObject objServer, XS_HostObject objHost, 
 	TemplateReplyJSON(objResp, tblRet);
 	xvoUnref(tblRet);
 }
+
+void Request_View_Template_Form_Demo(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	size_t iSize = 0;
+	xvalue tblData;
+	str sPage;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+		return;
+	}
+
+	tblData = xvoCreateTable();
+	sPage = MakePageWithTemplate("form/block_demo.html", tblData, &iSize);
+	xvoUnref(tblData);
+	http_reply(objResp, 200, HTTP_CT_HTML, sPage, iSize);
+	xrtFree(sPage);
+}

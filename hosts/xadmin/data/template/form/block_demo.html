@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>XForm Template Block Demo</title>
+<meta name="renderer" content="webkit">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="/layui/css/layui.css" rel="stylesheet">
+<style>
+html,body{background:#f5f7fb}
+.demo-wrap{padding:24px}
+.demo-card{background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(15,23,42,.06);margin-bottom:18px;overflow:hidden}
+.demo-head{padding:18px 22px;border-bottom:1px solid #eef2f7}
+.demo-title{font-size:24px;font-weight:700;color:#172554;margin-bottom:8px}
+.demo-desc{color:#667085;line-height:1.8}
+.demo-body{padding:22px}
+.demo-note{padding:16px 22px;color:#475467;background:#f8fbff;border-top:1px solid #eef2f7}
+</style>
+</head>
+<body>
+<div class="demo-wrap">
+	<div class="demo-card">
+		<div class="demo-head">
+			<div class="demo-title">XForm Template Block Demo</div>
+			<div class="demo-desc">This page is rendered from the template cache. The <code>&#123;&#123;#form&#125;&#125;</code> block below is parsed at template compile time, and the inner JSON is converted into static HTML before runtime rendering.</div>
+		</div>
+	</div>
+
+	<div class="demo-card">
+		<div class="demo-head">
+			<div class="demo-title" style="font-size:18px;">Demo: Load Existing Form JSON</div>
+			<div class="demo-desc">This block references <code>demo_form.json</code> and uses its persisted <code>demoData</code>.</div>
+		</div>
+		<div class="demo-body">
+{{#form}}
+{
+	"source": "form",
+	"file": "demo_form.json"
+}
+{{#end}}
+		</div>
+		<div class="demo-note">If you edit this template file and click "模板缓存重新加载", the precompiled block HTML will update without needing to rebuild the whole app.</div>
+	</div>
+
+	<div class="demo-card">
+		<div class="demo-head">
+			<div class="demo-title" style="font-size:18px;">Compile-Time Behavior</div>
+			<div class="demo-desc">Runtime rendering only outputs the pre-generated HTML. It does not re-parse the JSON or rebuild this form block for every request.</div>
+		</div>
+	</div>
+</div>
+</body>
+</html>
