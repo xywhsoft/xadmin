@@ -567,7 +567,6 @@ void PS_DestroyPackage(PluginSystemPackage* pPackage)
 			PluginSystemGeneration* pGeneration = xrtListGetPtr(pPackage->lstDrainingGenerations, i);
 			if ( pGeneration ) {
 				PS_DestroyGeneration(pGeneration);
-				xrtListSetPtr(pPackage->lstDrainingGenerations, i, NULL, NULL);
 			}
 		}
 		xrtListDestroy(pPackage->lstDrainingGenerations);

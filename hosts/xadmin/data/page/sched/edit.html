@@ -7,6 +7,8 @@
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link href="/layui/css/layui.css" rel="stylesheet">
+	<link rel="stylesheet" href="/lib/CodeMirror/lib/codemirror.css">
+	<link rel="stylesheet" href="/lib/CodeMirror/theme/monokai.css">
 	<style>
 		body.sched-edit-body {
 			height: 100vh;
@@ -36,6 +38,37 @@
 
 		.sched-edit-footer .layui-btn {
 			min-width: 88px;
+		}
+
+		.sched-code-label {
+			margin-bottom: 8px;
+			color: #666;
+		}
+
+		.sched-code-editor {
+			height: 100%;
+			border: 1px solid #d2d2d2;
+			border-radius: 6px;
+			overflow: hidden;
+			background: #fff;
+		}
+
+		.sched-code-editor + .layui-word-aux {
+			margin-top: 8px;
+		}
+
+		.sched-code-editor .CodeMirror {
+			height: 100%;
+			font-size: 13px;
+			line-height: 1.6;
+		}
+
+		#sched_custom_editor {
+			height: 180px;
+		}
+
+		#sched_code_editor {
+			height: 360px;
 		}
 	</style>
 </head>
@@ -130,7 +163,7 @@
 				</select>
 			</div>
 			<div class="layui-input-inline exec-shell" style="width: 180px;">
-				<select name="shellType">
+				<select name="shellType" lay-filter="sched_shell_type">
 					<option value="powershell">PowerShell</option>
 					<option value="cmd">cmd</option>
 					<option value="bash">bash</option>
@@ -200,10 +233,12 @@
 			<label class="layui-form-label">任务代码</label>
 			<div class="layui-input-block">
 				<div style="margin-bottom: 8px; color: #666;">自定义参数 JSON</div>
-				<textarea name="customText" class="layui-textarea" style="min-height: 120px; font-family: Consolas, monospace;" placeholder='{"message":"hello","count":1}'></textarea>
+				<div id="sched_custom_editor" class="sched-code-editor"></div>
+				<textarea name="customText" style="display:none;" placeholder='{"message":"hello","count":1}'></textarea>
 				<div class="layui-word-aux" style="margin-bottom: 10px;">保存为 JSON 文本。C 任务里可通过 `pTaskInfo->custom_json` 读取原文，通过 `pTaskInfo->custom_data` 读取解析后的结构。</div>
 				<div style="margin-bottom: 8px; color: #666;">任务代码</div>
-				<textarea name="codeText" class="layui-textarea" style="min-height: 340px; font-family: Consolas, monospace;"></textarea>
+				<div id="sched_code_editor" class="sched-code-editor"></div>
+				<textarea name="codeText" style="display:none;"></textarea>
 				<div class="layui-word-aux exec-shell">Shell 任务会在独立子进程中执行，标准输出和标准错误会写入执行日志。</div>
 				<div class="layui-word-aux exec-c" style="display:none;">C 任务只需要写一个裸函数 `int TaskProc(TaskInfo* pTaskInfo)`；模板会自动补齐运行入口和退出逻辑。</div>
 			</div>
@@ -217,6 +252,12 @@
 </div>
 
 <script src="/layui/layui.js"></script>
+<script src="/lib/CodeMirror/lib/codemirror.js"></script>
+<script src="/lib/CodeMirror/addon/mode/simple.js"></script>
+<script src="/lib/CodeMirror/mode/javascript/javascript.js"></script>
+<script src="/lib/CodeMirror/mode/clike/clike.js"></script>
+<script src="/lib/CodeMirror/mode/shell/shell.js"></script>
+<script src="/lib/CodeMirror/mode/powershell/powershell.js"></script>
 <script>
 layui.use(['form', 'layer', 'laydate'], function(){
 	var form = layui.form;
@@ -225,6 +266,112 @@ layui.use(['form', 'layer', 'laydate'], function(){
 	var $ = layui.$;
 	var search = new URLSearchParams(location.search);
 	var taskId = Number(search.get('id') || 0);
+	var customTextarea = document.querySelector('textarea[name=customText]');
+	var codeTextarea = document.querySelector('textarea[name=codeText]');
+	var customEditor = null;
+	var codeEditor = null;
+
+	function ensureCmdMode() {
+		if ( !window.CodeMirror || window.CodeMirror.modes['xadmin-cmd'] ) {
+			return;
+		}
+		window.CodeMirror.defineSimpleMode('xadmin-cmd', {
+			start: [
+				{ regex: /(?:^|\s)(?:::?[A-Za-z0-9_]+|goto|call|set|setlocal|endlocal|if|else|for|in|do|echo|cd|chdir|dir|copy|move|del|erase|ren|rename|type|start|exit|shift|pause|rem|title|pushd|popd|mkdir|md|rmdir|rd|cls)\b/i, token: 'keyword' },
+				{ regex: /%\w+%|%%[A-Za-z]/, token: 'variable-2' },
+				{ regex: /![^!]+!/, token: 'variable-2' },
+				{ regex: /"(?:[^\\"]|\\.)*"/, token: 'string' },
+				{ regex: /\b\d+\b/, token: 'number' },
+				{ regex: /(?:^|\s)rem\b.*/i, token: 'comment' },
+				{ regex: /::.*/, token: 'comment' }
+			],
+			meta: {
+				lineComment: 'rem'
+			}
+		});
+	}
+
+	function initCodeEditor(el, textarea, options) {
+		if ( !window.CodeMirror || !el || !textarea ) {
+			return null;
+		}
+		var editor = window.CodeMirror(el, {
+			value: textarea.value || '',
+			mode: options.mode,
+			theme: 'monokai',
+			lineNumbers: true,
+			lineWrapping: true,
+			indentUnit: 4,
+			tabSize: 4
+		});
+		editor.on('change', function(cm){
+			textarea.value = cm.getValue();
+		});
+		return editor;
+	}
+
+	function syncEditorTextareas() {
+		if ( customEditor ) {
+			customTextarea.value = customEditor.getValue();
+		}
+		if ( codeEditor ) {
+			codeTextarea.value = codeEditor.getValue();
+		}
+	}
+
+	function getCodeEditorMode(execType, shellType) {
+		if ( execType === 'c' ) {
+			return 'text/x-csrc';
+		}
+		if ( shellType === 'powershell' ) {
+			return 'powershell';
+		}
+		if ( shellType === 'cmd' ) {
+			return 'xadmin-cmd';
+		}
+		return 'shell';
+	}
+
+	function refreshEditors() {
+		if ( customEditor ) {
+			customEditor.refresh();
+		}
+		if ( codeEditor ) {
+			codeEditor.refresh();
+		}
+	}
+
+	function setEditorValue(editor, textarea, value) {
+		var nextValue = value || '';
+		if ( !textarea ) {
+			return;
+		}
+		textarea.value = nextValue;
+		if ( editor && editor.getValue() !== nextValue ) {
+			editor.setValue(nextValue);
+		}
+	}
+
+	function updateCodeEditorMode() {
+		var execType = $('select[name=execType]').val() || 'shell';
+		var shellType = $('select[name=shellType]').val() || 'powershell';
+		if ( codeEditor ) {
+			codeEditor.setOption('mode', getCodeEditorMode(execType, shellType));
+			codeEditor.refresh();
+		}
+	}
+
+	function initEditors() {
+		ensureCmdMode();
+		customEditor = initCodeEditor(document.getElementById('sched_custom_editor'), customTextarea, {
+			mode: { name: 'javascript', json: true }
+		});
+		codeEditor = initCodeEditor(document.getElementById('sched_code_editor'), codeTextarea, {
+			mode: getCodeEditorMode('shell', 'powershell')
+		});
+		updateCodeEditorMode();
+		setTimeout(refreshEditors, 0);
+	}
 
 	function escapeHtml(text) {
 		return String(text || '')
@@ -248,10 +395,12 @@ layui.use(['form', 'layer', 'laydate'], function(){
 			$('.exec-shell').show();
 			$('.exec-c').hide();
 		}
+		updateCodeEditorMode();
+		setTimeout(refreshEditors, 0);
 	}
 
 	function fillShellExample() {
-		var current = $.trim($('textarea[name=codeText]').val());
+		var current = $.trim(codeEditor ? codeEditor.getValue() : codeTextarea.value);
 		var sample = [
 			'$now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"',
 			'Write-Output ("[sched] shell task start: " + $now)',
@@ -262,7 +411,7 @@ layui.use(['form', 'layer', 'laydate'], function(){
 			layer.confirm('当前代码区已有内容，是否覆盖为 Shell 示例？', {icon: 3, title: '提示'}, function(index){
 				$('select[name=execType]').val('shell');
 				$('select[name=shellType]').val('powershell');
-				$('textarea[name=codeText]').val(sample);
+				setEditorValue(codeEditor, codeTextarea, sample);
 				toggleExecBlock('shell');
 				form.render('select');
 				layer.close(index);
@@ -271,13 +420,13 @@ layui.use(['form', 'layer', 'laydate'], function(){
 		}
 		$('select[name=execType]').val('shell');
 		$('select[name=shellType]').val('powershell');
-		$('textarea[name=codeText]').val(sample);
+		setEditorValue(codeEditor, codeTextarea, sample);
 		toggleExecBlock('shell');
 		form.render('select');
 	}
 
 	function fillCExample() {
-		var current = $.trim($('textarea[name=codeText]').val());
+		var current = $.trim(codeEditor ? codeEditor.getValue() : codeTextarea.value);
 		var sample = [
 			'int TaskProc(TaskInfo* pTaskInfo)',
 			'{',
@@ -297,8 +446,8 @@ layui.use(['form', 'layer', 'laydate'], function(){
 		if ( current ) {
 			layer.confirm('当前代码区已有内容，是否覆盖为 C 示例？', {icon: 3, title: '提示'}, function(index){
 				$('select[name=execType]').val('c');
-				$('textarea[name=customText]').val('{\n  "message": "hello from custom params",\n  "count": 1\n}');
-				$('textarea[name=codeText]').val(sample);
+				setEditorValue(customEditor, customTextarea, '{\n  "message": "hello from custom params",\n  "count": 1\n}');
+				setEditorValue(codeEditor, codeTextarea, sample);
 				toggleExecBlock('c');
 				form.render('select');
 				layer.close(index);
@@ -306,8 +455,8 @@ layui.use(['form', 'layer', 'laydate'], function(){
 			return;
 		}
 		$('select[name=execType]').val('c');
-		$('textarea[name=customText]').val('{\n  "message": "hello from custom params",\n  "count": 1\n}');
-		$('textarea[name=codeText]').val(sample);
+		setEditorValue(customEditor, customTextarea, '{\n  "message": "hello from custom params",\n  "count": 1\n}');
+		setEditorValue(codeEditor, codeTextarea, sample);
 		toggleExecBlock('c');
 		form.render('select');
 	}
@@ -353,6 +502,8 @@ layui.use(['form', 'layer', 'laydate'], function(){
 				customText: result.data.customText || '',
 				codeText: result.data.codeText || ''
 			});
+			setEditorValue(customEditor, customTextarea, result.data.customText || '');
+			setEditorValue(codeEditor, codeTextarea, result.data.codeText || '');
 			toggleScheduleBlock(result.data.scheduleType || 'once');
 			toggleExecBlock(result.data.execType || 'shell');
 			form.render();
@@ -365,6 +516,7 @@ layui.use(['form', 'layer', 'laydate'], function(){
 	}
 
 	function collectForm() {
+		syncEditorTextareas();
 		var data = form.val('Form_Sched_Edit');
 		data.enabled = data.enabled ? 1 : 0;
 		data.intervalValue = Number(data.intervalValue || 0);
@@ -423,6 +575,9 @@ layui.use(['form', 'layer', 'laydate'], function(){
 	form.on('select(sched_exec_type)', function(data){
 		toggleExecBlock(data.value);
 	});
+	form.on('select(sched_shell_type)', function(){
+		updateCodeEditorMode();
+	});
 
 	$('#btn_sched_example_shell').on('click', fillShellExample);
 	$('#btn_sched_example_c').on('click', fillCExample);
@@ -463,6 +618,7 @@ layui.use(['form', 'layer', 'laydate'], function(){
 		parent.layer.close(frameIndex);
 	});
 
+	initEditors();
 	form.render();
 	toggleScheduleBlock('once');
 	toggleExecBlock('shell');

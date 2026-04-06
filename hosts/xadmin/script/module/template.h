@@ -384,7 +384,7 @@ static void Template_DestroyCacheDict(xdict hDict)
 		return;
 	}
 
-	Template_ClearCacheDict(hDict);
+	xrtDictWalk(hDict, (Dict_EachProc)Template_DestroyCacheItemProc, NULL);
 	xrtDictDestroy(hDict);
 }
 

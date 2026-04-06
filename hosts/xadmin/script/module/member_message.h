@@ -1329,6 +1329,7 @@ static bool MemberMessage_RunPendingMailTasksOnDB(sqlite3* pDB, int64 iLimit, bo
 	int64 iRetryInterval = MemberMessage_GetGlobalInt("mail_retry_interval_sec", 300);
 	int64 iConcurrency = MemberMessage_GetGlobalInt("mail_queue_concurrency", 5);
 	bool bAny = FALSE;
+	bool bHasPending = FALSE;
 	str sFirstError = NULL;
 	uint32 iTaskCount;
 	uint32 iTaskIndex = 0;
@@ -1359,28 +1360,29 @@ static bool MemberMessage_RunPendingMailTasksOnDB(sqlite3* pDB, int64 iLimit, bo
 		xvoUnref(arrTasks);
 		return FALSE;
 	}
-	if ( !MemberMessage_LoadSMTPConfig(&tCfg, psMessage) ) {
-		xvoUnref(arrTasks);
-		return FALSE;
-	}
-	xrtNetEngineConfigInit(&tEngineCfg);
-	pEngine = xrtNetEngineCreate(&tEngineCfg);
-	if ( pEngine == NULL ) {
-		if ( psMessage ) *psMessage = xrtCopyStr("SMTP network engine create failed", 0);
-		xvoUnref(arrTasks);
-		return FALSE;
-	}
-	if ( xrtNetEngineStart(pEngine) != XRT_NET_OK ) {
-		if ( psMessage ) *psMessage = xrtCopyStr("SMTP network engine start failed", 0);
-		xrtNetEngineDestroy(pEngine);
-		xvoUnref(arrTasks);
-		return FALSE;
-	}
-	xrtSmtpAsyncOptsInit(&tAsyncOpts);
-	tAsyncOpts.iTimeoutMs = tCfg.iTimeoutMs;
-	tAsyncOpts.pEngine = pEngine;
-	tAsyncOpts.sDebugName = "mail_queue";
 	(void)MemberMessage_RecoverStaleSendingTasks(pDB, iNow);
+	if ( sqlite3_prepare_v3(pDB,
+		bIgnoreRetryAt
+			? "SELECT 1 FROM mail_task WHERE status = 'pending' LIMIT 1"
+			: "SELECT 1 FROM mail_task WHERE status = 'pending' AND nextRetryAt <= ? LIMIT 1",
+		-1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( psMessage ) *psMessage = xrtCopyStr((str)sqlite3_errmsg(pDB), 0);
+		xvoUnref(arrTasks);
+		return FALSE;
+	}
+
+	if ( !bIgnoreRetryAt ) {
+		sqlite3_bind_int64(stmt, 1, iNow);
+	}
+	bHasPending = (sqlite3_step(stmt) == SQLITE_ROW);
+	sqlite3_finalize(stmt);
+	stmt = NULL;
+
+	if ( !bHasPending ) {
+		if ( psMessage ) *psMessage = xrtCopyStr("没有等待中的邮件任务", 0);
+		xvoUnref(arrTasks);
+		return TRUE;
+	}
 	if ( sqlite3_prepare_v3(pDB,
 		bIgnoreRetryAt
 			? "SELECT id, memberId, toEmail, subject, htmlBody, textBody, retryCount, maxRetryCount "
@@ -1389,8 +1391,6 @@ static bool MemberMessage_RunPendingMailTasksOnDB(sqlite3* pDB, int64 iLimit, bo
 			  "FROM mail_task WHERE status = 'pending' AND nextRetryAt <= ? ORDER BY id ASC LIMIT ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 		if ( psMessage ) *psMessage = xrtCopyStr((str)sqlite3_errmsg(pDB), 0);
-		xrtNetEngineStop(pEngine);
-		xrtNetEngineDestroy(pEngine);
 		xvoUnref(arrTasks);
 		return FALSE;
 	}
@@ -1425,6 +1425,28 @@ static bool MemberMessage_RunPendingMailTasksOnDB(sqlite3* pDB, int64 iLimit, bo
 		return TRUE;
 	}
 
+	if ( !MemberMessage_LoadSMTPConfig(&tCfg, psMessage) ) {
+		xvoUnref(arrTasks);
+		return FALSE;
+	}
+	xrtNetEngineConfigInit(&tEngineCfg);
+	pEngine = xrtNetEngineCreate(&tEngineCfg);
+	if ( pEngine == NULL ) {
+		if ( psMessage ) *psMessage = xrtCopyStr("SMTP network engine create failed", 0);
+		xvoUnref(arrTasks);
+		return FALSE;
+	}
+	if ( xrtNetEngineStart(pEngine) != XRT_NET_OK ) {
+		if ( psMessage ) *psMessage = xrtCopyStr("SMTP network engine start failed", 0);
+		xrtNetEngineDestroy(pEngine);
+		xvoUnref(arrTasks);
+		return FALSE;
+	}
+	xrtSmtpAsyncOptsInit(&tAsyncOpts);
+	tAsyncOpts.iTimeoutMs = tCfg.iTimeoutMs;
+	tAsyncOpts.pEngine = pEngine;
+	tAsyncOpts.sDebugName = "mail_queue";
+
 	if ( iConcurrency < 1 ) iConcurrency = 1;
 	if ( iConcurrency > iLimit ) iConcurrency = iLimit;
 	if ( iConcurrency > 32 ) iConcurrency = 32;
@@ -1432,6 +1454,8 @@ static bool MemberMessage_RunPendingMailTasksOnDB(sqlite3* pDB, int64 iLimit, bo
 	arrJobs = (member_message_mail_job*)xrtMalloc(sizeof(member_message_mail_job) * (size_t)iConcurrency);
 	if ( arrJobs == NULL ) {
 		if ( psMessage ) *psMessage = xrtCopyStr("邮件并发任务缓冲创建失败", 0);
+		xrtNetEngineStop(pEngine);
+		xrtNetEngineDestroy(pEngine);
 		xvoUnref(arrTasks);
 		return FALSE;
 	}

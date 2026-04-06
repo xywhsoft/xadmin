@@ -1415,7 +1415,6 @@ void PluginSystem_Unit()
 		for ( int i = 0; i < xrtListCount(G_PluginSystem->lstPackages); i++ ) {
 			PluginSystemPackage* pPackage = xrtListGetPtr(G_PluginSystem->lstPackages, i);
 			PS_DestroyPackage(pPackage);
-			xrtListSetPtr(G_PluginSystem->lstPackages, i, NULL, NULL);
 		}
 		xrtListDestroy(G_PluginSystem->lstPackages);
 	}
@@ -1424,7 +1423,6 @@ void PluginSystem_Unit()
 			PluginSystemServiceRegistration* pRegistration = xrtListGetPtr(G_PluginSystem->lstServices, i);
 			if ( pRegistration ) {
 				PS_ServiceFreeRegistration(pRegistration);
-				xrtListSetPtr(G_PluginSystem->lstServices, i, NULL, NULL);
 			}
 		}
 		xrtListDestroy(G_PluginSystem->lstServices);
@@ -1435,7 +1433,6 @@ void PluginSystem_Unit()
 			ptr pSnapshot = xrtListGetPtr(G_PluginSystem->lstServiceSnapshots, i);
 			if ( pSnapshot ) {
 				xrtFree(pSnapshot);
-				xrtListSetPtr(G_PluginSystem->lstServiceSnapshots, i, NULL, NULL);
 			}
 		}
 		xrtListDestroy(G_PluginSystem->lstServiceSnapshots);
@@ -1447,7 +1444,6 @@ void PluginSystem_Unit()
 			PluginSystemEventRegistration* pRegistration = xrtListGetPtr(G_PluginSystem->lstEvents, i);
 			if ( pRegistration ) {
 				PS_EventFreeRegistration(pRegistration);
-				xrtListSetPtr(G_PluginSystem->lstEvents, i, NULL, NULL);
 			}
 		}
 		xrtListDestroy(G_PluginSystem->lstEvents);
@@ -1458,7 +1454,6 @@ void PluginSystem_Unit()
 			ptr pSnapshot = xrtListGetPtr(G_PluginSystem->lstEventSnapshots, i);
 			if ( pSnapshot ) {
 				xrtFree(pSnapshot);
-				xrtListSetPtr(G_PluginSystem->lstEventSnapshots, i, NULL, NULL);
 			}
 		}
 		xrtListDestroy(G_PluginSystem->lstEventSnapshots);

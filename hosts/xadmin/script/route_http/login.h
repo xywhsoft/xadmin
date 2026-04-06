@@ -117,6 +117,10 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 		}
 		
 		// step 9 : 释放表单
+		if ( tblSession ) {
+			xvoUnref(tblSession);
+			tblSession = NULL;
+		}
 		xvoUnref(tblForm);
 		
 	} else {
