@@ -10,5 +10,6 @@
 #include "ps_compiler_tcc.h"
 #include "ps_runtime.h"
 #include "ps_manager.h"
+#include "ps_package.h"
 
 #endif

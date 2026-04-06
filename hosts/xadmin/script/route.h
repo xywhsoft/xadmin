@@ -232,6 +232,8 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/plugin/enable",						Request_Plugin_Enable);
 	AddStaticRouteHTTP("/admin/plugin/disable",						Request_Plugin_Disable);
 	AddStaticRouteHTTP("/admin/plugin/reload",						Request_Plugin_Reload);
+	AddStaticRouteHTTP("/admin/plugin/export",						Request_Plugin_Export);
+	AddStaticRouteHTTP("/admin/plugin/import",						Request_Plugin_Import);
 	AddStaticRouteHTTP("/admin/plugin/settings",					Request_Plugin_Settings);
 
 }

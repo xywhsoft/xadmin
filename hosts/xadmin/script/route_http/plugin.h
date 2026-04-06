@@ -121,17 +121,23 @@ void PluginRoute_EnsureMenus(void)
 	int iRootMenuId = 0;
 	int iStoreMenuId = 0;
 	int iInstalledMenuId = 0;
+	const char* sRootTitle = "\xE6\x8F\x92\xE4\xBB\xB6\xE7\xAE\xA1\xE7\x90\x86";
+	const char* sRootRemark = "\xE6\x8F\x92\xE4\xBB\xB6\xE7\xAE\xA1\xE7\x90\x86\xE7\x9B\xAE\xE5\xBD\x95";
+	const char* sStoreTitle = "\xE6\x8F\x92\xE4\xBB\xB6\xE5\x95\x86\xE5\xBA\x97";
+	const char* sStoreRemark = "\xE6\xB5\x8F\xE8\xA7\x88\xE8\xBF\x9C\xE7\xA8\x8B\xE6\x8F\x92\xE4\xBB\xB6\xE5\x95\x86\xE5\xBA\x97";
+	const char* sInstalledTitle = "\xE5\xB7\xB2\xE5\xAE\x89\xE8\xA3\x85\xE6\x8F\x92\xE4\xBB\xB6";
+	const char* sInstalledRemark = "\xE6\x9F\xA5\xE7\x9C\x8B\xE5\x92\x8C\xE7\xAE\xA1\xE7\x90\x86\xE5\xB7\xB2\xE5\xAE\x89\xE8\xA3\x85\xE6\x8F\x92\xE4\xBB\xB6";
 
 	if ( G_DB == NULL ) {
 		return;
 	}
 
-	iRootMenuId = PluginRoute_FindMenuIdByTitleParent("插件管理", 0);
-	if ( !PluginRoute_SaveMenu(iRootMenuId, 0, "插件管理", "layui-icon layui-icon-app", 0, "", "", 550000, 1, "插件管理目录") ) {
+	iRootMenuId = PluginRoute_FindMenuIdByTitleParent(sRootTitle, 0);
+	if ( !PluginRoute_SaveMenu(iRootMenuId, 0, sRootTitle, "layui-icon layui-icon-app", 0, "", "", 550000, 1, sRootRemark) ) {
 		return;
 	}
 	if ( iRootMenuId <= 0 ) {
-		iRootMenuId = PluginRoute_FindMenuIdByTitleParent("插件管理", 0);
+		iRootMenuId = PluginRoute_FindMenuIdByTitleParent(sRootTitle, 0);
 	}
 	if ( iRootMenuId <= 0 ) {
 		return;
@@ -139,18 +145,18 @@ void PluginRoute_EnsureMenus(void)
 
 	iStoreMenuId = PluginRoute_FindMenuIdByHref("/admin/view/plugin/store");
 	if ( iStoreMenuId <= 0 ) {
-		iStoreMenuId = PluginRoute_FindMenuIdByTitleParent("插件商店", iRootMenuId);
+		iStoreMenuId = PluginRoute_FindMenuIdByTitleParent(sStoreTitle, iRootMenuId);
 	}
-	PluginRoute_SaveMenu(iStoreMenuId, iRootMenuId, "插件商店", "layui-icon layui-icon-cart-simple", 1, "_component", "/admin/view/plugin/store", 550100, 1, "浏览远程插件商店");
+	PluginRoute_SaveMenu(iStoreMenuId, iRootMenuId, sStoreTitle, "layui-icon layui-icon-cart-simple", 1, "_component", "/admin/view/plugin/store", 550100, 1, sStoreRemark);
 
 	iInstalledMenuId = PluginRoute_FindMenuIdByHref("/admin/view/plugin/installed");
 	if ( iInstalledMenuId <= 0 ) {
 		iInstalledMenuId = PluginRoute_FindMenuIdByHref("/admin/view/plugin");
 	}
 	if ( iInstalledMenuId <= 0 ) {
-		iInstalledMenuId = PluginRoute_FindMenuIdByTitleParent("已安装插件", iRootMenuId);
+		iInstalledMenuId = PluginRoute_FindMenuIdByTitleParent(sInstalledTitle, iRootMenuId);
 	}
-	if ( PluginRoute_SaveMenu(iInstalledMenuId, iRootMenuId, "已安装插件", "layui-icon layui-icon-component", 1, "_component", "/admin/view/plugin/installed", 550200, 1, "查看和管理已安装插件") ) {
+	if ( PluginRoute_SaveMenu(iInstalledMenuId, iRootMenuId, sInstalledTitle, "layui-icon layui-icon-component", 1, "_component", "/admin/view/plugin/installed", 550200, 1, sInstalledRemark) ) {
 		if ( iInstalledMenuId <= 0 ) {
 			iInstalledMenuId = PluginRoute_FindMenuIdByHref("/admin/view/plugin/installed");
 		}
@@ -178,6 +184,42 @@ bool PluginRoute_ReadNameFromBody(XS_RequestObject objReq, char* sName, size_t i
 	}
 	xvoUnref(tblForm);
 	return (sName && (sName[0] != '\0'));
+}
+
+bool PluginRoute_TextIsTrue(const char* sText, size_t iLen)
+{
+	char sValue[16];
+	size_t iCopyLen;
+
+	if ( sText == NULL || iLen == 0 ) {
+		return FALSE;
+	}
+
+	iCopyLen = (iLen < sizeof(sValue) - 1) ? iLen : (sizeof(sValue) - 1);
+	memcpy(sValue, sText, iCopyLen);
+	sValue[iCopyLen] = '\0';
+	for ( size_t i = 0; i < iCopyLen; i++ ) {
+		if ( sValue[i] >= 'A' && sValue[i] <= 'Z' ) {
+			sValue[i] = (char)(sValue[i] + 32);
+		}
+	}
+
+	return strcmp(sValue, "1") == 0
+		|| strcmp(sValue, "true") == 0
+		|| strcmp(sValue, "yes") == 0
+		|| strcmp(sValue, "on") == 0;
+}
+
+void PluginRoute_SendResult(XS_ResponseObject objResp, bool bResult, const char* sMessage, const char* sXid)
+{
+	xvalue tblRet = xvoCreateTable();
+
+	xvoTableSetBool(tblRet, "result", 6, bResult);
+	xvoTableSetText(tblRet, "message", 7, (str)(sMessage ? sMessage : ""), 0, FALSE);
+	if ( sXid && sXid[0] ) {
+		xvoTableSetText(tblRet, "xid", 3, (str)sXid, 0, FALSE);
+	}
+	PluginRoute_SendJson(objResp, tblRet);
 }
 
 void Request_Plugin_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -235,16 +277,16 @@ void Request_Plugin_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objSession;
 
 	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
 		return;
 	}
 	if ( !PluginRoute_ReadNameFromBody(objReq, sName, sizeof(sName)) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
+		PluginRoute_SendResult(objResp, FALSE, "\xE7\xBC\xBA\xE5\xB0\x91\xE6\x8F\x92\xE4\xBB\xB6 xid", NULL);
 		return;
 	}
 
 	bResult = PluginSystem_Enable(sName);
-	http_reply(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Plugin enabled\"}" : "{\"result\":false,\"message\":\"Failed to enable plugin\"}", 0);
+	PluginRoute_SendResult(objResp, bResult, bResult ? "\xE6\x8F\x92\xE4\xBB\xB6\xE5\xB7\xB2\xE5\x90\xAF\xE7\x94\xA8" : "\xE5\x90\xAF\xE7\x94\xA8\xE6\x8F\x92\xE4\xBB\xB6\xE5\xA4\xB1\xE8\xB4\xA5", NULL);
 }
 
 void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -257,16 +299,16 @@ void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS
 	(void)objSession;
 
 	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
 		return;
 	}
 	if ( !PluginRoute_ReadNameFromBody(objReq, sName, sizeof(sName)) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
+		PluginRoute_SendResult(objResp, FALSE, "\xE7\xBC\xBA\xE5\xB0\x91\xE6\x8F\x92\xE4\xBB\xB6 xid", NULL);
 		return;
 	}
 
 	bResult = PluginSystem_Disable(sName);
-	http_reply(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Plugin disabled\"}" : "{\"result\":false,\"message\":\"Failed to disable plugin\"}", 0);
+	PluginRoute_SendResult(objResp, bResult, bResult ? "\xE6\x8F\x92\xE4\xBB\xB6\xE5\xB7\xB2\xE7\xA6\x81\xE7\x94\xA8" : "\xE7\xA6\x81\xE7\x94\xA8\xE6\x8F\x92\xE4\xBB\xB6\xE5\xA4\xB1\xE8\xB4\xA5", NULL);
 }
 
 void Request_Plugin_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -279,16 +321,129 @@ void Request_Plugin_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objSession;
 
 	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
 		return;
 	}
 	if ( !PluginRoute_ReadNameFromBody(objReq, sName, sizeof(sName)) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
+		PluginRoute_SendResult(objResp, FALSE, "\xE7\xBC\xBA\xE5\xB0\x91\xE6\x8F\x92\xE4\xBB\xB6 xid", NULL);
 		return;
 	}
 
 	bResult = PluginSystem_Reload(sName);
-	http_reply(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Plugin reloaded\"}" : "{\"result\":false,\"message\":\"Failed to reload plugin\"}", 0);
+	PluginRoute_SendResult(objResp, bResult, bResult ? "\xE6\x8F\x92\xE4\xBB\xB6\xE5\xB7\xB2\xE9\x87\x8D\xE8\xBD\xBD" : "\xE9\x87\x8D\xE8\xBD\xBD\xE6\x8F\x92\xE4\xBB\xB6\xE5\xA4\xB1\xE8\xB4\xA5", NULL);
+}
+
+void Request_Plugin_Export(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sName[128] = {0};
+	ptr pData = NULL;
+	size_t iSize = 0;
+	str sFileName = NULL;
+	str sError = NULL;
+	str sDisposition = NULL;
+	const char* sErrorText;
+	const char* sFileNameText;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !HttpMethodIs(objReq, "GET") ) {
+		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
+		return;
+	}
+
+	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	if ( sName[0] == '\0' ) {
+		PluginRoute_SendResult(objResp, FALSE, "\xE7\xBC\xBA\xE5\xB0\x91\xE6\x8F\x92\xE4\xBB\xB6 xid", NULL);
+		return;
+	}
+
+	if ( !PluginSystem_ExportPackageArchive(sName, &pData, &iSize, &sFileName, &sError) ) {
+		sErrorText = sError ? (const char*)sError : "\xE5\xAF\xBC\xE5\x87\xBA\xE6\x8F\x92\xE4\xBB\xB6\xE5\xA4\xB1\xE8\xB4\xA5";
+		PluginRoute_SendResult(objResp, FALSE, sErrorText, NULL);
+		if ( sError ) {
+			xrtFree(sError);
+		}
+		if ( sFileName ) {
+			xrtFree(sFileName);
+		}
+		return;
+	}
+
+	sFileNameText = sFileName ? (const char*)sFileName : "plugin.xpk";
+	sDisposition = xrtFormat("attachment; filename=\"%s\"", sFileNameText);
+	xsHttpStatus(objResp, 200, "OK");
+	if ( sDisposition ) {
+		xsHttpHeader(objResp, "Content-Disposition", sDisposition);
+	}
+	xsHttpHeader(objResp, "Cache-Control", "no-store");
+	xsHttpBody(objResp, pData, iSize, "application/octet-stream");
+
+	if ( sDisposition ) {
+		xrtFree(sDisposition);
+	}
+	if ( sFileName ) {
+		xrtFree(sFileName);
+	}
+	if ( pData ) {
+		xrtFree(pData);
+	}
+}
+
+void Request_Plugin_Import(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	HttpMultipartPart part;
+	size_t iOffset = 0;
+	ptr pFileData = NULL;
+	size_t iFileSize = 0;
+	bool bAutoEnable = FALSE;
+	str sImportedXid = NULL;
+	str sError = NULL;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
+		return;
+	}
+
+	while ( HttpMultipartNext(objReq, &iOffset, &part) ) {
+		if ( HttpMultipartNameIs(&part, "file") ) {
+			pFileData = (ptr)part.pBody;
+			iFileSize = part.iBodyLen;
+		} else if ( HttpMultipartNameIs(&part, "autoEnable") ) {
+			bAutoEnable = PluginRoute_TextIsTrue((const char*)part.pBody, part.iBodyLen);
+		}
+	}
+
+	if ( pFileData == NULL || iFileSize == 0 ) {
+		PluginRoute_SendResult(objResp, FALSE, "\xE6\x9C\xAA\xE4\xB8\x8A\xE4\xBC\xA0\xE6\x8F\x92\xE4\xBB\xB6\xE5\x8C\x85", NULL);
+		return;
+	}
+
+	if ( !PluginSystem_ImportPackageBuffer(pFileData, iFileSize, bAutoEnable, &sImportedXid, &sError) ) {
+		const char* sErrorText = sError ? (const char*)sError : "\xE5\xAF\xBC\xE5\x85\xA5\xE6\x8F\x92\xE4\xBB\xB6\xE5\xA4\xB1\xE8\xB4\xA5";
+		PluginRoute_SendResult(objResp, FALSE, sErrorText, sImportedXid ? (const char*)sImportedXid : NULL);
+		if ( sError ) {
+			xrtFree(sError);
+		}
+		if ( sImportedXid ) {
+			xrtFree(sImportedXid);
+		}
+		return;
+	}
+
+	PluginRoute_SendResult(objResp, TRUE, "\xE6\x8F\x92\xE4\xBB\xB6\xE5\xAF\xBC\xE5\x85\xA5\xE6\x88\x90\xE5\x8A\x9F", sImportedXid ? (const char*)sImportedXid : NULL);
+
+	if ( sImportedXid ) {
+		xrtFree(sImportedXid);
+	}
+	if ( sError ) {
+		xrtFree(sError);
+	}
 }
 
 void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)

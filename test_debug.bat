@@ -1,0 +1,2 @@
+xsdbg.exe
+cmd

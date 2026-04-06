@@ -99,6 +99,7 @@
 	<div class="layui-inline">
 		<button class="layui-btn layui-btn-sm" lay-event="Plugin_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
 		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Plugin_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+		<button class="layui-btn layui-btn-sm layui-bg-blue" lay-event="Plugin_Import"><i class="layui-icon layui-icon-upload-drag"></i> 导入</button>
 	</div>
 </script>
 
@@ -174,6 +175,7 @@
 		{{# } else { }}
 			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="enable">启用</a>
 		{{# } }}
+		<a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="export">导出</a>
 		<a class="layui-btn layui-btn-xs" lay-event="settings">设置</a>
 	</div>
 </script>
@@ -481,6 +483,137 @@
 			});
 		}
 
+		function pluginParseDownloadFileName(contentDisposition) {
+			var match;
+			if ( !contentDisposition ) {
+				return 'plugin.xpk';
+			}
+
+			match = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition);
+			if ( match && match[1] ) {
+				return decodeURIComponent(match[1]);
+			}
+
+			match = /filename=\"?([^\";]+)\"?/i.exec(contentDisposition);
+			if ( match && match[1] ) {
+				return match[1];
+			}
+
+			return 'plugin.xpk';
+		}
+
+		function pluginTriggerDownload(blob, fileName) {
+			var url = (window.URL || window.webkitURL).createObjectURL(blob);
+			var link = document.createElement('a');
+
+			link.href = url;
+			link.download = fileName || 'plugin.xpk';
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			(window.URL || window.webkitURL).revokeObjectURL(url);
+		}
+
+		function pluginExportPackage(data) {
+			var name = pluginKey(data);
+
+			layer.load(1, {shade: 0.12});
+			fetch('/admin/plugin/export?name=' + encodeURIComponent(name), {
+				method: 'GET'
+			})
+			.then(function(response){
+				var contentType = response.headers.get('content-type') || '';
+				if ( contentType.indexOf('application/json') >= 0 ) {
+					return response.json().then(function(result){
+						throw new Error((result && result.message) || '导出失败');
+					});
+				}
+				return Promise.all([
+					response.blob(),
+					Promise.resolve(response.headers.get('content-disposition') || '')
+				]);
+			})
+			.then(function(result){
+				pluginTriggerDownload(result[0], pluginParseDownloadFileName(result[1]));
+				layer.msg('导出完成', {icon: 1});
+			})
+			.catch(function(error){
+				layer.msg(error && error.message ? error.message : '导出失败', {icon: 2});
+				console.error('Error:', error);
+			})
+			.finally(function(){
+				layer.closeAll('loading');
+			});
+		}
+
+		function pluginOpenImportDialog() {
+			var content = ''
+				+ '<div style="padding:18px 20px 8px 20px;">'
+				+ '<div style="margin-bottom:14px;">'
+				+ '<input type="file" id="plugin_import_file" accept=".xpk" class="layui-input" style="padding:7px 10px;height:auto;line-height:normal;">'
+				+ '</div>'
+				+ '<div style="margin-bottom:10px;color:#666;font-size:12px;line-height:1.7;">'
+				+ '将按插件包内容完整恢复整个插件目录。'
+				+ '</div>'
+				+ '<div>'
+				+ '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;">'
+				+ '<input type="checkbox" id="plugin_import_auto_enable" value="1">'
+				+ '<span>导入后启用</span>'
+				+ '</label>'
+				+ '</div>'
+				+ '</div>';
+
+			layer.open({
+				type: 1,
+				title: '导入插件',
+				area: ['460px', '240px'],
+				content: content,
+				btn: ['导入', '取消'],
+				yes: function(index){
+					var fileInput = document.getElementById('plugin_import_file');
+					var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+					var formData;
+
+					if ( !file ) {
+						layer.msg('请选择插件包文件', {icon: 2});
+						return;
+					}
+
+					formData = new FormData();
+					formData.append('file', file);
+					formData.append('autoEnable', $('#plugin_import_auto_enable').is(':checked') ? '1' : '0');
+
+					layer.load(1, {shade: 0.12});
+					fetch('/admin/plugin/import', {
+						method: 'POST',
+						body: formData
+					})
+					.then(function(response){
+						return response.json();
+					})
+					.then(function(result){
+						if ( result && result.result ) {
+							layer.close(index);
+							layer.msg((result.message || '插件导入成功') + (result.xid ? '：' + result.xid : ''), {icon: 1});
+							pluginReloadTable();
+							if ( parent && parent.location ) {
+								parent.location.reload();
+							}
+						} else {
+							layer.msg((result && result.message) || '导入失败', {icon: 2});
+						}
+					})
+					.catch(function(error){
+						layer.msg('导入失败', {icon: 2});
+						console.error('Error:', error);
+					})
+					.finally(function(){
+						layer.closeAll('loading');
+					});
+				}
+			});
+		}
+
 		table.render({
 			elem: '#Table_Plugin_List',
 			id: 'Table_Plugin_List',
@@ -521,7 +654,7 @@
 				{width: 180, title: '版本/作者', templet: '#Tpl_Plugin_Version'},
 				{width: 150, title: '运行状态', templet: '#Tpl_Plugin_Status'},
 				{minWidth: 320, title: '数据目录', templet: '#Tpl_Plugin_Data'},
-				{width: 180, title: '操作', templet: '#Tool_Plugin_List'}
+				{width: 250, title: '操作', templet: '#Tool_Plugin_List'}
 			]],
 			done: function(){
 			},
@@ -547,6 +680,9 @@
 					pluginSearchKeyword = '';
 					$('#searchPlugin').val('');
 					pluginReloadTable();
+				break;
+				case 'Plugin_Import':
+					pluginOpenImportDialog();
 				break;
 			}
 		});
@@ -653,6 +789,11 @@
 
 			if ( obj.event === 'settings' ) {
 				pluginOpenSettings(data);
+				return;
+			}
+
+			if ( obj.event === 'export' ) {
+				pluginExportPackage(data);
 			}
 		});
 	});
