@@ -30,6 +30,9 @@ html,body{height:100%;background:#f5f7fb}
 .xform-group-title{padding:12px 16px;font-size:16px;font-weight:700;color:#243047;background:linear-gradient(90deg,#f8fbff 0%,#fff 100%);border-bottom:1px solid #eef2f7}
 .xform-group-desc{padding:0 16px 12px;color:#667085;font-size:13px}
 .xform-group-fields{padding:16px 16px 1px}
+.xform-group-fields.xform-layout-two-column{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}
+.xform-group-fields.xform-layout-two-column .layui-form-item{margin-bottom:18px}
+.xform-group-fields.xform-layout-two-column .xform-field-span-2{grid-column:1 / -1}
 .xform-field-desc{color:#98a2b3;font-size:12px;margin-top:6px;line-height:1.6}
 .xform-field-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .xform-required{color:#f56c6c;margin-left:4px}
@@ -52,6 +55,7 @@ html,body{height:100%;background:#f5f7fb}
 .xform-page.is-option .xform-output-card{display:none}
 .xform-page.is-option .layui-form-label{width:140px;white-space:normal;line-height:1.5;padding-top:10px;padding-bottom:10px}
 .xform-page.is-option .layui-input-block{margin-left:170px}
+@media (max-width: 900px){.xform-group-fields.xform-layout-two-column{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -80,7 +84,7 @@ html,body{height:100%;background:#f5f7fb}
 </div>
 <script src="/layui/layui.js"></script>
 <script>window.__xformDebug = false;</script>
-<script src="/lib/xform/xform.js?v=20260405_13"></script>
+<script src="/lib/xform/xform.js?v=20260408_01"></script>
 <script>
 layui.use(['layer'], function(){
 	var layer = layui.layer;
@@ -137,9 +141,9 @@ layui.use(['layer'], function(){
 	async function loadForm() {
 		document.getElementById('xformContainer').innerHTML = '<div class="xform-loading">Rendering form...</div>';
 		try {
-			if (!window.XForm || window.XForm.version !== '20260405_12') {
-				throw new Error('XForm script version mismatch: expected 20260405_12, got ' + ((window.XForm && window.XForm.version) || 'none'));
-			}
+if (!window.XForm || window.XForm.version !== '20260408_01') {
+  throw new Error('XForm script version mismatch: expected 20260408_01, got ' + ((window.XForm && window.XForm.version) || 'none'));
+}
 			var sApiGet = source === 'option'
 				? ('/admin/option?file=' + encodeURIComponent(fileName))
 				: ('/admin/form?source=' + encodeURIComponent(source) + '&file=' + encodeURIComponent(fileName));

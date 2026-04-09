@@ -1,0 +1,31 @@
+{
+  "title": "Comment System Settings",
+  "namespace": "plugin.comment-system",
+  "desc": "Basic configuration for the comment capability provider.",
+  "groups": [
+    {
+      "key": "general",
+      "title": "General",
+      "fields": [
+        {
+          "name": "publicTitle",
+          "type": "text",
+          "label": "Public Title",
+          "default": "Comments"
+        },
+        {
+          "name": "moderationEnabled",
+          "type": "switch",
+          "label": "Moderation Required",
+          "default": true
+        },
+        {
+          "name": "defaultAuthor",
+          "type": "text",
+          "label": "Fallback Author",
+          "default": "Guest"
+        }
+      ]
+    }
+  ]
+}

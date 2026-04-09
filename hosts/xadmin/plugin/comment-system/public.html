@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comments</title>
+  <style>
+    :root {
+      --bg: #081c2c;
+      --panel: rgba(8,28,44,.78);
+      --panel-strong: rgba(15,23,42,.86);
+      --ink: #e2e8f0;
+      --muted: #94a3b8;
+      --line: rgba(148,163,184,.18);
+      --accent: #38bdf8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #082032 0%, #0f172a 100%);
+    }
+    .shell { max-width: 1080px; margin: 0 auto; padding: 24px 18px 42px; }
+    .hero, .panel {
+      border-radius: 26px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 54px rgba(0,0,0,.22);
+    }
+    .hero { padding: 28px; margin-bottom: 18px; }
+    .hero h1 { margin: 0 0 8px; font-size: 34px; }
+    .hero p { margin: 0; color: #bfdbfe; line-height: 1.7; }
+    .context-note {
+      display: inline-flex;
+      margin-top: 14px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(125,211,252,.14);
+      color: #e0f2fe;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .chip-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(15,23,42,.4);
+      border: 1px solid var(--line);
+      color: #e0f2fe;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .chip.warn {
+      background: rgba(251,191,36,.16);
+      color: #fde68a;
+    }
+    .chip.danger {
+      background: rgba(248,113,113,.16);
+      color: #fecaca;
+    }
+    .notice {
+      margin-top: 14px;
+      color: #bfdbfe;
+      line-height: 1.7;
+      font-size: 13px;
+    }
+    .panel { padding: 18px; margin-bottom: 16px; }
+    .status { min-height: 18px; font-size: 13px; color: #7dd3fc; margin-bottom: 12px; }
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .item {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(15,23,42,.58);
+      border: 1px solid var(--line);
+    }
+    .item strong { display: block; margin-bottom: 6px; font-size: 15px; }
+    .item span { display: block; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .form-grid { display: grid; gap: 10px; }
+    .input, .textarea {
+      width: 100%;
+      border: 1px solid rgba(148,163,184,.24);
+      border-radius: 16px;
+      padding: 12px 14px;
+      background: rgba(15,23,42,.58);
+      color: var(--ink);
+      font: inherit;
+    }
+    .textarea { min-height: 140px; resize: vertical; }
+    .button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #082032;
+    }
+    .button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+    .button.secondary {
+      background: rgba(56,189,248,.18);
+      color: #e0f2fe;
+    }
+    .form-note {
+      min-height: 18px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <h1 id="cp_title">Comments</h1>
+      <p>Public comment entry point for managed content plugins. Approved comments are visible immediately; pending comments wait for moderation.</p>
+      <div class="context-note" id="cp_context">Global comments</div>
+      <div class="chip-row" id="cp_policy"></div>
+      <div class="notice" id="cp_notice"></div>
+    </section>
+    <section class="panel">
+      <div class="status" id="cp_status"></div>
+      <div class="form-grid">
+        <input class="input" id="cp_author" placeholder="Your name">
+        <textarea class="textarea" id="cp_body" placeholder="Write a comment"></textarea>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="button" id="cp_submit_btn" type="button" onclick="cpPost()">Submit Comment</button>
+          <button class="button secondary" type="button" onclick="cpRefresh()">Refresh</button>
+          <button class="button secondary" id="cp_admin_btn" style="display:none;" type="button" onclick="cpOpenAdminView()">Open Admin View</button>
+        </div>
+        <div class="form-note" id="cp_form_note"></div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="list" id="cp_list"><div class="item"><strong>Loading...</strong><span>Fetching approved comments.</span></div></div>
+    </section>
+  </div>
+  <script>
+    const cp = {
+      items: [],
+      meta: null,
+      context: { contentPlugin: "", contentId: 0, partial: false },
+      mountSlotKey: "",
+      mountOptions: {},
+      queryWarnings: []
+    };
+    function cpEscape(value) {
+      return String(value || "").replace(/[&<>\"']/g, (ch) => ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === "\"" ? "&quot;" : "&#39;");
+    }
+    function cpReadContext() {
+      const params = new URLSearchParams(window.location.search);
+      const contentPlugin = String(params.get("contentPlugin") || "").trim();
+      const contentIdText = String(params.get("contentId") || "").trim();
+      const rawContentId = Number(contentIdText || 0);
+      const contentId = Number.isFinite(rawContentId) && rawContentId > 0 ? rawContentId : 0;
+      const mountSlotKey = String(params.get("mountSlotKey") || "").trim();
+      let mountOptions = {};
+      cp.queryWarnings = [];
+      const mountOptionsText = String(params.get("mountOptions") || "").trim();
+      if (mountOptionsText) {
+        try {
+          const parsed = JSON.parse(mountOptionsText);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            mountOptions = parsed;
+          }
+        } catch (err) {
+          mountOptions = {};
+          cp.queryWarnings.push("Mount options in URL were invalid and have been ignored.");
+        }
+      }
+      cp.context = {
+        contentPlugin,
+        contentId,
+        partial: (!!contentPlugin && contentId <= 0) || (!contentPlugin && contentIdText !== "")
+      };
+      cp.mountSlotKey = mountSlotKey;
+      cp.mountOptions = mountOptions;
+    }
+    function cpHasBoundContext() {
+      return !!cp.context.contentPlugin && Number(cp.context.contentId) > 0;
+    }
+    function cpContextLabel() {
+      const slotText = cp.mountSlotKey ? ` | Slot ${cp.mountSlotKey}` : "";
+      if (cpHasBoundContext()) return `Bound to ${cp.context.contentPlugin} #${cp.context.contentId}${slotText}`;
+      if (cp.context.partial) return "Incomplete content context in URL. Using global scope.";
+      return `Global comments${slotText}`;
+    }
+    function cpThreadTitle() {
+      return String((cp.mountOptions || {}).threadTitle || "").trim();
+    }
+    function cpPageSize() {
+      const raw = Number((cp.mountOptions || {}).pageSize || 100);
+      if (!Number.isFinite(raw)) return 100;
+      return Math.max(20, Math.min(200, Math.round(raw)));
+    }
+    function cpShowAdminLink() {
+      return (cp.mountOptions || {}).showAdminLink !== false;
+    }
+    function cpAllowPublicPost() {
+      return (cp.mountOptions || {}).allowPublicPost !== false;
+    }
+    function cpSortOrder() {
+      return String((cp.mountOptions || {}).sortOrder || "newest");
+    }
+    function cpModerationMode() {
+      return String((cp.mountOptions || {}).moderationMode || "inherit");
+    }
+    function cpResolvedModerationMode() {
+      const mode = cpModerationMode();
+      if (mode === "require-review" || mode === "auto-publish") return mode;
+      return ((cp.meta || {}).moderationEnabled) === false ? "auto-publish" : "require-review";
+    }
+    function cpModerationLabel() {
+      const mode = cpResolvedModerationMode();
+      if (mode === "auto-publish") return "Auto Publish";
+      if (mode === "require-review") return "Require Review";
+      return "Inherited";
+    }
+    function cpSortLabel() {
+      return cpSortOrder() === "oldest" ? "Oldest First" : "Newest First";
+    }
+    function cpRenderPolicy() {
+      const host = document.getElementById("cp_policy");
+      if (!host) return;
+      const chips = [
+        `<span class="chip">${cpEscape(cpSortLabel())}</span>`,
+        `<span class="chip">${cpEscape(cpModerationLabel())}</span>`,
+        `<span class="chip${cpAllowPublicPost() ? "" : " danger"}">${cpEscape(cpAllowPublicPost() ? "Posting Enabled" : "Posting Disabled")}</span>`
+      ];
+      if (cp.mountSlotKey) {
+        chips.push(`<span class="chip warn">${cpEscape(`Slot ${cp.mountSlotKey}`)}</span>`);
+      }
+      host.innerHTML = chips.join("");
+    }
+    function cpRenderNotice() {
+      const host = document.getElementById("cp_notice");
+      if (!host) return;
+      const notes = [];
+      if (cp.context.partial) {
+        notes.push("URL only provided part of the content context, so the page falls back to the global thread.");
+      }
+      if (!cpAllowPublicPost()) {
+        notes.push("This mounted thread is read-only for public visitors. Posting stays available only through other channels or after mount reconfiguration.");
+      } else if (cpResolvedModerationMode() === "require-review") {
+        notes.push("New comments enter moderation first and become visible after approval.");
+      } else {
+        notes.push("New comments publish immediately under the current mount policy.");
+      }
+      for (const warning of cp.queryWarnings) notes.push(warning);
+      host.innerText = notes.join(" ");
+    }
+    function cpSyncMountPresentation() {
+      const title = cpThreadTitle() || ((cp.meta || {}).publicTitle) || "Comments";
+      document.getElementById("cp_title").innerText = title;
+      document.title = title;
+      const adminBtn = document.getElementById("cp_admin_btn");
+      if (adminBtn) {
+        adminBtn.style.display = (cpHasBoundContext() && cpShowAdminLink()) ? "inline-flex" : "none";
+      }
+      const formHost = document.querySelector(".form-grid");
+      if (formHost) {
+        formHost.style.opacity = cpAllowPublicPost() ? "1" : ".55";
+      }
+      const authorEl = document.getElementById("cp_author");
+      const bodyEl = document.getElementById("cp_body");
+      const submitEl = document.getElementById("cp_submit_btn");
+      const formNoteEl = document.getElementById("cp_form_note");
+      if (authorEl) {
+        authorEl.disabled = !cpAllowPublicPost();
+        authorEl.placeholder = ((cp.meta || {}).defaultAuthor) || "Your name";
+      }
+      if (bodyEl) {
+        bodyEl.disabled = !cpAllowPublicPost();
+        bodyEl.placeholder = cpAllowPublicPost()
+          ? "Write a comment"
+          : "Public posting is disabled for this mounted thread";
+      }
+      if (submitEl) submitEl.disabled = !cpAllowPublicPost();
+      if (formNoteEl) {
+        formNoteEl.innerText = !cpAllowPublicPost()
+          ? "Posting is disabled by mount policy."
+          : (cpResolvedModerationMode() === "require-review"
+            ? "Submitted comments will remain pending until approved."
+            : "Submitted comments will appear immediately.");
+      }
+      cpRenderPolicy();
+      cpRenderNotice();
+    }
+    function cpOpenAdminView() {
+      const query = window.location.search || "";
+      window.open(`/admin/view/plugin/comment-system${query}`, "_blank", "noopener,noreferrer");
+    }
+    function cpApi(path) {
+      const url = new URL(path, window.location.origin);
+      if (cpHasBoundContext()) {
+        url.searchParams.set("contentPlugin", cp.context.contentPlugin);
+        url.searchParams.set("contentId", String(cp.context.contentId));
+      }
+      if (cp.mountSlotKey) url.searchParams.set("mountSlotKey", cp.mountSlotKey);
+      if (cp.mountOptions && Object.keys(cp.mountOptions).length) {
+        url.searchParams.set("mountOptions", JSON.stringify(cp.mountOptions));
+      }
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+    function cpPayload(payload) {
+      const next = cpHasBoundContext()
+        ? { ...payload, contentPlugin: cp.context.contentPlugin, contentId: cp.context.contentId }
+        : { ...payload };
+      if (cp.mountOptions && Object.keys(cp.mountOptions).length) {
+        next.mountOptions = cp.mountOptions;
+      }
+      return next;
+    }
+    function cpRenderContext() {
+      document.getElementById("cp_context").innerText = cpContextLabel();
+    }
+    function cpSetStatus(message, color) {
+      const el = document.getElementById("cp_status");
+      el.innerText = message || "";
+      el.style.color = color || "#7dd3fc";
+    }
+    function cpRender() {
+      const host = document.getElementById("cp_list");
+      if (!cp.items.length) {
+        host.innerHTML = cpAllowPublicPost()
+          ? "<div class='item'><strong>No approved comments yet</strong><span>Be the first one to leave feedback.</span></div>"
+          : "<div class='item'><strong>No public comments available</strong><span>This thread is currently read-only and has no approved comments yet.</span></div>";
+        return;
+      }
+      host.innerHTML = cp.items.map((item) => {
+        const contextLine = item.contentPlugin && Number(item.contentItemId) > 0
+          ? `<span>${cpEscape(`Context: ${item.contentPlugin} #${item.contentItemId}`)}</span>`
+          : "";
+        return `<article class="item"><strong>${cpEscape(item.author || "Guest")}</strong><span>${cpEscape(item.body || "")}</span>${contextLine}<span>${cpEscape(item.createTimeText || "")}</span></article>`;
+      }).join("");
+    }
+    async function cpLoadMeta() {
+      const response = await fetch(cpApi("/api/plugin/comment-system/meta"), { cache: "no-store" });
+      const result = await response.json();
+      if (!result || !result.result) throw new Error((result && result.message) || "Meta load failed");
+      cp.meta = result.data || {};
+      cp.mountSlotKey = String((cp.meta || {}).mountSlotKey || cp.mountSlotKey || "").trim();
+      cp.mountOptions = ((cp.meta || {}).mountOptions && typeof cp.meta.mountOptions === "object") ? cp.meta.mountOptions : cp.mountOptions;
+      cpSyncMountPresentation();
+      cpRenderContext();
+    }
+    async function cpLoadList() {
+      const response = await fetch(cpApi(`/api/plugin/comment-system/list?page=1&limit=${encodeURIComponent(cpPageSize())}`), { cache: "no-store" });
+      const result = await response.json();
+      if (!result || !result.result) throw new Error((result && result.message) || "List load failed");
+      cp.items = result.data || [];
+      if (result.mountOptions && typeof result.mountOptions === "object") {
+        cp.mountOptions = result.mountOptions;
+      }
+      cpSyncMountPresentation();
+      cpRender();
+      cpSetStatus(`${cp.items.length} approved comment(s). ${cpContextLabel()} | pageSize=${result.pageSize || cpPageSize()} | sort=${cpSortLabel()} | moderation=${cpModerationLabel()} | post=${cpAllowPublicPost() ? "enabled" : "disabled"}`);
+    }
+    async function cpPost() {
+      const author = document.getElementById("cp_author").value.trim();
+      const body = document.getElementById("cp_body").value.trim();
+      if (!cpAllowPublicPost()) {
+        cpSetStatus("Public posting is disabled for this mounted thread.", "#f87171");
+        return;
+      }
+      if (!body) {
+        cpSetStatus("Comment body is required.", "#f87171");
+        return;
+      }
+      const response = await fetch("/api/plugin/comment-system/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(cpPayload({ author, body }))
+      });
+      const result = await response.json();
+      if (!result || !result.result) throw new Error((result && result.message) || "Submit failed");
+      document.getElementById("cp_body").value = "";
+      cpSetStatus(result.message || "Comment submitted.");
+      if (result.status > 0) {
+        await cpLoadList();
+      }
+    }
+    async function cpRefresh() {
+      await cpLoadMeta();
+      await cpLoadList();
+    }
+    window.addEventListener("unhandledrejection", (event) => {
+      cpSetStatus(event.reason && event.reason.message ? event.reason.message : String(event.reason), "#f87171");
+      event.preventDefault();
+    });
+    (async function boot() {
+      cpReadContext();
+      await cpLoadMeta();
+      await cpLoadList();
+    })();
+  </script>
+</body>
+</html>

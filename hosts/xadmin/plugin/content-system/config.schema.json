@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "menuTitle": {
+      "type": "string",
+      "title": "Menu Title"
+    },
+    "menuIcon": {
+      "type": "string",
+      "title": "Menu Icon"
+    },
+    "menuSort": {
+      "type": "integer",
+      "title": "Menu Sort"
+    }
+  },
+  "additionalProperties": false
+}

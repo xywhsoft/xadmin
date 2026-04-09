@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Comment System Settings",
+  "type": "object",
+  "properties": {
+    "publicTitle": {
+      "type": "string"
+    },
+    "moderationEnabled": {
+      "type": "boolean"
+    },
+    "defaultAuthor": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

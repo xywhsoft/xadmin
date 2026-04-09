@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "xAdmin Capability Provider Declaration",
+  "type": "object",
+  "properties": {
+    "key": { "type": "string" },
+    "title": { "type": "string" },
+    "desc": { "type": "string" },
+    "supports": {
+      "type": "object",
+      "properties": {
+        "serviceXid": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "surface": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "adminEntry": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "href": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "publicEntry": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "href": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "defaults": {
+      "type": "object",
+      "properties": {
+        "status": { "type": "string" },
+        "serviceXid": { "type": "string" },
+        "note": { "type": "string" },
+        "options": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "mount": {
+          "type": "object",
+          "properties": {
+            "surface": { "type": "string" },
+            "mode": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "adminEntry": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "href": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "publicEntry": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "href": { "type": "string" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "optionSchema": {
+      "type": "object",
+      "description": "Optional XForm schema fragment used by content-system to render mount.options.",
+      "properties": {
+        "title": { "type": "string" },
+        "desc": { "type": "string" },
+        "groups": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "providers": {
+      "type": "array",
+      "items": { "$ref": "#" }
+    }
+  },
+  "additionalProperties": true
+}

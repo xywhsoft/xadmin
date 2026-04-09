@@ -1,0 +1,91 @@
+{
+  "$schema": "../content-system/capability.provider.schema.json",
+  "providers": [
+    {
+      "key": "comment.basic",
+      "title": "Comment Capability",
+      "desc": "Managed content plugins can mount this provider to attach a lightweight comment subsystem.",
+      "supports": {
+        "serviceXid": ["comment-system"],
+        "surface": ["admin.record-detail", "public.record-detail"]
+      },
+      "adminEntry": {
+        "title": "Comment Admin",
+        "href": "/admin/view/plugin/comment-system"
+      },
+      "publicEntry": {
+        "title": "Comments",
+        "href": "/plugin/comment-system"
+      },
+      "defaults": {
+        "status": "mounted",
+        "serviceXid": "comment-system",
+        "note": "Seeded from comment-system provider.",
+        "options": {
+          "threadTitle": "Comments",
+          "showAdminLink": true,
+          "pageSize": 50,
+          "allowPublicPost": true,
+          "sortOrder": "newest",
+          "moderationMode": "inherit"
+        },
+        "mount": {
+          "surface": "public.record-detail",
+          "mode": "optional"
+        },
+        "adminEntry": {
+          "title": "Comment Admin",
+          "href": "/admin/view/plugin/comment-system"
+        },
+        "publicEntry": {
+          "title": "Comments",
+          "href": "/plugin/comment-system"
+        }
+      },
+      "optionSchema": {
+        "title": "Comment Thread Options",
+        "desc": "These options are stored on the managed plugin mount entry and can later be consumed by comment-system runtime.",
+        "groups": [
+          {
+            "key": "thread",
+            "title": "Thread Display",
+            "fields": [
+              { "name": "threadTitle", "type": "text", "label": "Thread Title" },
+              { "name": "showAdminLink", "type": "switch", "label": "Show Admin Link" },
+              { "name": "allowPublicPost", "type": "switch", "label": "Allow Public Post" },
+              {
+                "name": "pageSize",
+                "type": "select",
+                "label": "Page Size",
+                "list": [
+                  { "value": 20, "label": "20" },
+                  { "value": 50, "label": "50" },
+                  { "value": 100, "label": "100" }
+                ]
+              },
+              {
+                "name": "sortOrder",
+                "type": "select",
+                "label": "Sort Order",
+                "list": [
+                  { "value": "newest", "label": "Newest first" },
+                  { "value": "oldest", "label": "Oldest first" }
+                ]
+              },
+              {
+                "name": "moderationMode",
+                "type": "select",
+                "label": "Moderation Mode",
+                "list": [
+                  { "value": "inherit", "label": "Inherit plugin setting" },
+                  { "value": "require-review", "label": "Always require review" },
+                  { "value": "auto-publish", "label": "Always auto publish" }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

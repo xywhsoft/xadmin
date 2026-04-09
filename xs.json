@@ -13,7 +13,7 @@
 			"body_limit": 262144,
 			"ip": "0.0.0.0",
 			"port": 80,
-			"tls": true,
+			"tls": false,
 			"port_tls": 443,
 			"host_default": {
 				"enabled": true,
