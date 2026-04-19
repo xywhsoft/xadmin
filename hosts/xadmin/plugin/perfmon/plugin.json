@@ -17,7 +17,7 @@
 		"sources": ["main.c"],
 		"includeDirs": [],
 		"libraryDirs": [],
-		"libraries": [],
+		"libraries": ["iphlpapi"],
 		"defines": ["XADMIN_PLUGIN=1"]
 	},
 	"compat": {

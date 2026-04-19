@@ -154,20 +154,21 @@ typedef struct {
 	xvalue arrFile;
 } FM_ScanCtx;
 
-static int FM_ListProc(str sPath, size_t iSize, int bDir, ptr pData, xvalue arrFile)
+static int FM_ListProc(str sPath, size_t iSize, int bDir, ptr pData, ptr Param)
 {
 	str sName;
 	str sExt;
 	xvalue tblInfo;
 	xtime iTime;
 	str sTime;
+	xvalue arrFile = (xvalue)Param;
 
 	if ( bDir == 2 ) return FALSE;
 
 	sName = xrtPathGetNameExt(sPath, iSize);
 	sExt = xrtPathGetExt(sPath, iSize);
 	tblInfo = xvoCreateTable();
-	xvoTableSetInt(tblInfo, "id", 2, (int)xvoArrayLength(arrFile));
+	xvoTableSetInt(tblInfo, "id", 2, (int)xvoArrayItemCount(arrFile));
 	xvoTableSetText(tblInfo, "name", 4, sName, 0, FALSE);
 	iTime = xrtFileGetChangeTime(sPath);
 	sTime = xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME);
@@ -215,7 +216,7 @@ void FM_Req_ApiList(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	if ( sPath && xrtDirExists(sPath) ) {
 		xrtDirScan(sPath, FALSE, FM_ListProc, arrFile);
 	}
-	xvoTableSetInt(tblRet, "count", 5, (int64)xvoArrayLength(arrFile));
+	xvoTableSetInt(tblRet, "count", 5, (int64)xvoArrayItemCount(arrFile));
 
 	FM_SendJson(objResp, tblRet);
 	if ( sPath ) xrtFree(sPath);
@@ -301,7 +302,7 @@ void FM_Req_ApiDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	}
 
 	sPath = FM_ResolvePath((char*)sFolderPath);
-	iCount = (int)xvoArrayLength(items);
+	iCount = (int)xvoArrayItemCount(items);
 
 	for ( i = 0; i < iCount; i++ ) {
 		xvalue tblItem = xvoArrayGetValue(items, i);
@@ -355,7 +356,7 @@ void FM_Req_ApiCopy(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	}
 
 	sTarget = FM_ResolvePath((char*)sTargetPath);
-	iCount = (int)xvoArrayLength(items);
+	iCount = (int)xvoArrayItemCount(items);
 
 	for ( i = 0; i < iCount; i++ ) {
 		xvalue tblItem = xvoArrayGetValue(items, i);
@@ -412,7 +413,7 @@ void FM_Req_ApiContent(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		return;
 	}
 
-	sContent = xrtFileReadAll(sPath, XRT_CP_BINARY);
+	sContent = xrtFileReadAll(sPath, XRT_CP_BINARY, NULL);
 	xrtFree(sPath);
 	if ( !sContent ) { FM_SendError(objResp, 500, "read failed"); return; }
 
@@ -491,14 +492,14 @@ void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	{
 		xrtmultipartpartview part;
 		memset(&part, 0, sizeof(part));
-		while ( xrtMultipartNextN(sBody, iBodyLen, tBoundary.Ptr, tBoundary.Len, &iOffset, &part) ) {
-			if ( part.tName.Len == 4 && part.tName.Ptr && memcmp(part.tName.Ptr, "file", 4) == 0 ) {
+		while ( xrtMultipartNextN(sBody, iBodyLen, tBoundary.sPtr, tBoundary.iLen, &iOffset, &part) ) {
+			if ( part.tName.iLen == 4 && part.tName.sPtr && memcmp(part.tName.sPtr, "file", 4) == 0 ) {
 				char sFileName[256] = {0};
 				size_t iNameLen = 0;
 				if ( xrtMultipartDecodeFileNameTo(&part, sFileName, sizeof(sFileName), &iNameLen) && iNameLen > 0 ) {
 					str sFilePath = xrtPathJoin(2, sUploadDir, sFileName);
 					if ( sFilePath ) {
-						xrtFilePutAll(sFilePath, (ptr)part.tBody.Ptr, part.tBody.Len);
+						xrtFilePutAll(sFilePath, (ptr)part.tBody.sPtr, part.tBody.iLen);
 						{
 							xvalue r = FM_Ok("uploaded");
 							xvoTableSetText(r, "name", 4, xrtCopyStr(sFileName, iNameLen), 0, TRUE);
@@ -745,7 +746,7 @@ void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		goto compress_cleanup;
 	}
 
-	iCount = (int)xvoArrayLength(items);
+	iCount = (int)xvoArrayItemCount(items);
 	for ( i = 0; i < iCount; i++ ) {
 		xvalue tblItem = xvoArrayGetValue(items, i);
 		if ( !tblItem || xvoType(tblItem) != XVO_DT_TABLE ) continue;

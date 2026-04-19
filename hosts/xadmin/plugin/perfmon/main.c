@@ -159,6 +159,7 @@ str PM_ReadQuery(XS_RequestObject objReq, const char* sName)
 #include <windows.h>
 #include <psapi.h>
 #include <iphlpapi.h>
+#pragma comment(lib, "iphlpapi")
 
 #ifndef IF_TYPE_IEEE80211
 #define IF_TYPE_IEEE80211 71
