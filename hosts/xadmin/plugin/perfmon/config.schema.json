@@ -1,0 +1,18 @@
+{
+	"type": "object",
+	"properties": {
+		"collectInterval": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 60,
+			"description": "Data collection interval in seconds"
+		},
+		"historyRetentionDays": {
+			"type": "integer",
+			"minimum": 1,
+			"maximum": 365,
+			"description": "Number of days to retain historical performance data"
+		}
+	},
+	"additionalProperties": false
+}

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>主页</title>
+  <style>
+    .perf-card {
+      background: #fff;
+      border-radius: 2px;
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+    }
+    .perf-card-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #333;
+      border-left: 3px solid #009688;
+      padding-left: 10px;
+    }
+    .perf-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .perf-stat-item {
+      flex: 1;
+      text-align: center;
+      padding: 15px;
+      background: #f8f8f8;
+      border-radius: 2px;
+      margin: 0 5px;
+    }
+    .perf-gauge-chart {
+      width: 100%;
+      height: 200px;
+    }
+    .perf-stat-label {
+      font-size: 14px;
+      color: #666;
+      margin-top: 10px;
+    }
+    .net-traffic-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 200px;
+      padding: 20px;
+    }
+    .net-traffic-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .net-traffic-item:last-child {
+      border-bottom: none;
+    }
+    .net-traffic-label {
+      font-size: 14px;
+      color: #666;
+      display: flex;
+      align-items: center;
+    }
+    .net-traffic-icon {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .net-traffic-icon.rx {
+      background: #9c27b0;
+    }
+    .net-traffic-icon.tx {
+      background: #ff9800;
+    }
+    .net-traffic-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+    }
+    .net-traffic-unit {
+      font-size: 14px;
+      color: #999;
+      margin-left: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="perf-card">
+    <div class="perf-card-title">服务器信息</div>
+    <div id="serverProbe">
+      <table class="layui-table" lay-skin="line">
+        <colgroup>
+          <col width="150">
+          <col>
+        </colgroup>
+        <tbody>
+          <tr><td><strong>操作系统</strong></td><td id="probe_os">-</td></tr>
+          <tr><td><strong>系统版本</strong></td><td id="probe_os_version">-</td></tr>
+          <tr><td><strong>主机名</strong></td><td id="probe_hostname">-</td></tr>
+          <tr><td><strong>系统架构</strong></td><td id="probe_architecture">-</td></tr>
+          <tr><td><strong>内核版本</strong></td><td id="probe_kernel">-</td></tr>
+          <tr><td><strong>CPU 型号</strong></td><td id="probe_cpu">-</td></tr>
+          <tr><td><strong>CPU 核心数</strong></td><td id="probe_cpu_cores">-</td></tr>
+          <tr><td><strong>运行时间</strong></td><td id="probe_uptime">-</td></tr>
+          <tr><td><strong>IP 地址</strong></td><td id="probe_ip">-</td></tr>
+          <tr><td><strong>MAC 地址</strong></td><td id="probe_mac">-</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-title">实时性能监控</div>
+    <div class="perf-stats">
+      <div class="perf-stat-item">
+        <div class="perf-gauge-chart" id="cpuGauge"></div>
+        <div class="perf-stat-label">CPU 使用率</div>
+        <div id="cpuInfo" style="margin-top: 10px; color: #666; font-size: 12px; text-align: center;"></div>
+      </div>
+      <div class="perf-stat-item">
+        <div class="perf-gauge-chart" id="memGauge"></div>
+        <div class="perf-stat-label">内存使用率</div>
+        <div id="memInfoGauge" style="margin-top: 10px; color: #666; font-size: 12px; text-align: center;"></div>
+      </div>
+      <div class="perf-stat-item">
+        <div class="net-traffic-panel">
+          <div class="net-traffic-item">
+            <div class="net-traffic-label">
+              <span class="net-traffic-icon rx"></span><span>接收</span>
+            </div>
+            <div>
+              <span class="net-traffic-value" id="netRxValue">0.00</span>
+              <span class="net-traffic-unit" id="netRxUnit">KB/s</span>
+            </div>
+          </div>
+          <div class="net-traffic-item">
+            <div class="net-traffic-label">
+              <span class="net-traffic-icon tx"></span><span>发送</span>
+            </div>
+            <div>
+              <span class="net-traffic-value" id="netTxValue">0.00</span>
+              <span class="net-traffic-unit" id="netTxUnit">KB/s</span>
+            </div>
+          </div>
+        </div>
+        <div class="perf-stat-label">网络流量</div>
+      </div>
+      <div class="perf-stat-item">
+        <div class="perf-gauge-chart" id="diskGauge"></div>
+        <div class="perf-stat-label">磁盘空间</div>
+        <div id="diskInfo" style="margin-top: 10px; color: #666; font-size: 12px; text-align: center;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/layui/layui.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script>
+    layui.use(['layer', 'jquery'], function(){
+      var layer = layui.layer;
+      var $ = layui.jquery;
+      var echarts = window.echarts;
+      var cpuGauge, memGauge, diskGauge;
+      var cpuCores = 0;
+
+      function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        var k = 1024;
+        var sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        var i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+      }
+
+      function formatSpeed(mbps) {
+        var bytesPerSec = mbps * 1024 * 1024;
+        if (bytesPerSec < 1024) return { value: bytesPerSec.toFixed(2), unit: 'B/s' };
+        else if (bytesPerSec < 1024 * 1024) return { value: (bytesPerSec / 1024).toFixed(2), unit: 'KB/s' };
+        else if (bytesPerSec < 1024 * 1024 * 1024) return { value: (bytesPerSec / 1024 / 1024).toFixed(2), unit: 'MB/s' };
+        else return { value: (bytesPerSec / 1024 / 1024 / 1024).toFixed(2), unit: 'GB/s' };
+      }
+
+      function initGauges() {
+        cpuGauge = echarts.init(document.getElementById('cpuGauge'));
+        memGauge = echarts.init(document.getElementById('memGauge'));
+        diskGauge = echarts.init(document.getElementById('diskGauge'));
+        var gaugeOption = {
+          series: [{
+            type: 'gauge', startAngle: 90, endAngle: -270, radius: '80%',
+            pointer: { show: false },
+            progress: { show: true, overlap: false, roundCap: true, clip: false, itemStyle: { borderWidth: 0 } },
+            axisLine: { lineStyle: { width: 12 } },
+            splitLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false },
+            data: [{ value: 0, detail: { valueAnimation: true, offsetCenter: [0, '5%'] } }],
+            title: { show: false },
+            detail: { width: 50, height: 14, fontSize: 20, fontWeight: 'bold', color: 'auto', formatter: '{value}%', offsetCenter: [0, '5%'] }
+          }]
+        };
+        var cpuGaugeOption = JSON.parse(JSON.stringify(gaugeOption));
+        cpuGaugeOption.series[0].progress.itemStyle.color = '#009688';
+        cpuGaugeOption.series[0].axisLine.lineStyle.color = [[1, '#e0e0e0']];
+        cpuGauge.setOption(cpuGaugeOption);
+        var memGaugeOption = JSON.parse(JSON.stringify(gaugeOption));
+        memGaugeOption.series[0].progress.itemStyle.color = '#2196f3';
+        memGaugeOption.series[0].axisLine.lineStyle.color = [[1, '#e0e0e0']];
+        memGauge.setOption(memGaugeOption);
+        var diskGaugeOption = JSON.parse(JSON.stringify(gaugeOption));
+        diskGaugeOption.series[0].progress.itemStyle.color = '#f44336';
+        diskGaugeOption.series[0].axisLine.lineStyle.color = [[1, '#e0e0e0']];
+        diskGauge.setOption(diskGaugeOption);
+      }
+
+      function fetchPerformanceData() {
+        fetch('/admin/api/plugin/perfmon/current')
+          .then(function(response) {
+            var contentType = response.headers.get('content-type');
+            if (!contentType || contentType.indexOf('application/json') === -1) return null;
+            return response.json();
+          })
+          .then(function(result) {
+            if (!result || !result.result || !result.data) return;
+            var data = result.data;
+            cpuGauge.setOption({ series: [{ data: [{ value: parseFloat(data.cpu.toFixed(1)) }] }] });
+            memGauge.setOption({ series: [{ data: [{ value: parseFloat(data.memory.toFixed(1)) }] }] });
+            if (data.memory_total && data.memory_used) {
+              $('#memInfoGauge').html('已用: ' + formatBytes(data.memory_used) + ' / 总量: ' + formatBytes(data.memory_total) + ' / 可用: ' + formatBytes(data.memory_total - data.memory_used));
+            }
+            var netRx = parseFloat(data.network_rx.toFixed(2));
+            var netRxSpeed = formatSpeed(netRx);
+            $('#netRxValue').text(netRxSpeed.value);
+            $('#netRxUnit').text(netRxSpeed.unit);
+            var netTx = parseFloat(data.network_tx.toFixed(2));
+            var netTxSpeed = formatSpeed(netTx);
+            $('#netTxValue').text(netTxSpeed.value);
+            $('#netTxUnit').text(netTxSpeed.unit);
+          })
+          .catch(function(error) { console.error('获取性能数据失败:', error); });
+      }
+
+      function fetchDiskInfo() {
+        fetch('/admin/api/plugin/perfmon/disk')
+          .then(function(response) {
+            var contentType = response.headers.get('content-type');
+            if (!contentType || contentType.indexOf('application/json') === -1) return null;
+            return response.json();
+          })
+          .then(function(result) {
+            if (!result || !result.result || !result.data) return;
+            var totalSize = 0, totalUsed = 0;
+            result.data.forEach(function(disk) { totalSize += disk.total; totalUsed += disk.used; });
+            var totalPercent = totalSize > 0 ? (totalUsed / totalSize * 100).toFixed(1) : 0;
+            diskGauge.setOption({ series: [{ data: [{ value: parseFloat(totalPercent) }] }] });
+            if (totalSize > 0) {
+              $('#diskInfo').html('已用: ' + formatBytes(totalUsed) + ' / 总量: ' + formatBytes(totalSize) + ' / 可用: ' + formatBytes(totalSize - totalUsed));
+            }
+          })
+          .catch(function(error) { console.error('获取磁盘信息失败:', error); });
+      }
+
+      function formatUptime(seconds) {
+        var days = Math.floor(seconds / 86400);
+        var hours = Math.floor((seconds % 86400) / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var result = '';
+        if (days > 0) result += days + ' 天 ';
+        if (hours > 0) result += hours + ' 小时 ';
+        result += minutes + ' 分钟';
+        return result;
+      }
+
+      function fetchServerInfo() {
+        fetch('/admin/api/plugin/perfmon/serverinfo')
+          .then(function(response) {
+            var contentType = response.headers.get('content-type');
+            if (!contentType || contentType.indexOf('application/json') === -1) return null;
+            return response.json();
+          })
+          .then(function(result) {
+            if (!result || !result.result || !result.data) return;
+            var data = result.data;
+            $('#probe_os').text(data.os_type || '-');
+            $('#probe_os_version').text(data.os_version || '-');
+            $('#probe_hostname').text(data.hostname || '-');
+            $('#probe_architecture').text(data.architecture || '-');
+            $('#probe_kernel').text(data.kernel_version || '-');
+            $('#probe_cpu').text(data.cpu_model || '-');
+            $('#probe_cpu_cores').text(data.cpu_cores + ' 核');
+            $('#probe_uptime').text(formatUptime(data.uptime));
+            $('#probe_ip').text(data.ip_address || '-');
+            $('#probe_mac').text(data.mac_address || '-');
+            cpuCores = data.cpu_cores || 0;
+            if (cpuCores > 0) $('#cpuInfo').text(cpuCores + ' 核心');
+          })
+          .catch(function(error) { console.error('获取服务器信息失败:', error); });
+      }
+
+      initGauges();
+      fetchPerformanceData();
+      fetchDiskInfo();
+      fetchServerInfo();
+      setTimeout(function() {
+        if (cpuGauge) cpuGauge.resize();
+        if (memGauge) memGauge.resize();
+        if (diskGauge) diskGauge.resize();
+      }, 100);
+      setInterval(function() { fetchPerformanceData(); }, 3000);
+      setInterval(function() { fetchDiskInfo(); }, 30000);
+      window.addEventListener('resize', function() {
+        if (cpuGauge) cpuGauge.resize();
+        if (memGauge) memGauge.resize();
+        if (diskGauge) diskGauge.resize();
+      });
+    });
+  </script>
+</body>
+</html>
