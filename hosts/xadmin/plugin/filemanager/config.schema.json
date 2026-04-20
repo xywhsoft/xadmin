@@ -3,7 +3,7 @@
 	"properties": {
 		"rootPath": {
 			"type": "string",
-			"description": "Root directory for file browsing (relative to application path)"
+			"description": "Root directory for file browsing. Use * to browse the full filesystem."
 		},
 		"toolPath": {
 			"type": "string",

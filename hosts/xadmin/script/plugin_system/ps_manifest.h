@@ -45,8 +45,14 @@ bool PS_ManifestValidateIdentity(PluginSystemPackage* pPackage, str sRootPath)
 		return FALSE;
 	}
 
-	sDirName = xrtPathGetName(sRootPath, 0);
+	sDirName = xrtPathGetNameExt(sRootPath, 0);
 	bOK = (sDirName != NULL) && (strcmp(sDirName, pPackage->sXid) == 0);
+	if ( !bOK ) {
+		printf("        [PluginSystem] Manifest identity invalid: root=%s dir=%s xid=%s\n",
+			sRootPath ? (const char*)sRootPath : "(null)",
+			sDirName ? (const char*)sDirName : "(null)",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(null)");
+	}
 	if ( sDirName ) {
 		xrtFree(sDirName);
 	}
@@ -66,17 +72,31 @@ bool PS_ManifestValidateCompat(PluginSystemPackage* pPackage)
 
 	tblCompat = xvoTableGetValue(pPackage->tblManifest, "compat", 6);
 	if ( (tblCompat == NULL) || (xvoType(tblCompat) != XVO_DT_TABLE) ) {
+		printf("        [PluginSystem] Manifest compat missing/invalid: package=%s\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)");
 		return FALSE;
 	}
 
 	iAbiVersion = xvoTableGetInt(tblCompat, "abiVersion", 10);
 	if ( iAbiVersion != XADMIN_ABI_VERSION ) {
+		printf("        [PluginSystem] Manifest abi mismatch: package=%s abi=%d expected=%d\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)",
+			iAbiVersion,
+			XADMIN_ABI_VERSION);
 		return FALSE;
 	}
 
 	sMinHostVersion = xvoTableGetText(tblCompat, "minHostVersion", 14);
 	sMaxHostVersion = xvoTableGetText(tblCompat, "maxHostVersion", 14);
-	return PS_ManifestCheckVersionRequirement(PS_MANIFEST_HOST_VERSION, sMinHostVersion, sMaxHostVersion);
+	if ( !PS_ManifestCheckVersionRequirement(PS_MANIFEST_HOST_VERSION, sMinHostVersion, sMaxHostVersion) ) {
+		printf("        [PluginSystem] Manifest host version mismatch: package=%s host=%s min=%s max=%s\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)",
+			PS_MANIFEST_HOST_VERSION,
+			sMinHostVersion ? (const char*)sMinHostVersion : "(null)",
+			sMaxHostVersion ? (const char*)sMaxHostVersion : "(null)");
+		return FALSE;
+	}
+	return TRUE;
 }
 
 bool PS_ManifestValidateRequiredFields(PluginSystemPackage* pPackage, xvalue tblBuild)
@@ -85,27 +105,43 @@ bool PS_ManifestValidateRequiredFields(PluginSystemPackage* pPackage, xvalue tbl
 		return FALSE;
 	}
 	if ( pPackage->iFormatVersion < 4 ) {
+		printf("        [PluginSystem] Manifest format invalid: package=%s format=%d\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)",
+			pPackage ? pPackage->iFormatVersion : 0);
 		return FALSE;
 	}
 	if ( (pPackage->sXid == NULL) || (pPackage->sXid[0] == '\0') ) {
+		printf("        [PluginSystem] Manifest missing xid\n");
 		return FALSE;
 	}
 	if ( (pPackage->sName == NULL) || (pPackage->sName[0] == '\0') ) {
+		printf("        [PluginSystem] Manifest missing name: package=%s\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)");
 		return FALSE;
 	}
 	if ( (pPackage->sTitle == NULL) || (pPackage->sTitle[0] == '\0') ) {
+		printf("        [PluginSystem] Manifest missing title: package=%s\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)");
 		return FALSE;
 	}
 	if ( (pPackage->sVersion == NULL) || (pPackage->sVersion[0] == '\0') ) {
+		printf("        [PluginSystem] Manifest missing version: package=%s\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)");
 		return FALSE;
 	}
 	if ( (pPackage->sKind == NULL) || (pPackage->sKind[0] == '\0') ) {
+		printf("        [PluginSystem] Manifest missing kind: package=%s\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)");
 		return FALSE;
 	}
 	if ( (pPackage->sEntry == NULL) || (pPackage->sEntry[0] == '\0') ) {
+		printf("        [PluginSystem] Manifest missing entry: package=%s\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)");
 		return FALSE;
 	}
 	if ( xvoTableGetText(tblBuild, "entry", 5) == NULL ) {
+		printf("        [PluginSystem] Manifest build.entry missing: package=%s\n",
+			(pPackage && pPackage->sXid) ? (const char*)pPackage->sXid : "(unknown)");
 		return FALSE;
 	}
 	return TRUE;
@@ -152,11 +188,16 @@ bool PS_LoadManifest(PluginSystemPackage* pPackage, str sRootPath)
 	pPackage->sRootPath = xrtCopyStr(sRootPath, 0);
 	pPackage->sManifestPath = xrtPathJoin(2, sRootPath, "plugin.json");
 	if ( (pPackage->sManifestPath == NULL) || !xrtFileExists(pPackage->sManifestPath) ) {
+		printf("        [PluginSystem] Manifest file missing: root=%s path=%s\n",
+			sRootPath ? (const char*)sRootPath : "(null)",
+			(pPackage && pPackage->sManifestPath) ? (const char*)pPackage->sManifestPath : "(null)");
 		return FALSE;
 	}
 
 	pPackage->tblManifest = PS_ValueParseJsonFileShared(pPackage->sManifestPath);
 	if ( pPackage->tblManifest == NULL ) {
+		printf("        [PluginSystem] Manifest json parse failed: path=%s\n",
+			pPackage->sManifestPath ? (const char*)pPackage->sManifestPath : "(null)");
 		return FALSE;
 	}
 
@@ -181,12 +222,18 @@ bool PS_LoadManifest(PluginSystemPackage* pPackage, str sRootPath)
 		pPackage->sEntry = PS_ManifestTextDup(pPackage->tblManifest, "entry", 5, "main.c");
 	}
 	if ( !PS_ManifestValidateRequiredFields(pPackage, tblBuild) ) {
+		printf("        [PluginSystem] Manifest required fields invalid: path=%s\n",
+			pPackage->sManifestPath ? (const char*)pPackage->sManifestPath : "(null)");
 		return FALSE;
 	}
 	if ( !PS_ManifestValidateIdentity(pPackage, sRootPath) ) {
+		printf("        [PluginSystem] Manifest identity validation failed: path=%s\n",
+			pPackage->sManifestPath ? (const char*)pPackage->sManifestPath : "(null)");
 		return FALSE;
 	}
 	if ( !PS_ManifestValidateCompat(pPackage) ) {
+		printf("        [PluginSystem] Manifest compat validation failed: path=%s\n",
+			pPackage->sManifestPath ? (const char*)pPackage->sManifestPath : "(null)");
 		return FALSE;
 	}
 

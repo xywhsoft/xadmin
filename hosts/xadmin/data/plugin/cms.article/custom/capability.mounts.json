@@ -1,0 +1,22 @@
+{
+	"mounts":	[
+		{
+			"serviceXid":	"comment.system",
+			"slotKey":	"comments",
+			"publicEntry":	{
+				"href":	"/comments",
+				"title":	"评论"
+			},
+			"mount":	{
+				"surface":	"public.record-detail",
+				"mode":	"optional"
+			},
+			"providerPlugin":	"comment.system",
+			"options":	{},
+			"adminEntry":	{
+				"href":	"/comments",
+				"title":	"评论"
+			}
+		}
+	]
+}

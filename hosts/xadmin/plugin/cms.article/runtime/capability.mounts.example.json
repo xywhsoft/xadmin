@@ -1,0 +1,1 @@
+{"mounts":[{"slotKey":"comments","publicEntry":{"href":"/comments","title":"评论"},"providerPlugin":"comment.system","adminEntry":{"href":"/comments","title":"评论"},"note":"Example mount entry. Copy this file into custom/capability.mounts.json and adapt it for the provider plugin.","status":"mounted"}]}

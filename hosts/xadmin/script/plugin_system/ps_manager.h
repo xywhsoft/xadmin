@@ -549,7 +549,7 @@ bool PS_ManagerRefreshPackage(PluginSystemPackage* pPackage, str sRootPath)
 	}
 
 	if ( pLoaded->sXid == NULL ) {
-		str sDirName = xrtPathGetName(sRootPath, 0);
+	str sDirName = xrtPathGetNameExt(sRootPath, 0);
 		pLoaded->sXid = sDirName;
 	}
 	if ( pLoaded->sName == NULL ) {
@@ -578,13 +578,15 @@ PluginSystemPackage* PS_ManagerDiscoverPackagePath(str sPath, bool bRefreshExist
 
 	pPackage = PS_CreatePackage();
 	if ( (pPackage == NULL) || !PS_LoadManifest(pPackage, sPath) ) {
+		printf("        [PluginSystem] Discover package failed: path=%s\n",
+			sPath ? (const char*)sPath : "(null)");
 		if ( pPackage ) {
 			PS_DestroyPackage(pPackage);
 		}
 		return NULL;
 	}
 
-	sDirName = xrtPathGetName(sPath, 0);
+	sDirName = xrtPathGetNameExt(sPath, 0);
 	if ( pPackage->sXid == NULL ) {
 		pPackage->sXid = sDirName ? sDirName : NULL;
 		sDirName = NULL;
@@ -800,7 +802,7 @@ int PS_ManagerScanPluginProc(str sPath, size_t iSize, int bDir, ptr pData, ptr P
 		return FALSE;
 	}
 
-	sName = xrtPathGetName(sPath, 0);
+	sName = xrtPathGetNameExt(sPath, 0);
 	if ( (sName == NULL) || (sName[0] == '.') || (sName[0] == '_') ) {
 		if ( sName ) {
 			xrtFree(sName);

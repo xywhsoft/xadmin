@@ -58,6 +58,10 @@
       font-size: 14px;
     }
     .layout { display: grid; grid-template-columns: 320px 1fr; gap: 18px; }
+    .view-panel[hidden],
+    .tab-panel[hidden] {
+      display: none !important;
+    }
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
@@ -74,6 +78,87 @@
       align-items: center;
     }
     .toolbar-between { justify-content: space-between; }
+    .hero-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .editor-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .tabbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 12px;
+    }
+    .tab-button {
+      border: 1px solid #d0d5dd;
+      background: #fff;
+      color: #344054;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab-button.active {
+      background: #e8f1ff;
+      border-color: #91caff;
+      color: #0958d9;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .summary-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-strong);
+      padding: 18px;
+    }
+    .summary-card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .summary-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .summary-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .selection-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .selection-meta span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .type-item-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .type-item-actions .button {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
     .field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; }
     .label { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
     .input, .textarea {
@@ -205,6 +290,39 @@
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
     }
+    .section-shortcuts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .section-shortcut {
+      width: 100%;
+      text-align: left;
+      border: 1px solid #dbe3ef;
+      border-radius: 8px;
+      background: #f8fbff;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    .section-shortcut:hover {
+      border-color: #91caff;
+      background: #edf5ff;
+      box-shadow: 0 6px 18px rgba(64,124,255,.08);
+    }
+    .section-shortcut strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #1f2937;
+    }
+    .section-shortcut span {
+      display: block;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+    }
     .assistant-advisor-card {
       width: 100%;
       border: 1px solid rgba(148,163,184,.18);
@@ -312,6 +430,7 @@
     @media (max-width: 1220px) {
       .layout, .designer-grid, .history-grid { grid-template-columns: 1fr; }
       .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .summary-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 720px) {
       .shell { padding: 18px 12px 32px; }
@@ -329,6 +448,10 @@
       <p>内容系统现在同时提供 DSL 原文和 xform 驱动的设计辅助层。顶层元信息、发布策略和字段蓝图都可以走同一套表单运行时，再同步回底层 JSON DSL。</p>
       <div class="hero-title">内容系统</div>
       <div class="hero-desc">在这里维护内容类型 DSL、修订历史和受管生成插件。你可以使用下方助手表单和字段蓝图编辑同一份 DSL，并随时回写到 JSON。</div>
+      <div class="hero-actions">
+        <button class="button ghost" id="cs_view_list_btn" onclick="csShowListView()">模型列表</button>
+        <button class="button ghost" id="cs_view_editor_btn" onclick="csOpenEditor()">编辑模型</button>
+      </div>
     </section>
     <div class="layout">
       <aside class="panel stack">
@@ -336,14 +459,82 @@
           <h2>内容类型</h2>
           <div class="toolbar">
             <button class="button ghost" onclick="csNewType()">新建</button>
-            <button class="button ghost" onclick="csLoadTypes()">刷新</button>
+            <button class="button ghost" onclick="csReloadTypeList()">刷新</button>
+            <button class="button danger" onclick="csDeleteSelectedType()">删除</button>
           </div>
         </div>
         <div class="status" id="cs_nav_status"></div>
         <div class="type-list" id="cs_type_list"><div class="empty">加载中...</div></div>
       </aside>
       <main class="stack">
-        <section class="panel stack">
+        <section class="stack view-panel" id="cs_list_view">
+          <section class="panel stack">
+            <div class="toolbar-between">
+              <div>
+                <h2>模型列表</h2>
+                <div class="hint">先在左侧选择模型，或新建一个模型，再进入独立编辑视图。</div>
+              </div>
+              <div class="toolbar">
+                <button class="button primary" onclick="csNewType(true)">新建模型</button>
+                <button class="button ghost" onclick="csReloadTypeList()">刷新列表</button>
+              </div>
+            </div>
+            <div class="meta-grid">
+              <div class="meta-card"><span>模型总数</span><strong id="cs_list_meta_total">0</strong></div>
+              <div class="meta-card"><span>已生成插件</span><strong id="cs_list_meta_generated">0</strong></div>
+              <div class="meta-card"><span>待应用修订</span><strong id="cs_list_meta_pending">0</strong></div>
+              <div class="meta-card"><span>当前选中</span><strong id="cs_list_meta_selected">未选择</strong></div>
+            </div>
+          </section>
+          <section class="summary-grid">
+            <section class="summary-card">
+              <h3>当前模型</h3>
+              <p id="cs_list_selection_desc">请从左侧列表选择一个模型，或点击“新建模型”开始设计。</p>
+              <div class="selection-meta" id="cs_list_selection_meta"></div>
+              <div class="summary-actions">
+                <button class="button primary" onclick="csEditSelectedType()">编辑模型</button>
+                <button class="button warn" onclick="csGenerateSelectedType()">生成插件</button>
+                <button class="button danger" onclick="csDeleteSelectedType()">删除模型</button>
+                <button class="button ghost" onclick="csEditSelectedType('revisions')">查看修订</button>
+                <button class="button ghost" onclick="csEditSelectedType('advisor')">查看顾问</button>
+              </div>
+            </section>
+            <section class="summary-card">
+              <h3>编辑流程</h3>
+              <p>模型列表与模型编辑已经拆分。进入编辑视图后，再通过 tabs 管理 DSL、设计器、修订和升级顾问，避免所有区域长期堆叠在同一页中。</p>
+              <div class="summary-actions">
+                <button class="button ghost" onclick="csNewType(true)">从模板新建</button>
+                <button class="button ghost" onclick="csUseTemplateAndOpen()">载入起始模板</button>
+              </div>
+            </section>
+          </section>
+        </section>
+
+        <section class="editor-shell view-panel" id="cs_editor_view" hidden>
+          <section class="panel stack">
+            <div class="toolbar-between">
+              <div>
+                <h2>模型编辑</h2>
+                <div class="hint">当前模型的不同任务被拆分到下方 tabs 中，避免单页堆叠。</div>
+              </div>
+              <div class="toolbar">
+                <button class="button ghost" onclick="csShowListView()">返回列表</button>
+                <button class="button primary" onclick="csSaveType()">保存修订</button>
+                <button class="button warn" onclick="csGenerate()">生成插件</button>
+              </div>
+            </div>
+            <div class="tabbar">
+              <button class="tab-button" id="cs_tab_overview_btn" onclick="csSetEditorTab('overview')">基础信息</button>
+              <button class="tab-button" id="cs_tab_design_btn" onclick="csSetEditorTab('design')">基础与实体</button>
+              <button class="tab-button" id="cs_tab_display_btn" onclick="csSetEditorTab('display')">分组与界面</button>
+              <button class="tab-button" id="cs_tab_policy_btn" onclick="csSetEditorTab('policy')">能力与策略</button>
+              <button class="tab-button" id="cs_tab_fields_btn" onclick="csSetEditorTab('fields')">字段设计</button>
+              <button class="tab-button" id="cs_tab_dsl_btn" onclick="csSetEditorTab('dsl')">DSL</button>
+              <button class="tab-button" id="cs_tab_revisions_btn" onclick="csSetEditorTab('revisions')">修订记录</button>
+              <button class="tab-button" id="cs_tab_advisor_btn" onclick="csSetEditorTab('advisor')">升级顾问</button>
+            </div>
+          </section>
+        <section class="panel stack tab-panel" id="cs_tab_overview">
           <div class="meta-grid">
             <div class="meta-card"><span>当前类型</span><strong id="cs_meta_title">新建</strong></div>
             <div class="meta-card"><span>当前修订</span><strong id="cs_meta_revision">0</strong></div>
@@ -358,10 +549,86 @@
             <div class="toolbar">
               <button class="button primary" onclick="csSaveType()">保存修订</button>
               <button class="button warn" onclick="csGenerate()">生成受管插件</button>
-              <button class="button ghost" onclick="csLoadAdvisor()">刷新顾问</button>
               <button class="button ghost" onclick="csUseTemplate()">载入起始模板</button>
             </div>
           </div>
+          <div class="hint">先在这里确认当前模型、修订说明与生成动作，再切换到下方的模型设置、字段设计或 DSL 标签继续编辑。</div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_design" hidden>
+          <div class="toolbar-between">
+            <h3>基础与实体</h3>
+            <div class="toolbar">
+              <button class="button primary" onclick="csApplyAssistantToDsl()">写回 DSL</button>
+              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+            </div>
+          </div>
+          <div class="status" id="cs_assistant_status"></div>
+          <div class="hint">这里维护模型身份、实体命名、数据表与标题字段等基础配置。</div>
+          <div class="section-shortcuts">
+            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('identity_title', 'design')">
+              <strong>身份与实体</strong>
+              <span>快速定位到 XID、名称、数据表、标题字段等基础定义。</span>
+            </button>
+            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('presentation_groupsJson', 'display')">
+              <strong>分组与界面</strong>
+              <span>快速定位到展示分组、列表列配置、排序与详情展示选项。</span>
+            </button>
+            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('policy_statusFlow', 'policy')">
+              <strong>能力与策略</strong>
+              <span>快速定位到草稿、状态流、作者策略、发布模式与删除模式。</span>
+            </button>
+            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('metadata_notes', 'display')">
+              <strong>元数据与备注</strong>
+              <span>快速定位到标签、关键字、运营备注与能力槽位 JSON。</span>
+            </button>
+          </div>
+          <div class="assistant-advisor-grid" id="cs_assistant_advisor"></div>
+          <div class="form-host" id="cs_assistant_form"><div class="empty">正在加载助手表单...</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_display" hidden>
+          <div class="toolbar-between">
+            <h3>分组与界面</h3>
+            <div class="toolbar">
+              <button class="button primary" onclick="csApplyAssistantToDsl('display')">写回 DSL</button>
+              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+            </div>
+          </div>
+          <div class="status" id="cs_display_status"></div>
+          <div class="hint">这里集中维护展示分组、列表列、默认排序、详情展示与元数据备注。</div>
+          <div class="form-host" id="cs_display_form"><div class="empty">正在加载界面配置表单...</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_policy" hidden>
+          <div class="toolbar-between">
+            <h3>能力与策略</h3>
+            <div class="toolbar">
+              <button class="button primary" onclick="csApplyAssistantToDsl('policy')">写回 DSL</button>
+              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+            </div>
+          </div>
+          <div class="status" id="cs_policy_status"></div>
+          <div class="hint">这里集中维护草稿、发布、作者、删除策略，以及能力槽位与索引配置。</div>
+          <div class="form-host" id="cs_policy_form"><div class="empty">正在加载能力与策略表单...</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_fields" hidden>
+          <div class="toolbar-between">
+            <h3>字段设计</h3>
+            <div class="toolbar">
+              <button class="button primary" onclick="csCommitFieldToDsl()">应用字段</button>
+              <button class="button ghost" onclick="csClearFieldEditor()">新建字段</button>
+              <button class="button danger" onclick="csDeleteFieldFromDsl()">删除当前字段</button>
+            </div>
+          </div>
+          <div class="status" id="cs_field_status"></div>
+          <div class="hint">通过表单逐个新增或修改字段定义，再合并回 `entity.fields`。</div>
+          <div class="form-host" id="cs_field_form"><div class="empty">正在加载字段编辑器...</div></div>
+          <div class="field-list" id="cs_field_list"><div class="empty">还没有定义字段。</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_dsl" hidden>
           <div class="status" id="cs_form_status"></div>
           <div class="hint">DSL JSON 仍然是唯一真源。下面的助手面板会以表单方式编辑同一份 DSL，再回写到编辑器。</div>
           <div class="field">
@@ -370,46 +637,16 @@
           </div>
         </section>
 
-        <section class="designer-grid">
-          <section class="panel stack">
-            <div class="toolbar-between">
-              <h3>类型总览助手</h3>
-              <div class="toolbar">
-                <button class="button primary" onclick="csApplyAssistantToDsl()">写回 DSL</button>
-                <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
-              </div>
-            </div>
-            <div class="status" id="cs_assistant_status"></div>
-            <div class="hint">这里集中编辑内容类型身份、实体默认字段、草稿策略和发布策略，不用离开生成器页面。</div>
-            <div class="assistant-advisor-grid" id="cs_assistant_advisor"></div>
-            <div class="form-host" id="cs_assistant_form"><div class="empty">正在加载助手表单...</div></div>
-          </section>
-
-          <section class="panel stack">
-            <div class="toolbar-between">
-              <h3>字段蓝图</h3>
-              <div class="toolbar">
-                <button class="button primary" onclick="csCommitFieldToDsl()">应用字段</button>
-                <button class="button ghost" onclick="csClearFieldEditor()">新建字段</button>
-                <button class="button danger" onclick="csDeleteFieldFromDsl()">删除当前字段</button>
-              </div>
-            </div>
-            <div class="status" id="cs_field_status"></div>
-            <div class="hint">通过表单逐个新增或修改字段定义，再合并回 `entity.fields`。</div>
-            <div class="form-host" id="cs_field_form"><div class="empty">正在加载字段编辑器...</div></div>
-            <div class="field-list" id="cs_field_list"><div class="empty">还没有定义字段。</div></div>
-          </section>
-        </section>
-
         <section class="history-grid">
-          <div class="panel stack">
+          <div class="panel stack tab-panel" id="cs_tab_revisions" hidden>
             <h3>修订历史</h3>
             <div class="list" id="cs_revision_list"><div class="empty">还没有修订记录。</div></div>
           </div>
-          <div class="panel stack">
+          <div class="panel stack tab-panel" id="cs_tab_advisor" hidden>
             <h3>升级顾问</h3>
             <div class="list" id="cs_advisor_list"><div class="empty">先保存内容类型，才能查看生成影响。</div></div>
           </div>
+        </section>
         </section>
       </main>
     </div>
@@ -420,13 +657,19 @@
   <script>
     const csState = {
       selectedId: 0,
+      viewMode: "list",
+      editorTab: "overview",
       currentRevision: 0,
       appliedRevision: 0,
       generatedPluginXid: "",
       types: [],
       advisorData: { items: [] },
       advisorJumpTargets: {},
-      assistantForm: null,
+      assistantForms: {
+        design: null,
+        display: null,
+        policy: null
+      },
       fieldForm: null,
       fieldEditIndex: -1,
       pendingFieldFocusName: "",
@@ -524,6 +767,25 @@
           deleteMode: "soft-delete",
           authorMode: "admin-or-member",
           publishMode: "manual"
+        },
+        ui: {
+          form: {
+            layout: "single-column"
+          },
+          detail: {
+            showAuthor: false,
+            showPublishedAt: true
+          },
+          list: {
+            defaultSort: ["updateTime", "desc"],
+            pageSize: 20,
+            columns: ["title", "status"]
+          }
+        },
+        metadata: {
+          labels: ["文章", "内容"],
+          tags: ["article"],
+          notes: "文章内容类型。"
         },
         capabilitySlots: [
           {
@@ -652,7 +914,7 @@
               { name: "ui_detail_showAuthor", type: "switch", label: "详情显示作者" },
               { name: "ui_detail_showPublishedAt", type: "switch", label: "详情显示发布时间" },
               { name: "ui_list_pageSize", type: "number", label: "列表分页大小", props: { min: 1, max: 200, step: 1 } },
-              { name: "ui_list_defaultSortField", type: "text", label: "默认排序字段", props: { placeholder: "update_time" } },
+              { name: "ui_list_defaultSortField", type: "text", label: "默认排序字段", props: { placeholder: "updateTime" } },
               {
                 name: "ui_list_defaultSortDir",
                 type: "select",
@@ -979,7 +1241,7 @@
       }
 
       if (changed.length) {
-        csSetStatus("cs_field_status", `Auto-filled ${changed.join(", ")} for ${componentType}.`);
+        csSetStatus("cs_field_status", `已根据组件 ${componentType} 自动补全：${changed.join("，")}。`);
       }
     }
 
@@ -995,6 +1257,53 @@
         if (ch === "\"") return "&quot;";
         return "&#39;";
       });
+    }
+
+    function csNormalizeBooleanProperty(obj, key) {
+      if (!obj || typeof obj !== "object" || !Object.prototype.hasOwnProperty.call(obj, key)) return;
+      const value = csCoerceBoolean(obj[key]);
+      if (value == null) delete obj[key];
+      else obj[key] = value;
+    }
+
+    function csCoerceBoolean(value) {
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value !== 0;
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["true", "1", "yes", "on"].includes(normalized)) return true;
+        if (["false", "0", "no", "off", ""].includes(normalized)) return false;
+      }
+      return null;
+    }
+
+    function csNormalizeIntegerProperty(obj, key, min, max) {
+      if (!obj || typeof obj !== "object" || !Object.prototype.hasOwnProperty.call(obj, key)) return;
+      const value = obj[key];
+      if (value == null || value === "") {
+        delete obj[key];
+        return;
+      }
+      const number = Number(value);
+      if (!Number.isInteger(number) || (min != null && number < min) || (max != null && number > max)) {
+        delete obj[key];
+        return;
+      }
+      obj[key] = number;
+    }
+
+    function csNormalizeDefaultSort(value) {
+      if (Array.isArray(value)) {
+        const field = String(value[0] || "").trim();
+        const dir = String(value[1] || "desc").trim() || "desc";
+        return field ? [field, dir] : null;
+      }
+      if (value && typeof value === "object") {
+        const field = String(value.field || "").trim();
+        const dir = String(value.dir || "desc").trim() || "desc";
+        return field ? [field, dir] : null;
+      }
+      return null;
     }
 
     function csToast(message, icon) {
@@ -1028,14 +1337,53 @@
       spec.presentation.groups = Array.isArray(spec.presentation.groups) ? spec.presentation.groups : [];
       spec.coreFeatures = (spec.coreFeatures && typeof spec.coreFeatures === "object") ? spec.coreFeatures : {};
       spec.coreFeatures.draft = (spec.coreFeatures.draft && typeof spec.coreFeatures.draft === "object") ? spec.coreFeatures.draft : {};
+      csNormalizeBooleanProperty(spec.coreFeatures, "adminCrud");
+      csNormalizeBooleanProperty(spec.coreFeatures, "publicApi");
+      csNormalizeBooleanProperty(spec.coreFeatures.draft, "enabled");
       spec.policies = (spec.policies && typeof spec.policies === "object") ? spec.policies : {};
       spec.ui = (spec.ui && typeof spec.ui === "object") ? spec.ui : {};
       spec.ui.list = (spec.ui.list && typeof spec.ui.list === "object") ? spec.ui.list : {};
       spec.ui.form = (spec.ui.form && typeof spec.ui.form === "object") ? spec.ui.form : {};
       spec.ui.detail = (spec.ui.detail && typeof spec.ui.detail === "object") ? spec.ui.detail : {};
+      csNormalizeIntegerProperty(spec.ui.list, "pageSize", 1, 200);
+      const normalizedDefaultSort = csNormalizeDefaultSort(spec.ui.list.defaultSort);
+      if (normalizedDefaultSort) {
+        spec.ui.list.defaultSort = normalizedDefaultSort;
+      } else {
+        delete spec.ui.list.defaultSort;
+      }
+      csNormalizeBooleanProperty(spec.ui.detail, "showAuthor");
+      csNormalizeBooleanProperty(spec.ui.detail, "showPublishedAt");
       spec.metadata = (spec.metadata && typeof spec.metadata === "object") ? spec.metadata : {};
       spec.metadata.labels = Array.isArray(spec.metadata.labels) ? spec.metadata.labels : [];
       spec.metadata.tags = Array.isArray(spec.metadata.tags) ? spec.metadata.tags : [];
+      if (Object.prototype.hasOwnProperty.call(spec.metadata, "notes")) {
+        if (spec.metadata.notes == null) {
+          delete spec.metadata.notes;
+        } else if (typeof spec.metadata.notes !== "string") {
+          spec.metadata.notes = String(spec.metadata.notes);
+        }
+      }
+      for (const index of spec.entity.indexes || []) {
+        if (!index || typeof index !== "object") continue;
+        csNormalizeBooleanProperty(index, "unique");
+      }
+      for (const field of spec.entity.fields || []) {
+        if (!field || typeof field !== "object") continue;
+        [
+          "required",
+          "nullable",
+          "showInForm",
+          "showInList",
+          "showInDetail",
+          "readonly",
+          "disabled",
+          "sortable",
+          "filterable",
+          "searchable"
+        ].forEach((key) => csNormalizeBooleanProperty(field, key));
+        csNormalizeIntegerProperty(field, "layoutSpan", 1, 2);
+      }
       spec.capabilitySlots = Array.isArray(spec.capabilitySlots) ? spec.capabilitySlots : [];
       return spec;
     }
@@ -1046,8 +1394,8 @@
         return csEnsureSpecShape(parsed);
       } catch (err) {
         if (showError !== false) {
-          csSetPanelStatus("DSL JSON is invalid.", "#b91c1c");
-          csSetStatus("cs_assistant_status", "Reload assistant after fixing JSON syntax.", "#b91c1c");
+          csSetPanelStatus("DSL JSON 不合法。", "#b91c1c");
+          csSetAssistantSectionStatus("请先修复 DSL JSON 语法，再重新加载模型设置。", "#b91c1c");
           csSetStatus("cs_field_status", "DSL JSON 非法，字段蓝图暂时不可用。", "#b91c1c");
         }
         return null;
@@ -1063,12 +1411,12 @@
 
     function csUseTemplate() {
       csState.fieldEditIndex = -1;
-      csWriteSpec(csStarterTemplate(), "Starter template loaded.");
+      csWriteSpec(csStarterTemplate(), "已载入起始模板。");
       csRefreshDesigner();
     }
 
     function csApplyMeta(typeData) {
-      const title = typeData && typeData.title ? typeData.title : "New";
+      const title = typeData && typeData.title ? typeData.title : "新建";
       const currentRevision = typeData && typeData.currentRevision ? typeData.currentRevision : 0;
       const generatedPluginXid = typeData && typeData.generatedPluginXid ? typeData.generatedPluginXid : "-";
       const appliedRevision = typeData && typeData.appliedRevision ? typeData.appliedRevision : 0;
@@ -1078,26 +1426,226 @@
       document.getElementById("cs_meta_applied").innerText = String(appliedRevision);
     }
 
+    function csSelectedType() {
+      return csState.types.find((item) => item && item.id === csState.selectedId) || null;
+    }
+
+    function csRenderListSummary() {
+      const selected = csSelectedType();
+      const total = csState.types.length;
+      const generated = csState.types.filter((item) => item && item.generatedPluginXid).length;
+      const pending = csState.types.filter((item) => item && Number(item.currentRevision || 0) > Number(item.appliedRevision || 0)).length;
+      const metaHost = document.getElementById("cs_list_selection_meta");
+      const descHost = document.getElementById("cs_list_selection_desc");
+      document.getElementById("cs_list_meta_total").innerText = String(total);
+      document.getElementById("cs_list_meta_generated").innerText = String(generated);
+      document.getElementById("cs_list_meta_pending").innerText = String(pending);
+      document.getElementById("cs_list_meta_selected").innerText = selected ? String(selected.title || selected.name || selected.xid || "已选择") : "未选择";
+      if (!selected) {
+        descHost.innerText = "请从左侧列表选择一个模型，或点击“新建模型”开始设计。";
+        metaHost.innerHTML = "";
+        return;
+      }
+      descHost.innerText = `当前选中模型：${selected.title || selected.name || selected.xid || "未命名模型"}。你可以进入编辑视图继续维护 DSL、字段设计与修订记录。`;
+      metaHost.innerHTML = [
+        `<span>XID：${csEscape(selected.xid || "-")}</span>`,
+        `<span>当前修订：${csEscape(selected.currentRevision || 0)}</span>`,
+        `<span>已应用修订：${csEscape(selected.appliedRevision || 0)}</span>`,
+        `<span>受管插件：${csEscape(selected.generatedPluginXid || "-")}</span>`,
+        `<span>最后更新：${csEscape(selected.updateTimeText || "-")}</span>`
+      ].join("");
+    }
+
+    function csSyncView() {
+      const listView = document.getElementById("cs_list_view");
+      const editorView = document.getElementById("cs_editor_view");
+      const isEditor = csState.viewMode === "editor";
+      const tabMap = {
+        overview: "cs_tab_overview",
+        design: "cs_tab_design",
+        display: "cs_tab_display",
+        policy: "cs_tab_policy",
+        fields: "cs_tab_fields",
+        dsl: "cs_tab_dsl",
+        revisions: "cs_tab_revisions",
+        advisor: "cs_tab_advisor"
+      };
+      listView.hidden = isEditor;
+      editorView.hidden = !isEditor;
+      document.getElementById("cs_view_list_btn").classList.toggle("primary", !isEditor);
+      document.getElementById("cs_view_list_btn").classList.toggle("ghost", isEditor);
+      document.getElementById("cs_view_editor_btn").classList.toggle("primary", isEditor);
+      document.getElementById("cs_view_editor_btn").classList.toggle("ghost", !isEditor);
+      for (const [key, panelId] of Object.entries(tabMap)) {
+        const button = document.getElementById(`cs_tab_${key}_btn`);
+        const panel = document.getElementById(panelId);
+        const active = csState.editorTab === key;
+        if (button) button.classList.toggle("active", active);
+        if (panel) panel.hidden = !active;
+      }
+      csRenderListSummary();
+    }
+
+    function csSetEditorTab(tab) {
+      csState.editorTab = tab || "overview";
+      csSyncView();
+    }
+
+    function csOpenEditor(tab) {
+      csState.viewMode = "editor";
+      if (tab) csState.editorTab = tab;
+      csSyncView();
+    }
+
+    function csShowListView() {
+      csState.viewMode = "list";
+      csSyncView();
+    }
+
+    function csEditSelectedType(tab) {
+      if (!csState.selectedId) {
+        csToast("请先选择一个模型。", 0);
+        return;
+      }
+      csOpenEditor(tab || "overview");
+    }
+
+    function csGenerateSelectedType() {
+      if (!csState.selectedId) {
+        csToast("请先选择一个模型。", 0);
+        return;
+      }
+      csGenerate();
+    }
+
+    function csDeleteSelectedType() {
+      const selected = csSelectedType();
+      const title = selected ? (selected.title || selected.name || selected.xid || "当前模型") : "";
+      if (!csState.selectedId) {
+        csToast("请先选择一个模型。", 0);
+        return;
+      }
+      if (!window.confirm(`确认删除模型“${title}”吗？这会删除它的 DSL、修订记录和升级记录。`)) {
+        return;
+      }
+      fetch("/admin/api/plugin/content-system/type/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: csState.selectedId })
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.result) throw new Error(data.message || "删除失败");
+          csSetPanelStatus(data.message || "模型已删除。");
+          csState.selectedId = 0;
+          return csLoadTypes({ viewMode: "list" }).then(() => {
+            csSetPanelStatus(data.message || "模型已删除。");
+            csToast("模型已删除", 1);
+          });
+        })
+        .catch((err) => {
+          csSetPanelStatus(err.message || "删除失败", "#b91c1c");
+          csToast(err.message || "删除失败", 2);
+        });
+    }
+
+    function csUseTemplateAndOpen() {
+      csUseTemplate();
+      csOpenEditor("overview");
+    }
+
     function csRenderTypes() {
       const host = document.getElementById("cs_type_list");
       if (!csState.types.length) {
-        host.innerHTML = "<div class='empty'>No content types yet.</div>";
+        host.innerHTML = "<div class='empty'>还没有内容模型。</div>";
+        csRenderListSummary();
         return;
       }
       host.innerHTML = csState.types.map((item) => {
         const active = item.id === csState.selectedId ? " active" : "";
-        return `<article class="type-item${active}" onclick="csSelectType(${item.id})"><strong>${csEscape(item.title || item.name || item.xid)}</strong><span>${csEscape(item.typeKey || "")}</span><span>Revision ${csEscape(item.currentRevision || 0)} | Plugin ${csEscape(item.generatedPluginXid || "-")}</span><span>${csEscape(item.updateTimeText || "")}</span></article>`;
+        return `<article class="type-item${active}" onclick="csSelectType(${item.id})"><strong>${csEscape(item.title || item.name || item.xid)}</strong><span>${csEscape(item.typeKey || "")}</span><span>修订 ${csEscape(item.currentRevision || 0)} | 插件 ${csEscape(item.generatedPluginXid || "-")}</span><span>${csEscape(item.updateTimeText || "")}</span><div class="type-item-actions"><button class="button ghost" onclick="event.stopPropagation();csOpenTypeEditor(${item.id}, 'overview')">编辑</button><button class="button ghost" onclick="event.stopPropagation();csOpenTypeEditor(${item.id}, 'revisions')">修订</button><button class="button warn" onclick="event.stopPropagation();csGenerateFromList(${item.id})">生成</button><button class="button danger" onclick="event.stopPropagation();csDeleteTypeFromList(${item.id})">删除</button></div></article>`;
       }).join("");
+      csRenderListSummary();
+    }
+
+    function csOpenTypeEditor(id, tab) {
+      csSelectType(id, () => csOpenEditor(tab || "overview")).catch(() => {});
+    }
+
+    function csGenerateFromList(id) {
+      csSelectType(id, () => csGenerate()).catch(() => {});
+    }
+
+    function csDeleteTypeFromList(id) {
+      csSelectType(id, () => csDeleteSelectedType()).catch(() => {});
+    }
+
+    function csReloadTypeList() {
+      csLoadTypes().catch(() => {});
+    }
+
+    function csAssistantTabForField(fieldName) {
+      const name = String(fieldName || "").trim();
+      if (!name) return "design";
+      if (name.startsWith("ui_") || name.startsWith("metadata_") || name.startsWith("presentation_")) return "display";
+      if (name.startsWith("feature_") || name.startsWith("policy_") || name === "capability_slotsJson" || name === "entity_indexesJson") return "policy";
+      return "design";
+    }
+
+    function csAssistantHostForTab(tab) {
+      if (tab === "display") return "cs_display_form";
+      if (tab === "policy") return "cs_policy_form";
+      return "cs_assistant_form";
+    }
+
+    function csAssistantTabForHostId(hostId) {
+      if (hostId === "cs_display_form") return "display";
+      if (hostId === "cs_policy_form") return "policy";
+      return "design";
+    }
+
+    function csBuildAssistantSectionSchema(section) {
+      const base = csAssistantSchema();
+      let allowed = null;
+      if (section === "design") {
+        allowed = new Set([
+          "identity_xid", "identity_name", "identity_title", "identity_namespace", "identity_icon", "identity_description",
+          "entity_name", "entity_table", "entity_titleField", "entity_statusField", "entity_slugField", "entity_summaryField",
+          "entity_coverField", "entity_publishedAtField"
+        ]);
+      } else if (section === "display") {
+        allowed = new Set([
+          "ui_form_layout", "ui_detail_showAuthor", "ui_detail_showPublishedAt", "ui_list_pageSize",
+          "ui_list_defaultSortField", "ui_list_defaultSortDir", "ui_list_columnsJson",
+          "metadata_labelsJson", "metadata_tagsJson", "metadata_notes", "presentation_groupsJson"
+        ]);
+      } else if (section === "policy") {
+        allowed = new Set([
+          "feature_adminCrud", "feature_publicApi", "feature_draftEnabled", "feature_draftMode",
+          "policy_statusFlow", "policy_deleteMode", "policy_publishMode", "policy_authorMode",
+          "entity_indexesJson", "capability_slotsJson"
+        ]);
+      }
+      return {
+        title: base.title,
+        desc: base.desc,
+        groups: (base.groups || []).map((group) => {
+          return {
+            ...group,
+            fields: (group.fields || []).filter((field) => allowed ? allowed.has(field.name) : true)
+          };
+        }).filter((group) => (group.fields || []).length)
+      };
     }
 
     function csRenderRevisions(items) {
       const host = document.getElementById("cs_revision_list");
       if (!items || !items.length) {
-        host.innerHTML = "<div class='empty'>No revisions yet.</div>";
+        host.innerHTML = "<div class='empty'>还没有修订记录。</div>";
         return;
       }
       host.innerHTML = items.map((item) => {
-        return `<div class="list-item"><strong>Revision ${csEscape(item.revision)}</strong><div>${csEscape(item.note || "No note")}</div><div style="margin-top:8px;color:#6b7280;font-size:12px;">Hash ${csEscape(item.specHash || "")} | ${csEscape(item.createTimeText || "")}</div></div>`;
+        return `<div class="list-item"><strong>修订 ${csEscape(item.revision)}</strong><div>${csEscape(item.note || "无说明")}</div><div style="margin-top:8px;color:#6b7280;font-size:12px;">哈希 ${csEscape(item.specHash || "")} | ${csEscape(item.createTimeText || "")}</div></div>`;
       }).join("");
     }
 
@@ -1118,91 +1666,91 @@
       const map = {
         "meta-change": {
           groupKey: "global:identity",
-          label: "Assistant: Identity",
-          hint: "Jump to content type identity fields.",
+          label: "模型身份信息",
+          hint: "跳转到内容类型身份字段。",
           elementId: "cs_assistant_form",
           fieldName: "identity_title"
         },
         "status-flow-change": {
           groupKey: "global:workflow",
-          label: "Assistant: Workflow Policy",
-          hint: "Jump to publishing workflow settings.",
-          elementId: "cs_assistant_form",
+          label: "发布流程策略",
+          hint: "跳转到状态流与发布流程配置。",
+          elementId: "cs_policy_form",
           fieldName: "policy_statusFlow"
         },
         "author-mode-change": {
           groupKey: "global:author-policy",
-          label: "Assistant: Author Policy",
-          hint: "Jump to author ownership settings.",
-          elementId: "cs_assistant_form",
+          label: "作者归属策略",
+          hint: "跳转到作者归属与权限模式配置。",
+          elementId: "cs_policy_form",
           fieldName: "policy_authorMode"
         },
         "publish-mode-change": {
           groupKey: "global:publish-policy",
-          label: "Assistant: Publish Policy",
-          hint: "Jump to publish mode settings.",
-          elementId: "cs_assistant_form",
+          label: "发布模式策略",
+          hint: "跳转到发布模式配置。",
+          elementId: "cs_policy_form",
           fieldName: "policy_publishMode"
         },
         "presentation-group-change": {
           groupKey: "global:presentation",
-          label: "Assistant: Presentation Groups",
-          hint: "Jump to presentation group JSON.",
-          elementId: "cs_assistant_form",
+          label: "展示分组配置",
+          hint: "跳转到展示分组 JSON 配置。",
+          elementId: "cs_display_form",
           fieldName: "presentation_groupsJson"
         },
         "capability-slot-change": {
           groupKey: "global:capability-slots",
-          label: "Assistant: Capability Slots",
-          hint: "Jump to capability slot JSON.",
-          elementId: "cs_assistant_form",
+          label: "能力槽位配置",
+          hint: "跳转到能力槽位 JSON 配置。",
+          elementId: "cs_policy_form",
           fieldName: "capability_slotsJson"
         },
         "index-add": {
           groupKey: "global:indexes",
-          label: "Assistant: Entity Indexes",
-          hint: "Jump to entity index JSON.",
-          elementId: "cs_assistant_form",
+          label: "实体索引配置",
+          hint: "跳转到实体索引 JSON 配置。",
+          elementId: "cs_policy_form",
           fieldName: "entity_indexesJson"
         },
         "index-fields-change": {
           groupKey: "global:indexes",
-          label: "Assistant: Entity Indexes",
-          hint: "Jump to entity index JSON.",
-          elementId: "cs_assistant_form",
+          label: "实体索引配置",
+          hint: "跳转到实体索引 JSON 配置。",
+          elementId: "cs_policy_form",
           fieldName: "entity_indexesJson"
         },
         "index-unique-change": {
           groupKey: "global:indexes",
-          label: "Assistant: Entity Indexes",
-          hint: "Jump to entity index JSON.",
-          elementId: "cs_assistant_form",
+          label: "实体索引配置",
+          hint: "跳转到实体索引 JSON 配置。",
+          elementId: "cs_policy_form",
           fieldName: "entity_indexesJson"
         },
         "index-remove": {
           groupKey: "global:indexes",
-          label: "Assistant: Entity Indexes",
-          hint: "Jump to entity index JSON.",
-          elementId: "cs_assistant_form",
+          label: "实体索引配置",
+          hint: "跳转到实体索引 JSON 配置。",
+          elementId: "cs_policy_form",
           fieldName: "entity_indexesJson"
         },
         "initial-generation": {
           groupKey: "global:revisions",
-          label: "Revision History",
-          hint: "Jump to revision history and applied state.",
+          label: "修订历史",
+          hint: "跳转到修订历史与已应用状态。",
           elementId: "cs_revision_list"
         },
         "no-diff": {
           groupKey: "global:dsl",
           label: "DSL JSON",
-          hint: "Jump to the raw DSL editor.",
+          hint: "跳转到原始 DSL 编辑区。",
           elementId: "cs_spec"
         }
       };
       return map[kind] || {
         groupKey: "global:dsl",
         label: "DSL JSON",
-        hint: "Jump to the raw DSL editor.",
+        hint: "跳转到原始 DSL 编辑区。",
         elementId: "cs_spec"
       };
     }
@@ -1311,7 +1859,7 @@
       for (const item of items) {
         let entry;
         const target = item && item.scope === "field" ? null : csAdvisorTargetForItem(item);
-        if (!target || target.elementId !== "cs_assistant_form") continue;
+        if (!target) continue;
         entry = groups.get(target.groupKey);
         if (!entry) {
           entry = { key: target.groupKey, target, items: [] };
@@ -1345,7 +1893,7 @@
           summary.info ? `<span class="pill info">${csEscape(`${summary.info} 条提示`)}</span>` : ""
         ].filter(Boolean).join("");
         const note = top ? `${csEscape(top.title || top.kind || "顾问项")}: ${csEscape(top.message || "")}` : csEscape((group.target || {}).hint || "");
-        return `<button type="button" class="assistant-advisor-card ${csEscape(topSeverity)}" onclick='csJumpToAdvisorTarget(${JSON.stringify(group.key)})'><strong>${csEscape((group.target || {}).label || "Assistant Block")}</strong><div class="advisor-summary">${badges}</div><p>${note}</p></button>`;
+        return `<button type="button" class="assistant-advisor-card ${csEscape(topSeverity)}" onclick='csJumpToAdvisorTarget(${JSON.stringify(group.key)})'><strong>${csEscape((group.target || {}).label || "助手分区")}</strong><div class="advisor-summary">${badges}</div><p>${note}</p></button>`;
       }).join("");
     }
 
@@ -1374,11 +1922,36 @@
       card.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
+    function csJumpToAssistantField(fieldName, tab) {
+      const targetTab = tab || csAssistantTabForField(fieldName);
+      const hostId = csAssistantHostForTab(targetTab);
+      csState.viewMode = "editor";
+      csState.editorTab = targetTab;
+      csSyncView();
+      const focus = () => {
+        const control = csFindNamedControl(hostId, fieldName);
+        if (!control) return false;
+        const block = control.closest(".layui-form-item") || control;
+        block.scrollIntoView({ behavior: "smooth", block: "center" });
+        csPulseJumpTarget(block);
+        if (typeof control.focus === "function") control.focus();
+        return true;
+      };
+      if (!focus()) {
+        window.setTimeout(focus, 120);
+      }
+    }
+
     function csJumpToAdvisorTarget(groupKey) {
       const target = (((csState || {}).advisorJumpTargets) || {})[groupKey];
       let node = null;
       let focusNode = null;
       if (!target) return;
+      csState.viewMode = "editor";
+      csState.editorTab = csAssistantTabForHostId(target.elementId);
+      if (target.elementId === "cs_revision_list") csState.editorTab = "revisions";
+      if (target.elementId === "cs_spec") csState.editorTab = "dsl";
+      csSyncView();
       if (target.fieldName) {
         focusNode = csFindNamedControl(target.elementId, target.fieldName);
         if (focusNode) {
@@ -1389,7 +1962,7 @@
         node = document.getElementById(target.elementId);
       }
       if (!node) {
-        csToast(`Unable to locate ${target.label || "target block"}.`, 2);
+        csToast(`无法定位到 ${target.label || "目标区域"}。`, 2);
         return;
       }
       node.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -1412,7 +1985,7 @@
       csState.advisorJumpTargets = {};
       csRenderAssistantAdvisorSummary();
       if (!items.length) {
-        host.innerHTML = "<div class='empty'>No structural diff detected.</div>";
+        host.innerHTML = "<div class='empty'>当前没有检测到结构差异。</div>";
         if (spec) csRenderFieldList(spec);
         return;
       }
@@ -1478,8 +2051,8 @@
         ui_detail_showAuthor: !!((((spec.ui || {}).detail || {}).showAuthor)),
         ui_detail_showPublishedAt: !!((((spec.ui || {}).detail || {}).showPublishedAt)),
         ui_list_pageSize: Number(((((spec.ui || {}).list || {}).pageSize) || 0)) || "",
-        ui_list_defaultSortField: (((((spec.ui || {}).list || {}).defaultSort) || {}).field) || "",
-        ui_list_defaultSortDir: (((((spec.ui || {}).list || {}).defaultSort) || {}).dir) || "desc",
+        ui_list_defaultSortField: (csNormalizeDefaultSort(((((spec.ui || {}).list || {}).defaultSort)) || [])[0]) || "",
+        ui_list_defaultSortDir: (csNormalizeDefaultSort(((((spec.ui || {}).list || {}).defaultSort)) || [])[1]) || "desc",
         ui_list_columnsJson: JSON.stringify((((spec.ui || {}).list || {}).columns) || [], null, 2),
         metadata_labelsJson: JSON.stringify((spec.metadata || {}).labels || [], null, 2),
         metadata_tagsJson: JSON.stringify((spec.metadata || {}).tags || [], null, 2),
@@ -1512,22 +2085,22 @@
       spec.entity.summaryField = String(values.entity_summaryField || "").trim();
       spec.entity.coverField = String(values.entity_coverField || "").trim();
       spec.entity.publishedAtField = String(values.entity_publishedAtField || "").trim();
-      spec.coreFeatures.adminCrud = !!values.feature_adminCrud;
-      spec.coreFeatures.publicApi = !!values.feature_publicApi;
-      spec.coreFeatures.draft.enabled = !!values.feature_draftEnabled;
+      spec.coreFeatures.adminCrud = csCoerceBoolean(values.feature_adminCrud) === true;
+      spec.coreFeatures.publicApi = csCoerceBoolean(values.feature_publicApi) === true;
+      spec.coreFeatures.draft.enabled = csCoerceBoolean(values.feature_draftEnabled) === true;
       spec.coreFeatures.draft.mode = String(values.feature_draftMode || "same-table");
       spec.policies.statusFlow = String(values.policy_statusFlow || "draft-published");
       spec.policies.deleteMode = String(values.policy_deleteMode || "soft-delete");
       spec.policies.publishMode = String(values.policy_publishMode || "manual");
       spec.policies.authorMode = String(values.policy_authorMode || "admin-or-member");
       spec.ui.form.layout = String(values.ui_form_layout || "single-column");
-      spec.ui.detail.showAuthor = !!values.ui_detail_showAuthor;
-      spec.ui.detail.showPublishedAt = !!values.ui_detail_showPublishedAt;
+      spec.ui.detail.showAuthor = csCoerceBoolean(values.ui_detail_showAuthor) === true;
+      spec.ui.detail.showPublishedAt = csCoerceBoolean(values.ui_detail_showPublishedAt) === true;
       spec.ui.list.pageSize = Number(values.ui_list_pageSize || 0) || 0;
-      spec.ui.list.defaultSort = {
-        field: String(values.ui_list_defaultSortField || "").trim(),
-        dir: String(values.ui_list_defaultSortDir || "desc").trim() || "desc"
-      };
+      spec.ui.list.defaultSort = [
+        String(values.ui_list_defaultSortField || "").trim(),
+        String(values.ui_list_defaultSortDir || "desc").trim() || "desc"
+      ];
       spec.metadata.notes = String(values.metadata_notes || "").trim();
       try {
         spec.presentation = spec.presentation && typeof spec.presentation === "object" ? spec.presentation : {};
@@ -1549,9 +2122,9 @@
       spec.ui.list.columns = parsedColumns;
       spec.metadata.labels = parsedLabels;
       spec.metadata.tags = parsedTags;
-      if (!spec.ui.list.defaultSort.field) delete spec.ui.list.defaultSort;
+      if (!spec.ui.list.defaultSort[0]) delete spec.ui.list.defaultSort;
       if (!spec.ui.list.pageSize) delete spec.ui.list.pageSize;
-      if (spec.ui.list.defaultSort && (!spec.ui.list.defaultSort.field) && !spec.ui.list.defaultSort.dir) {
+      if (spec.ui.list.defaultSort && (!spec.ui.list.defaultSort[0]) && !spec.ui.list.defaultSort[1]) {
         delete spec.ui.list.defaultSort;
       }
       return spec;
@@ -1602,16 +2175,16 @@
         title: String(values.field_title || "").trim(),
         storage: { type: String(values.storage_type || "text") },
         component: { type: String(values.component_type || "input") },
-        required: !!values.field_required,
-        nullable: !!values.field_nullable,
-        showInForm: !!values.field_showInForm,
-        showInList: !!values.field_showInList,
-        showInDetail: !!values.field_showInDetail,
-        readonly: !!values.field_readonly,
-        disabled: !!values.field_disabled,
-        sortable: !!values.field_sortable,
-        filterable: !!values.field_filterable,
-        searchable: !!values.field_searchable
+        required: csCoerceBoolean(values.field_required) === true,
+        nullable: csCoerceBoolean(values.field_nullable) === true,
+        showInForm: csCoerceBoolean(values.field_showInForm) !== false,
+        showInList: csCoerceBoolean(values.field_showInList) !== false,
+        showInDetail: csCoerceBoolean(values.field_showInDetail) !== false,
+        readonly: csCoerceBoolean(values.field_readonly) === true,
+        disabled: csCoerceBoolean(values.field_disabled) === true,
+        sortable: csCoerceBoolean(values.field_sortable) === true,
+        filterable: csCoerceBoolean(values.field_filterable) === true,
+        searchable: csCoerceBoolean(values.field_searchable) === true
       };
       const desc = String(values.field_desc || "").trim();
       const group = String(values.field_group || "").trim();
@@ -1718,13 +2291,43 @@
       }).join("");
     }
 
-    async function csRenderAssistantForm(spec, renderVersion) {
+    function csSetAssistantSectionStatus(message, color) {
+      csSetStatus("cs_assistant_status", message, color);
+      csSetStatus("cs_display_status", message, color);
+      csSetStatus("cs_policy_status", message, color);
+    }
+
+    function csCollectAssistantValues() {
+      const sections = ["design", "display", "policy"];
+      const merged = {};
+      for (const section of sections) {
+        const form = ((csState || {}).assistantForms || {})[section];
+        if (!form) continue;
+        Object.assign(merged, form.collect());
+      }
+      return merged;
+    }
+
+    function csValidateAssistantForms() {
+      const sections = ["design", "display", "policy"];
+      for (const section of sections) {
+        const form = ((csState || {}).assistantForms || {})[section];
+        if (!form) {
+          return { result: false, message: "助手表单尚未就绪。" };
+        }
+        const check = form.validate();
+        if (!check.result) return check;
+      }
+      return { result: true };
+    }
+
+    async function csRenderAssistantSectionForm(hostId, section, spec, renderVersion) {
       csEnsureXForm();
-      const host = document.getElementById("cs_assistant_form");
+      const host = document.getElementById(hostId);
       host.innerHTML = "<div class='empty'>正在渲染助手表单...</div>";
-      const form = await window.XForm.render(host, csAssistantSchema(), csExtractAssistantValues(spec), {}, {});
+      const form = await window.XForm.render(host, csBuildAssistantSectionSchema(section), csExtractAssistantValues(spec), {}, {});
       if (renderVersion !== csState.renderVersion) return;
-      csState.assistantForm = form;
+      csState.assistantForms[section] = form;
     }
 
     async function csRenderFieldForm(spec, field, renderVersion) {
@@ -1748,10 +2351,14 @@
       const spec = csReadSpec(true);
       const renderVersion = ++csState.renderVersion;
       if (!spec) {
-        document.getElementById("cs_assistant_form").innerHTML = "<div class='empty'>Fix DSL JSON to enable the assistant.</div>";
-        document.getElementById("cs_field_form").innerHTML = "<div class='empty'>Fix DSL JSON to edit fields.</div>";
+        document.getElementById("cs_assistant_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能使用模型设置。</div>";
+        document.getElementById("cs_display_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑界面配置。</div>";
+        document.getElementById("cs_policy_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑能力与策略。</div>";
+        document.getElementById("cs_field_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑字段。</div>";
         document.getElementById("cs_field_list").innerHTML = "<div class='empty'>字段蓝图暂不可用。</div>";
-        csState.assistantForm = null;
+        csState.assistantForms.design = null;
+        csState.assistantForms.display = null;
+        csState.assistantForms.policy = null;
         csState.fieldForm = null;
         return;
       }
@@ -1761,24 +2368,26 @@
       }
       try {
         await Promise.all([
-          csRenderAssistantForm(spec, renderVersion),
+          csRenderAssistantSectionForm("cs_assistant_form", "design", spec, renderVersion),
+          csRenderAssistantSectionForm("cs_display_form", "display", spec, renderVersion),
+          csRenderAssistantSectionForm("cs_policy_form", "policy", spec, renderVersion),
           csRenderFieldForm(spec, csState.fieldEditIndex >= 0 ? fields[csState.fieldEditIndex] : null, renderVersion)
         ]);
         csRenderFieldList(spec);
         csRevealFocusedFieldCard();
-        csSetStatus("cs_assistant_status", "Assistant synced from current DSL.");
+        csSetAssistantSectionStatus("模型设置已与当前 DSL 同步。");
         csSetStatus("cs_field_status", csState.fieldEditIndex >= 0 ? `正在编辑第 ${csState.fieldEditIndex + 1} 个字段。` : "可以追加一个新字段。");
       } catch (err) {
         const message = err && err.message ? err.message : String(err);
-        csSetStatus("cs_assistant_status", message, "#b91c1c");
+        csSetAssistantSectionStatus(message, "#b91c1c");
         csSetStatus("cs_field_status", message, "#b91c1c");
       }
     }
 
-    function csSelectType(id) {
+    function csSelectType(id, afterLoad) {
       csState.selectedId = id;
       csRenderTypes();
-      fetch(`/admin/api/plugin/content-system/type?id=${encodeURIComponent(id)}`)
+      return fetch(`/admin/api/plugin/content-system/type?id=${encodeURIComponent(id)}`)
         .then((r) => r.json())
         .then((data) => {
           if (!data.result) throw new Error(data.message || "加载失败");
@@ -1792,12 +2401,18 @@
           document.getElementById("cs_revision_note").value = "";
           csRenderRevisions(info.revisions || []);
           csRenderAdvisor(info.advisor || { items: [] });
-          return csRefreshDesigner();
+          return csRefreshDesigner().then(() => {
+            csRenderListSummary();
+            if (typeof afterLoad === "function") afterLoad();
+          });
         })
-        .catch((err) => csSetPanelStatus(err.message || "加载失败", "#b91c1c"));
+        .catch((err) => {
+          csSetPanelStatus(err.message || "加载失败", "#b91c1c");
+          throw err;
+        });
     }
 
-    function csNewType() {
+    function csNewType(openEditor) {
       csState.selectedId = 0;
       csState.currentRevision = 0;
       csState.appliedRevision = 0;
@@ -1809,28 +2424,54 @@
       csRenderAdvisor({ items: [] });
       document.getElementById("cs_revision_note").value = "";
       csUseTemplate();
+      csRenderListSummary();
+      if (openEditor !== false) {
+        csOpenEditor("overview");
+      }
     }
 
-    function csLoadTypes() {
-      fetch("/admin/api/plugin/content-system/types")
+    function csLoadTypes(options) {
+      const opts = options || {};
+      return fetch("/admin/api/plugin/content-system/types")
         .then((r) => r.json())
         .then((data) => {
           if (!data.result) throw new Error(data.message || "加载失败");
           csState.types = data.data || [];
           csRenderTypes();
-          csSetStatus("cs_nav_status", `${csState.types.length} type(s) loaded.`);
-          if (!csState.selectedId && csState.types.length) {
-            csSelectType(csState.types[0].id);
-          } else if (!csState.types.length) {
-            csNewType();
+          csSetStatus("cs_nav_status", `已加载 ${csState.types.length} 个模型。`);
+          if (!csState.types.length) {
+            csNewType(false);
+            if (opts.viewMode) {
+              csState.viewMode = opts.viewMode;
+              if (opts.tab) csState.editorTab = opts.tab;
+              csSyncView();
+            }
+            return;
           }
+          const targetId = opts.selectId || csState.selectedId || csState.types[0].id;
+          if (!targetId) {
+            if (opts.viewMode) {
+              csState.viewMode = opts.viewMode;
+              if (opts.tab) csState.editorTab = opts.tab;
+              csSyncView();
+            }
+            return;
+          }
+          return csSelectType(targetId, () => {
+            if (opts.viewMode) csState.viewMode = opts.viewMode;
+            if (opts.tab) csState.editorTab = opts.tab;
+            csSyncView();
+          });
         })
-        .catch((err) => csSetStatus("cs_nav_status", err.message || "加载失败", "#b91c1c"));
+        .catch((err) => {
+          csSetStatus("cs_nav_status", err.message || "加载失败", "#b91c1c");
+          throw err;
+        });
     }
 
     function csLoadAdvisor() {
       if (!csState.selectedId) {
-        csSetPanelStatus("Save the content type first to build advisor output.", "#92400e");
+        csSetPanelStatus("请先保存内容模型，再生成升级顾问结果。", "#92400e");
         return;
       }
       fetch(`/admin/api/plugin/content-system/advisor?typeId=${encodeURIComponent(csState.selectedId)}`)
@@ -1839,32 +2480,28 @@
           if (!data.result) throw new Error(data.message || "顾问刷新失败");
           csRenderAdvisor(data.data || { items: [] });
         })
-        .catch((err) => csSetPanelStatus(err.message || "Advisor failed", "#b91c1c"));
+        .catch((err) => csSetPanelStatus(err.message || "升级顾问刷新失败", "#b91c1c"));
     }
 
     function csApplyAssistantToDsl() {
-      if (!csState.assistantForm) {
-        csSetStatus("cs_assistant_status", "Assistant form is not ready.", "#b91c1c");
-        return;
-      }
-      const check = csState.assistantForm.validate();
+      const check = csValidateAssistantForms();
       if (!check.result) {
-        csSetStatus("cs_assistant_status", check.message || "Assistant validation failed.", "#b91c1c");
-        csToast(check.message || "Assistant validation failed.", 2);
+        csSetAssistantSectionStatus(check.message || "助手表单校验失败。", "#b91c1c");
+        csToast(check.message || "助手表单校验失败。", 2);
         return;
       }
       const spec = csReadSpec(true);
       if (!spec) return;
       try {
-        csApplyAssistantValues(spec, csState.assistantForm.collect());
+        csApplyAssistantValues(spec, csCollectAssistantValues());
       } catch (err) {
-        csSetStatus("cs_assistant_status", err.message || "Assistant apply failed.", "#b91c1c");
-        csToast(err.message || "Assistant apply failed.", 2);
+        csSetAssistantSectionStatus(err.message || "助手表单写回失败。", "#b91c1c");
+        csToast(err.message || "助手表单写回失败。", 2);
         return;
       }
-      csWriteSpec(spec, "Assistant values applied to DSL.");
+      csWriteSpec(spec, "助手表单内容已写回 DSL。");
       csRefreshDesigner();
-      csToast("Assistant values applied", 1);
+      csToast("助手表单已写回 DSL", 1);
     }
 
     function csClearFieldEditor() {
@@ -1930,7 +2567,7 @@
       }
       const removed = fields.splice(csState.fieldEditIndex, 1)[0];
       csState.fieldEditIndex = -1;
-      csWriteSpec(spec, `字段 ${(removed && removed.name) || "unknown"} 已从 DSL 中移除。`);
+      csWriteSpec(spec, `字段 ${(removed && removed.name) || "未命名字段"} 已从 DSL 中移除。`);
       csRefreshDesigner();
       csToast("字段已移除", 1);
     }
@@ -1938,35 +2575,45 @@
     function csSaveType() {
       const spec = csReadSpec(true);
       if (!spec) return;
-      csSetPanelStatus("Saving revision...");
+      const currentTab = csState.editorTab;
+      const revisionNoteInput = document.getElementById("cs_revision_note");
+      const revisionNote = revisionNoteInput ? String(revisionNoteInput.value || "").trim() : "";
+      csSetPanelStatus("正在保存修订...");
       fetch("/admin/api/plugin/content-system/type/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: csState.selectedId || 0,
-          note: document.getElementById("cs_revision_note").value,
+          note: revisionNote,
           spec
         })
       })
         .then((r) => r.json())
         .then((data) => {
           if (!data.result) throw new Error(data.message || "保存失败");
-          csSetPanelStatus(data.message || "Saved.");
-          csState.selectedId = data.typeId || csState.selectedId;
-          csLoadTypes();
-          if (csState.selectedId) {
-            setTimeout(() => csSelectType(csState.selectedId), 80);
-          }
+          const savedTypeId = data.typeId || csState.selectedId;
+          csState.selectedId = savedTypeId;
+          csSetPanelStatus(data.message || "修订已保存。");
+          return csLoadTypes({
+            selectId: savedTypeId,
+            viewMode: "editor",
+            tab: currentTab || "overview"
+          }).then(() => {
+            csSetPanelStatus(data.message || "修订已保存。");
+            csToast(revisionNote ? "修订已保存并刷新当前模型" : "模型已保存并刷新当前状态", 1);
+          });
         })
-        .catch((err) => csSetPanelStatus(err.message || "保存失败", "#b91c1c"));
+        .catch((err) => {
+          csSetPanelStatus(err.message || "保存失败", "#b91c1c");
+          csToast(err.message || "保存失败", 2);
+        });
     }
-
     function csGenerate() {
       if (!csState.selectedId) {
-        csSetPanelStatus("Save the content type before generation.", "#92400e");
+        csSetPanelStatus("\u8bf7\u5148\u4fdd\u5b58\u5185\u5bb9\u7c7b\u578b\uff0c\u518d\u751f\u6210\u53d7\u7ba1\u63d2\u4ef6\u3002", "#92400e");
         return;
       }
-      csSetPanelStatus("Generating managed plugin...");
+      csSetPanelStatus("\u6b63\u5728\u751f\u6210\u53d7\u7ba1\u63d2\u4ef6...");
       fetch("/admin/api/plugin/content-system/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1974,18 +2621,52 @@
       })
         .then((r) => r.json())
         .then((data) => {
-          if (!data.result) throw new Error(data.message || "生成失败");
-          csSetPanelStatus(data.message || "Generated.");
-          csLoadTypes();
-          setTimeout(() => csSelectType(csState.selectedId), 120);
+          if (!data.result) throw new Error(data.message || "\u751f\u6210\u5931\u8d25");
+          csSetPanelStatus(data.message || "\u53d7\u7ba1\u63d2\u4ef6\u5df2\u751f\u6210\u3002");
+          return csLoadTypes({
+            selectId: csState.selectedId,
+            viewMode: "list"
+          }).then(() => {
+            csSetPanelStatus(data.message || "\u53d7\u7ba1\u63d2\u4ef6\u5df2\u751f\u6210\u3002");
+            csToast("受管插件已生成，列表状态已刷新", 1);
+          });
         })
-        .catch((err) => csSetPanelStatus(err.message || "生成失败", "#b91c1c"));
+        .then(() => {
+          setTimeout(csRefreshAdminShellAfterGenerate, 180);
+        })
+        .catch((err) => {
+          csSetPanelStatus(err.message || "\u751f\u6210\u5931\u8d25", "#b91c1c");
+          csToast(err.message || "生成失败", 2);
+        });
+    }
+
+    function csRefreshAdminShellAfterGenerate() {
+      const candidates = [];
+      if (window.top && window.top !== window) candidates.push(window.top);
+      if (window.parent && window.parent !== window && window.parent !== window.top) candidates.push(window.parent);
+      candidates.push(window);
+      for (const root of candidates) {
+        try {
+          if (root && typeof root.refreshMenu === "function") {
+            root.refreshMenu();
+            return;
+          }
+        } catch (err) {}
+      }
+      for (const root of candidates) {
+        try {
+          if (root && root.location && typeof root.location.reload === "function") {
+            root.location.reload();
+            return;
+          }
+        } catch (err) {}
+      }
     }
 
     function csHandleUnhandled(reason) {
       const message = reason && reason.message ? reason.message : String(reason);
       csSetPanelStatus(message, "#b91c1c");
-      csSetStatus("cs_assistant_status", message, "#b91c1c");
+      csSetAssistantSectionStatus(message, "#b91c1c");
       csSetStatus("cs_field_status", message, "#b91c1c");
       csToast(message, 2);
     }
@@ -2002,11 +2683,12 @@
         csHandleUnhandled(err);
       }
       document.getElementById("cs_spec").addEventListener("input", function() {
-        csSetStatus("cs_assistant_status", "Designer may be out of sync with manual DSL edits.", "#92400e");
-        csSetStatus("cs_field_status", "Reload from DSL after manual edits.", "#92400e");
+        csSetAssistantSectionStatus("你刚刚手动修改了 DSL，模型设置可能尚未同步。", "#92400e");
+        csSetStatus("cs_field_status", "手动修改 DSL 后，请重新从 DSL 加载字段设计。", "#92400e");
       });
-      csNewType();
-      csLoadTypes();
+      csNewType(false);
+      csSyncView();
+      csReloadTypeList();
     });
   </script>
 </body>

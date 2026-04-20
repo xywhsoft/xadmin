@@ -162,7 +162,7 @@ bool Managed_ExecSql(sqlite3* pDb, const char* sSql)
 	}
 	iRet = sqlite3_exec(pDb, sSql, NULL, NULL, &sError);
 	if ( iRet != SQLITE_OK ) {
-		printf("        [ManagedPlugin] sqlite exec failed: xid={{PLUGIN_XID}} code=%d error=%s\n",
+		printf("        [ManagedPlugin] sqlite exec failed: xid=cms.article code=%d error=%s\n",
 			iRet,
 			sError ? sError : "(null)");
 	}
@@ -213,10 +213,10 @@ void Managed_SendJsonValue(XS_ResponseObject objResp, xvalue objValue)
 
 void Managed_SendError(XS_ResponseObject objResp, const char* sMessage)
 {
-	xvalue tblRet = Managed_CreateResult(FALSE, sMessage ? sMessage : "request failed");
+	xvalue tblRet = Managed_CreateResult(FALSE, sMessage ? sMessage : "请求失败");
 
 	if ( tblRet == NULL ) {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"request failed\"}", 0);
+		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"请求失败\"}", 0);
 		return;
 	}
 	Managed_SendJsonValue(objResp, tblRet);
@@ -258,7 +258,7 @@ bool Managed_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	if ( pData == NULL ) {
 		return FALSE;
 	}
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -286,6 +286,60 @@ xvalue Managed_LoadJsonFile(const char* sRelPath)
 	objValue = xrtParseJSON((str)pData, iSize);
 	xrtFree(pData);
 	return objValue;
+}
+
+str Managed_GetDataRootPath(void)
+{
+	if ( Managed_IsBlank(G_PrivateDbPath) ) {
+		return NULL;
+	}
+	return xrtPathGetDir((str)G_PrivateDbPath, 0);
+}
+
+str Managed_GetCustomMountsPath(bool bWritable)
+{
+	str sBaseRoot = NULL;
+	str sCustomDir = NULL;
+	str sPath = NULL;
+
+	if ( bWritable ) {
+		sBaseRoot = Managed_GetDataRootPath();
+		if ( sBaseRoot == NULL ) {
+			return NULL;
+		}
+		sCustomDir = xrtPathJoin(2, sBaseRoot, "custom");
+		if ( sCustomDir != NULL ) {
+			sPath = xrtPathJoin(2, sCustomDir, "capability.mounts.json");
+			xrtFree(sCustomDir);
+		}
+		xrtFree(sBaseRoot);
+		return sPath;
+	}
+
+	sBaseRoot = Managed_GetDataRootPath();
+	if ( sBaseRoot != NULL ) {
+		sCustomDir = xrtPathJoin(2, sBaseRoot, "custom");
+		if ( sCustomDir != NULL ) {
+			sPath = xrtPathJoin(2, sCustomDir, "capability.mounts.json");
+			xrtFree(sCustomDir);
+		}
+		xrtFree(sBaseRoot);
+		if ( (sPath != NULL) && xrtFileExists(sPath) ) {
+			return sPath;
+		}
+		if ( sPath ) xrtFree(sPath);
+	}
+
+	if ( Managed_IsBlank(G_RootPath) ) {
+		return NULL;
+	}
+	sCustomDir = xrtPathJoin(2, G_RootPath, "custom");
+	if ( sCustomDir == NULL ) {
+		return NULL;
+	}
+	sPath = xrtPathJoin(2, sCustomDir, "capability.mounts.json");
+	xrtFree(sCustomDir);
+	return sPath;
 }
 
 xvalue Managed_LoadJsonPath(const char* sPath)
@@ -323,7 +377,26 @@ xvalue Managed_LoadContractsMeta(void)
 
 xvalue Managed_LoadCustomMounts(void)
 {
-	return Managed_LoadJsonFile("custom/capability.mounts.json");
+	str sPath = Managed_GetCustomMountsPath(FALSE);
+	ptr pData = NULL;
+	size_t iSize = 0;
+	xvalue objValue = NULL;
+
+	if ( sPath == NULL ) {
+		return NULL;
+	}
+	if ( !xrtFileExists(sPath) ) {
+		xrtFree(sPath);
+		return NULL;
+	}
+	pData = xrtFileGetAll(sPath, &iSize);
+	xrtFree(sPath);
+	if ( pData == NULL ) {
+		return NULL;
+	}
+	objValue = xrtParseJSON((str)pData, iSize);
+	xrtFree(pData);
+	return objValue;
 }
 
 xvalue Managed_LoadMountSample(void)
@@ -576,8 +649,16 @@ bool Managed_ValidateMountEntry(xvalue tblMount, int iIndex, str* psError)
 	}
 	tblOptions = Managed_GetTableValue(tblMount, "options");
 	if ( (tblOptions != NULL) && (xvoType(tblOptions) != XVO_DT_TABLE) ) {
-		if ( psError ) *psError = xrtFormat("mounts[%d].options must be an object", iIndex);
-		return FALSE;
+		if ( xvoType(tblOptions) == XVO_DT_NULL ) {
+			xvoTableSetValue(tblMount, "options", 7, xvoCreateTable(), TRUE);
+			tblOptions = xvoTableGetValue(tblMount, "options", 7);
+		} else if ( (xvoType(tblOptions) == XVO_DT_TEXT) && Managed_IsBlank(xvoGetText(tblOptions)) ) {
+			xvoTableSetValue(tblMount, "options", 7, xvoCreateTable(), TRUE);
+			tblOptions = xvoTableGetValue(tblMount, "options", 7);
+		} else {
+			xvoTableSetValue(tblMount, "options", 7, xvoCreateTable(), TRUE);
+			tblOptions = xvoTableGetValue(tblMount, "options", 7);
+		}
 	}
 	sAdminHref = tblAdminEntry ? xvoTableGetText(tblAdminEntry, "href", 4) : NULL;
 	sPublicHref = tblPublicEntry ? xvoTableGetText(tblPublicEntry, "href", 4) : NULL;
@@ -614,35 +695,61 @@ bool Managed_ValidateCustomMounts(xvalue tblRoot, str* psError)
 	return TRUE;
 }
 
-bool Managed_SaveCustomMountsFile(xvalue tblRoot)
+bool Managed_SaveCustomMountsFile(xvalue tblRoot, str* psError)
 {
-	str sCustomDir = NULL;
 	str sFilePath = NULL;
+	str sCustomDir = NULL;
 	str sJson = NULL;
+	FILE* fp = NULL;
 	size_t iSize = 0;
 	bool bOK = FALSE;
 
-	if ( (G_RootPath == NULL) || (tblRoot == NULL) || (xvoType(tblRoot) != XVO_DT_TABLE) ) {
+	if ( psError ) *psError = NULL;
+	if ( (tblRoot == NULL) || (xvoType(tblRoot) != XVO_DT_TABLE) ) {
+		if ( psError ) *psError = xrtCopyStr("mount root is invalid", 0);
 		return FALSE;
 	}
-	sCustomDir = xrtPathJoin(2, G_RootPath, "custom");
+	sFilePath = Managed_GetCustomMountsPath(TRUE);
+	if ( sFilePath == NULL ) {
+		if ( psError ) *psError = xrtFormat("failed to resolve mount registry path: root=%s privateDb=%s",
+			G_RootPath ? G_RootPath : "(null)",
+			G_PrivateDbPath ? G_PrivateDbPath : "(null)");
+		return FALSE;
+	}
+	sCustomDir = xrtPathGetDir(sFilePath, 0);
 	if ( sCustomDir == NULL ) {
+		if ( psError ) *psError = xrtFormat("failed to resolve mount registry directory: %s", sFilePath);
+		xrtFree(sFilePath);
 		return FALSE;
 	}
 	if ( !xrtDirCreateAll(sCustomDir) ) {
+		if ( psError ) *psError = xrtFormat("failed to create mount registry directory: %s", sCustomDir);
 		xrtFree(sCustomDir);
+		xrtFree(sFilePath);
 		return FALSE;
 	}
-	sFilePath = xrtPathJoin(2, G_RootPath, "custom/capability.mounts.json");
 	xrtFree(sCustomDir);
-	if ( sFilePath == NULL ) {
+	sJson = xrtStringifyJSON(tblRoot, TRUE, &iSize);
+	if ( sJson == NULL ) {
+		if ( psError ) *psError = xrtFormat("failed to stringify mount registry json: %s", sFilePath);
+		xrtFree(sFilePath);
 		return FALSE;
 	}
-	sJson = xrtStringifyJSON(tblRoot, TRUE, &iSize);
-	if ( sJson ) {
-		bOK = xrtFilePutAll(sFilePath, sJson, iSize) == 0;
+	fp = fopen((const char*)sFilePath, "wb");
+	if ( fp == NULL ) {
+		if ( psError ) *psError = xrtFormat("failed to open mount registry file for write: %s", sFilePath);
 		xrtFree(sJson);
+		xrtFree(sFilePath);
+		return FALSE;
 	}
+	bOK = fwrite(sJson, 1, iSize, fp) == iSize;
+	if ( fclose(fp) != 0 ) {
+		bOK = FALSE;
+	}
+	if ( !bOK && psError ) {
+		*psError = xrtFormat("failed to write mount registry file: %s", sFilePath);
+	}
+	xrtFree(sJson);
 	xrtFree(sFilePath);
 	return bOK;
 }
@@ -971,7 +1078,7 @@ const char* Managed_GetPluginTitle(xvalue tblSpec)
 {
 	xvalue tblIdentity = Managed_GetIdentity(tblSpec);
 	const char* sTitle = tblIdentity ? xvoTableGetText(tblIdentity, "title", 5) : NULL;
-	return (!Managed_IsBlank(sTitle)) ? sTitle : "{{PLUGIN_TITLE_C}}";
+	return (!Managed_IsBlank(sTitle)) ? sTitle : "文章";
 }
 
 bool Managed_DraftEnabled(xvalue tblSpec)
@@ -1763,7 +1870,7 @@ xvalue Managed_BuildFormSchema(xvalue tblSpec)
 	const char* sTitle = tblIdentity ? xvoTableGetText(tblIdentity, "title", 5) : NULL;
 	const char* sDesc = tblIdentity ? xvoTableGetText(tblIdentity, "description", 11) : NULL;
 
-	xvoTableSetText(tblSchema, "title", 5, (str)(Managed_IsBlank(sTitle) ? "{{PLUGIN_TITLE_C}}" : sTitle), 0, FALSE);
+	xvoTableSetText(tblSchema, "title", 5, (str)(Managed_IsBlank(sTitle) ? "文章" : sTitle), 0, FALSE);
 	xvoTableSetText(tblSchema, "desc", 4, (str)(sDesc ? sDesc : ""), 0, FALSE);
 	xvoTableSetText(tblSchema, "layout", 6, (str)Managed_GetUiFormLayout(tblSpec), 0, FALSE);
 	xvoTableSetValue(tblSchema, "groups", 6, arrGroups, TRUE);
@@ -2850,7 +2957,7 @@ void Managed_RequestMeta(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	(void)objReq;
 	(void)objSession;
 
-	xvoTableSetText(tblData, "pluginXid", 9, "{{PLUGIN_XID}}", 0, FALSE);
+	xvoTableSetText(tblData, "pluginXid", 9, "cms.article", 0, FALSE);
 	xvoTableSetText(tblData, "title", 5, (str)Managed_GetPluginTitle(tblSpec), 0, FALSE);
 	xvoTableSetBool(tblData, "draftEnabled", 12, Managed_DraftEnabled(tblSpec));
 	if ( tblSpec ) xvoTableSetValue(tblData, "spec", 4, tblSpec, TRUE);
@@ -2916,13 +3023,14 @@ void Managed_RequestContractsAdmin(XS_ServerObject objServer, XS_HostObject objH
 			if ( sError ) xrtFree(sError);
 			return;
 		}
-		if ( !Managed_SaveCustomMountsFile(tblForm) ) {
+		if ( !Managed_SaveCustomMountsFile(tblForm, &sError) ) {
 			xvoUnref(tblForm);
-			Managed_SendError(objResp, "failed to save capability.mounts.json");
+			Managed_SendError(objResp, sError ? (const char*)sError : "failed to save capability.mounts.json");
+			if ( sError ) xrtFree(sError);
 			return;
 		}
 		xvoUnref(tblForm);
-		tblRet = Managed_CreateResult(TRUE, "mount registry saved");
+		tblRet = Managed_CreateResult(TRUE, "挂载注册表已保存");
 	} else {
 		tblRet = Managed_CreateResult(TRUE, NULL);
 	}
@@ -2975,7 +3083,7 @@ void Managed_RequestFormMetaAdmin(XS_ServerObject objServer, XS_HostObject objHo
 	(void)objReq;
 	(void)objSession;
 
-	xvoTableSetText(tblData, "pluginXid", 9, "{{PLUGIN_XID}}", 0, FALSE);
+	xvoTableSetText(tblData, "pluginXid", 9, "cms.article", 0, FALSE);
 	xvoTableSetText(tblData, "title", 5, (str)Managed_GetPluginTitle(tblSpec), 0, FALSE);
 	xvoTableSetBool(tblData, "draftEnabled", 12, Managed_DraftEnabled(tblSpec));
 	xvoTableSetValue(tblData, "fieldTypes", 10, xvoCreateTable(), TRUE);
@@ -3404,135 +3512,135 @@ int Managed_OnStart(XAdminPluginHandle handle)
 	bool bPublicApi = Managed_PublicApiEnabled(tblSpec);
 
 	if ( !Managed_EnsureSchema() ) {
-		printf("        [ManagedPlugin] start failed during schema ensure: xid={{PLUGIN_XID}}\n");
+		printf("        [ManagedPlugin] start failed during schema ensure: xid=cms.article\n");
 		if ( tblSpec ) xvoUnref(tblSpec);
 		return -1;
 	}
 
 	if ( bPublicApi ) {
 		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/meta";
+		route.path = "/api/plugin/cms.article/meta";
 		route.proc = Managed_RequestMeta;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/list";
+		route.path = "/api/plugin/cms.article/list";
 		route.proc = Managed_RequestListPublic;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/detail";
+		route.path = "/api/plugin/cms.article/detail";
 		route.proc = Managed_RequestDetailPublic;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/contracts";
+		route.path = "/api/plugin/cms.article/contracts";
 		route.proc = Managed_RequestContractsPublic;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/plugin/{{PLUGIN_XID}}";
+		route.path = "/plugin/cms.article";
 		route.proc = Managed_RequestPublicView;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 	}
 
 	if ( bAdminCrud ) {
 		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/list";
+		route.path = "/admin/api/plugin/cms.article/list";
 		route.proc = Managed_RequestListAdmin;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/contracts";
+		route.path = "/admin/api/plugin/cms.article/contracts";
 		route.proc = Managed_RequestContractsAdmin;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/form-meta";
+		route.path = "/admin/api/plugin/cms.article/form-meta";
 		route.proc = Managed_RequestFormMetaAdmin;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/get";
+		route.path = "/admin/api/plugin/cms.article/get";
 		route.proc = Managed_RequestGetAdmin;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/save";
+		route.path = "/admin/api/plugin/cms.article/save";
 		route.proc = Managed_RequestSave;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/delete";
+		route.path = "/admin/api/plugin/cms.article/delete";
 		route.proc = Managed_RequestDelete;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/{{PLUGIN_XID}}";
+		route.path = "/admin/view/plugin/cms.article";
 		route.proc = Managed_RequestAdminView;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
 			goto failed;
 		}
 
 		memset(&menu, 0, sizeof(menu));
-		menu.title = "{{PLUGIN_TITLE_C}}";
+		menu.title = "文章";
 		menu.icon = "layui-icon layui-icon-template";
 		menu.type = 1;
 		menu.open_type = "_iframe";
-		menu.href = "/admin/view/plugin/{{PLUGIN_XID}}";
+		menu.href = "/admin/view/plugin/cms.article";
 		menu.sort = 990200;
 		menu.visible = TRUE;
 		menu.remark = "Managed content plugin";
 		if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
-			printf("        [ManagedPlugin] menu register failed: xid={{PLUGIN_XID}} href=%s\n", menu.href);
+			printf("        [ManagedPlugin] menu register failed: xid=cms.article href=%s\n", menu.href);
 			goto failed;
 		}
 	}
@@ -3541,7 +3649,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 	return 0;
 
 failed:
-	printf("        [ManagedPlugin] start aborted: xid={{PLUGIN_XID}}\n");
+	printf("        [ManagedPlugin] start aborted: xid=cms.article\n");
 	if ( tblSpec ) xvoUnref(tblSpec);
 	return -1;
 }
@@ -3572,9 +3680,9 @@ void Managed_OnUnload(XAdminPluginHandle handle)
 static XAdminPluginDescriptor G_Plugin = {
 	XADMIN_ABI_VERSION,
 	sizeof(XAdminPluginDescriptor),
-	"{{PLUGIN_XID}}",
-	"{{PLUGIN_VERSION}}",
-	"{{PLUGIN_TITLE_C}}",
+	"cms.article",
+	"0.1.0",
+	"文章",
 	Managed_OnLoad,
 	NULL,
 	Managed_OnStart,

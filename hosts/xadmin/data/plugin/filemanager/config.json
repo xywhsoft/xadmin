@@ -1,4 +1,4 @@
 {
-	"rootPath":	"data",
+	"rootPath":	"*",
 	"toolPath":	"tools"
 }

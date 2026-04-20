@@ -589,7 +589,7 @@
             </div>
           </div>
           <div class="summary-grid">
-            <div class="summary-card"><span>当前插件</span><strong id="ma_summary_plugin">{{PLUGIN_XID}}</strong></div>
+            <div class="summary-card"><span>当前插件</span><strong id="ma_summary_plugin">cms.article</strong></div>
             <div class="summary-card"><span>已加载记录</span><strong id="ma_summary_count">0</strong></div>
             <div class="summary-card"><span>当前选中</span><strong id="ma_summary_selected">未选择</strong></div>
             <div class="summary-card"><span>能力槽位</span><strong id="ma_summary_slots">0</strong></div>
@@ -614,7 +614,7 @@
           </div>
           <div class="tab-panel" id="ma_editor_tab_form">
           <div class="meta">
-            <div class="meta-card"><span>插件</span><strong id="ma_meta_plugin">{{PLUGIN_XID}}</strong></div>
+            <div class="meta-card"><span>插件</span><strong id="ma_meta_plugin">cms.article</strong></div>
             <div class="meta-card"><span>当前记录</span><strong id="ma_meta_id">新建</strong></div>
             <div class="meta-card"><span>流程状态</span><strong id="ma_meta_flow">已发布</strong></div>
             <div class="meta-card"><span>记录数</span><strong id="ma_meta_count">0</strong></div>
@@ -857,7 +857,7 @@
       const countEl = document.getElementById("ma_summary_count");
       const selectedEl = document.getElementById("ma_summary_selected");
       const slotsEl = document.getElementById("ma_summary_slots");
-      if (pluginEl) pluginEl.innerText = (ma.meta && ma.meta.pluginXid) || "{{PLUGIN_XID}}";
+      if (pluginEl) pluginEl.innerText = (ma.meta && ma.meta.pluginXid) || "cms.article";
       if (countEl) countEl.innerText = String(ma.items.length);
       if (selectedEl) selectedEl.innerText = current ? `#${current.id}` : "未选择";
       if (slotsEl) slotsEl.innerText = String(maCapabilitySlots().length);
@@ -1277,7 +1277,7 @@
     function maCurrentContentContext() {
       if (ma.currentId <= 0) return null;
       return {
-        contentPlugin: ((ma.meta || {}).pluginXid) || "{{PLUGIN_XID}}",
+        contentPlugin: ((ma.meta || {}).pluginXid) || "cms.article",
         contentId: ma.currentId
       };
     }
@@ -1674,7 +1674,7 @@
       const registry = maMountRegistry();
       const slots = maCapabilitySlots();
       const flow = maCurrentFlowLabel(currentItem);
-      document.getElementById("ma_meta_plugin").innerText = (ma.meta && ma.meta.pluginXid) || "{{PLUGIN_XID}}";
+      document.getElementById("ma_meta_plugin").innerText = (ma.meta && ma.meta.pluginXid) || "cms.article";
       document.getElementById("ma_meta_id").innerText = ma.currentId > 0 ? `#${ma.currentId}` : "新建";
       document.getElementById("ma_meta_flow").innerText = flow;
       document.getElementById("ma_meta_count").innerText = String(ma.items.length);
@@ -2302,7 +2302,7 @@
         const applied = maMountApplyCurrent();
         if (!applied) return;
       }
-      const response = await fetch("/admin/api/plugin/{{PLUGIN_XID}}/contracts", {
+      const response = await fetch("/admin/api/plugin/cms.article/contracts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(maSanitizeCustomMountRoot(maCustomMountRoot()))
@@ -2457,7 +2457,7 @@
     }
 
     async function maRefreshProviderDiscovery() {
-      const response = await fetch("/admin/api/plugin/{{PLUGIN_XID}}/contracts", { cache: "no-store" });
+      const response = await fetch("/admin/api/plugin/cms.article/contracts", { cache: "no-store" });
       const result = await response.json();
       if (!result || !result.result) {
         throw new Error((result && result.message) || "提供方发现刷新失败");
@@ -2512,11 +2512,11 @@
     }
 
     async function maLoadMeta() {
-      const response = await fetch("/admin/api/plugin/{{PLUGIN_XID}}/form-meta", { cache: "no-store" });
+      const response = await fetch("/admin/api/plugin/cms.article/form-meta", { cache: "no-store" });
       const result = await response.json();
       if (!result || !result.result) throw new Error((result && result.message) || "表单元数据加载失败");
       ma.meta = result.data || {};
-      document.getElementById("ma_title").innerText = ma.meta.title || "{{PLUGIN_XID}}";
+      document.getElementById("ma_title").innerText = ma.meta.title || "cms.article";
       const description = ((((ma.meta || {}).spec || {}).identity || {}).description) || "基于 xadmin 表单运行时的内容管理后台。";
       document.getElementById("ma_desc").innerText = description;
       maRenderHeroMetadata();
@@ -2541,7 +2541,7 @@
           params.set(maFieldQueryKey(field), value);
         }
       }
-      const response = await fetch(`/admin/api/plugin/{{PLUGIN_XID}}/list?${params.toString()}`, { cache: "no-store" });
+      const response = await fetch(`/admin/api/plugin/cms.article/list?${params.toString()}`, { cache: "no-store" });
       const result = await response.json();
       if (!result || !result.result) throw new Error((result && result.message) || "列表加载失败");
       ma.items = result.data || [];
@@ -2556,7 +2556,7 @@
       maRenderList();
       maUpdateMeta();
       maSetStatus("ma_form_status", "正在加载记录...");
-      const response = await fetch(`/admin/api/plugin/{{PLUGIN_XID}}/get?id=${encodeURIComponent(id)}`, { cache: "no-store" });
+      const response = await fetch(`/admin/api/plugin/cms.article/get?id=${encodeURIComponent(id)}`, { cache: "no-store" });
       const result = await response.json();
       if (!result || !result.result) throw new Error((result && result.message) || "记录加载失败");
       const record = result.data || {};
@@ -2608,7 +2608,7 @@
         data: ma.formInstance.collect()
       };
       payload.data = maApplyPrimaryStatus(payload.data, payload.isDraft);
-      const response = await fetch("/admin/api/plugin/{{PLUGIN_XID}}/save", {
+      const response = await fetch("/admin/api/plugin/cms.article/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -2643,7 +2643,7 @@
       if (!window.confirm(`确定删除记录 #${ma.currentId} 吗？`)) {
         return;
       }
-      const response = await fetch("/admin/api/plugin/{{PLUGIN_XID}}/delete", {
+      const response = await fetch("/admin/api/plugin/cms.article/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: ma.currentId })

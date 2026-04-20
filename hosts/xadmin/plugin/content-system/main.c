@@ -735,6 +735,144 @@ bool CS_ValidateFieldOptionalLayoutSpan(xvalue tblField, int iIndex, str* psErro
 bool CS_ValidateFieldDefaultValue(xvalue tblField, int iIndex, str* psError);
 bool CS_ValidateFieldComponentCompatibility(xvalue tblField, int iIndex, str* psError);
 bool CS_ValidateIndexes(xvalue arrIndexes, xvalue arrFields, str* psError);
+bool CS_TextIsInteger(const char* sText);
+
+bool CS_ValueIsMissing(xvalue objValue)
+{
+	return (objValue == NULL) || (xvoType(objValue) == XVO_DT_NULL);
+}
+
+bool CS_TableHasKey(xvalue tblData, const char* sKey)
+{
+	if ( (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) || CS_IsBlank(sKey) ) {
+		return FALSE;
+	}
+	return xvoTableExists(tblData, (str)sKey, (uint32)strlen(sKey));
+}
+
+char CS_LowerAsciiInline(char c)
+{
+	if ( (c >= 'A') && (c <= 'Z') ) {
+		return (char)(c - 'A' + 'a');
+	}
+	return c;
+}
+
+bool CS_TryReadBoolLike(xvalue objValue, bool* pbValue)
+{
+	char sBuf[16];
+	const char* sText;
+	size_t iLen;
+	size_t iStart = 0;
+	size_t iEnd;
+
+	if ( pbValue ) *pbValue = FALSE;
+	if ( CS_ValueIsMissing(objValue) ) {
+		if ( pbValue ) *pbValue = FALSE;
+		return TRUE;
+	}
+	if ( xvoType(objValue) == XVO_DT_BOOL ) {
+		return TRUE;
+	}
+	if ( xvoType(objValue) == XVO_DT_INT ) {
+		int64 iValue = xvoGetInt(objValue);
+		if ( (iValue == 0) || (iValue == 1) ) {
+			if ( pbValue ) *pbValue = (iValue != 0);
+			return TRUE;
+		}
+		return FALSE;
+	}
+	if ( xvoType(objValue) != XVO_DT_TEXT ) {
+		return FALSE;
+	}
+	sText = xvoGetText(objValue);
+	if ( sText == NULL ) {
+		if ( pbValue ) *pbValue = FALSE;
+		return TRUE;
+	}
+	iLen = strlen(sText);
+	iEnd = iLen;
+	while ( (iStart < iLen) && ((sText[iStart] == ' ') || (sText[iStart] == '\t') || (sText[iStart] == '\r') || (sText[iStart] == '\n')) ) iStart++;
+	while ( (iEnd > iStart) && ((sText[iEnd - 1] == ' ') || (sText[iEnd - 1] == '\t') || (sText[iEnd - 1] == '\r') || (sText[iEnd - 1] == '\n')) ) iEnd--;
+	if ( (iEnd - iStart) >= sizeof(sBuf) ) {
+		return FALSE;
+	}
+	for ( size_t i = iStart; i < iEnd; i++ ) {
+		sBuf[i - iStart] = CS_LowerAsciiInline(sText[i]);
+	}
+	sBuf[iEnd - iStart] = '\0';
+	if ( (strcmp(sBuf, "true") == 0) || (strcmp(sBuf, "1") == 0) || (strcmp(sBuf, "yes") == 0) || (strcmp(sBuf, "on") == 0) ) {
+		if ( pbValue ) *pbValue = TRUE;
+		return TRUE;
+	}
+	if ( (strcmp(sBuf, "false") == 0) || (strcmp(sBuf, "0") == 0) || (strcmp(sBuf, "no") == 0) || (strcmp(sBuf, "off") == 0) || (strcmp(sBuf, "") == 0) ) {
+		if ( pbValue ) *pbValue = FALSE;
+		return TRUE;
+	}
+	return FALSE;
+}
+
+bool CS_NormalizeTableBool(xvalue tblData, const char* sKey)
+{
+	xvalue objValue;
+	bool bValue = FALSE;
+
+	if ( (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) || CS_IsBlank(sKey) ) {
+		return TRUE;
+	}
+	if ( !CS_TableHasKey(tblData, sKey) ) {
+		return TRUE;
+	}
+	objValue = xvoTableGetValue(tblData, sKey, (int)strlen(sKey));
+	if ( CS_ValueIsMissing(objValue) ) {
+		return TRUE;
+	}
+	if ( xvoType(objValue) == XVO_DT_BOOL ) {
+		return TRUE;
+	}
+	if ( !CS_TryReadBoolLike(objValue, &bValue) ) {
+		return FALSE;
+	}
+	xvoTableSetBool(tblData, sKey, (int)strlen(sKey), bValue);
+	return TRUE;
+}
+
+bool CS_NormalizeTableInteger(xvalue tblData, const char* sKey, int iMin, int iMax)
+{
+	xvalue objValue;
+	int64 iValue;
+	const char* sText;
+
+	if ( (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) || CS_IsBlank(sKey) ) {
+		return TRUE;
+	}
+	if ( !CS_TableHasKey(tblData, sKey) ) {
+		return TRUE;
+	}
+	objValue = xvoTableGetValue(tblData, sKey, (int)strlen(sKey));
+	if ( CS_ValueIsMissing(objValue) ) {
+		return TRUE;
+	}
+	if ( xvoType(objValue) == XVO_DT_INT ) {
+		iValue = xvoGetInt(objValue);
+	} else if ( xvoType(objValue) == XVO_DT_TEXT ) {
+		sText = xvoGetText(objValue);
+		if ( CS_IsBlank(sText) ) {
+			return TRUE;
+		}
+		if ( !CS_TextIsInteger(sText) ) {
+			return FALSE;
+		}
+		iValue = atoll(sText);
+	} else {
+		return FALSE;
+	}
+	if ( (iValue < iMin) || (iValue > iMax) ) {
+		return FALSE;
+	}
+	xvoTableSetInt(tblData, sKey, (int)strlen(sKey), iValue);
+	return TRUE;
+}
 
 bool CS_ValidateField(xvalue tblField, int iIndex, str* psError)
 {
@@ -828,7 +966,7 @@ bool CS_ValidateFieldOptionalBool(xvalue tblField, const char* sKey, int iIndex,
 		return TRUE;
 	}
 	objValue = xvoTableGetValue(tblField, sKey, (int)strlen(sKey));
-	if ( (objValue != NULL) && (xvoType(objValue) != XVO_DT_BOOL) ) {
+	if ( !CS_ValueIsMissing(objValue) && !CS_NormalizeTableBool(tblField, sKey) ) {
 		if ( psError ) *psError = xrtFormat("field[%d].%s must be a boolean", iIndex, sKey);
 		return FALSE;
 	}
@@ -845,9 +983,14 @@ bool CS_ValidateFieldOptionalLayoutSpan(xvalue tblField, int iIndex, str* psErro
 		return TRUE;
 	}
 	objValue = xvoTableGetValue(tblField, "layoutSpan", 10);
-	if ( objValue == NULL ) {
+	if ( CS_ValueIsMissing(objValue) ) {
 		return TRUE;
 	}
+	if ( !CS_NormalizeTableInteger(tblField, "layoutSpan", 1, 2) ) {
+		if ( psError ) *psError = xrtFormat("field[%d].layoutSpan must be an integer", iIndex);
+		return FALSE;
+	}
+	objValue = xvoTableGetValue(tblField, "layoutSpan", 10);
 	if ( xvoType(objValue) == XVO_DT_INT ) {
 		iSpan = (int)xvoGetInt(objValue);
 	} else if ( xvoType(objValue) == XVO_DT_FLOAT ) {
@@ -1016,6 +1159,9 @@ bool CS_ValidateFieldDefaultValue(xvalue tblField, int iIndex, str* psError)
 	if ( (tblField == NULL) || (xvoType(tblField) != XVO_DT_TABLE) ) {
 		return TRUE;
 	}
+	if ( !CS_TableHasKey(tblField, "defaultValue") ) {
+		return TRUE;
+	}
 	objDefault = xvoTableGetValue(tblField, "defaultValue", 12);
 	if ( objDefault == NULL ) {
 		return TRUE;
@@ -1150,7 +1296,7 @@ bool CS_ValidateIndexes(xvalue arrIndexes, xvalue arrFields, str* psError)
 			if ( psError ) *psError = xrtFormat("entity.indexes[%d].fields must contain at least one field", i);
 			return FALSE;
 		}
-		if ( (objUnique != NULL) && (xvoType(objUnique) != XVO_DT_BOOL) ) {
+		if ( !CS_ValueIsMissing(objUnique) && !CS_NormalizeTableBool(tblIndex, "unique") ) {
 			if ( psError ) *psError = xrtFormat("entity.indexes[%d].unique must be a boolean", i);
 			return FALSE;
 		}
@@ -1192,7 +1338,7 @@ bool CS_ValidateOptionalBoolValue(xvalue tblData, const char* sKey, const char* 
 		return TRUE;
 	}
 	objValue = xvoTableGetValue(tblData, sKey, (int)strlen(sKey));
-	if ( (objValue != NULL) && (xvoType(objValue) != XVO_DT_BOOL) ) {
+	if ( !CS_ValueIsMissing(objValue) && !CS_NormalizeTableBool(tblData, sKey) ) {
 		if ( psError ) *psError = xrtFormat("%s must be a boolean", sLabel);
 		return FALSE;
 	}
@@ -1245,7 +1391,9 @@ bool CS_IsKnownUiListSortField(const char* sField)
 		|| (strcmp(sField, "title") == 0)
 		|| (strcmp(sField, "status") == 0)
 		|| (strcmp(sField, "createTime") == 0)
+		|| (strcmp(sField, "create_time") == 0)
 		|| (strcmp(sField, "updateTime") == 0)
+		|| (strcmp(sField, "update_time") == 0)
 		|| (strcmp(sField, "slug") == 0)
 		|| (strcmp(sField, "summary") == 0)
 		|| (strcmp(sField, "publishedAt") == 0);
@@ -1258,7 +1406,7 @@ bool CS_ValidateUiListDefaultSort(xvalue objDefaultSort, xvalue arrFields, str* 
 	xvalue tblField = NULL;
 
 	if ( psError ) *psError = NULL;
-	if ( objDefaultSort == NULL ) {
+	if ( CS_ValueIsMissing(objDefaultSort) ) {
 		return TRUE;
 	}
 	if ( xvoType(objDefaultSort) != XVO_DT_ARRAY ) {
@@ -1300,14 +1448,22 @@ bool CS_ValidateUiListPageSize(xvalue objPageSize, str* psError)
 	int64 iPageSize;
 
 	if ( psError ) *psError = NULL;
-	if ( objPageSize == NULL ) {
+	if ( CS_ValueIsMissing(objPageSize) ) {
 		return TRUE;
 	}
-	if ( xvoType(objPageSize) != XVO_DT_INT ) {
+	if ( xvoType(objPageSize) == XVO_DT_INT ) {
+		iPageSize = xvoGetInt(objPageSize);
+	} else if ( xvoType(objPageSize) == XVO_DT_TEXT ) {
+		const char* sPageSize = xvoGetText(objPageSize);
+		if ( !CS_TextIsInteger(sPageSize) ) {
+			if ( psError ) *psError = xrtCopyStr("ui.list.pageSize must be an integer", 0);
+			return FALSE;
+		}
+		iPageSize = atoll(sPageSize);
+	} else {
 		if ( psError ) *psError = xrtCopyStr("ui.list.pageSize must be an integer", 0);
 		return FALSE;
 	}
-	iPageSize = xvoGetInt(objPageSize);
 	if ( (iPageSize < 1) || (iPageSize > 200) ) {
 		if ( psError ) *psError = xrtCopyStr("ui.list.pageSize must be between 1 and 200", 0);
 		return FALSE;
@@ -1445,6 +1601,19 @@ bool CS_NormalizeSpec(
 	arrMetadataTags = tblMetadata ? xvoTableGetValue(tblMetadata, "tags", 4) : NULL;
 	objMetadataNotes = tblMetadata ? xvoTableGetValue(tblMetadata, "notes", 5) : NULL;
 	arrUiListColumns = tblUiList ? xvoTableGetValue(tblUiList, "columns", 7) : NULL;
+	if ( tblUiList && (xvoType(tblUiList) == XVO_DT_TABLE) ) {
+		xvalue objSortCandidate = xvoTableGetValue(tblUiList, "defaultSort", 11);
+		if ( objSortCandidate && (xvoType(objSortCandidate) == XVO_DT_TABLE) ) {
+			const char* sSortField = xvoTableGetText(objSortCandidate, "field", 5);
+			const char* sSortDir = xvoTableGetText(objSortCandidate, "dir", 3);
+			if ( !CS_IsBlank(sSortField) ) {
+				xvalue arrSort = xvoCreateArray();
+				xvoArrayAppendText(arrSort, (str)sSortField, 0, FALSE);
+				xvoArrayAppendText(arrSort, (str)(CS_IsBlank(sSortDir) ? "desc" : sSortDir), 0, FALSE);
+				xvoTableSetValue(tblUiList, "defaultSort", 11, arrSort, TRUE);
+			}
+		}
+	}
 	objUiListDefaultSort = tblUiList ? xvoTableGetValue(tblUiList, "defaultSort", 11) : NULL;
 	objUiListPageSize = tblUiList ? xvoTableGetValue(tblUiList, "pageSize", 8) : NULL;
 	objUiDetailShowAuthor = tblUiDetail ? xvoTableGetValue(tblUiDetail, "showAuthor", 10) : NULL;
@@ -1560,11 +1729,11 @@ bool CS_NormalizeSpec(
 		if ( psError ) *psError = xrtCopyStr("ui.form must be an object", 0);
 		return FALSE;
 	}
-	if ( (objUiDetailShowAuthor != NULL) && (xvoType(objUiDetailShowAuthor) != XVO_DT_BOOL) ) {
+	if ( !CS_ValueIsMissing(objUiDetailShowAuthor) && !CS_NormalizeTableBool(tblUiDetail, "showAuthor") ) {
 		if ( psError ) *psError = xrtCopyStr("ui.detail.showAuthor must be a boolean", 0);
 		return FALSE;
 	}
-	if ( (objUiDetailShowPublishedAt != NULL) && (xvoType(objUiDetailShowPublishedAt) != XVO_DT_BOOL) ) {
+	if ( !CS_ValueIsMissing(objUiDetailShowPublishedAt) && !CS_NormalizeTableBool(tblUiDetail, "showPublishedAt") ) {
 		if ( psError ) *psError = xrtCopyStr("ui.detail.showPublishedAt must be a boolean", 0);
 		return FALSE;
 	}
@@ -1588,7 +1757,7 @@ bool CS_NormalizeSpec(
 	if ( !CS_ValidateTextArray(arrMetadataTags, "metadata.tags", psError) ) {
 		return FALSE;
 	}
-	if ( (objMetadataNotes != NULL) && (xvoType(objMetadataNotes) != XVO_DT_TEXT) ) {
+	if ( !CS_ValueIsMissing(objMetadataNotes) && (xvoType(objMetadataNotes) != XVO_DT_TEXT) ) {
 		if ( psError ) *psError = xrtCopyStr("metadata.notes must be text", 0);
 		return FALSE;
 	}
@@ -1606,7 +1775,7 @@ bool CS_NormalizeSpec(
 		str sFieldError = NULL;
 		if ( !CS_ValidateField(tblField, i, &sFieldError) ) {
 			if ( psError ) {
-				*psError = sFieldError ? sFieldError : xrtCopyStr("field validation failed", 0);
+				*psError = sFieldError ? sFieldError : xrtCopyStr("字段校验失败", 0);
 			} else if ( sFieldError ) {
 				xrtFree(sFieldError);
 			}
@@ -1645,7 +1814,7 @@ bool CS_NormalizeSpec(
 
 	sSpecJson = CS_StringifyJson(tblSpec);
 	if ( sSpecJson == NULL ) {
-		if ( psError ) *psError = xrtCopyStr("failed to stringify spec", 0);
+		if ( psError ) *psError = xrtCopyStr("规格数据序列化失败", 0);
 		return FALSE;
 	}
 	sHash = CS_BuildHashText(sSpecJson);
@@ -1654,7 +1823,7 @@ bool CS_NormalizeSpec(
 		if ( sSpecJson ) xrtFree(sSpecJson);
 		if ( sHash ) xrtFree(sHash);
 		if ( sTypeKey ) xrtFree(sTypeKey);
-		if ( psError ) *psError = xrtCopyStr("failed to allocate spec metadata", 0);
+		if ( psError ) *psError = xrtCopyStr("规格元数据初始化失败", 0);
 		return FALSE;
 	}
 
@@ -2078,7 +2247,7 @@ bool CS_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	if ( pData == NULL ) {
 		return FALSE;
 	}
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -2155,7 +2324,7 @@ void CS_RequestTypeList(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 
 	if ( !CS_EnsureSchema() || !CS_OpenDb(&pDb) ) {
 		if ( pDb ) CS_CloseDb(pDb);
-		CS_SendError(objResp, "failed to open content-system database");
+		CS_SendError(objResp, "无法打开内容系统数据库");
 		return;
 	}
 	tblRet = CS_CreateResult(TRUE, NULL);
@@ -2196,7 +2365,7 @@ void CS_RequestTypeDetail(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	}
 	if ( !CS_EnsureSchema() || !CS_OpenDb(&pDb) ) {
 		if ( pDb ) CS_CloseDb(pDb);
-		CS_SendError(objResp, "failed to open content-system database");
+		CS_SendError(objResp, "无法打开内容系统数据库");
 		return;
 	}
 	if ( !CS_LoadTypeSnapshot(pDb, atoll(sId), &snapshot) ) {
@@ -2268,13 +2437,13 @@ void CS_RequestAdvisor(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	}
 	if ( !CS_EnsureSchema() || !CS_OpenDb(&pDb) ) {
 		if ( pDb ) CS_CloseDb(pDb);
-		CS_SendError(objResp, "failed to open content-system database");
+		CS_SendError(objResp, "无法打开内容系统数据库");
 		return;
 	}
 	tblAdvisor = CS_BuildAdvisorForType(pDb, atoll(sTypeId), sRevision[0] ? atoi(sRevision) : 0);
 	CS_CloseDb(pDb);
 	if ( tblAdvisor == NULL ) {
-		CS_SendError(objResp, "failed to build advisor data");
+		CS_SendError(objResp, "无法生成升级顾问结果");
 		return;
 	}
 	tblRet = CS_CreateResult(TRUE, NULL);
@@ -2314,7 +2483,7 @@ void CS_RequestRevisions(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	}
 	if ( !CS_EnsureSchema() || !CS_OpenDb(&pDb) ) {
 		if ( pDb ) CS_CloseDb(pDb);
-		CS_SendError(objResp, "failed to open content-system database");
+		CS_SendError(objResp, "无法打开内容系统数据库");
 		return;
 	}
 
@@ -2367,14 +2536,14 @@ bool CS_SaveTypeInternal(sqlite3* pDb, int64 iTypeId, const char* sNote, xvalue 
 
 	if ( !CS_NormalizeSpec(tblSpec, &sSpecJson, &sSpecHash, &sTypeKey, &sXid, &sName, &sTitle, &sNamespace, &sDescription, &sIcon, &sTable, &iFieldCount, &sError) ) {
 		if ( psMessage ) {
-			*psMessage = sError ? sError : xrtCopyStr("spec validation failed", 0);
+			*psMessage = sError ? sError : xrtCopyStr("内容模型规格校验失败", 0);
 		} else if ( sError ) {
 			xrtFree(sError);
 		}
 		goto cleanup;
 	}
 	if ( !CS_ExecSql(pDb, "BEGIN IMMEDIATE") ) {
-		if ( psMessage ) *psMessage = xrtCopyStr("failed to begin transaction", 0);
+		if ( psMessage ) *psMessage = xrtCopyStr("无法开始保存事务", 0);
 		goto cleanup;
 	}
 
@@ -2414,7 +2583,7 @@ bool CS_SaveTypeInternal(sqlite3* pDb, int64 iTypeId, const char* sNote, xvalue 
 			-1,
 			&stmt,
 			NULL) != SQLITE_OK ) {
-			if ( psMessage ) *psMessage = xrtCopyStr("failed to insert content type", 0);
+			if ( psMessage ) *psMessage = xrtCopyStr("创建内容模型失败", 0);
 			goto cleanup;
 		}
 		sqlite3_bind_text(stmt, 1, sTypeKey, -1, SQLITE_TRANSIENT);
@@ -2431,7 +2600,7 @@ bool CS_SaveTypeInternal(sqlite3* pDb, int64 iTypeId, const char* sNote, xvalue 
 		sqlite3_bind_int64(stmt, 12, iNow);
 		sqlite3_bind_int64(stmt, 13, iNow);
 		if ( sqlite3_step(stmt) != SQLITE_DONE ) {
-			if ( psMessage ) *psMessage = xrtCopyStr("failed to save content type", 0);
+			if ( psMessage ) *psMessage = xrtCopyStr("保存内容模型失败", 0);
 			goto cleanup;
 		}
 		iTypeId = sqlite3_last_insert_rowid(pDb);
@@ -2442,7 +2611,7 @@ bool CS_SaveTypeInternal(sqlite3* pDb, int64 iTypeId, const char* sNote, xvalue 
 	if ( (!bExists) || (sCurrentHash == NULL) || (strcmp(sCurrentHash, sSpecHash) != 0) ) {
 		int iNewRevision = iCurrentRevision + 1;
 		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_type_revision(type_id, revision, spec_json, spec_hash, note, generator_version, create_time) VALUES(?, ?, ?, ?, ?, ?, ?)", -1, &stmt, NULL) != SQLITE_OK ) {
-			if ( psMessage ) *psMessage = xrtCopyStr("failed to insert revision", 0);
+			if ( psMessage ) *psMessage = xrtCopyStr("创建修订记录失败", 0);
 			goto cleanup;
 		}
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTypeId);
@@ -2453,14 +2622,14 @@ bool CS_SaveTypeInternal(sqlite3* pDb, int64 iTypeId, const char* sNote, xvalue 
 		sqlite3_bind_text(stmt, 6, CS_GENERATOR_VERSION, -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int64(stmt, 7, iNow);
 		if ( sqlite3_step(stmt) != SQLITE_DONE ) {
-			if ( psMessage ) *psMessage = xrtCopyStr("failed to save revision", 0);
+			if ( psMessage ) *psMessage = xrtCopyStr("保存修订记录失败", 0);
 			goto cleanup;
 		}
 		if ( stmt ) sqlite3_finalize(stmt);
 		stmt = NULL;
 
 		if ( sqlite3_prepare_v2(pDb, "UPDATE content_type SET xid = ?, name = ?, namespace = ?, title = ?, description = ?, icon = ?, table_name = ?, field_count = ?, spec_json = ?, spec_hash = ?, current_revision = ?, update_time = ? WHERE id = ?", -1, &stmt, NULL) != SQLITE_OK ) {
-			if ( psMessage ) *psMessage = xrtCopyStr("failed to update content type", 0);
+			if ( psMessage ) *psMessage = xrtCopyStr("更新内容模型失败", 0);
 			goto cleanup;
 		}
 		sqlite3_bind_text(stmt, 1, sXid, -1, SQLITE_TRANSIENT);
@@ -2477,15 +2646,15 @@ bool CS_SaveTypeInternal(sqlite3* pDb, int64 iTypeId, const char* sNote, xvalue 
 		sqlite3_bind_int64(stmt, 12, iNow);
 		sqlite3_bind_int64(stmt, 13, (sqlite3_int64)iTypeId);
 		if ( sqlite3_step(stmt) != SQLITE_DONE ) {
-			if ( psMessage ) *psMessage = xrtCopyStr("failed to finalize content type", 0);
+			if ( psMessage ) *psMessage = xrtCopyStr("提交内容模型失败", 0);
 			goto cleanup;
 		}
 		if ( piSavedRevision ) *piSavedRevision = iNewRevision;
 		if ( pbRevisionCreated ) *pbRevisionCreated = TRUE;
-		if ( psMessage ) *psMessage = xrtCopyStr("revision saved", 0);
+		if ( psMessage ) *psMessage = xrtCopyStr("修订已保存", 0);
 	} else {
 		if ( sqlite3_prepare_v2(pDb, "UPDATE content_type SET xid = ?, name = ?, namespace = ?, title = ?, description = ?, icon = ?, table_name = ?, field_count = ?, spec_json = ?, spec_hash = ?, update_time = ? WHERE id = ?", -1, &stmt, NULL) != SQLITE_OK ) {
-			if ( psMessage ) *psMessage = xrtCopyStr("failed to update content type", 0);
+			if ( psMessage ) *psMessage = xrtCopyStr("更新内容模型失败", 0);
 			goto cleanup;
 		}
 		sqlite3_bind_text(stmt, 1, sXid, -1, SQLITE_TRANSIENT);
@@ -2501,15 +2670,15 @@ bool CS_SaveTypeInternal(sqlite3* pDb, int64 iTypeId, const char* sNote, xvalue 
 		sqlite3_bind_int64(stmt, 11, iNow);
 		sqlite3_bind_int64(stmt, 12, (sqlite3_int64)iTypeId);
 		if ( sqlite3_step(stmt) != SQLITE_DONE ) {
-			if ( psMessage ) *psMessage = xrtCopyStr("failed to update content type", 0);
+			if ( psMessage ) *psMessage = xrtCopyStr("更新内容模型失败", 0);
 			goto cleanup;
 		}
 		if ( piSavedRevision ) *piSavedRevision = iCurrentRevision;
-		if ( psMessage ) *psMessage = xrtCopyStr("spec unchanged, metadata refreshed", 0);
+		if ( psMessage ) *psMessage = xrtCopyStr("规格未变化，已刷新元数据", 0);
 	}
 
 	if ( !CS_ExecSql(pDb, "COMMIT") ) {
-		if ( psMessage ) *psMessage = xrtCopyStr("failed to commit content type", 0);
+		if ( psMessage ) *psMessage = xrtCopyStr("提交内容模型事务失败", 0);
 		goto cleanup;
 	}
 	if ( piSavedTypeId ) *piSavedTypeId = iTypeId;
@@ -2550,12 +2719,12 @@ void CS_RequestSaveType(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	(void)objSession;
 
 	if ( !HttpMethodIs(objReq, "POST") ) {
-		CS_SendError(objResp, "method not allowed");
+		CS_SendError(objResp, "请求方法不被允许");
 		return;
 	}
 	tblForm = CS_ParseJsonBody(objReq);
 	if ( tblForm == NULL ) {
-		CS_SendError(objResp, "invalid json body");
+		CS_SendError(objResp, "请求体 JSON 不合法");
 		return;
 	}
 	tblSpec = xvoTableGetValue(tblForm, "spec", 4);
@@ -2567,25 +2736,133 @@ void CS_RequestSaveType(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	if ( !CS_EnsureSchema() || !CS_OpenDb(&pDb) ) {
 		if ( pDb ) CS_CloseDb(pDb);
 		xvoUnref(tblForm);
-		CS_SendError(objResp, "failed to open content-system database");
+		CS_SendError(objResp, "无法打开内容系统数据库");
 		return;
 	}
 	if ( !CS_SaveTypeInternal(pDb, xvoTableGetInt(tblForm, "id", 2), xvoTableGetText(tblForm, "note", 4), tblSpec, &iTypeId, &iRevision, &bRevisionCreated, &sMessage) ) {
 		CS_CloseDb(pDb);
 		xvoUnref(tblForm);
-		CS_SendError(objResp, sMessage ? (const char*)sMessage : "save failed");
+		CS_SendError(objResp, sMessage ? (const char*)sMessage : "保存失败");
 		if ( sMessage ) xrtFree(sMessage);
 		return;
 	}
 	CS_CloseDb(pDb);
 	xvoUnref(tblForm);
 
-	tblRet = CS_CreateResult(TRUE, sMessage ? (const char*)sMessage : "saved");
+	tblRet = CS_CreateResult(TRUE, sMessage ? (const char*)sMessage : "已保存");
 	xvoTableSetInt(tblRet, "typeId", 6, iTypeId);
 	xvoTableSetInt(tblRet, "revision", 8, iRevision);
 	xvoTableSetBool(tblRet, "revisionCreated", 15, bRevisionCreated);
 	CS_SendJsonValue(objResp, tblRet);
 	if ( sMessage ) xrtFree(sMessage);
+}
+
+void CS_RequestDeleteType(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblForm = NULL;
+	xvalue tblRet = NULL;
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iTypeId = 0;
+	const char* sPluginXid = NULL;
+	bool bExists = FALSE;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !HttpMethodIs(objReq, "POST") ) {
+		CS_SendError(objResp, "请求方法不被允许");
+		return;
+	}
+	tblForm = CS_ParseJsonBody(objReq);
+	if ( tblForm == NULL ) {
+		CS_SendError(objResp, "请求体 JSON 不合法");
+		return;
+	}
+	iTypeId = xvoTableGetInt(tblForm, "id", 2);
+	if ( iTypeId <= 0 ) {
+		xvoUnref(tblForm);
+		CS_SendError(objResp, "缺少模型 ID");
+		return;
+	}
+	if ( !CS_EnsureSchema() || !CS_OpenDb(&pDb) ) {
+		if ( pDb ) CS_CloseDb(pDb);
+		xvoUnref(tblForm);
+		CS_SendError(objResp, "无法打开内容系统数据库");
+		return;
+	}
+
+	if ( sqlite3_prepare_v2(pDb, "SELECT id, generated_plugin_xid FROM content_type WHERE id = ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTypeId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			bExists = TRUE;
+			sPluginXid = (const char*)sqlite3_column_text(stmt, 1);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+
+	if ( !bExists ) {
+		CS_CloseDb(pDb);
+		xvoUnref(tblForm);
+		CS_SendError(objResp, "内容模型不存在");
+		return;
+	}
+	if ( sPluginXid && sPluginXid[0] ) {
+		CS_CloseDb(pDb);
+		xvoUnref(tblForm);
+		CS_SendError(objResp, "该模型已生成受管插件，请先禁用并删除对应插件");
+		return;
+	}
+	if ( !CS_ExecSql(pDb, "BEGIN IMMEDIATE") ) {
+		CS_CloseDb(pDb);
+		xvoUnref(tblForm);
+		CS_SendError(objResp, "无法开始删除事务");
+		return;
+	}
+
+	if ( sqlite3_prepare_v2(pDb, "DELETE FROM content_upgrade_record WHERE type_id = ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTypeId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+
+	if ( sqlite3_prepare_v2(pDb, "DELETE FROM content_type_revision WHERE type_id = ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTypeId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+
+	if ( sqlite3_prepare_v2(pDb, "DELETE FROM content_generated_plugin WHERE type_id = ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTypeId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+
+	if ( sqlite3_prepare_v2(pDb, "DELETE FROM content_type WHERE id = ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTypeId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+
+	if ( !CS_ExecSql(pDb, "COMMIT") ) {
+		CS_ExecSql(pDb, "ROLLBACK");
+		CS_CloseDb(pDb);
+		xvoUnref(tblForm);
+		CS_SendError(objResp, "删除内容模型失败");
+		return;
+	}
+
+	CS_CloseDb(pDb);
+	xvoUnref(tblForm);
+	tblRet = CS_CreateResult(TRUE, "内容模型已删除");
+	xvoTableSetInt(tblRet, "typeId", 6, iTypeId);
+	CS_SendJsonValue(objResp, tblRet);
 }
 
 void CS_RecordUpgrade(sqlite3* pDb, int64 iTypeId, int iFromRevision, int iToRevision, const char* sPlanJson, const char* sResult)
@@ -3103,18 +3380,18 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	(void)objSession;
 
 	if ( !HttpMethodIs(objReq, "POST") ) {
-		CS_SendError(objResp, "method not allowed");
+		CS_SendError(objResp, "请求方法不被允许");
 		return;
 	}
 	tblForm = CS_ParseJsonBody(objReq);
 	if ( tblForm == NULL ) {
-		CS_SendError(objResp, "invalid json body");
+		CS_SendError(objResp, "请求体 JSON 不合法");
 		return;
 	}
 	if ( !CS_EnsureSchema() || !CS_OpenDb(&pDb) ) {
 		if ( pDb ) CS_CloseDb(pDb);
 		xvoUnref(tblForm);
-		CS_SendError(objResp, "failed to open content-system database");
+		CS_SendError(objResp, "无法打开内容系统数据库");
 		return;
 	}
 	if ( !CS_LoadTypeSnapshot(pDb, xvoTableGetInt(tblForm, "typeId", 6), &snapshot) ) {
@@ -3130,7 +3407,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		CS_CloseDb(pDb);
 		xvoUnref(tblForm);
 		if ( tblSpec ) xvoUnref(tblSpec);
-		CS_SendError(objResp, sError ? (const char*)sError : "spec validation failed");
+		CS_SendError(objResp, sError ? (const char*)sError : "内容模型规格校验失败");
 		if ( sError ) xrtFree(sError);
 		return;
 	}
@@ -3214,7 +3491,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		xvoUnref(tblForm);
 		if ( tblSpec ) xvoUnref(tblSpec);
 		if ( tblAdvisor ) xvoUnref(tblAdvisor);
-		CS_SendError(objResp, "managed plugin generation failed");
+		CS_SendError(objResp, "受管插件生成失败");
 		goto cleanup;
 	}
 
@@ -3269,7 +3546,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		CS_RecordUpgrade(pDb, snapshot.iTypeId, snapshot.iAppliedRevision, snapshot.iCurrentRevision, sPlanJson, "warning");
 	}
 
-	tblRet = CS_CreateResult(TRUE, "managed plugin generated");
+	tblRet = CS_CreateResult(TRUE, "受管插件已生成");
 	xvoTableSetText(tblRet, "pluginXid", 9, sXid, 0, FALSE);
 	xvoTableSetInt(tblRet, "revision", 8, snapshot.iCurrentRevision);
 	CS_SendJsonValue(objResp, tblRet);
@@ -3341,6 +3618,13 @@ int CS_OnStart(XAdminPluginHandle handle)
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/content-system/type/save";
 	route.proc = CS_RequestSaveType;
+	route.need_auth = TRUE;
+	route.admin_only = TRUE;
+	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
+
+	memset(&route, 0, sizeof(route));
+	route.path = "/admin/api/plugin/content-system/type/delete";
+	route.proc = CS_RequestDeleteType;
 	route.need_auth = TRUE;
 	route.admin_only = TRUE;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;

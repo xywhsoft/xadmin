@@ -1,5 +1,22 @@
-<div style="padding: 16px;">
-	<table class="layui-hide" id="Table_Services" lay-filter="Table_Services"></table>
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Log Services</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+	<style>
+		body { padding: 0; margin: 0; background-color: #f2f2f2; }
+		.layui-card { margin: 15px; }
+	</style>
+</head>
+<body>
+<div class="layui-card">
+	<div class="layui-card-body" style="padding: 16px;">
+		<table class="layui-hide" id="Table_Services" lay-filter="Table_Services"></table>
+	</div>
 </div>
 
 <script type="text/html" id="Toolbar_Services">
@@ -23,8 +40,9 @@
 	</div>
 </script>
 
+<script src="/layui/layui.js"></script>
 <script>
-	layui.use(['table'], function(){
+	layui.use(['table', 'layer'], function(){
 		var table = layui.table;
 		var layer = layui.layer;
 		var $ = layui.$;
@@ -145,3 +163,5 @@
 		});
 	});
 </script>
+</body>
+</html>
