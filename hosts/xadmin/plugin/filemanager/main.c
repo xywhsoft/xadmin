@@ -17,28 +17,6 @@ static FMConfigState G_FMConfig;
 
 static void FM_NormalizePath(char* path);
 
-static void FM_DebugLog(const char* sFormat, ...)
-{
-	va_list args;
-	FILE* fp;
-	str sPath;
-
-	if ( G_FMDataPath == NULL || G_FMDataPath[0] == '\0' ) return;
-	sPath = xrtPathJoin(2, (str)G_FMDataPath, "debug.log");
-	if ( sPath == NULL ) return;
-	fp = fopen((char*)sPath, "ab");
-	if ( fp == NULL ) {
-		xrtFree(sPath);
-		return;
-	}
-	va_start(args, sFormat);
-	vfprintf(fp, sFormat, args);
-	va_end(args);
-	fprintf(fp, "\n");
-	fclose(fp);
-	xrtFree(sPath);
-}
-
 static bool FM_IsFileSystemMode(void)
 {
 	return (strcmp(G_FMConfig.sRootPath, "*") == 0);
@@ -91,6 +69,8 @@ static void FM_PrepareRuntimePaths(void)
 {
 	const char* sAppPath = xsAppPath();
 
+	/* Backward compatibility: historical configs used "data", but the current
+	 * plugin is intended to expose the full filesystem. */
 	if ( strcmp(G_FMConfig.sRootPath, "data") == 0 ) {
 		snprintf(G_FMConfig.sRootPath, sizeof(G_FMConfig.sRootPath), "%s", "*");
 	}
@@ -409,18 +389,12 @@ void FM_Req_ApiList(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 
 	sRelPath = FM_ReadQuery(objReq, "path");
 	if ( sRelPath && !FM_IsPathSafe((char*)sRelPath) ) {
-		FM_DebugLog("[filemanager] list invalid path: %s", (char*)sRelPath);
 		xrtFree(sRelPath);
 		FM_SendError(objResp, 400, "invalid path");
 		return;
 	}
 	bIsRootList = (sRelPath == NULL || sRelPath[0] == '\0');
 	sPath = FM_ResolvePath(sRelPath ? (char*)sRelPath : "");
-	FM_DebugLog("[filemanager] list request path='%s' rootMode=%d isRootList=%d resolved='%s'",
-		sRelPath ? (char*)sRelPath : "",
-		FM_IsFileSystemMode() ? 1 : 0,
-		bIsRootList ? 1 : 0,
-		sPath ? (char*)sPath : "(null)");
 	if ( sRelPath ) xrtFree(sRelPath);
 
 	tblRet = xvoCreateTable();
@@ -435,7 +409,6 @@ void FM_Req_ApiList(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 		xrtDirScan(sPath, FALSE, FM_ListProc, arrFile);
 	}
 	xvoTableSetInt(tblRet, "count", 5, (int64)xvoArrayItemCount(arrFile));
-	FM_DebugLog("[filemanager] list response count=%lld", (long long)xvoArrayItemCount(arrFile));
 
 	FM_SendJson(objResp, tblRet);
 	if ( sPath ) xrtFree(sPath);
@@ -1278,11 +1251,6 @@ int FM_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)
 	}
 
 	FM_PrepareRuntimePaths();
-	FM_DebugLog("[filemanager] config changed rootPath='%s' toolPath='%s' temp='%s' thumb='%s'",
-		G_FMConfig.sRootPath,
-		G_FMConfig.sToolPath,
-		G_FMConfig.sTempPath,
-		G_FMConfig.sThumbPath);
 
 	return 0;
 }

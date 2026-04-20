@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>File Manager</title>
+<title>&#x6587;&#x4EF6;&#x7BA1;&#x7406;</title>
 <link rel="stylesheet" href="/layui/css/layui.css">
 <style>
 html,body{margin:0;height:100%;background:#f5f7fb;font-family:"Segoe UI","Microsoft YaHei",sans-serif;overflow:hidden}
@@ -29,26 +29,26 @@ html,body{margin:0;height:100%;background:#f5f7fb;font-family:"Segoe UI","Micros
     <div class="pathbox"><div class="crumb" id="crumb"></div><input id="pathInput" type="text" autocomplete="off"></div>
   </div>
   <div class="bar">
-    <button class="layui-btn layui-btn-normal layui-btn-sm" id="btnUpload"><i class="layui-icon layui-icon-upload-drag"></i> Upload</button>
-    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnNewFile">New File</button>
-    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnNewDir">New Folder</button>
-    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnCopy">Copy</button>
-    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnCut">Cut</button>
-    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnPaste">Paste</button>
-    <button class="layui-btn layui-btn-danger layui-btn-sm" id="btnDelete">Delete</button>
-    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnCompress">Compress</button>
-    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnExtract">Extract</button>
+    <button class="layui-btn layui-btn-normal layui-btn-sm" id="btnUpload"><i class="layui-icon layui-icon-upload-drag"></i> &#x4E0A;&#x4F20;</button>
+    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnNewFile">&#x65B0;&#x5EFA;&#x6587;&#x4EF6;</button>
+    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnNewDir">&#x65B0;&#x5EFA;&#x6587;&#x4EF6;&#x5939;</button>
+    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnCopy">&#x590D;&#x5236;</button>
+    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnCut">&#x526A;&#x5207;</button>
+    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnPaste">&#x7C98;&#x8D34;</button>
+    <button class="layui-btn layui-btn-danger layui-btn-sm" id="btnDelete">&#x5220;&#x9664;</button>
+    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnCompress">&#x538B;&#x7F29;</button>
+    <button class="layui-btn layui-btn-primary layui-btn-sm" id="btnExtract">&#x89E3;&#x538B;</button>
     <input id="uploadInput" type="file" multiple style="display:none">
   </div>
   <div class="main">
     <div class="panel">
       <div class="wrap">
         <table class="tbl">
-          <thead><tr><th class="c1"><input type="checkbox" id="checkAll"></th><th>Name</th><th class="c3">Size</th><th class="c4">Modified</th><th class="c5">Type</th><th class="c6">Action</th></tr></thead>
+          <thead><tr><th class="c1"><input type="checkbox" id="checkAll"></th><th>&#x540D;&#x79F0;</th><th class="c3">&#x5927;&#x5C0F;</th><th class="c4">&#x4FEE;&#x6539;&#x65F6;&#x95F4;</th><th class="c5">&#x7C7B;&#x578B;</th><th class="c6">&#x64CD;&#x4F5C;</th></tr></thead>
           <tbody id="tbody"></tbody>
         </table>
       </div>
-      <div class="foot"><div id="status">Ready</div><div id="selection">Selected 0 items</div></div>
+      <div class="foot"><div id="status">&#x5C31;&#x7EEA;</div><div id="selection">&#x5DF2;&#x9009;&#x62E9; 0 &#x9879;</div></div>
     </div>
   </div>
 </div>
@@ -56,35 +56,102 @@ html,body{margin:0;height:100%;background:#f5f7fb;font-family:"Segoe UI","Micros
 <script>
 (function(){
 var state={path:"",items:[],selected:{},clip:null},layer;
+var I18N={
+  root:"\u6839\u76ee\u5f55",
+  drive:"\u78c1\u76d8",
+  folder:"\u6587\u4ef6\u5939",
+  file:"\u6587\u4ef6",
+  ready:"\u5c31\u7eea",
+  selectedPrefix:"\u5df2\u9009\u62e9 ",
+  selectedSuffix:" \u9879",
+  empty:"\u5f53\u524d\u76ee\u5f55\u4e3a\u7a7a",
+  loadingPrefix:"\u6b63\u5728\u52a0\u8f7d ",
+  currentPrefix:"\u5f53\u524d\u4f4d\u7f6e\uff1a",
+  currentMiddle:" | \u5171 ",
+  currentSuffix:" \u9879",
+  loadFailed:"\u52a0\u8f7d\u5931\u8d25",
+  listFailed:"\u5217\u8868\u52a0\u8f7d\u5931\u8d25\uff1a",
+  serverNoJson:"\u670d\u52a1\u5668\u672a\u8fd4\u56de JSON",
+  download:"\u4e0b\u8f7d",
+  edit:"\u7f16\u8f91",
+  preview:"\u9884\u89c8",
+  delete:"\u5220\u9664",
+  createFileTitle:"\u8bf7\u8f93\u5165\u6587\u4ef6\u540d",
+  createDirTitle:"\u8bf7\u8f93\u5165\u6587\u4ef6\u5939\u540d",
+  nameRequired:"\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a",
+  fileCreated:"\u6587\u4ef6\u5df2\u521b\u5efa",
+  folderCreated:"\u6587\u4ef6\u5939\u5df2\u521b\u5efa",
+  createFailed:"\u521b\u5efa\u5931\u8d25",
+  selectFirst:"\u8bf7\u5148\u9009\u62e9\u9879\u76ee",
+  confirmDeleteTitle:"\u786e\u8ba4\u5220\u9664",
+  confirmDeletePrefix:"\u786e\u5b9a\u5220\u9664\u9009\u4e2d\u7684 ",
+  confirmDeleteSuffix:" \u9879\u5417\uff1f",
+  deleteSuccess:"\u5220\u9664\u6210\u529f",
+  deleteFailed:"\u5220\u9664\u5931\u8d25",
+  copied:"\u5df2\u52a0\u5165\u590d\u5236\u5217\u8868",
+  cutted:"\u5df2\u52a0\u5165\u526a\u5207\u677f",
+  clipboardEmpty:"\u526a\u8d34\u677f\u4e3a\u7a7a",
+  moveSuccess:"\u79fb\u52a8\u6210\u529f",
+  copySuccess:"\u590d\u5236\u6210\u529f",
+  pasteFailed:"\u7c98\u8d34\u5931\u8d25",
+  readFailed:"\u8bfb\u53d6\u6587\u4ef6\u5931\u8d25",
+  editTitle:"\u7f16\u8f91\u6587\u4ef6",
+  save:"\u4fdd\u5b58",
+  close:"\u5173\u95ed",
+  saveSuccess:"\u4fdd\u5b58\u6210\u529f",
+  saveFailed:"\u4fdd\u5b58\u5931\u8d25",
+  uploadingPrefix:"\u6b63\u5728\u4e0a\u4f20 ",
+  uploadingSuffix:" \u4e2a\u6587\u4ef6",
+  uploadFinished:"\u4e0a\u4f20\u5b8c\u6210",
+  uploadSuccess:"\u4e0a\u4f20\u6210\u529f",
+  uploadPartialPrefix:"\u4e0a\u4f20\u5b8c\u6210\uff0c\u5931\u8d25 ",
+  uploadPartialSuffix:" \u4e2a",
+  compressTitle:"\u538b\u7f29\u6587\u4ef6",
+  format:"\u683c\u5f0f",
+  archiveName:"\u540d\u79f0",
+  savePath:"\u4fdd\u5b58\u8def\u5f84",
+  run:"\u5f00\u59cb",
+  cancel:"\u53d6\u6d88",
+  archiveNameRequired:"\u538b\u7f29\u5305\u540d\u79f0\u4e0d\u80fd\u4e3a\u7a7a",
+  compressSuccess:"\u538b\u7f29\u6210\u529f",
+  compressFailed:"\u538b\u7f29\u5931\u8d25",
+  selectOneArchive:"\u8bf7\u9009\u62e9\u4e00\u4e2a\u538b\u7f29\u6587\u4ef6",
+  extractTitle:"\u8bf7\u8f93\u5165\u89e3\u538b\u8def\u5f84",
+  extractPathRequired:"\u89e3\u538b\u8def\u5f84\u4e0d\u80fd\u4e3a\u7a7a",
+  extractSuccess:"\u89e3\u538b\u6210\u529f",
+  extractFailed:"\u89e3\u538b\u5931\u8d25"
+};
 function norm(p){return (p||"").replace(/\\/g,"/").replace(/\/+/g,"/").replace(/^\//,"").replace(/\/$/,"")}
-function join(a,b){return norm(a?(a+"/"+b):b)} function enc(s){return encodeURIComponent(s||"")}
+function join(a,b){return norm(a?(a+"/"+b):b)}
+function enc(s){return encodeURIComponent(s||"")}
 function esc(s){return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/\"/g,"&quot;").replace(/'/g,"&#39;")}
 function isImg(ext){return["jpg","jpeg","png","gif","bmp","webp","svg","ico"].indexOf((ext||"").toLowerCase())>=0}
 function isArc(ext){return["zip","7z","rar","tar","gz","tgz","xz","bz2"].indexOf((ext||"").toLowerCase())>=0}
 function isEdit(ext,name){ext=(ext||"").toLowerCase();name=(name||"").toLowerCase();if(name==="dockerfile"||name==="makefile")return true;return["txt","md","log","ini","cfg","conf","json","xml","html","htm","css","js","ts","jsx","tsx","c","h","cpp","hpp","py","java","go","rs","sh","bat","sql","yaml","yml","toml","csv","env"].indexOf(ext)>=0}
 function size(n){n=Number(n||0);if(n>=1073741824)return(n/1073741824).toFixed(2)+" GB";if(n>=1048576)return(n/1048576).toFixed(2)+" MB";if(n>=1024)return(n/1024).toFixed(2)+" KB";return n+" B"}
-function msg(t,i){layer.msg(t,{icon:i||0})} function setStatus(t){document.getElementById("status").textContent=t}
-function api(url,opt){return fetch(url,opt).then(function(r){return r.json().catch(function(){return{result:false,message:"Server did not return JSON"}})})}
+function msg(t,i){layer.msg(t,{icon:i||0})}
+function setStatus(t){document.getElementById("status").textContent=t}
+function api(url,opt){return fetch(url,opt).then(function(r){return r.json().catch(function(){return{result:false,message:I18N.serverNoJson}})})}
 function curSel(){var map={},ids=Object.keys(state.selected),out=[];state.items.forEach(function(it){map[String(it.id)]=it});ids.forEach(function(id){if(map[id])out.push(map[id])});return out}
-function syncBtns(){var c=curSel(),has=c.length>0,oneArc=c.length===1&&!c[0].isdir&&isArc(c[0].ext);[["btnCopy",has],["btnCut",has],["btnDelete",has],["btnCompress",has],["btnExtract",oneArc],["btnPaste",!!state.clip&&state.clip.items.length>0]].forEach(function(p){var el=document.getElementById(p[0]);if(p[1])el.classList.remove("disabled");else el.classList.add("disabled")});document.getElementById("selection").textContent="Selected "+c.length+" items"}
-function renderCrumb(){var el=document.getElementById("crumb"),parts=state.path?state.path.split("/"):[],html='<a href="#" data-p="">root</a>',p="";parts.forEach(function(part,i){p+=(p?"/":"")+part;html+='<span>/</span>'+(i===parts.length-1?'<strong>'+esc(part)+'</strong>':'<a href="#" data-p="'+esc(p)+'">'+esc(part)+'</a>')});el.innerHTML=html;Array.prototype.forEach.call(el.querySelectorAll("a[data-p]"),function(a){a.onclick=function(e){e.preventDefault();state.path=this.getAttribute("data-p")||"";load()}})}
-function itemType(it){if(it.isroot)return"Drive";if(it.isdir)return"Folder";return it.ext?String(it.ext).toUpperCase():"File"}
+function syncBtns(){var c=curSel(),has=c.length>0,oneArc=c.length===1&&!c[0].isdir&&isArc(c[0].ext);[["btnCopy",has],["btnCut",has],["btnDelete",has],["btnCompress",has],["btnExtract",oneArc],["btnPaste",!!state.clip&&state.clip.items.length>0]].forEach(function(p){var el=document.getElementById(p[0]);if(p[1])el.classList.remove("disabled");else el.classList.add("disabled")});document.getElementById("selection").textContent=I18N.selectedPrefix+c.length+I18N.selectedSuffix}
+function renderCrumb(){var el=document.getElementById("crumb"),parts=state.path?state.path.split("/"):[],html='<a href="#" data-p="">'+I18N.root+'</a>',p="";parts.forEach(function(part,i){p+=(p?"/":"")+part;html+='<span>/</span>'+(i===parts.length-1?'<strong>'+esc(part)+'</strong>':'<a href="#" data-p="'+esc(p)+'">'+esc(part)+'</a>')});el.innerHTML=html;Array.prototype.forEach.call(el.querySelectorAll("a[data-p]"),function(a){a.onclick=function(e){e.preventDefault();state.path=this.getAttribute("data-p")||"";load()}})}
+function itemType(it){if(it.isroot)return I18N.drive;if(it.isdir)return I18N.folder;return it.ext?String(it.ext).toUpperCase():I18N.file}
 function icon(it){if(it.isdir)return"layui-icon-file-b";if(isImg(it.ext))return"layui-icon-picture";if(isArc(it.ext))return"layui-icon-release";return"layui-icon-file"}
-function rowHtml(it){var cls=state.selected[String(it.id)]?"sel":"",fileCls=it.isdir?"":"file",actions="",disabled=it.isroot?' disabled':'';if(!it.isroot){actions+='<button class="layui-btn layui-btn-xs layui-btn-primary" data-dl="'+it.id+'">Download</button>';if(!it.isdir&&isEdit(it.ext,it.name))actions+=' <button class="layui-btn layui-btn-xs" data-ed="'+it.id+'">Edit</button>';if(!it.isdir&&isImg(it.ext))actions+=' <button class="layui-btn layui-btn-xs" data-img="'+it.id+'">Preview</button>';actions+=' <button class="layui-btn layui-btn-xs layui-btn-danger" data-del="'+it.id+'">Delete</button>'}return'<tr data-id="'+it.id+'" class="'+cls+'"><td class="c1"><input class="chk" data-id="'+it.id+'" type="checkbox"'+disabled+' '+(state.selected[String(it.id)]?"checked":"")+'></td><td><div class="name"><i class="layui-icon '+icon(it)+'"></i><span class="'+fileCls+'" data-open="'+it.id+'">'+esc(it.name)+'</span></div></td><td class="c3">'+(it.isdir?"-":size(it.size))+'</td><td class="c4">'+esc(it.time||"-")+'</td><td class="c5">'+esc(itemType(it))+'</td><td class="c6">'+actions+'</td></tr>'}
+function rowHtml(it){var cls=state.selected[String(it.id)]?"sel":"",fileCls=it.isdir?"":"file",actions="",disabled=it.isroot?' disabled':'';if(!it.isroot){actions+='<button class="layui-btn layui-btn-xs layui-btn-primary" data-dl="'+it.id+'">'+I18N.download+'</button>';if(!it.isdir&&isEdit(it.ext,it.name))actions+=' <button class="layui-btn layui-btn-xs" data-ed="'+it.id+'">'+I18N.edit+'</button>';if(!it.isdir&&isImg(it.ext))actions+=' <button class="layui-btn layui-btn-xs" data-img="'+it.id+'">'+I18N.preview+'</button>';actions+=' <button class="layui-btn layui-btn-xs layui-btn-danger" data-del="'+it.id+'">'+I18N.delete+'</button>'}return'<tr data-id="'+it.id+'" class="'+cls+'"><td class="c1"><input class="chk" data-id="'+it.id+'" type="checkbox"'+disabled+' '+(state.selected[String(it.id)]?"checked":"")+'></td><td><div class="name"><i class="layui-icon '+icon(it)+'"></i><span class="'+fileCls+'" data-open="'+it.id+'">'+esc(it.name)+'</span></div></td><td class="c3">'+(it.isdir?"-":size(it.size))+'</td><td class="c4">'+esc(it.time||"-")+'</td><td class="c5">'+esc(itemType(it))+'</td><td class="c6">'+actions+'</td></tr>'}
 function find(id){id=String(id);for(var i=0;i<state.items.length;i++)if(String(state.items[i].id)===id)return state.items[i];return null}
-function render(){var tb=document.getElementById("tbody");if(!state.items.length){tb.innerHTML='<tr><td colspan="6" class="empty">This folder is empty</td></tr>';syncBtns();return}tb.innerHTML=state.items.map(rowHtml).join("");Array.prototype.forEach.call(document.querySelectorAll(".chk"),function(el){el.onchange=function(){var id=String(this.getAttribute("data-id"));if(this.disabled)return;if(this.checked)state.selected[id]=true;else delete state.selected[id];render()}});Array.prototype.forEach.call(document.querySelectorAll("[data-open]"),function(el){el.onclick=function(){var tr=this.closest("tr"),chk=tr.querySelector(".chk");if(!chk.disabled){chk.checked=!chk.checked;chk.dispatchEvent(new Event("change"))}};el.ondblclick=function(){open(find(this.getAttribute("data-open")))}});Array.prototype.forEach.call(document.querySelectorAll("[data-dl]"),function(el){el.onclick=function(){download(find(this.getAttribute("data-dl")))}});Array.prototype.forEach.call(document.querySelectorAll("[data-ed]"),function(el){el.onclick=function(){edit(find(this.getAttribute("data-ed")))}});Array.prototype.forEach.call(document.querySelectorAll("[data-img]"),function(el){el.onclick=function(){preview(find(this.getAttribute("data-img")))}});Array.prototype.forEach.call(document.querySelectorAll("[data-del]"),function(el){el.onclick=function(){removeItems([find(this.getAttribute("data-del"))])}});syncBtns()}
-function load(){state.selected={};document.getElementById("checkAll").checked=false;renderCrumb();setStatus("Loading "+(state.path||"root"));api("/admin/api/plugin/filemanager/list?path="+enc(state.path)).then(function(res){state.items=Array.isArray(res.data)?res.data:[];state.items.sort(function(a,b){if(!!a.isdir!==!!b.isdir)return a.isdir?-1:1;return String(a.name||"").localeCompare(String(b.name||""),"en")});render();setStatus("Current: "+(state.path||"root")+" | "+state.items.length+" items")}).catch(function(err){state.items=[];render();setStatus("Load failed");msg("List failed: "+err.message,2)})}
+function render(){var tb=document.getElementById("tbody");if(!state.items.length){tb.innerHTML='<tr><td colspan="6" class="empty">'+I18N.empty+'</td></tr>';syncBtns();return}tb.innerHTML=state.items.map(rowHtml).join("");Array.prototype.forEach.call(document.querySelectorAll(".chk"),function(el){el.onchange=function(){var id=String(this.getAttribute("data-id"));if(this.disabled)return;if(this.checked)state.selected[id]=true;else delete state.selected[id];render()}});Array.prototype.forEach.call(document.querySelectorAll("[data-open]"),function(el){el.onclick=function(){var tr=this.closest("tr"),chk=tr.querySelector(".chk");if(!chk.disabled){chk.checked=!chk.checked;chk.dispatchEvent(new Event("change"))}};el.ondblclick=function(){open(find(this.getAttribute("data-open")))}});Array.prototype.forEach.call(document.querySelectorAll("[data-dl]"),function(el){el.onclick=function(){download(find(this.getAttribute("data-dl")))}});Array.prototype.forEach.call(document.querySelectorAll("[data-ed]"),function(el){el.onclick=function(){edit(find(this.getAttribute("data-ed")))}});Array.prototype.forEach.call(document.querySelectorAll("[data-img]"),function(el){el.onclick=function(){preview(find(this.getAttribute("data-img")))}});Array.prototype.forEach.call(document.querySelectorAll("[data-del]"),function(el){el.onclick=function(){removeItems([find(this.getAttribute("data-del"))])}});syncBtns()}
+function load(){state.selected={};document.getElementById("checkAll").checked=false;renderCrumb();setStatus(I18N.loadingPrefix+(state.path||I18N.root));api("/admin/api/plugin/filemanager/list?path="+enc(state.path)).then(function(res){state.items=Array.isArray(res.data)?res.data:[];state.items.sort(function(a,b){if(!!a.isdir!==!!b.isdir)return a.isdir?-1:1;return String(a.name||"").localeCompare(String(b.name||""),"zh-CN")});render();setStatus(I18N.currentPrefix+(state.path||I18N.root)+I18N.currentMiddle+state.items.length+I18N.currentSuffix)}).catch(function(err){state.items=[];render();setStatus(I18N.loadFailed);msg(I18N.listFailed+err.message,2)})}
 function open(it){if(!it)return;if(it.isdir){state.path=join(state.path,it.name);load();return}if(isImg(it.ext)){preview(it);return}if(isEdit(it.ext,it.name)){edit(it);return}download(it)}
 function download(it){if(!it)return;window.open("/admin/api/plugin/filemanager/download?path="+enc(join(state.path,it.name)),"_blank")}
-function promptCreate(isFile){layer.prompt({formType:0,title:isFile?"Enter file name":"Enter folder name"},function(val,idx){val=String(val||"").trim();if(!val){msg("Name is required",2);return}api("/admin/api/plugin/filemanager/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileName:val,folderPath:state.path,isfile:isFile?1:0})}).then(function(res){if(res.result){layer.close(idx);msg(isFile?"File created":"Folder created",1);load()}else msg(res.message||"Create failed",2)}).catch(function(err){msg("Create failed: "+err.message,2)})})}
-function removeItems(items){items=(items||[]).filter(Boolean);if(!items.length){msg("Select items first");return}layer.confirm("Delete "+items.length+" selected item(s)?",{icon:3,title:"Confirm"},function(idx){api("/admin/api/plugin/filemanager/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folderPath:state.path,items:items.map(function(it){return{name:it.name,isdir:it.isdir?1:0}})})}).then(function(res){layer.close(idx);if(res.result){msg("Delete success",1);load()}else msg(res.message||"Delete failed",2)}).catch(function(err){layer.close(idx);msg("Delete failed: "+err.message,2)})})}
-function copySel(isCut){var items=curSel();if(!items.length){msg("Select items first");return}state.clip={isCut:!!isCut,items:items.map(function(it){return{sourcePath:join(state.path,it.name),isdir:it.isdir?1:0}})};syncBtns();msg(isCut?"Cut list ready":"Copy list ready",1)}
-function pasteSel(){if(!state.clip||!state.clip.items.length){msg("Clipboard is empty");return}api("/admin/api/plugin/filemanager/copy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({targetPath:state.path,isCut:state.clip.isCut?1:0,items:state.clip.items})}).then(function(res){if(res.result){msg(state.clip.isCut?"Move success":"Copy success",1);if(state.clip.isCut)state.clip=null;load()}else msg(res.message||"Paste failed",2);syncBtns()}).catch(function(err){msg("Paste failed: "+err.message,2)})}
-function edit(it){if(!it)return;var fp=join(state.path,it.name);api("/admin/api/plugin/filemanager/content?path="+enc(fp)).then(function(res){if(!res.result){msg(res.message||"Read file failed",2);return}var html='<div class="editor"><div class="hd">'+esc(fp)+'</div><textarea id="editorText">'+esc(res.content||"")+'</textarea></div>';var id=layer.open({type:1,title:"Edit file",area:["860px","640px"],maxmin:true,content:html,btn:["Save","Close"],yes:function(){api("/admin/api/plugin/filemanager/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:fp,content:document.getElementById("editorText").value})}).then(function(ret){if(ret.result){msg("Save success",1);layer.close(id);load()}else msg(ret.message||"Save failed",2)}).catch(function(err){msg("Save failed: "+err.message,2)})}})}).catch(function(err){msg("Read file failed: "+err.message,2)})}
+function promptCreate(isFile){layer.prompt({formType:0,title:isFile?I18N.createFileTitle:I18N.createDirTitle},function(val,idx){val=String(val||"").trim();if(!val){msg(I18N.nameRequired,2);return}api("/admin/api/plugin/filemanager/create",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({fileName:val,folderPath:state.path,isfile:isFile?1:0})}).then(function(res){if(res.result){layer.close(idx);msg(isFile?I18N.fileCreated:I18N.folderCreated,1);load()}else msg(res.message||I18N.createFailed,2)}).catch(function(err){msg(I18N.createFailed+"\uff1a"+err.message,2)})})}
+function removeItems(items){items=(items||[]).filter(Boolean);if(!items.length){msg(I18N.selectFirst);return}layer.confirm(I18N.confirmDeletePrefix+items.length+I18N.confirmDeleteSuffix,{icon:3,title:I18N.confirmDeleteTitle},function(idx){api("/admin/api/plugin/filemanager/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({folderPath:state.path,items:items.map(function(it){return{name:it.name,isdir:it.isdir?1:0}})})}).then(function(res){layer.close(idx);if(res.result){msg(I18N.deleteSuccess,1);load()}else msg(res.message||I18N.deleteFailed,2)}).catch(function(err){layer.close(idx);msg(I18N.deleteFailed+"\uff1a"+err.message,2)})})}
+function copySel(isCut){var items=curSel();if(!items.length){msg(I18N.selectFirst);return}state.clip={isCut:!!isCut,items:items.map(function(it){return{sourcePath:join(state.path,it.name),isdir:it.isdir?1:0}})};syncBtns();msg(isCut?I18N.cutted:I18N.copied,1)}
+function pasteSel(){if(!state.clip||!state.clip.items.length){msg(I18N.clipboardEmpty);return}api("/admin/api/plugin/filemanager/copy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({targetPath:state.path,isCut:state.clip.isCut?1:0,items:state.clip.items})}).then(function(res){if(res.result){msg(state.clip.isCut?I18N.moveSuccess:I18N.copySuccess,1);if(state.clip.isCut)state.clip=null;load()}else msg(res.message||I18N.pasteFailed,2);syncBtns()}).catch(function(err){msg(I18N.pasteFailed+"\uff1a"+err.message,2)})}
+function edit(it){if(!it)return;var fp=join(state.path,it.name);api("/admin/api/plugin/filemanager/content?path="+enc(fp)).then(function(res){if(!res.result){msg(res.message||I18N.readFailed,2);return}var html='<div class="editor"><div class="hd">'+esc(fp)+'</div><textarea id="editorText">'+esc(res.content||"")+'</textarea></div>';var id=layer.open({type:1,title:I18N.editTitle,area:["860px","640px"],maxmin:true,content:html,btn:[I18N.save,I18N.close],yes:function(){api("/admin/api/plugin/filemanager/save",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path:fp,content:document.getElementById("editorText").value})}).then(function(ret){if(ret.result){msg(I18N.saveSuccess,1);layer.close(id);load()}else msg(ret.message||I18N.saveFailed,2)}).catch(function(err){msg(I18N.saveFailed+"\uff1a"+err.message,2)})}})}).catch(function(err){msg(I18N.readFailed+"\uff1a"+err.message,2)})}
 function preview(it){if(!it)return;var fp=join(state.path,it.name);layer.open({type:1,title:it.name,area:["900px","680px"],shadeClose:true,maxmin:true,content:'<div class="imgview"><img alt="" src="/admin/api/plugin/filemanager/image?path='+enc(fp)+'"></div>'})}
-function upload(files){files=Array.prototype.slice.call(files||[]);if(!files.length)return;var i=0,bad=0;setStatus("Uploading "+files.length+" file(s)");(function next(){if(i>=files.length){setStatus("Upload finished");msg(bad>0?"Upload finished, failed "+bad:"Upload success",bad>0?2:1);load();return}var fd=new FormData();fd.append("file",files[i]);fetch("/admin/api/plugin/filemanager/upload?path="+enc(state.path),{method:"POST",body:fd}).then(function(r){return r.json()}).then(function(res){if(!res.result)bad++;i++;next()}).catch(function(){bad++;i++;next()})})()}
-function compressSel(){var items=curSel();if(!items.length){msg("Select items first");return}var def=items.length===1?items[0].name:"archive";layer.open({type:1,title:"Compress",area:["420px","290px"],content:'<div style="padding:16px"><div class="layui-form-item"><label class="layui-form-label" style="width:90px">Format</label><div class="layui-input-block" style="margin-left:120px"><select id="cfmt" class="layui-input"><option value="zip">zip</option><option value="7z">7z</option><option value="tar.gz">tar.gz</option></select></div></div><div class="layui-form-item"><label class="layui-form-label" style="width:90px">Name</label><div class="layui-input-block" style="margin-left:120px"><input id="cname" class="layui-input" value="'+esc(def.replace(/\.[^.]+$/,""))+'"></div></div><div class="layui-form-item"><label class="layui-form-label" style="width:90px">Save Path</label><div class="layui-input-block" style="margin-left:120px"><input id="cpath" class="layui-input" value="'+esc(state.path)+'"></div></div></div>',btn:["Run","Cancel"],yes:function(idx){var fmt=document.getElementById("cfmt").value,name=document.getElementById("cname").value.trim(),save=norm(document.getElementById("cpath").value.trim());if(!name){msg("Archive name is required",2);return}api("/admin/api/plugin/filemanager/compress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({format:fmt,filename:name,savePath:save,sourcePath:state.path,items:items.map(function(it){return{name:it.name}})})}).then(function(res){if(res.result){layer.close(idx);msg("Compress success",1);load()}else msg(res.message||"Compress failed",2)}).catch(function(err){msg("Compress failed: "+err.message,2)})}})}
-function extractSel(){var items=curSel();if(items.length!==1||items[0].isdir||!isArc(items[0].ext)){msg("Select one archive file");return}var it=items[0],ap=join(state.path,it.name),def=join(state.path,it.name.replace(/\.[^.]+$/,""));layer.prompt({formType:0,title:"Enter extract path",value:def},function(val,idx){val=norm(String(val||"").trim());if(!val){msg("Extract path is required",2);return}api("/admin/api/plugin/filemanager/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({archivePath:ap,extractPath:val})}).then(function(res){if(res.result){layer.close(idx);msg("Extract success",1);load()}else msg(res.message||"Extract failed",2)}).catch(function(err){msg("Extract failed: "+err.message,2)})})}
+function upload(files){files=Array.prototype.slice.call(files||[]);if(!files.length)return;var i=0,bad=0;setStatus(I18N.uploadingPrefix+files.length+I18N.uploadingSuffix);(function next(){if(i>=files.length){setStatus(I18N.uploadFinished);msg(bad>0?I18N.uploadPartialPrefix+bad+I18N.uploadPartialSuffix:I18N.uploadSuccess,bad>0?2:1);load();return}var fd=new FormData();fd.append("file",files[i]);fetch("/admin/api/plugin/filemanager/upload?path="+enc(state.path),{method:"POST",body:fd}).then(function(r){return r.json()}).then(function(res){if(!res.result)bad++;i++;next()}).catch(function(){bad++;i++;next()})})()}
+function compressSel(){var items=curSel();if(!items.length){msg(I18N.selectFirst);return}var def=items.length===1?items[0].name:"archive";layer.open({type:1,title:I18N.compressTitle,area:["420px","290px"],content:'<div style="padding:16px"><div class="layui-form-item"><label class="layui-form-label" style="width:90px">'+I18N.format+'</label><div class="layui-input-block" style="margin-left:120px"><select id="cfmt" class="layui-input"><option value="zip">zip</option><option value="7z">7z</option><option value="tar.gz">tar.gz</option></select></div></div><div class="layui-form-item"><label class="layui-form-label" style="width:90px">'+I18N.archiveName+'</label><div class="layui-input-block" style="margin-left:120px"><input id="cname" class="layui-input" value="'+esc(def.replace(/\.[^.]+$/,""))+'"></div></div><div class="layui-form-item"><label class="layui-form-label" style="width:90px">'+I18N.savePath+'</label><div class="layui-input-block" style="margin-left:120px"><input id="cpath" class="layui-input" value="'+esc(state.path)+'"></div></div></div>',btn:[I18N.run,I18N.cancel],yes:function(idx){var fmt=document.getElementById("cfmt").value,name=document.getElementById("cname").value.trim(),save=norm(document.getElementById("cpath").value.trim());if(!name){msg(I18N.archiveNameRequired,2);return}api("/admin/api/plugin/filemanager/compress",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({format:fmt,filename:name,savePath:save,sourcePath:state.path,items:items.map(function(it){return{name:it.name}})})}).then(function(res){if(res.result){layer.close(idx);msg(I18N.compressSuccess,1);load()}else msg(res.message||I18N.compressFailed,2)}).catch(function(err){msg(I18N.compressFailed+"\uff1a"+err.message,2)})}})}
+function extractSel(){var items=curSel();if(items.length!==1||items[0].isdir||!isArc(items[0].ext)){msg(I18N.selectOneArchive);return}var it=items[0],ap=join(state.path,it.name),def=join(state.path,it.name.replace(/\.[^.]+$/,""));layer.prompt({formType:0,title:I18N.extractTitle,value:def},function(val,idx){val=norm(String(val||"").trim());if(!val){msg(I18N.extractPathRequired,2);return}api("/admin/api/plugin/filemanager/extract",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({archivePath:ap,extractPath:val})}).then(function(res){if(res.result){layer.close(idx);msg(I18N.extractSuccess,1);load()}else msg(res.message||I18N.extractFailed,2)}).catch(function(err){msg(I18N.extractFailed+"\uff1a"+err.message,2)})})}
 layui.use(["layer"],function(){layer=layui.layer;document.getElementById("btnUp").onclick=function(){if(!state.path)return;var arr=state.path.split("/");arr.pop();state.path=arr.join("/");load()};document.getElementById("btnRefresh").onclick=load;document.getElementById("btnNewFile").onclick=function(){promptCreate(true)};document.getElementById("btnNewDir").onclick=function(){promptCreate(false)};document.getElementById("btnDelete").onclick=function(){removeItems(curSel())};document.getElementById("btnCopy").onclick=function(){copySel(false)};document.getElementById("btnCut").onclick=function(){copySel(true)};document.getElementById("btnPaste").onclick=pasteSel;document.getElementById("btnCompress").onclick=compressSel;document.getElementById("btnExtract").onclick=extractSel;document.getElementById("btnUpload").onclick=function(){document.getElementById("uploadInput").click()};document.getElementById("uploadInput").onchange=function(){upload(this.files);this.value=""};document.getElementById("checkAll").onchange=function(){state.selected={};if(this.checked)state.items.forEach(function(it){if(!it.isroot)state.selected[String(it.id)]=true});render()};document.getElementById("crumb").ondblclick=function(){var inp=document.getElementById("pathInput");inp.style.display="block";inp.value=state.path;inp.focus();inp.select()};document.getElementById("pathInput").onkeydown=function(e){if(e.key==="Enter"){state.path=norm(this.value);this.style.display="none";load()}else if(e.key==="Escape"){this.style.display="none"}};document.getElementById("pathInput").onblur=function(){this.style.display="none"};load()})
 })();
 </script>
