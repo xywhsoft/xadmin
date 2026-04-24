@@ -82,35 +82,35 @@ void Model_{{MODEL_NAME}}_CompileSQL()
 void API_{{API_PREFIX}}_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现列表接口
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":[]}");
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":[]}");
 }
 
 // API: 获取详情
 void API_{{API_PREFIX}}_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现详情接口
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":{}}");
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":{}}");
 }
 
 // API: 添加数据
 void API_{{API_PREFIX}}_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现添加接口
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
 }
 
 // API: 修改数据
 void API_{{API_PREFIX}}_Put(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现修改接口
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
 }
 
 // API: 删除数据
 void API_{{API_PREFIX}}_Del(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现删除接口
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\"}");
 }
 {{/ENABLE_API}}
 
@@ -123,7 +123,7 @@ void API_{{API_PREFIX}}_Del(XS_ServerObject objServer, XS_HostObject objHost, XS
 void Request_Model_{{ADMIN_PREFIX}}(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	// TODO: 实现后台数据接口
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":[]}");
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"ok\",\"data\":[]}");
 }
 
 // 后台: 列表页面
@@ -133,10 +133,10 @@ void Request_View_Model_{{ADMIN_PREFIX}}(XS_ServerObject objServer, XS_HostObjec
 	str sPagePath = G_ModelCtx->Format("%s/{{MODEL_NAME}}/page/list.html", ModelPath);
 	str sHtml = xrtFileRead(sPagePath);
 	if ( sHtml ) {
-		HttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
+		xsHttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
 		xrtFree(sHtml);
 	} else {
-		HttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
+		xsHttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
 	}
 	G_ModelCtx->Free(sPagePath);
 }
@@ -148,10 +148,10 @@ void Request_View_Model_{{ADMIN_PREFIX}}_Add(XS_ServerObject objServer, XS_HostO
 	str sPagePath = G_ModelCtx->Format("%s/{{MODEL_NAME}}/page/add.html", ModelPath);
 	str sHtml = xrtFileRead(sPagePath);
 	if ( sHtml ) {
-		HttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
+		xsHttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
 		xrtFree(sHtml);
 	} else {
-		HttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
+		xsHttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
 	}
 	G_ModelCtx->Free(sPagePath);
 }
@@ -163,10 +163,10 @@ void Request_View_Model_{{ADMIN_PREFIX}}_Edit(XS_ServerObject objServer, XS_Host
 	str sPagePath = G_ModelCtx->Format("%s/{{MODEL_NAME}}/page/edit.html", ModelPath);
 	str sHtml = xrtFileRead(sPagePath);
 	if ( sHtml ) {
-		HttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
+		xsHttpReplyFormat(objResp, 200, HTTP_CT_HTML, "%s", sHtml);
 		xrtFree(sHtml);
 	} else {
-		HttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
+		xsHttpReplyFormat(objResp, 404, HTTP_CT_HTML, "Page not found");
 	}
 	G_ModelCtx->Free(sPagePath);
 }

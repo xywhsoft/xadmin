@@ -6,7 +6,7 @@ sqlite3_stmt* stmt_sers_menu = NULL;
 
 
 
-// 服务模块初始�?
+// 服务模块初始�?
 void Admin_Init()
 {
 	printf("        Admin_Init \n");
@@ -29,7 +29,7 @@ void Admin_Unit()
 {
 	printf("        Admin_Unit \n");
 	
-	// 释放预编�?SQL 语句
+	// 释放预编�?SQL 语句
 	/*
 	sqlite3_finalize(stmt_sers_menu);
 	*/

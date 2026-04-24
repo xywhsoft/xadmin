@@ -4,7 +4,7 @@
 // 框架主页
 void Request_Index(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		
 		// 后台主页
 		LoadPage(objResp, 200, HTTP_CT_HTML, "admin/index.html");
@@ -22,7 +22,7 @@ void Request_Index(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 // 主页视图
 void Request_View_Home(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		
 		// 加载主页页面
 		LoadPage(objResp, 200, HTTP_CT_HTML, "admin/home.html");
@@ -37,18 +37,18 @@ void Request_View_Home(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 
 
-// 动态菜单接�?
+// 动态菜单接�?
 void Request_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		
 		// 从数据库动态获取菜单树
 		xvalue arrMenu = Menu_BuildTree();
 		
-		// 生成 JSON 并返�?
+		// 生成 JSON 并返�?
 		size_t iRetSize = 0;
 		char* sRet = xrtStringifyJSON(arrMenu, FALSE, &iRetSize);
-		http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
 		xvoUnref(arrMenu);
 		

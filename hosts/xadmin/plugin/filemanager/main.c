@@ -189,7 +189,7 @@ void FM_SendJsonCode(XS_ResponseObject objResp, int iCode, xvalue tblData)
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblData, FALSE, &iSize);
 	if ( sJson ) {
-		http_reply(objResp, iCode, "Content-Type: application/json; charset=utf-8\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, iCode, "Content-Type: application/json; charset=utf-8\r\n", sJson, iSize);
 		xrtFree(sJson);
 	}
 	xvoUnref(tblData);
@@ -235,7 +235,7 @@ bool FM_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	pData = xrtFileGetAll(sPath, &iSize);
 	xrtFree(sPath);
 	if ( pData == NULL ) return FALSE;
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -254,7 +254,7 @@ str FM_ReadQuery(XS_RequestObject objReq, const char* sName)
 {
 	char sBuf[512];
 	memset(sBuf, 0, sizeof(sBuf));
-	HttpGetQueryVar(objReq, sName, sBuf, sizeof(sBuf));
+	xsReqQueryValue(objReq, sName, sBuf, sizeof(sBuf));
 	if ( sBuf[0] == '\0' ) return NULL;
 	return xrtCopyStr(sBuf, 0);
 }
@@ -374,7 +374,7 @@ void FM_Req_ViewPage(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !FM_SendAssetHtml(objResp, "page/filemanager.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
 	}
 }
 
@@ -775,7 +775,7 @@ void FM_Req_ApiDownload(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		"Content-Length: %llu\r\n",
 		sContentType, sName ? (char*)sName : "download", (unsigned long long)iSize);
 
-	http_reply(objResp, 200, sHeader, pData, iSize);
+	xsHttpReplyAuto(objResp, 200, sHeader, pData, iSize);
 
 	xrtFree(pData);
 	xrtFree(sPath);
@@ -819,7 +819,7 @@ void FM_Req_ApiImage(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	snprintf(sHeader, sizeof(sHeader),
 		"Content-Type: %s\r\nCache-Control: max-age=86400\r\n", sContentType);
 
-	http_reply(objResp, 200, sHeader, pData, iSize);
+	xsHttpReplyAuto(objResp, 200, sHeader, pData, iSize);
 	xrtFree(pData);
 	xrtFree(sPath);
 }
@@ -909,7 +909,7 @@ void FM_Req_ApiThumbnail(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	snprintf(sHeader, sizeof(sHeader),
 		"Content-Type: %s\r\nCache-Control: max-age=86400\r\n", sContentType);
 
-	http_reply(objResp, 200, sHeader, pData, iSize);
+	xsHttpReplyAuto(objResp, 200, sHeader, pData, iSize);
 	xrtFree(pData);
 	xrtFree(sPath);
 }

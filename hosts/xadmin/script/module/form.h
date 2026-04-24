@@ -995,24 +995,7 @@ static bool Form_SaveDemoData(const char* sFileName, xvalue tblData, str* psErro
 
 static void Form_ReplyJSONValue(XS_ResponseObject objResp, xvalue tblRet)
 {
-	size_t iRetSize = 0;
-	str sRet;
-
-	if ( tblRet == NULL ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"response build failed\"}", 0);
-		return;
-	}
-
-	sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	if ( sRet == NULL ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"response stringify failed\"}", 0);
-		xvoUnref(tblRet);
-		return;
-	}
-
-	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
-	xrtFree(sRet);
-	xvoUnref(tblRet);
+	xsHttpJsonValueTake(objResp, 200, tblRet);
 }
 
 static void Form_ReplyError(XS_ResponseObject objResp, const char* sMessage)

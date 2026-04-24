@@ -134,21 +134,7 @@ void AddStaticRouteHTTP(str uri, void* proc)
 
 // 后台全局权限
 
-// xadmin http helper api
-typedef struct HttpMultipartPart {
-	const char* sName;
-	size_t iNameLen;
-	const char* sFileName;
-	size_t iFileNameLen;
-	const char* pBody;
-	size_t iBodyLen;
-} HttpMultipartPart;
-bool HttpMultipartNameIs(const HttpMultipartPart* pPart, const char* sName);
-bool HttpMultipartNext(XS_RequestObject objReq, size_t* pOffset, HttpMultipartPart* pPart);
-bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
-int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
-int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
-int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
+// xadmin page helper api
 void LoadPage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
 void XS_ImportScriptAPI(TCCState* s);
 

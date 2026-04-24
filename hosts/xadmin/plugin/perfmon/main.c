@@ -68,7 +68,7 @@ void PM_SendJson(XS_ResponseObject objResp, xvalue tblData)
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblData, FALSE, &iSize);
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	}
 	xvoUnref(tblData);
@@ -105,7 +105,7 @@ bool PM_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	pData = xrtFileGetAll(sPath, &iSize);
 	xrtFree(sPath);
 	if ( pData == NULL ) return FALSE;
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -150,7 +150,7 @@ str PM_ReadQuery(XS_RequestObject objReq, const char* sName)
 {
 	char sBuf[256];
 	memset(sBuf, 0, sizeof(sBuf));
-	HttpGetQueryVar(objReq, sName, sBuf, sizeof(sBuf));
+	xsReqQueryValue(objReq, sName, sBuf, sizeof(sBuf));
 	if ( sBuf[0] == '\0' ) return NULL;
 	return xrtCopyStr(sBuf, 0);
 }
@@ -853,7 +853,7 @@ void PM_Req_ViewDashboard(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !PM_SendAssetHtml(objResp, "page/dashboard.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
 	}
 }
 
@@ -861,7 +861,7 @@ void PM_Req_ViewDetail(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !PM_SendAssetHtml(objResp, "page/performance.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
 	}
 }
 

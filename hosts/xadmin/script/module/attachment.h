@@ -57,7 +57,7 @@ MimeMapping G_MimeTable[] = {
 	// 文档
 	{"pdf",  "application/pdf", 1},
 	
-	// 音视�?
+	// 音视�?
 	{"mp4",  "video/mp4", 1},
 	{"webm", "video/webm", 1},
 	{"ogg",  "video/ogg", 1},
@@ -65,7 +65,7 @@ MimeMapping G_MimeTable[] = {
 	{"wav",  "audio/wav", 1},
 	{"flac", "audio/flac", 1},
 	
-	// 压缩包（下载�?
+	// 压缩包（下载�?
 	{"zip",  "application/zip", 0},
 	{"rar",  "application/x-rar-compressed", 0},
 	{"7z",   "application/x-7z-compressed", 0},
@@ -103,7 +103,7 @@ MimeMapping* Attachment_GetMime(str sExt)
 // 加载防盗链白名单配置
 void Attachment_LoadHotlinkWhitelist()
 {
-	// 清空并重建字�?
+	// 清空并重建字�?
 	if ( G_HotlinkExact ) {
 		xrtDictDestroy(G_HotlinkExact);
 	}
@@ -139,7 +139,7 @@ void Attachment_LoadHotlinkWhitelist()
 			
 			if ( iLen > 0 ) {
 				if ( sLine[0] == '*' && sLine[1] == '.' ) {
-					// 通配符模�? *.example.com -> 存储 .example.com
+					// 通配符模�? *.example.com -> 存储 .example.com
 					xrtDictSet(G_HotlinkSuffix, sLine + 1, iLen - 1, (ptr)1);
 				} else {
 					// 精确匹配
@@ -162,7 +162,7 @@ bool Attachment_CheckHotlinkWhitelist(str sHost, size_t iLen)
 		return TRUE;
 	}
 	
-	// 2. 后缀匹配 O(k)，k=域名层级�?
+	// 2. 后缀匹配 O(k)，k=域名层级�?
 	str p = sHost;
 	while ( (p = strchr(p, '.')) != NULL ) {
 		size_t iSuffixLen = iLen - (p - sHost);
@@ -175,7 +175,7 @@ bool Attachment_CheckHotlinkWhitelist(str sHost, size_t iLen)
 	return FALSE;
 }
 
-// �?Referer 提取 host
+// �?Referer 提取 host
 str Attachment_ExtractHost(str sReferer, size_t* pLen)
 {
 	if ( !sReferer ) return NULL;
@@ -205,7 +205,7 @@ bool Attachment_CheckHotlink(XS_RequestObject objReq, bool bAllowHotlink)
 	
 	const char* sReferer = xsReqHeader(objReq, "Referer");
 	if ( sReferer == NULL || sReferer[0] == '\0' ) {
-		// �?Referer，允许（直接访问�?
+		// �?Referer，允许（直接访问�?
 		return TRUE;
 	}
 	
@@ -215,7 +215,7 @@ bool Attachment_CheckHotlink(XS_RequestObject objReq, bool bAllowHotlink)
 	if ( !sHost || iHostLen == 0 ) return FALSE;
 	
 	// 检查是否为本站
-	// TODO: 从配置获取本站域名列�?
+	// TODO: 从配置获取本站域名列�?
 	if ( ((iHostLen == 9) && (strncmp(sHost, "localhost", 9) == 0)) ||
 		 ((iHostLen == 9) && (strncmp(sHost, "127.0.0.1", 9) == 0)) ) {
 		return TRUE;
@@ -240,7 +240,7 @@ bool Attachment_IsExtAllowed(str sExt)
 	str sAllowed = xvoTableGetText(tblAttachment, "allowedExts", 11);
 	if ( !sAllowed || !*sAllowed ) return TRUE;  // 无配置则允许
 	
-	// 搜索扩展�?
+	// 搜索扩展�?
 	str sCopy = xrtCopyStr(sAllowed, 0);
 	str sToken = strtok(sCopy, ",");
 	bool bFound = FALSE;
@@ -256,14 +256,14 @@ bool Attachment_IsExtAllowed(str sExt)
 	return bFound;
 }
 
-// 获取最大上传大小（字节�?
+// 获取最大上传大小（字节�?
 int64 Attachment_GetMaxSize()
 {
 	xvalue tblAttachment = xvoTableGetValue(G_Option, "attachment", 10);
 	if ( !tblAttachment ) return 0;
 	
 	int64 iMaxMB = xvoTableGetInt(tblAttachment, "maxSize", 7);
-	if ( iMaxMB <= 0 ) return 0;  // 0表示不限�?
+	if ( iMaxMB <= 0 ) return 0;  // 0表示不限�?
 	
 	return iMaxMB * 1024 * 1024;
 }
@@ -275,12 +275,12 @@ int64 Attachment_GetUserQuota()
 	if ( !tblAttachment ) return 0;
 	
 	int64 iQuotaMB = xvoTableGetInt(tblAttachment, "userQuota", 9);
-	if ( iQuotaMB <= 0 ) return 0;  // 0表示不限�?
+	if ( iQuotaMB <= 0 ) return 0;  // 0表示不限�?
 	
 	return iQuotaMB * 1024 * 1024;
 }
 
-// 获取用户已使用空�?
+// 获取用户已使用空�?
 int64 Attachment_GetUserUsage(int64 iUploaderId, int iUploaderType)
 {
 	sqlite3_bind_int64(stmt_attachment_user_usage, 1, iUploaderId);
@@ -329,7 +329,7 @@ bool Attachment_EnsureDir(str sPath)
 
 
 
-// ==================== 数据库操�?====================
+// ==================== 数据库操�?====================
 
 // 添加附件记录
 bool Attachment_Add(str sXID, str sFilename, str sExt, str sMime, int64 iSize, str sPath,
@@ -386,7 +386,7 @@ bool Attachment_AddOrder(str sXID, int64 iMemberId, int64 iPrice, int iPriceType
 	return rc == SQLITE_DONE;
 }
 
-// 更新销�?
+// 更新销�?
 bool Attachment_UpdateSales(str sXID)
 {
 	sqlite3_bind_text(stmt_attachment_update_sales, 1, sXID, -1, NULL);
@@ -408,7 +408,7 @@ bool Attachment_UpdateDownloadCount(str sXID)
 	return rc == SQLITE_DONE;
 }
 
-// 删除记录关联的附�?
+// 删除记录关联的附�?
 void Attachment_DeleteByRecord(str sModelName, int64 iRecordId)
 {
 	sqlite3_stmt* stmt;
@@ -455,7 +455,7 @@ void Attachment_Init()
 	// 加载防盗链白名单
 	Attachment_LoadHotlinkWhitelist();
 	
-	// 预编�?SQL 语句
+	// 预编�?SQL 语句
 	sqlite3_prepare_v3(G_DB,
 		"INSERT INTO attachment (xid, filename, ext, mime, size, path, modelName, recordId, "
 		"uploaderId, uploaderType, allowHotlink, accessType, accessLevel, price, priceType, createTime) "

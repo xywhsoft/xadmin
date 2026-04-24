@@ -259,7 +259,7 @@ RouteInfo* Model_AddRoute(str uri, void* proc, bool bAuth, bool bAdmin, int auth
 // 模型数据视图处理函数（通用�?
 void Request_View_Model_Data(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -269,7 +269,7 @@ void Request_View_Model_Data(XS_ServerObject objServer, XS_HostObject objHost, X
 // 模型数据添加页面
 void Request_View_Model_Data_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data_add.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -279,7 +279,7 @@ void Request_View_Model_Data_Add(XS_ServerObject objServer, XS_HostObject objHos
 // 模型数据编辑页面
 void Request_View_Model_Data_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data_edit.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -289,7 +289,7 @@ void Request_View_Model_Data_Edit(XS_ServerObject objServer, XS_HostObject objHo
 // 模型数据草稿箱页�?
 void Request_View_Model_Data_Draft(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data_draft.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -299,7 +299,7 @@ void Request_View_Model_Data_Draft(XS_ServerObject objServer, XS_HostObject objH
 // 模型数据草稿编辑页面
 void Request_View_Model_Data_Draft_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/data_draft_edit.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -1765,9 +1765,6 @@ bool Model_TccLoad(ModelInstance* pModel)
 	tcc_add_symbol(pTcc, "Model_AddRoute", Model_AddRoute);
 	tcc_add_symbol(pTcc, "Model_RemoveRoute", Model_RemoveRoute);
 	tcc_add_symbol(pTcc, "G_ModelCtx", &G_ModelCtx);
-	tcc_add_symbol(pTcc, "HttpMethodIs", HttpMethodIs);
-	tcc_add_symbol(pTcc, "http_reply", http_reply);
-	tcc_add_symbol(pTcc, "HttpGetQueryVar", HttpGetQueryVar);
 	tcc_add_symbol(pTcc, "HttpReplyFormat", HttpReplyFormat);
 	
 	// 地址重定�?

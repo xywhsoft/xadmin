@@ -5,11 +5,11 @@ void Request_View_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	(void)objHost;
 	(void)objSession;
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		char sFileName[128];
 		str sHeader;
 
-		if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
+		if ( xsReqQueryValue(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
 			memcpy(sFileName, "global.json", sizeof("global.json"));
 		}
 		if ( !Form_IsValidFileName(sFileName) ) {
@@ -18,7 +18,7 @@ void Request_View_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		}
 
 		sHeader = xrtFormat("Content-Type: text/plain\r\nLocation: /admin/view/form?source=option&file=%s\r\n", sFileName);
-		http_reply(objResp, 302, sHeader, "", 0);
+		xsHttpReplyAuto(objResp, 302, sHeader, "", 0);
 		xrtFree(sHeader);
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -31,7 +31,7 @@ void Request_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	(void)objServer;
 	(void)objHost;
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		char sFileName[128];
 		xvalue tblConfig;
 		xvalue tblSchema;
@@ -41,7 +41,7 @@ void Request_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 		int64 iAuthLevelRequired;
 		int64 iAuthLevelUser = 0;
 
-		if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
+		if ( xsReqQueryValue(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
 			memcpy(sFileName, "global.json", sizeof("global.json"));
 		}
 		if ( !Form_IsValidFileName(sFileName) ) {
@@ -84,7 +84,7 @@ void Request_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "POST") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		str sFileName;
 		xvalue tblData;

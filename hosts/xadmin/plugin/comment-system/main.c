@@ -97,7 +97,7 @@ void Comment_ReadTextQuery(XS_RequestObject objReq, const char* sName, char* sVa
 	if ( (sValue == NULL) || (iValueSize == 0) ) return;
 	memset(sValue, 0, iValueSize);
 	if ( (objReq == NULL) || (sName == NULL) ) return;
-	HttpGetQueryVar(objReq, sName, sValue, iValueSize);
+	xsReqQueryValue(objReq, sName, sValue, iValueSize);
 }
 
 void Comment_ContextFromQuery(XS_RequestObject objReq, CommentRequestContext* pContext)
@@ -330,10 +330,10 @@ void Comment_SendJsonValue(XS_ResponseObject objResp, xvalue objValue)
 	str sJson = xrtStringifyJSON(objValue, FALSE, &iSize);
 
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	} else {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
 	}
 	xvoUnref(objValue);
 }
@@ -377,7 +377,7 @@ bool Comment_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	pData = xrtFileGetAll(sPath, &iSize);
 	xrtFree(sPath);
 	if ( pData == NULL ) return FALSE;
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -387,7 +387,7 @@ int Comment_ReadIntQuery(XS_RequestObject objReq, const char* sName, int iDefaul
 	char sValue[32];
 
 	memset(sValue, 0, sizeof(sValue));
-	HttpGetQueryVar(objReq, sName, sValue, sizeof(sValue));
+	xsReqQueryValue(objReq, sName, sValue, sizeof(sValue));
 	return sValue[0] ? atoi(sValue) : iDefault;
 }
 
@@ -589,7 +589,7 @@ void Comment_RequestPost(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		Comment_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -674,7 +674,7 @@ void Comment_RequestApprove(XS_ServerObject objServer, XS_HostObject objHost, XS
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		Comment_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -728,7 +728,7 @@ void Comment_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		Comment_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -776,7 +776,7 @@ void Comment_RequestPublicView(XS_ServerObject objServer, XS_HostObject objHost,
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !Comment_SendAssetHtml(objResp, "public.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "comment public page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "comment public page missing", 0);
 	}
 }
 
@@ -784,7 +784,7 @@ void Comment_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, 
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !Comment_SendAssetHtml(objResp, "admin.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "comment admin page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "comment admin page missing", 0);
 	}
 }
 

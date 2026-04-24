@@ -468,11 +468,7 @@ void Sched_NotifyChanged(void)
 
 static void Sched_SendJson(XS_ResponseObject objResp, xvalue tblRet)
 {
-	size_t iSize = 0;
-	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
-	xrtFree(sJson);
-	xvoUnref(tblRet);
+	xsHttpJsonValueTake(objResp, 200, tblRet);
 }
 
 static str Sched_TimeText(int64 iTime)

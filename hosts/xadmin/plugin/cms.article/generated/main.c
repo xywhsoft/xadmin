@@ -65,7 +65,7 @@ int Managed_ReadIntQuery(XS_RequestObject objReq, const char* sName, int iDefaul
 	char sValue[32];
 
 	memset(sValue, 0, sizeof(sValue));
-	HttpGetQueryVar(objReq, sName, sValue, sizeof(sValue));
+	xsReqQueryValue(objReq, sName, sValue, sizeof(sValue));
 	if ( sValue[0] == '\0' ) {
 		return iDefault;
 	}
@@ -81,7 +81,7 @@ void Managed_ReadTextQuery(XS_RequestObject objReq, const char* sName, char* sBu
 	if ( (objReq == NULL) || Managed_IsBlank(sName) ) {
 		return;
 	}
-	HttpGetQueryVar(objReq, sName, sBuf, iBufSize);
+	xsReqQueryValue(objReq, sName, sBuf, iBufSize);
 }
 
 char Managed_ToLowerAscii(char c)
@@ -203,10 +203,10 @@ void Managed_SendJsonValue(XS_ResponseObject objResp, xvalue objValue)
 	str sJson = xrtStringifyJSON(objValue, FALSE, &iSize);
 
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	} else {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
 	}
 	xvoUnref(objValue);
 }
@@ -216,7 +216,7 @@ void Managed_SendError(XS_ResponseObject objResp, const char* sMessage)
 	xvalue tblRet = Managed_CreateResult(FALSE, sMessage ? sMessage : "请求失败");
 
 	if ( tblRet == NULL ) {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"请求失败\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"请求失败\"}", 0);
 		return;
 	}
 	Managed_SendJsonValue(objResp, tblRet);
@@ -258,7 +258,7 @@ bool Managed_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	if ( pData == NULL ) {
 		return FALSE;
 	}
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -3009,7 +3009,7 @@ void Managed_RequestContractsAdmin(XS_ServerObject objServer, XS_HostObject objH
 	(void)objHost;
 	(void)objSession;
 
-	if ( HttpMethodIs(objReq, "POST") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvalue tblForm = Managed_ParseJsonBody(objReq);
 		str sError = NULL;
 
@@ -3229,8 +3229,8 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 	sSqlScan = bAdmin
 		? xrtCopyStr("SELECT id, title, status, payload_json, is_draft, create_time, update_time FROM content_item WHERE delete_time = 0 ORDER BY update_time DESC, id DESC", 0)
 		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
-	HttpGetQueryVar(objReq, "id", sId, sizeof(sId));
-	HttpGetQueryVar(objReq, "slug", sSlug, sizeof(sSlug));
+	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
+	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
 	if ( (sId[0] == '\0') && (sSlug[0] == '\0') ) {
 		if ( sSqlById ) xrtFree(sSqlById);
 		if ( sSqlScan ) xrtFree(sSqlScan);
@@ -3324,7 +3324,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		Managed_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -3437,7 +3437,7 @@ void Managed_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		Managed_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -3480,7 +3480,7 @@ void Managed_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, 
 	(void)objReq;
 	(void)objSession;
 	if ( !Managed_SendAssetHtml(objResp, "generated/admin.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "managed admin page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "managed admin page missing", 0);
 	}
 }
 
@@ -3491,7 +3491,7 @@ void Managed_RequestPublicView(XS_ServerObject objServer, XS_HostObject objHost,
 	(void)objReq;
 	(void)objSession;
 	if ( !Managed_SendAssetHtml(objResp, "generated/public.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "managed public page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "managed public page missing", 0);
 	}
 }
 

@@ -1,9 +1,6 @@
 static void ToolReloadReplyJSON(XS_ResponseObject objResp, xvalue tblRet)
 {
-	size_t iRetSize = 0;
-	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
-	xrtFree(sRet);
+	xsHttpJsonValueTake(objResp, 200, tblRet);
 }
 
 void Request_View_Tool_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -28,7 +25,7 @@ void Request_Tool_Reload_Template(XS_ServerObject objServer, XS_HostObject objHo
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") && !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) && !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -43,7 +40,6 @@ void Request_Tool_Reload_Template(XS_ServerObject objServer, XS_HostObject objHo
 	xvoTableSetInt(tblData, "total", 5, (int64)(iLoaded + iFailed));
 	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
 	ToolReloadReplyJSON(objResp, tblRet);
-	xvoUnref(tblRet);
 }
 
 void Request_Tool_Reload_Host(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -55,7 +51,7 @@ void Request_Tool_Reload_Host(XS_ServerObject objServer, XS_HostObject objHost, 
 
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") && !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) && !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -70,7 +66,6 @@ void Request_Tool_Reload_Host(XS_ServerObject objServer, XS_HostObject objHost, 
 	xvoTableSetBool(tblData, "queued", 6, bOK);
 	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
 	ToolReloadReplyJSON(objResp, tblRet);
-	xvoUnref(tblRet);
 }
 
 void Request_Tool_Reload_Server(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -83,7 +78,7 @@ void Request_Tool_Reload_Server(XS_ServerObject objServer, XS_HostObject objHost
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") && !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) && !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -99,7 +94,6 @@ void Request_Tool_Reload_Server(XS_ServerObject objServer, XS_HostObject objHost
 	xvoTableSetBool(tblData, "queued", 6, bOK);
 	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
 	ToolReloadReplyJSON(objResp, tblRet);
-	xvoUnref(tblRet);
 }
 
 void Request_Tool_Reload_XS(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -113,7 +107,7 @@ void Request_Tool_Reload_XS(XS_ServerObject objServer, XS_HostObject objHost, XS
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") && !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) && !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -130,5 +124,4 @@ void Request_Tool_Reload_XS(XS_ServerObject objServer, XS_HostObject objHost, XS
 	xvoTableSetBool(tblData, "queued", 6, bOK);
 	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
 	ToolReloadReplyJSON(objResp, tblRet);
-	xvoUnref(tblRet);
 }

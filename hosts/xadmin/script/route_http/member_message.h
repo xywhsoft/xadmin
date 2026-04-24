@@ -11,14 +11,14 @@ static void MemberMessageReplyAdminTable(XS_ResponseObject objResp, xvalue arrDa
 	xvoTableSetInt(tblRet, "count", 5, iCount);
 	xvoTableSetValue(tblRet, "data", 4, arrData, TRUE);
 	sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 	xrtFree(sRet);
 	xvoUnref(tblRet);
 }
 
 void Request_View_Member_Notify(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "member/notify.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -27,7 +27,7 @@ void Request_View_Member_Notify(XS_ServerObject objServer, XS_HostObject objHost
 
 void Request_View_Member_Notify_Send(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "member/notify_send.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -36,7 +36,7 @@ void Request_View_Member_Notify_Send(XS_ServerObject objServer, XS_HostObject ob
 
 void Request_View_Member_Mail(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "member/mail_task.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -45,7 +45,7 @@ void Request_View_Member_Mail(XS_ServerObject objServer, XS_HostObject objHost, 
 
 void Request_View_Member_Mail_Send(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "member/mail_send.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -54,7 +54,7 @@ void Request_View_Member_Mail_Send(XS_ServerObject objServer, XS_HostObject objH
 
 void Request_Member_Notify(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		char sParam[128];
 		int64 iPage = 1;
 		int64 iLimit = 20;
@@ -63,13 +63,13 @@ void Request_Member_Notify(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		xvalue arrData;
 		const char* sSearch = NULL;
 
-		if ( HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam)) > 0 ) {
+		if ( xsReqQueryValue(objReq, "page", sParam, sizeof(sParam)) > 0 ) {
 			iPage = xrtStrToI64(sParam);
 		}
-		if ( HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam)) > 0 ) {
+		if ( xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam)) > 0 ) {
 			iLimit = xrtStrToI64(sParam);
 		}
-		if ( HttpGetQueryVar(objReq, "search", sParam, sizeof(sParam)) > 0 ) {
+		if ( xsReqQueryValue(objReq, "search", sParam, sizeof(sParam)) > 0 ) {
 			sSearch = sParam;
 		}
 
@@ -78,7 +78,7 @@ void Request_Member_Notify(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "POST") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		str sTitle;
 		str sContent;
@@ -93,7 +93,7 @@ void Request_Member_Notify(XS_ServerObject objServer, XS_HostObject objHost, XS_
 
 		if ( tblForm == NULL || tblForm->Type != XVO_DT_TABLE ) {
 			if ( tblForm ) xvoUnref(tblForm);
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据\"}", 0);
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据\"}", 0);
 			return;
 		}
 
@@ -119,10 +119,10 @@ void Request_Member_Notify(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		xvoUnref(tblForm);
 
 		if ( bOK ) {
-			HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"%s\", \"data\": {\"id\": %lld, \"recipientCount\": %lld}}",
+			xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"%s\", \"data\": {\"id\": %lld, \"recipientCount\": %lld}}",
 				MemberMessage_StrOrEmpty(sMessage), iMessageID, iRecipientCount);
 		} else {
-			HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"%s\"}", MemberMessage_StrOrEmpty(sMessage));
+			xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"%s\"}", MemberMessage_StrOrEmpty(sMessage));
 		}
 		if ( sMessage ) {
 			xrtFree(sMessage);
@@ -135,7 +135,7 @@ void Request_Member_Notify(XS_ServerObject objServer, XS_HostObject objHost, XS_
 
 void Request_Member_Mail(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		char sParam[128];
 		int64 iPage = 1;
 		int64 iLimit = 20;
@@ -144,16 +144,16 @@ void Request_Member_Mail(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		xvalue arrData;
 		const char* sSearch = NULL;
 
-		if ( HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam)) > 0 ) {
+		if ( xsReqQueryValue(objReq, "page", sParam, sizeof(sParam)) > 0 ) {
 			iPage = xrtStrToI64(sParam);
 		}
-		if ( HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam)) > 0 ) {
+		if ( xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam)) > 0 ) {
 			iLimit = xrtStrToI64(sParam);
 		}
-		if ( HttpGetQueryVar(objReq, "search", sParam, sizeof(sParam)) > 0 ) {
+		if ( xsReqQueryValue(objReq, "search", sParam, sizeof(sParam)) > 0 ) {
 			sSearch = sParam;
 		}
-		if ( HttpGetQueryVar(objReq, "taskId", sParam, sizeof(sParam)) > 0 ) {
+		if ( xsReqQueryValue(objReq, "taskId", sParam, sizeof(sParam)) > 0 ) {
 			iTaskID = xrtStrToI64(sParam);
 		}
 
@@ -162,7 +162,7 @@ void Request_Member_Mail(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "POST") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		str sSubject;
 		str sContent;
@@ -176,7 +176,7 @@ void Request_Member_Mail(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 
 		if ( tblForm == NULL || tblForm->Type != XVO_DT_TABLE ) {
 			if ( tblForm ) xvoUnref(tblForm);
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据\"}", 0);
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据\"}", 0);
 			return;
 		}
 
@@ -199,10 +199,10 @@ void Request_Member_Mail(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		xvoUnref(tblForm);
 
 		if ( bOK ) {
-			HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"%s\", \"data\": {\"created\": %lld, \"skipped\": %lld}}",
+			xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"%s\", \"data\": {\"created\": %lld, \"skipped\": %lld}}",
 				MemberMessage_StrOrEmpty(sMessage), iCreateCount, iSkipCount);
 		} else {
-			HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"%s\"}", MemberMessage_StrOrEmpty(sMessage));
+			xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"%s\"}", MemberMessage_StrOrEmpty(sMessage));
 		}
 		if ( sMessage ) {
 			xrtFree(sMessage);
@@ -219,7 +219,7 @@ void Request_Member_Mail_Status(XS_ServerObject objServer, XS_HostObject objHost
 	char* sJson;
 	size_t iJsonSize = 0;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -228,7 +228,7 @@ void Request_Member_Mail_Status(XS_ServerObject objServer, XS_HostObject objHost
 	xvoTableSetBool(tblStatus, "result", 6, TRUE);
 	xvoTableSetValue(tblStatus, "data", 4, MemberMessage_GetMailQueueStatus(), TRUE);
 	sJson = xrtStringifyJSON(tblStatus, FALSE, &iJsonSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iJsonSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iJsonSize);
 	xrtFree(sJson);
 	xvoUnref(tblStatus);
 }
@@ -237,19 +237,19 @@ void Request_Member_Mail_RunPending(XS_ServerObject objServer, XS_HostObject obj
 {
 	const char* sMessage = NULL;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
 
 	if ( !MemberMessage_GetGlobalBool("mail_enabled", FALSE) ) {
-		HttpReplyFormat(objResp, 200, HTTP_CT_JSON,
+		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON,
 			"{\"result\": false, \"message\": \"%s\"}",
 			"邮件功能未启用");
 		return;
 	}
 	if ( !MemberMessage_GetGlobalBool("mail_queue_enabled", TRUE) ) {
-		HttpReplyFormat(objResp, 200, HTTP_CT_JSON,
+		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON,
 			"{\"result\": false, \"message\": \"%s\"}",
 			"邮件队列未启用");
 		return;
@@ -261,7 +261,7 @@ void Request_Member_Mail_RunPending(XS_ServerObject objServer, XS_HostObject obj
 	} else {
 		sMessage = "已触发邮件队列执行，请稍后刷新列表";
 	}
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON,
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON,
 		"{\"result\": true, \"message\": \"%s\"}",
 		sMessage);
 }
@@ -273,12 +273,12 @@ void Request_Member_Mail_Retry(XS_ServerObject objServer, XS_HostObject objHost,
 	str sMessage = NULL;
 	bool bOK;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
 
-	if ( HttpGetQueryVar(objReq, "id", sParam, sizeof(sParam)) > 0 ) {
+	if ( xsReqQueryValue(objReq, "id", sParam, sizeof(sParam)) > 0 ) {
 		iTaskID = xrtStrToI64(sParam);
 	}
 	if ( iTaskID <= 0 ) {
@@ -292,7 +292,7 @@ void Request_Member_Mail_Retry(XS_ServerObject objServer, XS_HostObject objHost,
 	}
 
 	bOK = MemberMessage_RetryMailTask(iTaskID, &sMessage);
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON,
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON,
 		"{\"result\": %s, \"message\": \"%s\"}",
 		bOK ? "true" : "false",
 		MemberMessage_StrOrEmpty(sMessage));
@@ -308,12 +308,12 @@ void Request_Member_Mail_Delete(XS_ServerObject objServer, XS_HostObject objHost
 	str sMessage = NULL;
 	bool bOK;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
 
-	if ( HttpGetQueryVar(objReq, "id", sParam, sizeof(sParam)) > 0 ) {
+	if ( xsReqQueryValue(objReq, "id", sParam, sizeof(sParam)) > 0 ) {
 		iTaskID = xrtStrToI64(sParam);
 	}
 	if ( iTaskID <= 0 ) {
@@ -327,7 +327,7 @@ void Request_Member_Mail_Delete(XS_ServerObject objServer, XS_HostObject objHost
 	}
 
 	bOK = MemberMessage_DeleteMailTask(iTaskID, &sMessage);
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON,
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON,
 		"{\"result\": %s, \"message\": \"%s\"}",
 		bOK ? "true" : "false",
 		MemberMessage_StrOrEmpty(sMessage));

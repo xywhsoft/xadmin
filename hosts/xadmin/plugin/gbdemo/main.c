@@ -194,10 +194,10 @@ void Gb_SendJson(XS_ResponseObject objResp, xvalue objValue)
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(objValue, FALSE, &iSize);
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	} else {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
 	}
 	xvoUnref(objValue);
 }
@@ -206,7 +206,7 @@ void Gb_SendError(XS_ResponseObject objResp, const char* sMessage)
 {
 	xvalue tblRet = Gb_CreateResult(FALSE, sMessage ? sMessage : "request failed");
 	if ( tblRet == NULL ) {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false}", 0);
 		return;
 	}
 	Gb_SendJson(objResp, tblRet);
@@ -216,7 +216,7 @@ void Gb_SendOk(XS_ResponseObject objResp, const char* sMessage)
 {
 	xvalue tblRet = Gb_CreateResult(TRUE, sMessage ? sMessage : "ok");
 	if ( tblRet == NULL ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", "{\"result\":true}", 0);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", "{\"result\":true}", 0);
 		return;
 	}
 	Gb_SendJson(objResp, tblRet);
@@ -236,7 +236,7 @@ int Gb_ReadIntQuery(XS_RequestObject objReq, const char* sName, int iDefault)
 {
 	char sValue[32];
 	memset(sValue, 0, sizeof(sValue));
-	HttpGetQueryVar(objReq, sName, sValue, sizeof(sValue));
+	xsReqQueryValue(objReq, sName, sValue, sizeof(sValue));
 	if ( sValue[0] == '\0' ) return iDefault;
 	return atoi(sValue);
 }
@@ -578,7 +578,7 @@ bool Gb_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	pData = xrtFileGetAll(sPath, &iSize);
 	xrtFree(sPath);
 	if ( pData == NULL ) return FALSE;
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -645,12 +645,12 @@ void Gb_RequestListPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) { Gb_SendError(objResp, "method not allowed"); return; }
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) { Gb_SendError(objResp, "method not allowed"); return; }
 
 	iPage = Gb_ClampInt(Gb_ReadIntQuery(objReq, "page", 1), 1, 1000000, 1);
 	iLimit = Gb_ClampInt(Gb_ReadIntQuery(objReq, "limit", G_Config.iPageSize), 1, 100, G_Config.iPageSize);
 	memset(sCategory, 0, sizeof(sCategory));
-	HttpGetQueryVar(objReq, "category", sCategory, sizeof(sCategory));
+	xsReqQueryValue(objReq, "category", sCategory, sizeof(sCategory));
 
 	tblRet = Gb_BuildListResponse(FALSE, -1, sCategory[0] ? sCategory : NULL, -1, iPage, iLimit);
 	if ( tblRet == NULL ) { Gb_SendError(objResp, "failed to load messages"); return; }
@@ -665,13 +665,13 @@ void Gb_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) { Gb_SendError(objResp, "method not allowed"); return; }
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) { Gb_SendError(objResp, "method not allowed"); return; }
 
 	iPage = Gb_ClampInt(Gb_ReadIntQuery(objReq, "page", 1), 1, 1000000, 1);
 	iLimit = Gb_ClampInt(Gb_ReadIntQuery(objReq, "limit", G_Config.iPageSize), 1, 100, G_Config.iPageSize);
 	iStatusFilter = Gb_ReadIntQuery(objReq, "status", -1);
 	memset(sCategory, 0, sizeof(sCategory));
-	HttpGetQueryVar(objReq, "category", sCategory, sizeof(sCategory));
+	xsReqQueryValue(objReq, "category", sCategory, sizeof(sCategory));
 
 	if ( (iStatusFilter < -1) || (iStatusFilter > 2) ) iStatusFilter = -1;
 
@@ -689,7 +689,7 @@ void Gb_RequestAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) { Gb_SendError(objResp, "method not allowed"); return; }
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) { Gb_SendError(objResp, "method not allowed"); return; }
 
 	tblForm = Gb_ParseBody(objReq);
 	if ( tblForm == NULL ) { Gb_SendError(objResp, "invalid json body"); return; }
@@ -735,7 +735,7 @@ void Gb_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) { Gb_SendError(objResp, "method not allowed"); return; }
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) { Gb_SendError(objResp, "method not allowed"); return; }
 
 	tblForm = Gb_ParseBody(objReq);
 	if ( tblForm == NULL ) { Gb_SendError(objResp, "invalid json body"); return; }
@@ -770,7 +770,7 @@ void Gb_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) { Gb_SendError(objResp, "method not allowed"); return; }
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) { Gb_SendError(objResp, "method not allowed"); return; }
 
 	tblForm = Gb_ParseBody(objReq);
 	if ( tblForm == NULL ) { Gb_SendError(objResp, "invalid json body"); return; }
@@ -791,7 +791,7 @@ void Gb_RequestLike(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	(void)objServer; (void)objHost; (void)objSession;
 
 	if ( !G_Config.bAllowReactions ) { Gb_SendError(objResp, "reactions disabled"); return; }
-	if ( !HttpMethodIs(objReq, "POST") ) { Gb_SendError(objResp, "method not allowed"); return; }
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) { Gb_SendError(objResp, "method not allowed"); return; }
 
 	tblForm = Gb_ParseBody(objReq);
 	if ( tblForm == NULL ) { Gb_SendError(objResp, "invalid json body"); return; }
@@ -808,7 +808,7 @@ void Gb_RequestPublicView(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !Gb_SendAssetHtml(objResp, "public.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "gbdemo public page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "gbdemo public page missing", 0);
 	}
 }
 
@@ -816,7 +816,7 @@ void Gb_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !Gb_SendAssetHtml(objResp, "admin.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "gbdemo admin page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "gbdemo admin page missing", 0);
 	}
 }
 

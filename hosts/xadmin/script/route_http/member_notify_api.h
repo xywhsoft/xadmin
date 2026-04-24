@@ -41,21 +41,21 @@ void API_Notify_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	size_t iJSONSize = 0;
 	str sJSON;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 
-	if ( HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam)) > 0 ) {
+	if ( xsReqQueryValue(objReq, "page", sParam, sizeof(sParam)) > 0 ) {
 		iPage = xrtStrToI64(sParam);
 	}
-	if ( HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam)) > 0 ) {
+	if ( xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam)) > 0 ) {
 		iLimit = xrtStrToI64(sParam);
 	}
 
 	arrRet = MemberMessage_MemberListNotify(xvoTableGetInt(objSession, "id", 2), iPage, iLimit, &iCount);
 	sJSON = xrtStringifyJSON(arrRet, FALSE, &iJSONSize);
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"count\":%lld,\"data\":%s}", iCount, sJSON);
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"count\":%lld,\"data\":%s}", iCount, sJSON);
 	xrtFree(sJSON);
 	xvoUnref(arrRet);
 }
@@ -64,13 +64,13 @@ void API_Notify_UnreadCount(XS_ServerObject objServer, XS_HostObject objHost, XS
 {
 	int64 iCount;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 
 	iCount = MemberMessage_MemberUnreadCount(xvoTableGetInt(objSession, "id", 2));
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":{\"unread\":%lld}}", iCount);
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":{\"unread\":%lld}}", iCount);
 }
 
 void API_Notify_Detail(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -81,27 +81,27 @@ void API_Notify_Detail(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	size_t iJSONSize = 0;
 	str sJSON;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 
-	if ( HttpGetQueryVar(objReq, "id", sParam, sizeof(sParam)) > 0 ) {
+	if ( xsReqQueryValue(objReq, "id", sParam, sizeof(sParam)) > 0 ) {
 		iID = xrtStrToI64(sParam);
 	}
 	if ( iID <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"缺少有效的消息 ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"缺少有效的消息 ID\"}", 0);
 		return;
 	}
 
 	tblRet = MemberMessage_MemberNotifyDetail(xvoTableGetInt(objSession, "id", 2), iID);
 	if ( tblRet == NULL ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":404,\"msg\":\"消息不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":404,\"msg\":\"消息不存在\"}", 0);
 		return;
 	}
 
 	sJSON = xrtStringifyJSON(tblRet, FALSE, &iJSONSize);
-	HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":%s}", sJSON);
+	xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":%s}", sJSON);
 	xrtFree(sJSON);
 	xvoUnref(tblRet);
 }
@@ -112,15 +112,15 @@ void API_Notify_Read(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	xvalue arrIDs;
 	bool bOK;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 
 	tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm == NULL || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		return;
 	}
 
@@ -130,21 +130,21 @@ void API_Notify_Read(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	xvoUnref(tblForm);
 
 	if ( bOK ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\"}", 0);
 	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"没有可标记的消息\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"没有可标记的消息\"}", 0);
 	}
 }
 
 void API_Notify_ReadAll(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 
 	MemberMessage_MarkNotifyRead(xvoTableGetInt(objSession, "id", 2), NULL, TRUE);
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\"}", 0);
 }
 
 void API_Notify_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -153,15 +153,15 @@ void API_Notify_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	xvalue arrIDs;
 	bool bOK;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 405, HTTP_CT_JSON, "{\"code\":405,\"msg\":\"Method Not Allowed\"}", 0);
 		return;
 	}
 
 	tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblForm == NULL || tblForm->Type != XVO_DT_TABLE ) {
 		if ( tblForm ) xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"无效的请求数据\"}", 0);
 		return;
 	}
 
@@ -171,8 +171,8 @@ void API_Notify_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	xvoUnref(tblForm);
 
 	if ( bOK ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\"}", 0);
 	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"没有可删除的消息\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"没有可删除的消息\"}", 0);
 	}
 }

@@ -12,7 +12,7 @@
 // 模型列表页面
 void Request_View_Model_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/list.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -22,7 +22,7 @@ void Request_View_Model_List(XS_ServerObject objServer, XS_HostObject objHost, X
 // 模型添加页面
 void Request_View_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/add.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -32,7 +32,7 @@ void Request_View_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS
 // 模型编辑页面
 void Request_View_Model_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/edit.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -42,7 +42,7 @@ void Request_View_Model_Edit(XS_ServerObject objServer, XS_HostObject objHost, X
 // 字段管理页面
 void Request_View_Model_Fields(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "model/fields.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -56,22 +56,22 @@ void Request_View_Model_Fields(XS_ServerObject objServer, XS_HostObject objHost,
 // 获取模型列表
 void Request_Model_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
 		return;
 	}
 	
 	// 获取分页参数
 	char sParam[256];
-	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) { iPage = 1; }
-	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) { iLimit = 20; }
-	int iSearchSize = HttpGetQueryVar(objReq, "search", sParam, sizeof(sParam));
+	int iSearchSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
 	
-	// 获取所有模�?
+	// 获取所有模�?
 	xvalue arrList = ModelMgr_GetModelList();
 	int iTotal = xvoArrayItemCount(arrList);
 	
@@ -82,7 +82,7 @@ void Request_Model_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		if ( iSearchSize > 2 ) {
 			str sName = xvoTableGetText(tblItem, "name", 4);
 			str sTitle = xvoTableGetText(tblItem, "title", 5);
-			// 简单匹�?
+			// 简单匹�?
 			if ( (sName && strstr(sName, sParam + 1)) || (sTitle && strstr(sTitle, sParam + 1)) ) {
 				xvoAddRef(tblItem);
 				xvoArrayAppendValue(arrFiltered, tblItem, TRUE);
@@ -93,7 +93,7 @@ void Request_Model_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		}
 	}
 	
-	// �?sort 字段排序（冒泡排序，模型数量通常不多�?
+	// �?sort 字段排序（冒泡排序，模型数量通常不多�?
 	int iFilteredTotal = xvoArrayItemCount(arrFiltered);
 	for ( int i = 0; i < iFilteredTotal - 1; i++ ) {
 		for ( int j = 0; j < iFilteredTotal - 1 - i; j++ ) {
@@ -126,10 +126,10 @@ void Request_Model_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	xvoTableSetInt(tblResponse, "count", 5, iFilteredTotal);
 	xvoTableSetValue(tblResponse, "data", 4, arrPage, TRUE);
 	
-	// 发送响�?
+	// 发送响�?
 	size_t iRetSize = 0;
 	str sJson = xrtStringifyJSON(tblResponse, FALSE, &iRetSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iRetSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iRetSize);
 	xrtFree(sJson);
 	
 	xvoUnref(tblResponse);
@@ -142,16 +142,16 @@ void Request_Model_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 void Request_Model_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[64] = {0};
-	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 	if ( strlen(sName) == 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	
 	if ( !pModel ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
@@ -188,7 +188,7 @@ void Request_Model_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	
 	size_t iJsonSize = 0;
 	str sJson = xrtStringifyJSON(tblResponse, FALSE, &iJsonSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iJsonSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iJsonSize);
 	xrtFree(sJson);
 	
 	xvoUnref(tblResponse);
@@ -198,15 +198,15 @@ void Request_Model_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 // 创建模型
 void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
 		return;
 	}
 	
 	// 解析JSON
 	xvalue tblData = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblData ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
 		return;
 	}
 	
@@ -219,21 +219,21 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	// 验证必填字段
 	if ( !sName || strlen(sName) == 0 ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型标识不能为空\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型标识不能为空\"}", 0);
 		return;
 	}
 	
 	// 检查模型是否已存在
 	if ( ModelMgr_GetModel(sName) ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型标识已存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型标识已存在\"}", 0);
 		return;
 	}
 	
-	// 检查命名空间唯一�?
+	// 检查命名空间唯一�?
 	if ( !Model_CheckNamespace(sNamespace, sName, NULL) ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"命名空间已被占用\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"命名空间已被占用\"}", 0);
 		return;
 	}
 	
@@ -242,7 +242,7 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	if ( !xrtDirCreate(sModelDir) ) {
 		xrtFree(sModelDir);
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"创建模型目录失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"创建模型目录失败\"}", 0);
 		return;
 	}
 	
@@ -253,22 +253,22 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	xvoTableSetText(tblConfig, "namespace", 9, sNamespace ? sNamespace : (str)"", 0, FALSE);
 	xvoTableSetText(tblConfig, "desc", 4, sDesc ? sDesc : (str)"", 0, FALSE);
 	xvoTableSetText(tblConfig, "icon", 4, sIcon ? sIcon : (str)"layui-icon-file", 0, FALSE);
-	xvoTableSetInt(tblConfig, "sort", 4, 0);  // 排序值默�?
+	xvoTableSetInt(tblConfig, "sort", 4, 0);  // 排序值默�?
 	
-	// 表配�?
+	// 表配�?
 	xvalue tblTable = xvoCreateTable();
 	str sTableName = xrtFormat("model_%s_%s", (sNamespace && strlen(sNamespace) > 0) ? sNamespace : (str)"default", sName);
 	xvoTableSetText(tblTable, "name", 4, sTableName, 0, FALSE);
 	xrtFree(sTableName);
 	xvoTableSetValue(tblConfig, "table", 5, tblTable, TRUE);
 	
-	// 状�?
+	// 状�?
 	xvalue tblStatus = xvoCreateTable();
 	xvoTableSetBool(tblStatus, "enabled", 7, FALSE);
 	xvoTableSetBool(tblStatus, "compiled", 8, FALSE);
 	xvoTableSetValue(tblConfig, "status", 6, tblStatus, TRUE);
 	
-	// 功能开�?
+	// 功能开�?
 	xvalue tblFeatures = xvoCreateTable();
 	xvoTableSetBool(tblFeatures, "enableApi", 9, TRUE);
 	xvoTableSetBool(tblFeatures, "enableAdmin", 11, TRUE);
@@ -276,11 +276,11 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	xvoTableSetBool(tblFeatures, "enableReply", 11, FALSE);
 	xvoTableSetValue(tblConfig, "features", 8, tblFeatures, TRUE);
 	
-	// 空字段数�?
+	// 空字段数�?
 	xvalue arrFields = xvoCreateArray();
 	xvoTableSetValue(tblConfig, "fields", 6, arrFields, TRUE);
 	
-	// 时间�?
+	// 时间�?
 	xvoTableSetInt(tblConfig, "createTime", 10, iNow);
 	xvoTableSetInt(tblConfig, "updateTime", 10, iNow);
 	
@@ -288,7 +288,7 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	str sConfigPath = xrtFormat("%s/config.json", sModelDir);
 	int iResult = xrtStringifyJSON_File(sConfigPath, tblConfig, TRUE);
 	
-	// 复制 sName，因为释�?tblData 后指针将无效
+	// 复制 sName，因为释�?tblData 后指针将无效
 	str sNameCopy = xrtCopyStr(sName, 0);
 	
 	xvoUnref(tblConfig);
@@ -318,11 +318,11 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			// 创建后台菜单（默认不可见，启用时才显示）
 			if ( pNewModel->bEnableAdmin ) {
 				Model_CreateMenu(pNewModel);
-				// 创建时隐藏菜�?
+				// 创建时隐藏菜�?
 				Model_HideMenu(pNewModel);
 			}
 			
-			// 保存权限ID到配置文�?
+			// 保存权限ID到配置文�?
 			xvalue tblConfig = xrtParseJSON_File(pNewModel->sConfigPath);
 			if ( tblConfig ) {
 				xvalue tblAdmin = xvoTableGetValue(tblConfig, "admin", 5);
@@ -340,10 +340,10 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			ReloadCache_Auth_Group();
 		}
 		
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"创建成功\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"创建成功\"}", 0);
 	} else {
 		xrtFree(sNameCopy);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存配置文件失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存配置文件失败\"}", 0);
 	}
 }
 
@@ -351,37 +351,37 @@ void Request_Model_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 // 保存模型
 void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
 		return;
 	}
 	
 	// 解析JSON
 	xvalue tblData = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblData ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
 		return;
 	}
 	
 	str sName = xvoTableGetText(tblData, "name", 4);
 	if ( !sName ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	if ( !pModel ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
-	// 读取原配置文�?
+	// 读取原配置文�?
 	xvalue tblConfig = xrtParseJSON_File(pModel->sConfigPath);
 	if ( !tblConfig ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"读取配置文件失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"读取配置文件失败\"}", 0);
 		return;
 	}
 	
@@ -398,13 +398,13 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	str sIcon = xvoTableGetText(tblData, "icon", 4);
 	if ( sIcon ) xvoTableSetText(tblConfig, "icon", 4, sIcon, 0, FALSE);
 	
-	// 更新排序�?
+	// 更新排序�?
 	xvalue valSort = xvoTableGetValue(tblData, "sort", 4);
 	if ( valSort ) {
 		xvoTableSetInt(tblConfig, "sort", 4, xvoTableGetInt(tblData, "sort", 4));
 	}
 	
-	// 更新功能开�?
+	// 更新功能开�?
 	xvalue tblFeatures = xvoTableGetValue(tblConfig, "features", 8);
 	if ( !tblFeatures || tblFeatures->Type != XVO_DT_TABLE ) {
 		tblFeatures = xvoCreateTable();
@@ -453,10 +453,10 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	xvoTableSetInt(tblReply, "authLevel", 9, xvoTableGetInt(tblData, "replyAuthLevel", 14));
 	xvoTableSetInt(tblReply, "quoteMaxLen", 11, xvoTableGetInt(tblData, "replyQuoteMaxLen", 16));
 	
-	// 更新时间�?
+	// 更新时间�?
 	xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
 	
-	// 标记需要重新编�?
+	// 标记需要重新编�?
 	xvalue tblStatus = xvoTableGetValue(tblConfig, "status", 6);
 	if ( tblStatus ) {
 		xvoTableSetBool(tblStatus, "compiled", 8, FALSE);
@@ -479,9 +479,9 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		pModel->bCompiled = FALSE;
 		pModel->iUpdateTime = xrtNow();
 		
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"保存成功\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"保存成功\"}", 0);
 	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存配置文件失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存配置文件失败\"}", 0);
 	}
 }
 
@@ -490,34 +490,34 @@ void Request_Model_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 void Request_Model_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[64];
-	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 	if ( strlen(sName) == 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	if ( !pModel ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
-	// 如果模型已启用，先禁用（移除路由�?
+	// 如果模型已启用，先禁用（移除路由�?
 	if ( pModel->bEnabled ) {
 		Model_Disable(pModel);
 	}
 	
-	// 删除权限分组和菜�?
+	// 删除权限分组和菜�?
 	Model_DeleteAuthGroup(pModel);
 	Model_DeleteMenu(pModel);
 	
-	// 删除模型�?URI
+	// 删除模型�?URI
 	Model_RemoveUrisFromDb(pModel);
 	
 	// 注销命名空间
 	Model_UnregisterNamespace(pModel);
 	
-	// 从模型表中移�?
+	// 从模型表中移�?
 	xrtDictRemove(G_ModelMgr->tblModels, sName, strlen(sName));
 	
 	// 删除模型目录
@@ -525,7 +525,7 @@ void Request_Model_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	xrtDirDelete(sModelDir);
 	xrtFree(sModelDir);
 	
-	// 销毁模型实�?
+	// 销毁模型实�?
 	Model_Destroy(pModel);
 	
 	// 刷新权限缓存
@@ -533,7 +533,7 @@ void Request_Model_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	ReloadCache_Auth_Group();
 	Auth_ReloadCache();
 	
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"删除成功\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"删除成功\"}", 0);
 }
 
 
@@ -541,16 +541,16 @@ void Request_Model_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 void Request_Model_Fields(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[64];
-	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 	if ( strlen(sName) == 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	
 	if ( !pModel ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
@@ -572,7 +572,7 @@ void Request_Model_Fields(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	xvoTableSetBool(tblResponse, "enablePreview", 13, pModel->bEnablePreview);
 	xvoTableSetBool(tblResponse, "enablePurchase", 14, pModel->bEnablePurchase);
 	
-	// 返回会员组等级列表（用于访问级别选择�?
+	// 返回会员组等级列表（用于访问级别选择�?
 	if ( pModel->bEnableAccessControl && G_CACHE_MemberGroup ) {
 		xvoAddRef(G_CACHE_MemberGroup);
 		xvoTableSetValue(tblResponse, "memberGroups", 12, G_CACHE_MemberGroup, TRUE);
@@ -580,7 +580,7 @@ void Request_Model_Fields(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	
 	size_t iJsonSize = 0;
 	str sJson = xrtStringifyJSON(tblResponse, FALSE, &iJsonSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iJsonSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iJsonSize);
 	xrtFree(sJson);
 	
 	xvoUnref(tblResponse);
@@ -590,39 +590,39 @@ void Request_Model_Fields(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 // 保存模型字段
 void Request_Model_Fields_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
 		return;
 	}
 	
 	// 解析JSON
 	xvalue tblData = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblData ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
 		return;
 	}
 	
 	str sName = xvoTableGetText(tblData, "name", 4);
 	if ( !sName ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	if ( !pModel ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
 	xvalue arrFields = xvoTableGetValue(tblData, "fields", 6);
 	
-	// 读取原配置文�?
+	// 读取原配置文�?
 	xvalue tblConfig = xrtParseJSON_File(pModel->sConfigPath);
 	if ( !tblConfig ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"读取配置文件失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"读取配置文件失败\"}", 0);
 		return;
 	}
 	
@@ -635,10 +635,10 @@ void Request_Model_Fields_Save(XS_ServerObject objServer, XS_HostObject objHost,
 		xvoTableSetValue(tblConfig, "fields", 6, arrEmpty, TRUE);
 	}
 	
-	// 更新时间�?
+	// 更新时间�?
 	xvoTableSetInt(tblConfig, "updateTime", 10, xrtNow());
 	
-	// 标记需要重新编�?
+	// 标记需要重新编�?
 	xvalue tblStatus = xvoTableGetValue(tblConfig, "status", 6);
 	if ( tblStatus ) {
 		xvoTableSetBool(tblStatus, "compiled", 8, FALSE);
@@ -666,9 +666,9 @@ void Request_Model_Fields_Save(XS_ServerObject objServer, XS_HostObject objHost,
 	xvoUnref(tblData);
 	
 	if ( iResult ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"保存成功\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"保存成功\"}", 0);
 	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存配置文件失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存配置文件失败\"}", 0);
 	}
 }
 
@@ -677,24 +677,24 @@ void Request_Model_Fields_Save(XS_ServerObject objServer, XS_HostObject objHost,
 void Request_Model_Compile(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[64];
-	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 	if ( strlen(sName) == 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	
 	if ( !pModel ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
 	// 调用编译函数
 	if ( Model_Compile(pModel) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"编译成功\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"编译成功\"}", 0);
 	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"编译失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"编译失败\"}", 0);
 	}
 }
 
@@ -703,16 +703,16 @@ void Request_Model_Compile(XS_ServerObject objServer, XS_HostObject objHost, XS_
 void Request_Model_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[64];
-	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 	if ( strlen(sName) == 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	
 	if ( !pModel ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
@@ -722,17 +722,17 @@ void Request_Model_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		Model_Disable(pModel);
 	}
 	
-	// 重新编译模型（确保代码是最新的�?
+	// 重新编译模型（确保代码是最新的�?
 	if ( !Model_Compile(pModel) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"编译失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"编译失败\"}", 0);
 		return;
 	}
 	
 	// 调用启用函数
 	if ( Model_Enable(pModel) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"已启用\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"已启用\"}", 0);
 	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"启用失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"启用失败\"}", 0);
 	}
 }
 
@@ -741,54 +741,54 @@ void Request_Model_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 void Request_Model_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sName[64];
-	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 	if ( strlen(sName) == 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	
 	if ( !pModel ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
 	// 调用禁用函数
 	if ( Model_Disable(pModel) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"已禁用\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"已禁用\"}", 0);
 	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"禁用失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"禁用失败\"}", 0);
 	}
 }
 
 
-// 更新模型排序�?
+// 更新模型排序�?
 void Request_Model_Sort(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"不支持的请求方法\"}", 0);
 		return;
 	}
 	
 	// 解析JSON
 	xvalue tblData = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblData ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"无效的请求数据\"}", 0);
 		return;
 	}
 	
 	str sName = xvoTableGetText(tblData, "name", 4);
 	if ( !sName ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"缺少模型名称\"}", 0);
 		return;
 	}
 	
 	ModelInstance* pModel = ModelMgr_GetModel(sName);
 	if ( !pModel ) {
 		xvoUnref(tblData);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"模型不存在\"}", 0);
 		return;
 	}
 	
@@ -798,7 +798,7 @@ void Request_Model_Sort(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	// 更新配置文件
 	xvalue tblConfig = xrtParseJSON_File(pModel->sConfigPath);
 	if ( !tblConfig ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"读取配置文件失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"读取配置文件失败\"}", 0);
 		return;
 	}
 	
@@ -811,9 +811,9 @@ void Request_Model_Sort(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	if ( iResult ) {
 		pModel->iSort = iSort;
 		pModel->iUpdateTime = xrtNow();
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"保存成功\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"保存成功\"}", 0);
 	} else {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存失败\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"保存失败\"}", 0);
 	}
 }
 

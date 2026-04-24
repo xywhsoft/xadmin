@@ -3,7 +3,7 @@ static void OptionToolReplyJSON(XS_ResponseObject objResp, xvalue tblRet)
 {
 	size_t iRetSize = 0;
 	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 	xrtFree(sRet);
 }
 
@@ -17,7 +17,7 @@ void Request_Option_AdminEntryGenerate(XS_ServerObject objServer, XS_HostObject 
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -50,7 +50,7 @@ void Request_Option_SMTPTest(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -58,7 +58,7 @@ void Request_Option_SMTPTest(XS_ServerObject objServer, XS_HostObject objHost, X
 	tblReq = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblReq == NULL || xvoType(tblReq) != XVO_DT_TABLE ) {
 		if ( tblReq ) xvoUnref(tblReq);
-		HttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"%s\"}", "Invalid request body");
+		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"%s\"}", "Invalid request body");
 		return;
 	}
 

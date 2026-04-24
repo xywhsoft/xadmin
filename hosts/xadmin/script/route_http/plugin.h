@@ -2,7 +2,7 @@ void PluginRoute_SendJson(XS_ResponseObject objResp, xvalue tblRet)
 {
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -249,15 +249,15 @@ void Request_Plugin_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	(void)objHost;
 	(void)objSession;
 
-	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 	if ( sName[0] == '\0' ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 		return;
 	}
 
 	tblData = PluginSystem_GetPackageData(sName);
 	if ( tblData == NULL ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Plugin not found\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Plugin not found\"}", 0);
 		return;
 	}
 
@@ -276,7 +276,7 @@ void Request_Plugin_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
 		return;
 	}
@@ -298,7 +298,7 @@ void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
 		return;
 	}
@@ -320,7 +320,7 @@ void Request_Plugin_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
 		return;
 	}
@@ -348,12 +348,12 @@ void Request_Plugin_Export(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
 		return;
 	}
 
-	HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+	xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 	if ( sName[0] == '\0' ) {
 		PluginRoute_SendResult(objResp, FALSE, "\xE7\xBC\xBA\xE5\xB0\x91\xE6\x8F\x92\xE4\xBB\xB6 xid", NULL);
 		return;
@@ -393,7 +393,7 @@ void Request_Plugin_Export(XS_ServerObject objServer, XS_HostObject objHost, XS_
 
 void Request_Plugin_Import(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	HttpMultipartPart part;
+	xrtmultipartpartview part;
 	size_t iOffset = 0;
 	ptr pFileData = NULL;
 	size_t iFileSize = 0;
@@ -405,17 +405,17 @@ void Request_Plugin_Import(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		PluginRoute_SendResult(objResp, FALSE, "\xE8\xAF\xB7\xE6\xB1\x82\xE6\x96\xB9\xE6\xB3\x95\xE4\xB8\x8D\xE5\x85\x81\xE8\xAE\xB8", NULL);
 		return;
 	}
 
-	while ( HttpMultipartNext(objReq, &iOffset, &part) ) {
-		if ( HttpMultipartNameIs(&part, "file") ) {
-			pFileData = (ptr)part.pBody;
-			iFileSize = part.iBodyLen;
-		} else if ( HttpMultipartNameIs(&part, "autoEnable") ) {
-			bAutoEnable = PluginRoute_TextIsTrue((const char*)part.pBody, part.iBodyLen);
+	while ( xsReqMultipartNext(objReq, &iOffset, &part) ) {
+		if ( xsMultipartNameIs(&part, "file") ) {
+			pFileData = (ptr)part.tBody.sPtr;
+			iFileSize = part.tBody.iLen;
+		} else if ( xsMultipartNameIs(&part, "autoEnable") ) {
+			bAutoEnable = PluginRoute_TextIsTrue((const char*)part.tBody.sPtr, part.tBody.iLen);
 		}
 	}
 
@@ -452,14 +452,14 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objHost;
 	(void)objSession;
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		char sName[128] = {0};
 		xvalue tblRet;
 		xvalue tblSettings;
 
-		HttpGetQueryVar(objReq, "name", sName, sizeof(sName));
+		xsReqQueryValue(objReq, "name", sName, sizeof(sName));
 		if ( sName[0] == '\0' ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 			return;
 		}
 
@@ -471,14 +471,14 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "POST") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		str sName;
 		xvalue tblSettings;
 		bool bResult;
 
 		if ( tblForm == NULL ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 			return;
 		}
 
@@ -486,17 +486,17 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 		tblSettings = xvoTableGetValue(tblForm, "settings", 8);
 		if ( (sName == NULL) || (sName[0] == '\0') ) {
 			xvoUnref(tblForm);
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing plugin xid\"}", 0);
 			return;
 		}
 
 		bResult = PluginSystem_SaveSettings(sName, tblSettings);
 		xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Settings saved\"}" : "{\"result\":false,\"message\":\"Failed to save settings\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, bResult ? "{\"result\":true,\"message\":\"Settings saved\"}" : "{\"result\":false,\"message\":\"Failed to save settings\"}", 0);
 		return;
 	}
 
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 }
 
 void Request_View_Plugin_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)

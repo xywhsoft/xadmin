@@ -111,11 +111,11 @@ void Request_Sched_Tasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	(void)objHost;
 	(void)objSession;
 
-	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 	if ( sParam[0] ) iPage = xrtStrToI64(sParam);
-	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
 	if ( sParam[0] ) iLimit = xrtStrToI64(sParam);
-	HttpGetQueryVar(objReq, "search", sSearchRaw, sizeof(sSearchRaw));
+	xsReqQueryValue(objReq, "search", sSearchRaw, sizeof(sSearchRaw));
 	if ( sSearchRaw[0] ) {
 		sSearch = xrtFormat("%%%s%%", sSearchRaw);
 	}
@@ -131,17 +131,17 @@ void Request_Sched_Task(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	(void)objHost;
 	(void)objSession;
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		char sID[32];
 		int64 iID;
 		xvalue tblTask;
 		xvalue tblRet;
 
-		HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 		iID = xrtStrToI64(sID);
 		tblTask = Sched_GetTask(iID);
 		if ( tblTask == NULL ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Task not found\"}", 0);
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Task not found\"}", 0);
 			return;
 		}
 
@@ -152,7 +152,7 @@ void Request_Sched_Task(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "POST") || HttpMethodIs(objReq, "PUT") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
 		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		xvalue tblRet;
 		str sMessage = NULL;
@@ -160,11 +160,11 @@ void Request_Sched_Task(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		int64 iTaskId = 0;
 
 		if ( tblBody == NULL ) {
-			http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 			return;
 		}
 
-		bRet = Sched_SaveTaskRequest(tblBody, HttpMethodIs(objReq, "PUT"), &sMessage, &iTaskId);
+		bRet = Sched_SaveTaskRequest(tblBody, (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT), &sMessage, &iTaskId);
 		xvoUnref(tblBody);
 
 		tblRet = xvoCreateTable();
@@ -176,14 +176,14 @@ void Request_Sched_Task(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "DELETE") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
 		char sID[32];
 		int64 iID;
 		xvalue tblRet;
 		str sMessage = NULL;
 		bool bRet;
 
-		HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 		iID = xrtStrToI64(sID);
 		bRet = Sched_DeleteTask(iID, &sMessage);
 		tblRet = xvoCreateTable();
@@ -194,7 +194,7 @@ void Request_Sched_Task(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 }
 
 void Request_Sched_Task_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -209,8 +209,8 @@ void Request_Sched_Task_Enable(XS_ServerObject objServer, XS_HostObject objHost,
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") || !Sched_ReadIdFromBody(objReq, &iID, &iEnabled) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || !Sched_ReadIdFromBody(objReq, &iID, &iEnabled) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -233,8 +233,8 @@ void Request_Sched_Task_Run(XS_ServerObject objServer, XS_HostObject objHost, XS
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") || !Sched_ReadIdFromBody(objReq, &iID, NULL) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || !Sched_ReadIdFromBody(objReq, &iID, NULL) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -258,8 +258,8 @@ void Request_Sched_Task_Copy(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") || !Sched_ReadIdFromBody(objReq, &iID, NULL) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || !Sched_ReadIdFromBody(objReq, &iID, NULL) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -285,8 +285,8 @@ void Request_Sched_Task_Batch_Enable(XS_ServerObject objServer, XS_HostObject ob
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") || !Sched_ReadBatchBody(objReq, &arrIDs, &iEnabled) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || !Sched_ReadBatchBody(objReq, &arrIDs, &iEnabled) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -313,8 +313,8 @@ void Request_Sched_Task_Batch_Delete(XS_ServerObject objServer, XS_HostObject ob
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") || !Sched_ReadBatchBody(objReq, &arrIDs, NULL) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || !Sched_ReadBatchBody(objReq, &arrIDs, NULL) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -343,8 +343,8 @@ void Request_Sched_Task_Batch_Run(XS_ServerObject objServer, XS_HostObject objHo
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") || !Sched_ReadBatchBody(objReq, &arrIDs, NULL) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || !Sched_ReadBatchBody(objReq, &arrIDs, NULL) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -380,22 +380,22 @@ void Request_Sched_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	(void)objHost;
 	(void)objSession;
 
-	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 	if ( sParam[0] ) iPage = xrtStrToI64(sParam);
-	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
 	if ( sParam[0] ) iLimit = xrtStrToI64(sParam);
-	HttpGetQueryVar(objReq, "taskId", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "taskId", sParam, sizeof(sParam));
 	if ( sParam[0] ) iTaskId = xrtStrToI64(sParam);
-	HttpGetQueryVar(objReq, "status", sStatus, sizeof(sStatus));
+	xsReqQueryValue(objReq, "status", sStatus, sizeof(sStatus));
 	if ( strcmp(sStatus, "all") == 0 ) {
 		sStatus[0] = '\0';
 	}
-	HttpGetQueryVar(objReq, "keyword", sKeywordRaw, sizeof(sKeywordRaw));
+	xsReqQueryValue(objReq, "keyword", sKeywordRaw, sizeof(sKeywordRaw));
 	if ( sKeywordRaw[0] ) {
 		sKeyword = xrtCopyStr(sKeywordRaw, 0);
 	}
-	HttpGetQueryVar(objReq, "startFrom", sStartFrom, sizeof(sStartFrom));
-	HttpGetQueryVar(objReq, "startTo", sStartTo, sizeof(sStartTo));
+	xsReqQueryValue(objReq, "startFrom", sStartFrom, sizeof(sStartFrom));
+	xsReqQueryValue(objReq, "startTo", sStartTo, sizeof(sStartTo));
 	iStartFromTime = RequestSched_ParseTimeText(sStartFrom);
 	iStartToTime = RequestSched_ParseTimeText(sStartTo);
 
@@ -421,23 +421,23 @@ void Request_Sched_Logs_Export(XS_ServerObject objServer, XS_HostObject objHost,
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 
-	HttpGetQueryVar(objReq, "taskId", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "taskId", sParam, sizeof(sParam));
 	if ( sParam[0] ) iTaskId = xrtStrToI64(sParam);
-	HttpGetQueryVar(objReq, "status", sStatus, sizeof(sStatus));
+	xsReqQueryValue(objReq, "status", sStatus, sizeof(sStatus));
 	if ( strcmp(sStatus, "all") == 0 ) {
 		sStatus[0] = '\0';
 	}
-	HttpGetQueryVar(objReq, "keyword", sKeywordRaw, sizeof(sKeywordRaw));
+	xsReqQueryValue(objReq, "keyword", sKeywordRaw, sizeof(sKeywordRaw));
 	if ( sKeywordRaw[0] ) {
 		sKeyword = xrtCopyStr(sKeywordRaw, 0);
 	}
-	HttpGetQueryVar(objReq, "startFrom", sStartFrom, sizeof(sStartFrom));
-	HttpGetQueryVar(objReq, "startTo", sStartTo, sizeof(sStartTo));
+	xsReqQueryValue(objReq, "startFrom", sStartFrom, sizeof(sStartFrom));
+	xsReqQueryValue(objReq, "startTo", sStartTo, sizeof(sStartTo));
 	iStartFromTime = RequestSched_ParseTimeText(sStartFrom);
 	iStartToTime = RequestSched_ParseTimeText(sStartTo);
 
@@ -465,14 +465,14 @@ void Request_Sched_Logs_Clear(XS_ServerObject objServer, XS_HostObject objHost, 
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 
 	tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblBody == NULL ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -519,14 +519,14 @@ void Request_Sched_Export(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 
-	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+	xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 	if ( sID[0] ) iTaskId = xrtStrToI64(sID);
-	HttpGetQueryVar(objReq, "search", sSearchRaw, sizeof(sSearchRaw));
+	xsReqQueryValue(objReq, "search", sSearchRaw, sizeof(sSearchRaw));
 	if ( sSearchRaw[0] ) {
 		sSearch = xrtFormat("%%%s%%", sSearchRaw);
 	}
@@ -545,8 +545,8 @@ void Request_Sched_Export_Selected(XS_ServerObject objServer, XS_HostObject objH
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") || !Sched_ReadBatchBody(objReq, &arrIDs, NULL) ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || !Sched_ReadBatchBody(objReq, &arrIDs, NULL) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -569,14 +569,14 @@ void Request_Sched_Import(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 
 	tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblBody == NULL ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -602,14 +602,14 @@ void Request_Sched_Preview(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 
 	tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblBody == NULL ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 
@@ -626,8 +626,8 @@ void Request_Sched_Dashboard(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 
@@ -648,14 +648,14 @@ void Request_Sched_Task_Example(XS_ServerObject objServer, XS_HostObject objHost
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 
 	tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( tblBody == NULL ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid request body\"}", 0);
 		return;
 	}
 

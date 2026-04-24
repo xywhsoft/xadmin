@@ -90,7 +90,7 @@ str Hello_BuildGeneratedMainSource(const char* sXid)
 		"\txvoTableSetText(tblRet, \"message\", 7, G_Message, 0, FALSE);\n"
 		"\tsJson = xrtStringifyJSON(tblRet, FALSE, &iSize);\n"
 		"\tif ( sJson ) {\n"
-		"\t\thttp_reply(objResp, 200, \"Content-Type: application/json\\r\\n\", sJson, iSize);\n"
+		"\t\txsHttpReplyAuto(objResp, 200, \"Content-Type: application/json\\r\\n\", sJson, iSize);\n"
 		"\t\txrtFree(sJson);\n"
 		"\t}\n"
 		"\txvoUnref(tblRet);\n"
@@ -101,8 +101,8 @@ str Hello_BuildGeneratedMainSource(const char* sXid)
 		"\t(void)objServer;\n"
 		"\t(void)objHost;\n"
 		"\t(void)objSession;\n"
-		"\tif ( !HttpMethodIs(objReq, \"GET\") ) {\n"
-		"\t\thttp_reply(objResp, 405, \"Content-Type: application/json\\r\\n\", \"{\\\"result\\\":false,\\\"message\\\":\\\"method not allowed\\\"}\", 0);\n"
+		"\tif ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {\n"
+		"\t\txsHttpReplyAuto(objResp, 405, \"Content-Type: application/json\\r\\n\", \"{\\\"result\\\":false,\\\"message\\\":\\\"method not allowed\\\"}\", 0);\n"
 		"\t\treturn;\n"
 		"\t}\n"
 		"\tGenerated_SendJson(objResp);\n"
@@ -215,7 +215,7 @@ void Hello_SendTableJson(XS_ResponseObject objResp, xvalue tblData)
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblData, FALSE, &iSize);
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	}
 	xvoUnref(tblData);
@@ -237,7 +237,7 @@ void Hello_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objSession;
 
 	tblRet = xvoCreateTable();
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvoTableSetBool(tblRet, "result", 6, FALSE);
 		xvoTableSetText(tblRet, "message", 7, "method not allowed", 0, FALSE);
 		Hello_SendTableJson(objResp, tblRet);
@@ -437,7 +437,7 @@ void Hello_RequestView(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	(void)objReq;
 	(void)objSession;
 
-	http_reply(objResp, 200, "Content-Type: text/html\r\n", sHtml, 0);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html\r\n", sHtml, 0);
 }
 
 void Hello_OnGreetingEvent(const char* event_name, void* payload, size_t payload_size)

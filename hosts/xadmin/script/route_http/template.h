@@ -1,9 +1,6 @@
 static void TemplateReplyJSON(XS_ResponseObject objResp, xvalue tblRet)
 {
-	size_t iRetSize = 0;
-	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
-	xrtFree(sRet);
+	xsHttpJsonValueTake(objResp, 200, tblRet);
 }
 
 void Request_Template_Rebuild(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -18,7 +15,7 @@ void Request_Template_Rebuild(XS_ServerObject objServer, XS_HostObject objHost, 
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") && !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) && !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -33,7 +30,6 @@ void Request_Template_Rebuild(XS_ServerObject objServer, XS_HostObject objHost, 
 	xvoTableSetInt(tblData, "total", 5, (int64)(iLoaded + iFailed));
 	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
 	TemplateReplyJSON(objResp, tblRet);
-	xvoUnref(tblRet);
 }
 
 void Request_View_Template_Form_Demo(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -46,7 +42,7 @@ void Request_View_Template_Form_Demo(XS_ServerObject objServer, XS_HostObject ob
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}
@@ -54,6 +50,6 @@ void Request_View_Template_Form_Demo(XS_ServerObject objServer, XS_HostObject ob
 	tblData = xvoCreateTable();
 	sPage = MakePageWithTemplate("form/block_demo.html", tblData, &iSize);
 	xvoUnref(tblData);
-	http_reply(objResp, 200, HTTP_CT_HTML, sPage, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 	xrtFree(sPage);
 }

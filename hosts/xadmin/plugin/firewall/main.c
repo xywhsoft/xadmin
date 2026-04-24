@@ -43,7 +43,7 @@ void FW_SendJson(XS_ResponseObject objResp, xvalue tblData)
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblData, FALSE, &iSize);
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	}
 	xvoUnref(tblData);
@@ -85,7 +85,7 @@ bool FW_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	pData = xrtFileGetAll(sPath, &iSize);
 	xrtFree(sPath);
 	if ( pData == NULL ) return FALSE;
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -104,7 +104,7 @@ int FW_ReadIntQuery(XS_RequestObject objReq, const char* sName, int iDefault)
 {
 	char sBuf[32];
 	memset(sBuf, 0, sizeof(sBuf));
-	HttpGetQueryVar(objReq, sName, sBuf, sizeof(sBuf));
+	xsReqQueryValue(objReq, sName, sBuf, sizeof(sBuf));
 	if ( sBuf[0] == '\0' ) return iDefault;
 	return atoi(sBuf);
 }
@@ -113,7 +113,7 @@ str FW_ReadQuery(XS_RequestObject objReq, const char* sName)
 {
 	char sBuf[256];
 	memset(sBuf, 0, sizeof(sBuf));
-	HttpGetQueryVar(objReq, sName, sBuf, sizeof(sBuf));
+	xsReqQueryValue(objReq, sName, sBuf, sizeof(sBuf));
 	if ( sBuf[0] == '\0' ) return NULL;
 	return xrtCopyStr(sBuf, 0);
 }
@@ -159,7 +159,7 @@ bool FW_EnsureSchema()
 void FW_Req_ViewPage(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n",
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n",
 		"<div style=\"padding:40px;text-align:center;\">"
 		"<h3>Firewall management is only available on Linux</h3>"
 		"<p>This plugin requires iptables which is not available on Windows.</p>"
@@ -389,7 +389,7 @@ void FW_Req_ViewPage(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !FW_SendAssetHtml(objResp, "page/firewall.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
 	}
 }
 
@@ -403,8 +403,8 @@ void FW_Req_ApiList(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
@@ -448,8 +448,8 @@ void FW_Req_ApiAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
@@ -509,8 +509,8 @@ void FW_Req_ApiDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
@@ -560,8 +560,8 @@ void FW_Req_ApiToggle(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
@@ -610,8 +610,8 @@ void FW_Req_ApiSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 

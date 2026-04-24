@@ -67,7 +67,7 @@ void Logs_Add(XS_RequestObject objReq, xvalue objSession)
 	if ( sMethod == NULL ) {
 		sMethod = "";
 	}
-	if ( HttpMethodIs(objReq, "POST") || HttpMethodIs(objReq, "PUT") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
 		pBody = (str)xsReqBody(objReq);
 		iBodyLen = xsReqBodyLen(objReq);
 	}

@@ -251,10 +251,10 @@ void Guestbook_SendJsonValue(XS_ResponseObject objResp, xvalue objValue)
 	str sJson = xrtStringifyJSON(objValue, FALSE, &iSize);
 
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	} else {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
 	}
 	xvoUnref(objValue);
 }
@@ -264,7 +264,7 @@ void Guestbook_SendError(XS_ResponseObject objResp, const char* sMessage)
 	xvalue tblRet = Guestbook_CreateResult(FALSE, sMessage ? sMessage : "request failed");
 
 	if ( tblRet == NULL ) {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"request failed\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"request failed\"}", 0);
 		return;
 	}
 	Guestbook_SendJsonValue(objResp, tblRet);
@@ -275,7 +275,7 @@ void Guestbook_SendOkMessage(XS_ResponseObject objResp, const char* sMessage)
 	xvalue tblRet = Guestbook_CreateResult(TRUE, sMessage ? sMessage : "ok");
 
 	if ( tblRet == NULL ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", "{\"result\":true}", 0);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", "{\"result\":true}", 0);
 		return;
 	}
 	Guestbook_SendJsonValue(objResp, tblRet);
@@ -299,7 +299,7 @@ int Guestbook_ReadIntQuery(XS_RequestObject objReq, const char* sName, int iDefa
 	char sValue[32];
 
 	memset(sValue, 0, sizeof(sValue));
-	HttpGetQueryVar(objReq, sName, sValue, sizeof(sValue));
+	xsReqQueryValue(objReq, sName, sValue, sizeof(sValue));
 	if ( sValue[0] == '\0' ) {
 		return iDefault;
 	}
@@ -578,7 +578,7 @@ bool Guestbook_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	if ( pData == NULL ) {
 		return FALSE;
 	}
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -622,7 +622,7 @@ void Guestbook_RequestListPublic(XS_ServerObject objServer, XS_HostObject objHos
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -648,7 +648,7 @@ void Guestbook_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -679,7 +679,7 @@ void Guestbook_RequestAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -738,7 +738,7 @@ void Guestbook_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -799,7 +799,7 @@ void Guestbook_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -830,7 +830,7 @@ void Guestbook_RequestPublicView(XS_ServerObject objServer, XS_HostObject objHos
 	(void)objReq;
 	(void)objSession;
 	if ( !Guestbook_SendAssetHtml(objResp, "public.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "guestbook public page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "guestbook public page missing", 0);
 	}
 }
 
@@ -841,7 +841,7 @@ void Guestbook_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost
 	(void)objReq;
 	(void)objSession;
 	if ( !Guestbook_SendAssetHtml(objResp, "admin.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "guestbook admin page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "guestbook admin page missing", 0);
 	}
 }
 

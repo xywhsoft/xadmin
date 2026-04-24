@@ -4,7 +4,7 @@ void Request_View_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	(void)objHost;
 	(void)objSession;
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "form.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -16,7 +16,7 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	(void)objServer;
 	(void)objHost;
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		char sFileName[128];
 		char sSource[32];
 		xvalue tblForm;
@@ -27,10 +27,10 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		int64 iAuthLevelRequired = 0;
 		int64 iAuthLevelUser = 0;
 
-		if ( HttpGetQueryVar(objReq, "source", sSource, sizeof(sSource)) > 0 ) {
+		if ( xsReqQueryValue(objReq, "source", sSource, sizeof(sSource)) > 0 ) {
 			bOptionSource = (strcmp(sSource, "option") == 0);
 		}
-		if ( HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
+		if ( xsReqQueryValue(objReq, "file", sFileName, sizeof(sFileName)) <= 0 ) {
 			if ( bOptionSource ) {
 				memcpy(sFileName, "global.json", sizeof("global.json"));
 			} else {
@@ -92,7 +92,7 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "POST") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		str sFileName;
 		str sSource;

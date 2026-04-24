@@ -4,7 +4,7 @@
 // 获取 logs 管理页面视图
 void Request_View_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		
 		// 日志页面
 		LoadPage(objResp, 200, HTTP_CT_HTML, "logs.html");
@@ -19,23 +19,23 @@ void Request_View_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 
 
-// logs 主接�?
+// logs 主接�?
 void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		
-		// �?URL 查询字符串中提取参数
+		// �?URL 查询字符串中提取参数
 		char sParam[64];
-		HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
+		xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 		int64 iPage = xrtStrToI64(sParam);
 		if ( iPage <= 0 ) { iPage = 1; }
-		HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
+		xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
 		int64 iLimit = xrtStrToI64(sParam);
 		if ( iLimit <= 0 ) { iLimit = 10; }
 		int64 iOffset = (iPage - 1) * iLimit;
-		int iSize = HttpGetQueryVar(objReq, "search", sParam, sizeof(sParam));
+		int iSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
 		
-		// 从数据库中查询数�?
+		// 从数据库中查询数�?
 		xvalue data = xvoCreateArray();
 		int64 iCount = 0;
 		if ( iSize <= 0 ) {
@@ -60,7 +60,7 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 			}
 			sqlite3_reset(stmt_logs_all);
 		} else {
-			// 筛�?
+			// 筛�?
 			sqlite3_bind_text(stmt_logs_sel, 1, sParam, iSize, NULL);
 			sqlite3_bind_int64(stmt_logs_sel, 2, iLimit);
 			sqlite3_bind_int64(stmt_logs_sel, 3, iOffset);
@@ -83,18 +83,18 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 			sqlite3_reset(stmt_logs_sel);
 		}
 		
-		// 构建返回�?
+		// 构建返回�?
 		xvalue tblRet = xvoCreateTable();
 		xvoTableSetBool(tblRet, "result", 6, TRUE);
 		xvoTableSetInt(tblRet, "code", 4, 0);
 		xvoTableSetInt(tblRet, "count", 5, iCount);
-		xvoTableSetText(tblRet, "message", 7, "��־���ݻ�ȡ�ɹ���", 0, FALSE);
+		xvoTableSetText(tblRet, "message", 7, "��־���ݻ�ȡ�ɹ���", 0, FALSE);
 		xvoTableSetValue(tblRet, "data", 4, data, TRUE);
 		
 		// 生成 JSON
 		size_t iRetSize = 0;
 		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-		http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
 		xvoUnref(tblRet);
 		
@@ -108,19 +108,19 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 
 
 
-// 清理 7 天前的日�?
+// 清理 7 天前的日�?
 void Request_Logs_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( HttpMethodIs(objReq, "POST") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		
-		// 清理数据�?
+		// 清理数据�?
 		xtime tDay7 = xrtNow() - (7 * 24 * 60 * 60);
 		sqlite3_bind_int64(stmt_logs_clear, 1, tDay7);
 		sqlite3_step(stmt_logs_clear);
 		sqlite3_reset(stmt_logs_clear);
 		
 		// 返回结果
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"7��ǰ����־����գ�\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"7��ǰ����־����գ�\"}", 0);
 		
 	} else {
 		

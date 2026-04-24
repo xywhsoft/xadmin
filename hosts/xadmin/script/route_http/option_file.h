@@ -5,7 +5,7 @@ static void OptionFile_ReplyJSON(XS_ResponseObject objResp, xvalue tblRet)
 {
 	size_t iRetSize = 0;
 	char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 	xrtFree(sRet);
 }
 
@@ -295,7 +295,7 @@ void Request_View_Option_Files(XS_ServerObject objServer, XS_HostObject objHost,
 {
 	printf("[option_file] Request_View_Option_Files method=%s\n", xsReqMethod(objReq));
 	fflush(stdout);
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "option/files.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -309,7 +309,7 @@ void Request_View_Option_File(XS_ServerObject objServer, XS_HostObject objHost, 
 {
 	printf("[option_file] Request_View_Option_File method=%s\n", xsReqMethod(objReq));
 	fflush(stdout);
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		LoadPage(objResp, 200, HTTP_CT_HTML, "option/file_edit.html");
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -323,7 +323,7 @@ void Request_Option_Files(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 {
 	printf("[option_file] Request_Option_Files method=%s begin\n", xsReqMethod(objReq));
 	fflush(stdout);
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		xvalue arrData = Option_ListFiles();
 		printf("[option_file] Request_Option_Files list ready\n");
 		fflush(stdout);
@@ -345,9 +345,9 @@ void Request_Option_File(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 {
 	printf("[option_file] Request_Option_File method=%s begin\n", xsReqMethod(objReq));
 	fflush(stdout);
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		char sFileName[128];
-		int iSize = HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName));
+		int iSize = xsReqQueryValue(objReq, "file", sFileName, sizeof(sFileName));
 		xvalue tblConfig;
 
 		if ( iSize <= 0 ) {
@@ -369,12 +369,12 @@ void Request_Option_File(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "POST") || HttpMethodIs(objReq, "PUT") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
 		xvalue tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		xvalue tblData;
 		str sFileName;
 		str sError = NULL;
-		bool bCreate = HttpMethodIs(objReq, "POST");
+		bool bCreate = (xsReqMethodID(objReq) == XHTTPD_METHOD_POST);
 		bool bOK;
 
 		if ( (tblBody == NULL) || (xvoType(tblBody) != XVO_DT_TABLE) ) {
@@ -408,9 +408,9 @@ void Request_Option_File(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "DELETE") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
 		char sFileName[128];
-		int iSize = HttpGetQueryVar(objReq, "file", sFileName, sizeof(sFileName));
+		int iSize = xsReqQueryValue(objReq, "file", sFileName, sizeof(sFileName));
 		str sError = NULL;
 
 		if ( iSize <= 0 ) {
@@ -444,7 +444,7 @@ void Request_Option_File_Menu(XS_ServerObject objServer, XS_HostObject objHost, 
 
 	printf("[option_file] Request_Option_File_Menu method=%s begin\n", xsReqMethod(objReq));
 	fflush(stdout);
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 		return;
 	}

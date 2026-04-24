@@ -256,10 +256,10 @@ void CS_SendJsonValue(XS_ResponseObject objResp, xvalue objValue)
 	str sJson = xrtStringifyJSON(objValue, FALSE, &iSize);
 
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	} else {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
 	}
 	xvoUnref(objValue);
 }
@@ -269,7 +269,7 @@ void CS_SendError(XS_ResponseObject objResp, const char* sMessage)
 	xvalue tblRet = CS_CreateResult(FALSE, sMessage ? sMessage : "request failed");
 
 	if ( tblRet == NULL ) {
-		http_reply(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"request failed\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"request failed\"}", 0);
 		return;
 	}
 	CS_SendJsonValue(objResp, tblRet);
@@ -2247,7 +2247,7 @@ bool CS_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	if ( pData == NULL ) {
 		return FALSE;
 	}
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -2358,7 +2358,7 @@ void CS_RequestTypeDetail(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	(void)objSession;
 
 	memset(sId, 0, sizeof(sId));
-	HttpGetQueryVar(objReq, "id", sId, sizeof(sId));
+	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
 	if ( sId[0] == '\0' ) {
 		CS_SendError(objResp, "id is required");
 		return;
@@ -2429,8 +2429,8 @@ void CS_RequestAdvisor(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 	memset(sTypeId, 0, sizeof(sTypeId));
 	memset(sRevision, 0, sizeof(sRevision));
-	HttpGetQueryVar(objReq, "typeId", sTypeId, sizeof(sTypeId));
-	HttpGetQueryVar(objReq, "revision", sRevision, sizeof(sRevision));
+	xsReqQueryValue(objReq, "typeId", sTypeId, sizeof(sTypeId));
+	xsReqQueryValue(objReq, "revision", sRevision, sizeof(sRevision));
 	if ( sTypeId[0] == '\0' ) {
 		CS_SendError(objResp, "typeId is required");
 		return;
@@ -2458,7 +2458,7 @@ void CS_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	(void)objReq;
 	(void)objSession;
 	if ( !CS_SendAssetHtml(objResp, "admin.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "content-system admin page missing", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "content-system admin page missing", 0);
 	}
 }
 
@@ -2476,7 +2476,7 @@ void CS_RequestRevisions(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	(void)objSession;
 
 	memset(sTypeId, 0, sizeof(sTypeId));
-	HttpGetQueryVar(objReq, "typeId", sTypeId, sizeof(sTypeId));
+	xsReqQueryValue(objReq, "typeId", sTypeId, sizeof(sTypeId));
 	if ( sTypeId[0] == '\0' ) {
 		CS_SendError(objResp, "typeId is required");
 		return;
@@ -2718,7 +2718,7 @@ void CS_RequestSaveType(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		CS_SendError(objResp, "请求方法不被允许");
 		return;
 	}
@@ -2771,7 +2771,7 @@ void CS_RequestDeleteType(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		CS_SendError(objResp, "请求方法不被允许");
 		return;
 	}
@@ -3379,7 +3379,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	(void)objHost;
 	(void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		CS_SendError(objResp, "请求方法不被允许");
 		return;
 	}

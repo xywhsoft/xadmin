@@ -46,7 +46,7 @@ void XLog_SendJson(XS_ResponseObject objResp, xvalue tblData)
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblData, FALSE, &iSize);
 	if ( sJson ) {
-		http_reply(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	}
 	xvoUnref(tblData);
@@ -77,7 +77,7 @@ int XLog_ReadIntQuery(XS_RequestObject objReq, const char* sName, int iDefault)
 {
 	char sBuf[32];
 	memset(sBuf, 0, sizeof(sBuf));
-	HttpGetQueryVar(objReq, sName, sBuf, sizeof(sBuf));
+	xsReqQueryValue(objReq, sName, sBuf, sizeof(sBuf));
 	if ( sBuf[0] == '\0' ) return iDefault;
 	return atoi(sBuf);
 }
@@ -86,7 +86,7 @@ int64 XLog_ReadInt64Query(XS_RequestObject objReq, const char* sName, int64 iDef
 {
 	char sBuf[32];
 	memset(sBuf, 0, sizeof(sBuf));
-	HttpGetQueryVar(objReq, sName, sBuf, sizeof(sBuf));
+	xsReqQueryValue(objReq, sName, sBuf, sizeof(sBuf));
 	if ( sBuf[0] == '\0' ) return iDefault;
 	return xrtStrToI64(sBuf);
 }
@@ -95,7 +95,7 @@ str XLog_ReadQuery(XS_RequestObject objReq, const char* sName)
 {
 	char sBuf[256];
 	memset(sBuf, 0, sizeof(sBuf));
-	HttpGetQueryVar(objReq, sName, sBuf, sizeof(sBuf));
+	xsReqQueryValue(objReq, sName, sBuf, sizeof(sBuf));
 	if ( sBuf[0] == '\0' ) return NULL;
 	return xrtCopyStr(sBuf, 0);
 }
@@ -272,7 +272,7 @@ bool XLog_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	pData = xrtFileGetAll(sPath, &iSize);
 	xrtFree(sPath);
 	if ( pData == NULL ) return FALSE;
-	http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -344,10 +344,10 @@ void XLog_SendTemplatePage(XS_ResponseObject objResp, const char* sFileName, xva
 	str sPage = XLog_RenderTemplate(sFileName, tblData);
 	if ( sPage ) {
 		size_t iLen = strlen(sPage);
-		http_reply(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", sPage, iLen);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", sPage, iLen);
 		xrtFree(sPage);
 	} else {
-		http_reply(objResp, 500, "Content-Type: text/plain\r\n", "template not found", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "template not found", 0);
 	}
 }
 
@@ -475,7 +475,7 @@ void XLog_Req_ViewServices(XS_ServerObject objServer, XS_HostObject objHost, XS_
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !XLog_SendAssetHtml(objResp, "page/services.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
 	}
 }
 
@@ -483,7 +483,7 @@ void XLog_Req_ViewServicesAdd(XS_ServerObject objServer, XS_HostObject objHost, 
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !XLog_SendAssetHtml(objResp, "page/services_add.html") ) {
-		http_reply(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "page not found", 0);
 	}
 }
 
@@ -495,19 +495,19 @@ void XLog_Req_ViewServicesEdit(XS_ServerObject objServer, XS_HostObject objHost,
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
 	id = XLog_ReadInt64Query(objReq, "id", 0);
 	if ( id <= 0 ) {
-		http_reply(objResp, 400, "Content-Type: text/plain\r\n", "invalid id", 0);
+		xsHttpReplyAuto(objResp, 400, "Content-Type: text/plain\r\n", "invalid id", 0);
 		return;
 	}
 
 	if ( !XLog_OpenMainDb(&pDb) ) {
-		http_reply(objResp, 500, "Content-Type: text/plain\r\n", "db error", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "db error", 0);
 		return;
 	}
 	tblInfo = XLog_ServiceGetOne(pDb, id);
@@ -527,20 +527,20 @@ void XLog_Req_ViewTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
 	serviceId = XLog_ReadInt64Query(objReq, "serviceId", 0);
 	if ( serviceId <= 0 ) {
-		http_reply(objResp, 400, "Content-Type: text/plain\r\n", "invalid serviceId", 0);
+		xsHttpReplyAuto(objResp, 400, "Content-Type: text/plain\r\n", "invalid serviceId", 0);
 		return;
 	}
 
 	pSvcDb = XLog_ServiceGetDB(serviceId);
 	if ( pSvcDb == NULL ) {
-		http_reply(objResp, 404, "Content-Type: text/plain\r\n", "service not found", 0);
+		xsHttpReplyAuto(objResp, 404, "Content-Type: text/plain\r\n", "service not found", 0);
 		return;
 	}
 
@@ -566,8 +566,8 @@ void XLog_Req_ViewTasksAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
@@ -586,21 +586,21 @@ void XLog_Req_ViewTasksEdit(XS_ServerObject objServer, XS_HostObject objHost, XS
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
 	serviceId = XLog_ReadInt64Query(objReq, "serviceId", 0);
 	taskId = XLog_ReadInt64Query(objReq, "id", 0);
 	if ( serviceId <= 0 || taskId <= 0 ) {
-		http_reply(objResp, 400, "Content-Type: text/plain\r\n", "invalid params", 0);
+		xsHttpReplyAuto(objResp, 400, "Content-Type: text/plain\r\n", "invalid params", 0);
 		return;
 	}
 
 	pSvcDb = XLog_ServiceGetDB(serviceId);
 	if ( pSvcDb == NULL ) {
-		http_reply(objResp, 404, "Content-Type: text/plain\r\n", "service not found", 0);
+		xsHttpReplyAuto(objResp, 404, "Content-Type: text/plain\r\n", "service not found", 0);
 		return;
 	}
 
@@ -618,21 +618,21 @@ void XLog_Req_ViewTasksLogs(XS_ServerObject objServer, XS_HostObject objHost, XS
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 405, "Content-Type: text/plain\r\n", "method not allowed", 0);
 		return;
 	}
 
 	serviceId = XLog_ReadInt64Query(objReq, "serviceId", 0);
 	taskId = XLog_ReadInt64Query(objReq, "taskId", 0);
 	if ( serviceId <= 0 || taskId <= 0 ) {
-		http_reply(objResp, 400, "Content-Type: text/plain\r\n", "invalid params", 0);
+		xsHttpReplyAuto(objResp, 400, "Content-Type: text/plain\r\n", "invalid params", 0);
 		return;
 	}
 
 	pSvcDb = XLog_ServiceGetDB(serviceId);
 	if ( pSvcDb == NULL ) {
-		http_reply(objResp, 404, "Content-Type: text/plain\r\n", "service not found", 0);
+		xsHttpReplyAuto(objResp, 404, "Content-Type: text/plain\r\n", "service not found", 0);
 		return;
 	}
 
@@ -654,7 +654,7 @@ void XLog_Req_ApiServices(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		int iPage = XLog_ReadIntQuery(objReq, "page", 1);
 		int iLimit = XLog_ReadIntQuery(objReq, "limit", 10);
 		int iOffset = (iPage - 1) * iLimit;
@@ -713,7 +713,7 @@ void XLog_Req_ApiServices(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 			XLog_SendJson(objResp, tblRet);
 		}
 
-	} else if ( HttpMethodIs(objReq, "POST") ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvalue tblForm = XLog_ParseJsonBody(objReq);
 		str sName, sDesc, sDbXID, sDbName;
 		xtime now;
@@ -761,7 +761,7 @@ void XLog_Req_ApiServices(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 			XLog_SendJson(objResp, tblRet);
 		}
 
-	} else if ( HttpMethodIs(objReq, "PUT") ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
 		xvalue tblForm = XLog_ParseJsonBody(objReq);
 		int64 id;
 		str sName, sDesc;
@@ -787,7 +787,7 @@ void XLog_Req_ApiServices(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		xvoUnref(tblForm);
 		XLog_SendOk(objResp, "updated");
 
-	} else if ( HttpMethodIs(objReq, "DELETE") ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
 		xvalue arrID = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( (arrID == NULL) || (xvoType(arrID) != XVO_DT_ARRAY) ) {
 			if ( arrID ) xvoUnref(arrID);
@@ -815,7 +815,7 @@ void XLog_Req_ApiServices(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		XLog_SendOk(objResp, "deleted");
 
 	} else {
-		http_reply(objResp, 405, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"method not allowed\"}", 0);
+		xsHttpReplyAuto(objResp, 405, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"method not allowed\"}", 0);
 	}
 
 	XLog_CloseDb(pDb);
@@ -840,7 +840,7 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		int iPage = XLog_ReadIntQuery(objReq, "page", 1);
 		int iLimit = XLog_ReadIntQuery(objReq, "limit", 10);
 		int iOffset = (iPage - 1) * iLimit;
@@ -896,7 +896,7 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			XLog_SendJson(objResp, tblRet);
 		}
 
-	} else if ( HttpMethodIs(objReq, "POST") ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		xvalue tblForm = XLog_ParseJsonBody(objReq);
 		str sName, sDesc;
 		int64 newId;
@@ -915,7 +915,7 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			XLog_SendJson(objResp, tblRet);
 		}
 
-	} else if ( HttpMethodIs(objReq, "PUT") ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
 		xvalue tblForm = XLog_ParseJsonBody(objReq);
 		int64 id;
 		str sName, sDesc;
@@ -940,7 +940,7 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		xvoUnref(tblForm);
 		XLog_SendOk(objResp, "updated");
 
-	} else if ( HttpMethodIs(objReq, "DELETE") ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
 		xvalue arrID = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( (arrID == NULL) || (xvoType(arrID) != XVO_DT_ARRAY) ) {
 			if ( arrID ) xvoUnref(arrID);
@@ -966,7 +966,7 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		XLog_SendOk(objResp, "deleted");
 
 	} else {
-		http_reply(objResp, 405, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"method not allowed\"}", 0);
+		xsHttpReplyAuto(objResp, 405, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"method not allowed\"}", 0);
 	}
 }
 
@@ -1000,7 +1000,7 @@ void XLog_Req_ApiTaskLogs(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		return;
 	}
 
-	if ( HttpMethodIs(objReq, "GET") ) {
+	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
 		int64 lastId = XLog_ReadInt64Query(objReq, "lastId", 0);
 		int iLimit = XLog_ReadIntQuery(objReq, "limit", 100);
 		sqlite3_stmt* stmt = NULL;
@@ -1048,7 +1048,7 @@ void XLog_Req_ApiTaskLogs(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 			XLog_SendJson(objResp, tblRet);
 		}
 
-	} else if ( HttpMethodIs(objReq, "DELETE") ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
 		sqlite3_stmt* stmt = NULL;
 		str sql = xrtFormat("DELETE FROM %s;", sTableName);
 		if ( sqlite3_prepare_v2(pSvcDb, sql, -1, &stmt, NULL) == SQLITE_OK ) {
@@ -1082,7 +1082,7 @@ void XLog_Req_ApiLogPush(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		XLog_ReplyApiCode(objResp, 1, "POST only");
 		return;
 	}
@@ -1147,7 +1147,7 @@ void XLog_Req_ApiTaskCreate(XS_ServerObject objServer, XS_HostObject objHost, XS
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	if ( !HttpMethodIs(objReq, "POST") ) {
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
 		XLog_ReplyApiCode(objResp, 1, "POST only");
 		return;
 	}

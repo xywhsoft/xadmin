@@ -540,12 +540,12 @@ int PS_HostUnregisterRoute(XAdminRouteToken token)
 
 int PS_HostReplyJson(XS_ResponseObject resp, int code, const char* json, size_t len)
 {
-	return http_reply(resp, code, HTTP_CT_JSON, json, len);
+	return xsHttpReplyAuto(resp, code, HTTP_CT_JSON, json, len);
 }
 
 int PS_HostReplyHtml(XS_ResponseObject resp, int code, const char* html)
 {
-	return http_reply(resp, code, HTTP_CT_HTML, html, 0);
+	return xsHttpReplyAuto(resp, code, HTTP_CT_HTML, html, 0);
 }
 
 int PS_HostGeneratePlugin(void* plugin_handle, const XAdminGeneratedPluginSpec* spec)
@@ -1622,10 +1622,7 @@ void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc)
 
 	tcc_add_symbol(pTcc, "XAdmin_RegisterRoute", XAdmin_RegisterRoute);
 	tcc_add_symbol(pTcc, "XAdmin_UnregisterRoute", XAdmin_UnregisterRoute);
-	tcc_add_symbol(pTcc, "HttpMethodIs", HttpMethodIs);
-	tcc_add_symbol(pTcc, "HttpGetQueryVar", HttpGetQueryVar);
-	tcc_add_symbol(pTcc, "http_reply", http_reply);
-	tcc_add_symbol(pTcc, "HttpReplyFormat", HttpReplyFormat);
+	tcc_add_symbol(pTcc, "xsHttpReplyFormat", xsHttpReplyFormat);
 	tcc_add_symbol(pTcc, "LoadPage", LoadPage);
 	tcc_add_symbol(pTcc, "XAdmin_RegisterMenu", XAdmin_RegisterMenu);
 	tcc_add_symbol(pTcc, "XAdmin_UnregisterMenu", XAdmin_UnregisterMenu);

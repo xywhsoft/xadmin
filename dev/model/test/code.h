@@ -16,15 +16,7 @@ sqlite3* G_DB;
 // 注意：Model_AddRoute 实际返回 RouteInfo*，但模型代码不需要使用返回�?
 extern void* Model_AddRoute(str, void*, bool, bool, int, int);
 extern void Model_RemoveRoute(str);
-extern bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
-extern int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
-extern int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
-extern int mg_http_reply(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
-
 // HTTP helper declarations
-bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
-int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
-int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
 int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 
 // HTTP 响应常量
@@ -244,16 +236,16 @@ void Model_test_FreeStmt()
 // 获取列表
 void Api_test_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	char sParam[64];
-	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) iPage = 1;
-	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) iLimit = 20;
 	if ( iLimit > 100 ) iLimit = 100;
@@ -291,7 +283,7 @@ void Api_test_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -300,10 +292,10 @@ void Api_test_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+	xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -389,7 +381,7 @@ void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		
 		size_t iSize = 0;
 		str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-		http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 		xrtFree(sJson);
 		xvoUnref(tblRet);
 		return;
@@ -414,7 +406,7 @@ void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	sqlite3_reset(stmt_test_get);
 	
 	if ( !tblData ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
 		return;
 	}
 	
@@ -424,7 +416,7 @@ void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -439,14 +431,14 @@ void Api_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 // 投稿内容
 void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -463,7 +455,7 @@ void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	int iAllowGuest = 0;
 	if ( (iMemberId <= 0) && !iAllowGuest ) {
 		xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Please login first\"}", 0);
 		return;
 	}
 	
@@ -527,17 +519,17 @@ void Api_test_Submit(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 void Api_test_Reply_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sParam[64];
-	HttpGetQueryVar(objReq, "contentId", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "contentId", sParam, sizeof(sParam));
 	int64 iContentId = xrtStrToI64(sParam);
 	if ( iContentId <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
 		return;
 	}
 	
-	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) iPage = 1;
-	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) iLimit = 20;
 	if ( iLimit > 100 ) iLimit = 100;
@@ -580,7 +572,7 @@ void Api_test_Reply_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -588,14 +580,14 @@ void Api_test_Reply_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 // 添加评论
 void Api_test_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -603,14 +595,14 @@ void Api_test_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	int64 iContentId = xvoTableGetInt(tblForm, "contentId", 9);
 	if ( iContentId <= 0 ) {
 		xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing contentId\"}", 0);
 		return;
 	}
 	
 	str sContent = xvoTableGetText(tblForm, "content", 7);
 	if ( !sContent || strlen(sContent) == 0 ) {
 		xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Content is required\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Content is required\"}", 0);
 		return;
 	}
 	
@@ -672,10 +664,10 @@ void Api_test_Reply_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 void Api_test_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sParam[24];
-	HttpGetQueryVar(objReq, "id", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "id", sParam, sizeof(sParam));
 	int64 iID = xrtStrToI64(sParam);
 	if ( iID <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -687,7 +679,7 @@ void Api_test_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	sqlite3_step(stmt_test_reply_del);
 	sqlite3_reset(stmt_test_reply_del);
 	
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 */
 
@@ -699,16 +691,16 @@ void Api_test_Reply_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 // 后台列表
 void Admin_test_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	char sParam[64];
-	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) iPage = 1;
-	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) iLimit = 20;
 	int64 iOffset = (iPage - 1) * iLimit;
@@ -749,7 +741,7 @@ void Admin_test_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -758,10 +750,10 @@ void Admin_test_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 void Admin_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+	xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -783,7 +775,7 @@ void Admin_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	sqlite3_reset(stmt_test_get);
 	
 	if ( !tblData ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
 		return;
 	}
 	
@@ -793,7 +785,7 @@ void Admin_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -801,14 +793,14 @@ void Admin_test_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 // 后台添加
 void Admin_test_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -834,14 +826,14 @@ void Admin_test_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 // 后台更新
 void Admin_test_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -849,7 +841,7 @@ void Admin_test_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	int64 iID = xvoTableGetInt(tblForm, "id", 2);
 	if ( iID <= 0 ) {
 		xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -867,17 +859,17 @@ void Admin_test_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	sqlite3_reset(stmt_test_put);
 	xvoUnref(tblForm);
 	
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 
 // 后台删除
 void Admin_test_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+	xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -887,7 +879,7 @@ void Admin_test_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	sqlite3_step(stmt_test_del);
 	sqlite3_reset(stmt_test_del);
 	
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 
 
@@ -899,16 +891,16 @@ void Admin_test_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 // 草稿列表
 void Admin_test_Draft_List(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "GET") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	char sParam[64];
-	HttpGetQueryVar(objReq, "page", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 	int64 iPage = xrtStrToI64(sParam);
 	if ( iPage <= 0 ) iPage = 1;
-	HttpGetQueryVar(objReq, "limit", sParam, sizeof(sParam));
+	xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
 	int64 iLimit = xrtStrToI64(sParam);
 	if ( iLimit <= 0 ) iLimit = 20;
 	int64 iOffset = (iPage - 1) * iLimit;
@@ -949,7 +941,7 @@ void Admin_test_Draft_List(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -958,10 +950,10 @@ void Admin_test_Draft_List(XS_ServerObject objServer, XS_HostObject objHost, XS_
 void Admin_test_Draft_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+	xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -983,7 +975,7 @@ void Admin_test_Draft_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	sqlite3_reset(stmt_test_draft_get);
 	
 	if ( !tblData ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Not found\"}", 0);
 		return;
 	}
 	
@@ -993,7 +985,7 @@ void Admin_test_Draft_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	
 	size_t iSize = 0;
 	str sJson = xrtStringifyJSON(tblRet, FALSE, &iSize);
-	http_reply(objResp, 200, HTTP_CT_JSON, sJson, iSize);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sJson, iSize);
 	xrtFree(sJson);
 	xvoUnref(tblRet);
 }
@@ -1001,14 +993,14 @@ void Admin_test_Draft_Get(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 // 保存草稿
 void Admin_test_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -1051,10 +1043,10 @@ void Admin_test_Draft_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_
 void Admin_test_Draft_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+	xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -1062,17 +1054,17 @@ void Admin_test_Draft_Delete(XS_ServerObject objServer, XS_HostObject objHost, X
 	sqlite3_step(stmt_test_draft_del);
 	sqlite3_reset(stmt_test_draft_del);
 	
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 
 // 发布草稿
 void Admin_test_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sID[24];
-	HttpGetQueryVar(objReq, "id", sID, sizeof(sID));
+	xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 	int64 iID = xrtStrToI64(sID);
 	if ( iID <= 0 ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ID\"}", 0);
 		return;
 	}
 	
@@ -1080,7 +1072,7 @@ void Admin_test_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHost, 
 	sqlite3_bind_int64(stmt_test_draft_get, 1, iID);
 	if ( sqlite3_step(stmt_test_draft_get) != SQLITE_ROW ) {
 		sqlite3_reset(stmt_test_draft_get);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Draft not found\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Draft not found\"}", 0);
 		return;
 	}
 	
@@ -1115,14 +1107,14 @@ void Admin_test_Draft_Publish(XS_ServerObject objServer, XS_HostObject objHost, 
 // 批量发布草稿
 void Admin_test_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "POST") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -1130,7 +1122,7 @@ void Admin_test_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject objH
 	xvalue arrIds = xvoTableGetValue(tblForm, "ids", 3);
 	if ( !arrIds || arrIds->Type != XVO_DT_ARRAY ) {
 		xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ids\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ids\"}", 0);
 		return;
 	}
 	
@@ -1174,14 +1166,14 @@ void Admin_test_Draft_BatchPublish(XS_ServerObject objServer, XS_HostObject objH
 // 批量删除草稿
 void Admin_test_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "DELETE") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
 	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 	if ( !tblForm || tblForm->Type != XVO_DT_TABLE ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid data\"}", 0);
 		if ( tblForm ) xvoUnref(tblForm);
 		return;
 	}
@@ -1189,7 +1181,7 @@ void Admin_test_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject objHo
 	xvalue arrIds = xvoTableGetValue(tblForm, "ids", 3);
 	if ( !arrIds || arrIds->Type != XVO_DT_ARRAY ) {
 		xvoUnref(tblForm);
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ids\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing ids\"}", 0);
 		return;
 	}
 	
@@ -1215,8 +1207,8 @@ void Admin_test_Draft_BatchDelete(XS_ServerObject objServer, XS_HostObject objHo
 // 清空草稿�?
 void Admin_test_Draft_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	if ( !HttpMethodIs(objReq, "DELETE") ) {
-		http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Method not allowed\"}", 0);
 		return;
 	}
 	
@@ -1229,7 +1221,7 @@ void Admin_test_Draft_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS
 	sqlite3_exec(G_DB, "DELETE FROM sqlite_sequence WHERE name='model_test_test_draft'", NULL, NULL, &sErr);
 	if ( sErr ) sqlite3_free(sErr);
 	
-	http_reply(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
+	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"Success\"}", 0);
 }
 
 // 获取草稿数量

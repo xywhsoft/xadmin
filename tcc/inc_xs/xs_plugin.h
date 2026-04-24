@@ -150,10 +150,6 @@ typedef struct XAdminPluginDescriptor {
 	void (*OnStop)(XAdminPluginHandle handle);
 	void (*OnUnload)(XAdminPluginHandle handle);
 } XAdminPluginDescriptor;
-
-bool HttpMethodIs(XS_RequestObject objReq, const char* sMethod);
-int HttpGetQueryVar(XS_RequestObject objReq, const char* sName, char* sOut, size_t iOutCap);
-int http_reply(XS_ResponseObject objResp, int iCode, str sHead, const void* pBody, size_t iLen);
 int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat, ...);
 void LoadPage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
 
