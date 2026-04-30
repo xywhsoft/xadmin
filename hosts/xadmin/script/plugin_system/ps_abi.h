@@ -411,6 +411,11 @@ void PS_HostInvokeRoute(RouteInfo* pInfo, XS_ServerObject objServer, XS_HostObje
 	PluginSystemRouteToken* pToken = pInfo ? (PluginSystemRouteToken*)pInfo->pPluginRouteToken : NULL;
 	PluginSystemGeneration* pGeneration = pToken ? pToken->base.pGeneration : NULL;
 
+	if ( pToken && (pToken->base.bReleased || !pToken->base.bPublished || (pGeneration == NULL) || (pGeneration->iState != PS_GENERATION_STATE_ACTIVE)) ) {
+		xsHttpReplyAuto(objResp, 404, "Content-Type: text/plain\r\n", "plugin route unavailable", 0);
+		return;
+	}
+
 	if ( pGeneration ) {
 		pGeneration->iRefCount++;
 	}
@@ -516,9 +521,6 @@ int PS_HostUnregisterRoute(XAdminRouteToken token)
 	}
 
 	pToken->base.bReleased = TRUE;
-	if ( pToken->base.pGeneration ) {
-		PS_HostDetachToken(pToken->base.pGeneration->lstRouteTokens, pToken);
-	}
 
 	if ( pToken->base.bPublished && pToken->sPath ) {
 		pCurrent = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
@@ -534,7 +536,7 @@ int PS_HostUnregisterRoute(XAdminRouteToken token)
 	if ( pToken->base.bPublished ) {
 		PS_HostRefreshRouteCaches();
 	}
-	PS_HostFreeRouteToken(pToken);
+	pToken->base.bPublished = FALSE;
 	return 0;
 }
 

@@ -22,7 +22,7 @@ static XAdminPluginHandle G_CSHandle = NULL;
 static const char* G_CSRootPath = NULL;
 static const char* G_CSPrivateDbPath = NULL;
 static CSConfigState G_CSConfig = {
-	"Content System",
+	"内容模型管理",
 	"layui-icon layui-icon-template-1",
 	990100
 };
@@ -94,7 +94,7 @@ XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr)
 void CS_ConfigReset(void)
 {
 	memset(&G_CSConfig, 0, sizeof(G_CSConfig));
-	snprintf(G_CSConfig.sMenuTitle, sizeof(G_CSConfig.sMenuTitle), "%s", "Content System");
+	snprintf(G_CSConfig.sMenuTitle, sizeof(G_CSConfig.sMenuTitle), "%s", "内容模型管理");
 	snprintf(G_CSConfig.sMenuIcon, sizeof(G_CSConfig.sMenuIcon), "%s", "layui-icon layui-icon-template-1");
 	G_CSConfig.iMenuSort = 990100;
 }
@@ -2462,6 +2462,17 @@ void CS_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	}
 }
 
+void CS_RequestEditorView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+	if ( !CS_SendAssetHtml(objResp, "editor.html") ) {
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "content-system editor page missing", 0);
+	}
+}
+
 void CS_RequestRevisions(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sTypeId[32];
@@ -3657,11 +3668,18 @@ int CS_OnStart(XAdminPluginHandle handle)
 	route.admin_only = TRUE;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
+	memset(&route, 0, sizeof(route));
+	route.path = "/admin/view/plugin/content-system/editor";
+	route.proc = CS_RequestEditorView;
+	route.need_auth = TRUE;
+	route.admin_only = TRUE;
+	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
+
 	memset(&menu, 0, sizeof(menu));
-	menu.title = G_CSConfig.sMenuTitle;
+	menu.title = "内容模型管理";
 	menu.icon = G_CSConfig.sMenuIcon;
 	menu.type = 1;
-	menu.open_type = "_iframe";
+	menu.open_type = "_component";
 	menu.href = "/admin/view/plugin/content-system";
 	menu.sort = G_CSConfig.iMenuSort;
 	menu.visible = TRUE;
@@ -3675,7 +3693,7 @@ int CS_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)
 	(void)handle;
 	CS_ConfigReset();
 	if ( new_cfg ) {
-		CS_CopyText(G_CSConfig.sMenuTitle, sizeof(G_CSConfig.sMenuTitle), xvoTableGetText(new_cfg, "menuTitle", 9), "Content System");
+		CS_CopyText(G_CSConfig.sMenuTitle, sizeof(G_CSConfig.sMenuTitle), xvoTableGetText(new_cfg, "menuTitle", 9), "内容模型管理");
 		CS_CopyText(G_CSConfig.sMenuIcon, sizeof(G_CSConfig.sMenuIcon), xvoTableGetText(new_cfg, "menuIcon", 8), "layui-icon layui-icon-template-1");
 		if ( xvoTableGetInt(new_cfg, "menuSort", 8) > 0 ) {
 			G_CSConfig.iMenuSort = (int)xvoTableGetInt(new_cfg, "menuSort", 8);

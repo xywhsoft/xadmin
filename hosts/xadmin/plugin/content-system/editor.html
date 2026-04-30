@@ -1,0 +1,2379 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>内容系统</title>
+  <link href="/layui/css/layui.css" rel="stylesheet">
+  <link rel="stylesheet" href="/lib/editormd/css/editormd.min.css">
+  <link rel="stylesheet" href="/lib/wangEditor/css/style.css">
+  <link rel="stylesheet" href="/lib/CodeMirror/lib/codemirror.css">
+  <link rel="stylesheet" href="/lib/CodeMirror/theme/monokai.css">
+  <style>
+    :root {
+      --panel: #ffffff;
+      --panel-strong: #ffffff;
+      --ink: #243047;
+      --muted: #667085;
+      --line: #e7edf3;
+      --accent: #1677ff;
+      --warn: #b45309;
+      --danger: #dc2626;
+      --info: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", sans-serif;
+      color: var(--ink);
+      background: #f5f7fb;
+    }
+    .shell { max-width: 1540px; margin: 0 auto; padding: 20px; }
+    .editor-shell {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .tabbar {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--line);
+      padding-bottom: 12px;
+    }
+    .tab-button {
+      border: 1px solid #d0d5dd;
+      background: #fff;
+      color: #344054;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .tab-button.active {
+      background: #e8f1ff;
+      border-color: #91caff;
+      color: #0958d9;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .summary-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-strong);
+      padding: 18px;
+    }
+    .summary-card h3 {
+      margin: 0 0 10px;
+      font-size: 16px;
+    }
+    .summary-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .summary-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; }
+    .label { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+    .input, .textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 12px 14px;
+      font: inherit;
+      color: var(--ink);
+      background: rgba(255,255,255,.82);
+    }
+    .textarea {
+      min-height: 380px;
+      resize: vertical;
+      line-height: 1.55;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+    .button {
+      border: 0;
+      border-radius: 4px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+    }
+    .button.primary { background: var(--accent); color: #fff; }
+    .button.ghost { background: #fff; color: #344054; border: 1px solid #d0d5dd; }
+    .button.warn { background: #fff7ed; color: #b45309; border: 1px solid #fed7aa; }
+    .button.danger { background: #fff1f2; color: #b42318; border: 1px solid #fecdd3; }
+    .button:disabled { opacity: .55; cursor: not-allowed; }
+    .status { min-height: 18px; font-size: 13px; color: var(--accent); }
+    .hint { color: var(--muted); font-size: 13px; line-height: 1.65; }
+    .meta-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .meta-card {
+      border-radius: 6px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      padding: 14px;
+    }
+    .meta-card strong { display: block; font-size: 24px; margin-top: 8px; }
+    .meta-card span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+    .designer-grid, .history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .form-host {
+      border-radius: 6px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      padding: 16px 16px 8px;
+      min-height: 240px;
+    }
+    .form-host .layui-form-label {
+      width: 140px;
+      white-space: normal;
+      line-height: 1.45;
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    .form-host .layui-input-block { margin-left: 170px; }
+    .form-host .xform-group {
+      border: 1px solid #eef2f7;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      background: #fff;
+    }
+    .form-host .xform-group-title {
+      padding: 12px 16px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #243047;
+      background: linear-gradient(90deg,#f8fbff 0%,#fff 100%);
+      border-bottom: 1px solid #eef2f7;
+    }
+    .form-host .xform-group-desc {
+      padding: 0 16px 12px;
+      color: #667085;
+      font-size: 13px;
+    }
+    .form-host .xform-group-fields {
+      padding: 16px 16px 1px;
+    }
+    .field-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+    }
+    .field-card {
+      border-radius: 6px;
+      padding: 14px;
+      background: rgba(255,255,255,.74);
+      border: 1px solid var(--line);
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    .field-card.active {
+      border-color: rgba(15,118,110,.42);
+      background: #ecfdf5;
+    }
+    .field-card strong { display: block; margin-bottom: 6px; }
+    .field-card span { display: block; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .field-card .advisor-summary {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0 2px;
+    }
+    .field-card .advisor-note {
+      margin-top: 8px;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .assistant-advisor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .section-shortcuts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .section-shortcut {
+      width: 100%;
+      text-align: left;
+      border: 1px solid #dbe3ef;
+      border-radius: 8px;
+      background: #f8fbff;
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    .section-shortcut:hover {
+      border-color: #91caff;
+      background: #edf5ff;
+      box-shadow: 0 6px 18px rgba(64,124,255,.08);
+    }
+    .section-shortcut strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #1f2937;
+    }
+    .section-shortcut span {
+      display: block;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .assistant-advisor-card {
+      width: 100%;
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 6px;
+      padding: 14px;
+      background: rgba(255,255,255,.72);
+      text-align: left;
+      cursor: pointer;
+      transition: .15s ease;
+      color: var(--ink);
+    }
+    .assistant-advisor-card:hover {
+      transform: translateY(-1px);
+      border-color: rgba(15,118,110,.35);
+      background: rgba(236,253,245,.82);
+    }
+    .assistant-advisor-card.error {
+      border-color: rgba(185,28,28,.18);
+    }
+    .assistant-advisor-card.warn {
+      border-color: rgba(146,64,14,.2);
+    }
+    .assistant-advisor-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+    }
+    .assistant-advisor-card p {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .assistant-advisor-card .advisor-summary {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0;
+    }
+    .list { display: flex; flex-direction: column; gap: 10px; }
+    .list-item {
+      border-radius: 18px;
+      padding: 14px;
+      background: rgba(255,255,255,.7);
+      border: 1px solid var(--line);
+    }
+    .list-item strong { display: block; margin-bottom: 6px; }
+    .advisor-group {
+      border-radius: 6px;
+      padding: 14px;
+      background: rgba(255,255,255,.58);
+      border: 1px solid rgba(148,163,184,.18);
+    }
+    .advisor-group.jumpable {
+      cursor: pointer;
+      transition: .15s ease;
+    }
+    .advisor-group.jumpable:hover {
+      border-color: rgba(15,118,110,.35);
+      background: rgba(236,253,245,.82);
+    }
+    .advisor-group h4 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+    .advisor-group + .advisor-group {
+      margin-top: 10px;
+    }
+    .advisor-items {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .advisor-target {
+      margin: -2px 0 12px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .jump-highlight {
+      animation: csJumpPulse 1.25s ease;
+    }
+    @keyframes csJumpPulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(15,118,110,.28);
+      }
+      100% {
+        box-shadow: 0 0 0 14px rgba(15,118,110,0);
+      }
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 8px;
+    }
+    .pill.info { background: #dbeafe; color: var(--info); }
+    .pill.warn { background: #fef3c7; color: var(--warn); }
+    .pill.error { background: #fee2e2; color: var(--danger); }
+    .pill.success { background: #dcfce7; color: #166534; }
+    .empty { padding: 24px 0; color: var(--muted); text-align: center; }
+    @media (max-width: 1220px) {
+      .designer-grid, .history-grid { grid-template-columns: 1fr; }
+      .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .shell { padding: 18px 12px 32px; }
+      .meta-grid { grid-template-columns: 1fr; }
+      .form-host .layui-form-label { width: auto; margin-bottom: 8px; display: block; }
+      .form-host .layui-input-block { margin-left: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <main class="stack">
+        <section class="editor-shell view-panel" id="cs_editor_view">
+          <section class="panel stack">
+            <div class="tabbar">
+              <button class="tab-button" id="cs_tab_overview_btn" onclick="csSetEditorTab('overview')">基础信息</button>
+              <button class="tab-button" id="cs_tab_design_btn" onclick="csSetEditorTab('design')">基础与实体</button>
+              <button class="tab-button" id="cs_tab_display_btn" onclick="csSetEditorTab('display')">分组与界面</button>
+              <button class="tab-button" id="cs_tab_policy_btn" onclick="csSetEditorTab('policy')">能力与策略</button>
+              <button class="tab-button" id="cs_tab_fields_btn" onclick="csSetEditorTab('fields')">字段设计</button>
+              <button class="tab-button" id="cs_tab_dsl_btn" onclick="csSetEditorTab('dsl')">DSL</button>
+              <button class="tab-button" id="cs_tab_revisions_btn" onclick="csSetEditorTab('revisions')">修订记录</button>
+              <button class="tab-button" id="cs_tab_advisor_btn" onclick="csSetEditorTab('advisor')">升级顾问</button>
+            </div>
+          </section>
+        <section class="panel stack tab-panel" id="cs_tab_overview">
+          <div class="meta-grid">
+            <div class="meta-card"><span>当前类型</span><strong id="cs_meta_title">新建</strong></div>
+            <div class="meta-card"><span>当前修订</span><strong id="cs_meta_revision">0</strong></div>
+            <div class="meta-card"><span>受管插件</span><strong id="cs_meta_plugin">-</strong></div>
+            <div class="meta-card"><span>已应用修订</span><strong id="cs_meta_applied">0</strong></div>
+          </div>
+          <div class="row">
+            <div class="field" style="max-width:320px;">
+              <div class="label">修订说明</div>
+              <input class="input" id="cs_revision_note" placeholder="说明这一版改了什么">
+            </div>
+            <div class="toolbar">
+              <button class="button primary" onclick="csSaveType()">保存修订</button>
+              <button class="button warn" onclick="csGenerate()">生成受管插件</button>
+              <button class="button ghost" onclick="csUseTemplate()">载入起始模板</button>
+            </div>
+          </div>
+          <div class="hint">先在这里确认当前模型、修订说明与生成动作，再切换到下方的模型设置、字段设计或 DSL 标签继续编辑。</div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_design" hidden>
+          <div class="toolbar-between">
+            <h3>基础与实体</h3>
+            <div class="toolbar">
+              <button class="button primary" onclick="csApplyAssistantToDsl()">写回 DSL</button>
+              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+            </div>
+          </div>
+          <div class="status" id="cs_assistant_status"></div>
+          <div class="hint">这里维护模型身份、实体命名、数据表与标题字段等基础配置。</div>
+          <div class="section-shortcuts">
+            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('identity_title', 'design')">
+              <strong>身份与实体</strong>
+              <span>快速定位到 XID、名称、数据表、标题字段等基础定义。</span>
+            </button>
+            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('presentation_groupsJson', 'display')">
+              <strong>分组与界面</strong>
+              <span>快速定位到展示分组、列表列配置、排序与详情展示选项。</span>
+            </button>
+            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('policy_statusFlow', 'policy')">
+              <strong>能力与策略</strong>
+              <span>快速定位到草稿、状态流、作者策略、发布模式与删除模式。</span>
+            </button>
+            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('metadata_notes', 'display')">
+              <strong>元数据与备注</strong>
+              <span>快速定位到标签、关键字、运营备注与能力槽位 JSON。</span>
+            </button>
+          </div>
+          <div class="assistant-advisor-grid" id="cs_assistant_advisor"></div>
+          <div class="form-host" id="cs_assistant_form"><div class="empty">正在加载助手表单...</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_display" hidden>
+          <div class="toolbar-between">
+            <h3>分组与界面</h3>
+            <div class="toolbar">
+              <button class="button primary" onclick="csApplyAssistantToDsl('display')">写回 DSL</button>
+              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+            </div>
+          </div>
+          <div class="status" id="cs_display_status"></div>
+          <div class="hint">这里集中维护展示分组、列表列、默认排序、详情展示与元数据备注。</div>
+          <div class="form-host" id="cs_display_form"><div class="empty">正在加载界面配置表单...</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_policy" hidden>
+          <div class="toolbar-between">
+            <h3>能力与策略</h3>
+            <div class="toolbar">
+              <button class="button primary" onclick="csApplyAssistantToDsl('policy')">写回 DSL</button>
+              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+            </div>
+          </div>
+          <div class="status" id="cs_policy_status"></div>
+          <div class="hint">这里集中维护草稿、发布、作者、删除策略，以及能力槽位与索引配置。</div>
+          <div class="form-host" id="cs_policy_form"><div class="empty">正在加载能力与策略表单...</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_fields" hidden>
+          <div class="toolbar-between">
+            <h3>字段设计</h3>
+            <div class="toolbar">
+              <button class="button primary" onclick="csCommitFieldToDsl()">应用字段</button>
+              <button class="button ghost" onclick="csClearFieldEditor()">新建字段</button>
+              <button class="button danger" onclick="csDeleteFieldFromDsl()">删除当前字段</button>
+            </div>
+          </div>
+          <div class="status" id="cs_field_status"></div>
+          <div class="hint">通过表单逐个新增或修改字段定义，再合并回 `entity.fields`。</div>
+          <div class="form-host" id="cs_field_form"><div class="empty">正在加载字段编辑器...</div></div>
+          <div class="field-list" id="cs_field_list"><div class="empty">还没有定义字段。</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_dsl" hidden>
+          <div class="status" id="cs_form_status"></div>
+          <div class="hint">DSL JSON 仍然是唯一真源。下面的助手面板会以表单方式编辑同一份 DSL，再回写到编辑器。</div>
+          <div class="field">
+            <div class="label">内容类型 DSL（JSON）</div>
+            <textarea class="textarea" id="cs_spec"></textarea>
+          </div>
+        </section>
+
+        <section class="history-grid">
+          <div class="panel stack tab-panel" id="cs_tab_revisions" hidden>
+            <h3>修订历史</h3>
+            <div class="list" id="cs_revision_list"><div class="empty">还没有修订记录。</div></div>
+          </div>
+          <div class="panel stack tab-panel" id="cs_tab_advisor" hidden>
+            <h3>升级顾问</h3>
+            <div class="list" id="cs_advisor_list"><div class="empty">先保存内容类型，才能查看生成影响。</div></div>
+          </div>
+        </section>
+        </section>
+      </main>
+  </div>
+  <script src="/layui/layui.js"></script>
+  <script>window.__xformDebug = false;</script>
+  <script src="/lib/xform/xform.js?v=20260408_01"></script>
+  <script>
+    const csState = {
+      selectedId: 0,
+      viewMode: "editor",
+      editorTab: "overview",
+      currentRevision: 0,
+      appliedRevision: 0,
+      generatedPluginXid: "",
+      advisorData: { items: [] },
+      advisorJumpTargets: {},
+      assistantForms: {
+        design: null,
+        display: null,
+        policy: null
+      },
+      fieldForm: null,
+      fieldEditIndex: -1,
+      pendingFieldFocusName: "",
+      renderVersion: 0,
+      fieldGuidanceMuted: false,
+      layer: null
+    };
+
+    function csStarterTemplate() {
+      return {
+        identity: {
+          xid: "cms.article",
+          name: "article",
+          title: "文章",
+          namespace: "cms",
+          icon: "layui-icon layui-icon-template",
+          description: "文章内容类型"
+        },
+        entity: {
+          entityName: "article",
+          table: "cms_article",
+          titleField: "title",
+          statusField: "status",
+          indexes: [
+            {
+              name: "idx_article_status",
+              fields: ["status"],
+              unique: false
+            }
+          ],
+          fields: [
+            {
+              name: "title",
+              title: "标题",
+              group: "basic",
+              storage: { type: "text" },
+              semantic: { role: "title" },
+              component: { type: "input" },
+              required: true,
+              showInForm: true,
+              showInList: true,
+              showInDetail: true
+            },
+            {
+              name: "summary",
+              title: "摘要",
+              group: "basic",
+              storage: { type: "text" },
+              semantic: { role: "summary" },
+              component: { type: "textarea" },
+              required: false,
+              showInForm: true,
+              showInList: true,
+              showInDetail: true
+            },
+            {
+              name: "status",
+              title: "状态",
+              group: "publishing",
+              storage: { type: "integer" },
+              semantic: { role: "status" },
+              component: {
+                type: "select",
+                props: {
+                  placeholder: "选择状态"
+                }
+              },
+              list: [
+                { label: "隐藏", value: 0 },
+                { label: "已发布", value: 1 }
+              ],
+              required: true,
+              showInForm: true,
+              showInList: true,
+              showInDetail: true
+            }
+          ]
+        },
+        presentation: {
+          groups: [
+            { key: "basic", title: "基础信息", desc: "内容主体字段。" },
+            { key: "publishing", title: "发布设置", desc: "可见性和发布流程。" }
+          ]
+        },
+        coreFeatures: {
+          adminCrud: true,
+          publicApi: true,
+          draft: {
+            enabled: false,
+            mode: "same-table"
+          }
+        },
+        policies: {
+          statusFlow: "draft-published",
+          deleteMode: "soft-delete",
+          authorMode: "admin-or-member",
+          publishMode: "manual"
+        },
+        ui: {
+          form: {
+            layout: "single-column"
+          },
+          detail: {
+            showAuthor: false,
+            showPublishedAt: true
+          },
+          list: {
+            defaultSort: ["updateTime", "desc"],
+            pageSize: 20,
+            columns: ["title", "status"]
+          }
+        },
+        metadata: {
+          labels: ["文章", "内容"],
+          tags: ["article"],
+          notes: "文章内容类型。"
+        },
+        capabilitySlots: [
+          {
+            key: "comments",
+            title: "评论",
+            desc: "在文章详情页挂载评论能力。",
+            serviceXid: "comment.system",
+            routeBase: "/comments",
+            mount: {
+              surface: "public.record-detail",
+              mode: "optional"
+            },
+            configSchema: {
+              type: "object",
+              properties: {
+                threadKeyField: { type: "string", title: "主题键字段" }
+              }
+            }
+          }
+        ]
+      };
+    }
+
+    function csAssistantSchema() {
+      return {
+        title: "内容类型",
+        desc: "用表单方式维护生成器元数据和默认运行策略。",
+        groups: [
+          {
+            key: "identity",
+            title: "身份信息",
+            desc: "定义插件身份和可见元数据。",
+            fields: [
+              { name: "identity_xid", type: "text", label: "XID", required: true, props: { placeholder: "cms.article" } },
+              { name: "identity_name", type: "text", label: "名称", required: true, props: { placeholder: "article" } },
+              { name: "identity_title", type: "text", label: "标题", required: true, props: { placeholder: "文章" } },
+              { name: "identity_namespace", type: "text", label: "命名空间", props: { placeholder: "cms" } },
+              { name: "identity_icon", type: "text", label: "图标", props: { placeholder: "layui-icon layui-icon-template" } },
+              { name: "identity_description", type: "textarea", label: "说明", props: { height: 120, placeholder: "这个内容类型的用途" } }
+            ]
+          },
+          {
+            key: "entity",
+            title: "实体运行配置",
+            desc: "控制生成实体的命名、标题字段和状态字段。",
+            fields: [
+              { name: "entity_name", type: "text", label: "实体名", required: true, props: { placeholder: "article" } },
+              { name: "entity_table", type: "text", label: "数据表", required: true, props: { placeholder: "cms_article" } },
+              { name: "entity_titleField", type: "text", label: "标题字段", props: { placeholder: "title" } },
+              { name: "entity_statusField", type: "text", label: "状态字段", props: { placeholder: "status" } },
+              { name: "entity_slugField", type: "text", label: "Slug 字段", props: { placeholder: "slug" } },
+              { name: "entity_summaryField", type: "text", label: "摘要字段", props: { placeholder: "summary" } },
+              { name: "entity_coverField", type: "text", label: "封面字段", props: { placeholder: "cover" } },
+              { name: "entity_publishedAtField", type: "text", label: "发布时间字段", props: { placeholder: "published_at" } },
+              {
+                name: "entity_indexesJson",
+                type: "textarea",
+                label: "索引 JSON",
+                props: { height: 160, placeholder: "[{\"name\":\"idx_article_status\",\"fields\":[\"status\"],\"unique\":false}]" }
+              }
+            ]
+          },
+          {
+            key: "features",
+            title: "功能与策略",
+            desc: "第一阶段生成运行时相关开关。",
+            fields: [
+              { name: "feature_adminCrud", type: "switch", label: "后台 CRUD" },
+              { name: "feature_publicApi", type: "switch", label: "公开接口" },
+              { name: "feature_draftEnabled", type: "switch", label: "启用草稿" },
+              {
+                name: "feature_draftMode",
+                type: "select",
+                label: "草稿模式",
+                list: [
+                  { label: "同表", value: "same-table" },
+                  { label: "分表", value: "split-table" }
+                ]
+              },
+              {
+                name: "policy_statusFlow",
+                type: "select",
+                label: "状态流转",
+                list: [
+                  { label: "草稿 -> 已发布", value: "draft-published" },
+                  { label: "草稿 -> 待审核 -> 已发布", value: "draft-review-published" }
+                ]
+              },
+              {
+                name: "policy_deleteMode",
+                type: "select",
+                label: "删除模式",
+                list: [
+                  { label: "软删除", value: "soft-delete" },
+                  { label: "硬删除", value: "hard-delete" }
+                ]
+              },
+              {
+                name: "policy_publishMode",
+                type: "select",
+                label: "发布模式",
+                list: [
+                  { label: "手动", value: "manual" },
+                  { label: "自动", value: "auto" }
+                ]
+              },
+              {
+                name: "policy_authorMode",
+                type: "select",
+                label: "作者模式",
+                list: [
+                  { label: "管理员或会员", value: "admin-or-member" },
+                  { label: "仅管理员", value: "admin-only" },
+                  { label: "仅会员", value: "member-only" }
+                ]
+              },
+              {
+                name: "ui_form_layout",
+                type: "select",
+                label: "表单布局",
+                list: [
+                  { label: "单列", value: "single-column" },
+                  { label: "双列", value: "two-column" }
+                ]
+              },
+              { name: "ui_detail_showAuthor", type: "switch", label: "详情显示作者" },
+              { name: "ui_detail_showPublishedAt", type: "switch", label: "详情显示发布时间" },
+              { name: "ui_list_pageSize", type: "number", label: "列表分页大小", props: { min: 1, max: 200, step: 1 } },
+              { name: "ui_list_defaultSortField", type: "text", label: "默认排序字段", props: { placeholder: "updateTime" } },
+              {
+                name: "ui_list_defaultSortDir",
+                type: "select",
+                label: "默认排序方向",
+                list: [
+                  { label: "降序", value: "desc" },
+                  { label: "升序", value: "asc" }
+                ]
+              },
+              {
+                name: "ui_list_columnsJson",
+                type: "textarea",
+                label: "列表列 JSON",
+                props: { height: 160, placeholder: "[\"title\",\"status\",\"published_at\"]" }
+              },
+              {
+                name: "metadata_labelsJson",
+                type: "textarea",
+                label: "元数据标签 JSON",
+                props: { height: 100, placeholder: "[\"文章\",\"内容\"]" }
+              },
+              {
+                name: "metadata_tagsJson",
+                type: "textarea",
+                label: "元数据关键词 JSON",
+                props: { height: 100, placeholder: "[\"news\",\"feature\"]" }
+              },
+              {
+                name: "metadata_notes",
+                type: "textarea",
+                label: "运营备注",
+                props: { height: 120, placeholder: "显示在受管后台或前台页面中的说明。" }
+              },
+              {
+                name: "presentation_groupsJson",
+                type: "textarea",
+                label: "展示分组 JSON",
+                props: { height: 160, placeholder: "[{\"key\":\"basic\",\"title\":\"基础信息\"}]" }
+              },
+              {
+                name: "capability_slotsJson",
+                type: "textarea",
+                label: "能力槽位 JSON",
+                props: { height: 180, placeholder: "[{\"key\":\"comments\",\"serviceXid\":\"comment.system\",\"mount\":{\"surface\":\"public.record-detail\",\"mode\":\"optional\"}}]" }
+              }
+            ]
+          }
+        ]
+      };
+    }
+
+    function csFieldSchema() {
+      return {
+        title: "字段蓝图",
+        desc: "一次新增或修改一个字段定义。",
+        groups: [
+          {
+            key: "basic",
+            title: "字段基础",
+            desc: "第一阶段仍然显式配置存储和展示方式。",
+            fields: [
+              { name: "field_name", type: "text", label: "字段名", required: true, props: { placeholder: "title" } },
+              { name: "field_title", type: "text", label: "字段标题", required: true, props: { placeholder: "标题" } },
+              { name: "field_desc", type: "textarea", label: "字段说明", props: { height: 100, placeholder: "可选字段说明" } },
+              { name: "field_group", type: "combobox", label: "所属分组", props: { placeholder: "basic" } },
+              {
+                name: "storage_type",
+                type: "select",
+                label: "存储类型",
+                required: true,
+                list: [
+                  { label: "文本", value: "text" },
+                  { label: "整数", value: "integer" },
+                  { label: "浮点数", value: "float" },
+                  { label: "布尔值", value: "boolean" },
+                  { label: "日期", value: "date" },
+                  { label: "日期时间", value: "datetime" },
+                  { label: "时间", value: "time" },
+                  { label: "JSON", value: "json" }
+                ]
+              },
+              {
+                name: "component_type",
+                type: "select",
+                label: "组件类型",
+                required: true,
+                list: [
+                  { label: "单行输入", value: "input" },
+                  { label: "多行输入", value: "textarea" },
+                  { label: "数字", value: "number" },
+                  { label: "整数输入", value: "int" },
+                  { label: "下拉选择", value: "select" },
+                  { label: "可输入选择", value: "combobox" },
+                  { label: "单选", value: "radio" },
+                  { label: "复选框", value: "checkbox" },
+                  { label: "多选列表", value: "checklist" },
+                  { label: "开关", value: "switch" },
+                  { label: "日期", value: "date" },
+                  { label: "日期时间", value: "datetime" },
+                  { label: "时间", value: "time" },
+                  { label: "Markdown", value: "markdown" },
+                  { label: "富文本", value: "richtext" },
+                  { label: "代码", value: "code" },
+                  { label: "图标", value: "icon" },
+                  { label: "单图", value: "image" },
+                  { label: "多图", value: "images" },
+                  { label: "单文件", value: "file" },
+                  { label: "多文件", value: "files" }
+                ]
+              },
+              {
+                name: "semantic_role",
+                type: "select",
+                label: "语义角色",
+                list: [
+                  { label: "无", value: "" },
+                  { label: "标题", value: "title" },
+                  { label: "Slug", value: "slug" },
+                  { label: "摘要", value: "summary" },
+                  { label: "正文", value: "content" },
+                  { label: "封面", value: "cover" },
+                  { label: "状态", value: "status" },
+                  { label: "作者", value: "author" },
+                  { label: "发布时间", value: "publishedAt" },
+                  { label: "排序", value: "sort" },
+                  { label: "分类", value: "category" },
+                  { label: "标签", value: "tag" }
+                ]
+              },
+              { name: "field_required", type: "switch", label: "必填" },
+              { name: "field_nullable", type: "switch", label: "可空" },
+              {
+                name: "field_defaultValueJson",
+                type: "textarea",
+                label: "默认值 JSON",
+                props: { height: 100, placeholder: "\"默认标题\"、1、true 或 []" }
+              }
+            ]
+          },
+          {
+            key: "render",
+            title: "显示与选项",
+            desc: "这些配置会影响生成后的后台与前台体验。",
+            fields: [
+              { name: "field_showInForm", type: "switch", label: "表单显示" },
+              { name: "field_showInList", type: "switch", label: "列表显示" },
+              { name: "field_showInDetail", type: "switch", label: "详情显示" },
+              { name: "field_readonly", type: "switch", label: "只读" },
+              { name: "field_disabled", type: "switch", label: "禁用" },
+              { name: "field_sortable", type: "switch", label: "可排序" },
+              { name: "field_filterable", type: "switch", label: "可筛选" },
+              { name: "field_searchable", type: "switch", label: "可搜索" },
+              {
+                name: "field_layoutSpan",
+                type: "select",
+                label: "布局跨度",
+                list: [
+                  { label: "自动", value: "" },
+                  { label: "单列", value: "1" },
+                  { label: "通栏", value: "2" }
+                ]
+              },
+              { name: "field_placeholder", type: "text", label: "占位提示", props: { placeholder: "可选占位文案" } },
+              { name: "field_uploadUrl", type: "text", label: "上传地址", props: { placeholder: "/admin/attachment/upload" } },
+              { name: "field_accept", type: "text", label: "上传 accept", props: { placeholder: "file, images, video, audio" } },
+              { name: "field_acceptMime", type: "text", label: "允许 MIME", props: { placeholder: "image/* 或 application/pdf" } },
+              { name: "field_buttonText", type: "text", label: "上传按钮文字", props: { placeholder: "上传" } },
+              { name: "field_listJson", type: "textarea", label: "选项 JSON", props: { height: 140, placeholder: "[{\"label\":\"已发布\",\"value\":1}]" } },
+              { name: "field_componentPropsJson", type: "textarea", label: "组件属性 JSON", props: { height: 140, placeholder: "{\"min\":0,\"max\":100,\"step\":1,\"height\":240}" } }
+            ]
+          }
+        ]
+      };
+    }
+
+    function csDefaultFieldValues() {
+      return {
+        field_name: "",
+        field_title: "",
+        field_desc: "",
+        field_group: "",
+        storage_type: "text",
+        component_type: "input",
+        semantic_role: "",
+        field_required: false,
+        field_nullable: false,
+        field_defaultValueJson: "",
+        field_showInForm: true,
+        field_showInList: true,
+        field_showInDetail: true,
+        field_readonly: false,
+        field_disabled: false,
+        field_sortable: false,
+        field_filterable: false,
+        field_searchable: false,
+        field_layoutSpan: "",
+        field_placeholder: "",
+        field_uploadUrl: "",
+        field_accept: "",
+        field_acceptMime: "",
+        field_buttonText: "",
+        field_listJson: "",
+        field_componentPropsJson: ""
+      };
+    }
+
+    function csFieldExtraComponentProps(field) {
+      const props = JSON.parse(JSON.stringify((((field || {}).component || {}).props) || {}));
+      if (!props || typeof props !== "object" || Array.isArray(props)) return {};
+      delete props.placeholder;
+      delete props.uploadUrl;
+      delete props.accept;
+      delete props.acceptMime;
+      delete props.buttonText;
+      delete props.list;
+      delete props.options;
+      return props;
+    }
+
+    function csBuildFieldSchema(spec) {
+      const schema = JSON.parse(JSON.stringify(csFieldSchema()));
+      const groupField = schema.groups[0].fields.find((field) => field.name === "field_group");
+      const groups = ((((spec || {}).presentation || {}).groups) || [])
+        .filter((item) => item && item.key)
+        .map((item) => ({ label: item.title || item.key, value: item.key }));
+      if (groupField) {
+        groupField.list = groups;
+      }
+      return schema;
+    }
+
+    function csNormalizeStorageTypeName(type) {
+      const value = String(type || "").trim().toLowerCase();
+      if (value === "int" || value === "integer") return "integer";
+      if (value === "real" || value === "float" || value === "number") return "float";
+      if (value === "bool" || value === "boolean") return "boolean";
+      if (value === "date") return "date";
+      if (value === "time") return "time";
+      if (value === "datetime") return "datetime";
+      if (value === "json") return "json";
+      return value || "text";
+    }
+
+    function csSuggestedStorageTypeForComponent(componentType) {
+      const value = String(componentType || "").trim().toLowerCase();
+      if (value === "images" || value === "files") return "json";
+      if (value === "image" || value === "file") return "text";
+      return "";
+    }
+
+    function csComponentMatchesStorage(componentType, storageType) {
+      const component = String(componentType || "").trim().toLowerCase();
+      const normalizedStorage = csNormalizeStorageTypeName(storageType);
+      if (component === "images" || component === "files") {
+        return normalizedStorage === "json";
+      }
+      if (component === "image" || component === "file") {
+        return normalizedStorage === "text" || normalizedStorage === "json";
+      }
+      return true;
+    }
+
+    function csSuggestedAssetAccept(componentType) {
+      const value = String(componentType || "").trim().toLowerCase();
+      if (value === "image" || value === "images") return "images";
+      if (value === "file" || value === "files") return "file";
+      return "";
+    }
+
+    function csSuggestedAssetAcceptMime(componentType) {
+      const value = String(componentType || "").trim().toLowerCase();
+      if (value === "image" || value === "images") return "image/*";
+      if (value === "file" || value === "files") return "*";
+      return "";
+    }
+
+    function csSuggestedAssetButtonText(componentType) {
+      const value = String(componentType || "").trim().toLowerCase();
+      if (value === "image") return "上传图片";
+      if (value === "images") return "上传多图";
+      if (value === "file") return "上传文件";
+      if (value === "files") return "上传多个文件";
+      return "";
+    }
+
+    function csApplyFieldComponentGuidance() {
+      if (!csState.fieldForm || csState.fieldGuidanceMuted) return;
+      const values = csState.fieldForm.collect();
+      const componentType = String(values.component_type || "").trim().toLowerCase();
+      const storageType = String(values.storage_type || "").trim();
+      const accept = String(values.field_accept || "").trim();
+      const acceptMime = String(values.field_acceptMime || "").trim();
+      const buttonText = String(values.field_buttonText || "").trim();
+      const suggestedStorage = csSuggestedStorageTypeForComponent(componentType);
+      const suggestedAccept = csSuggestedAssetAccept(componentType);
+      const suggestedAcceptMime = csSuggestedAssetAcceptMime(componentType);
+      const suggestedButtonText = csSuggestedAssetButtonText(componentType);
+      const changed = [];
+
+      if (!suggestedStorage && !suggestedAccept && !suggestedAcceptMime && !suggestedButtonText) {
+        return;
+      }
+
+      csState.fieldGuidanceMuted = true;
+      try {
+        if (suggestedStorage && !csComponentMatchesStorage(componentType, storageType)) {
+          csState.fieldForm.setValue("storage_type", suggestedStorage);
+          changed.push(`storage:${suggestedStorage}`);
+        }
+        if (suggestedAccept && !accept) {
+          csState.fieldForm.setValue("field_accept", suggestedAccept);
+          changed.push(`accept:${suggestedAccept}`);
+        }
+        if (suggestedAcceptMime && !acceptMime) {
+          csState.fieldForm.setValue("field_acceptMime", suggestedAcceptMime);
+          changed.push(`mime:${suggestedAcceptMime}`);
+        }
+        if (suggestedButtonText && !buttonText) {
+          csState.fieldForm.setValue("field_buttonText", suggestedButtonText);
+          changed.push(`button:${suggestedButtonText}`);
+        }
+      } finally {
+        csState.fieldGuidanceMuted = false;
+      }
+
+      if (changed.length) {
+        csSetStatus("cs_field_status", `已根据组件 ${componentType} 自动补全：${changed.join("，")}。`);
+      }
+    }
+
+    function csFormatJson(value) {
+      return JSON.stringify(value, null, 2);
+    }
+
+    function csEscape(value) {
+      return String(value || "").replace(/[&<>\"']/g, (ch) => {
+        if (ch === "&") return "&amp;";
+        if (ch === "<") return "&lt;";
+        if (ch === ">") return "&gt;";
+        if (ch === "\"") return "&quot;";
+        return "&#39;";
+      });
+    }
+
+    function csNormalizeBooleanProperty(obj, key) {
+      if (!obj || typeof obj !== "object" || !Object.prototype.hasOwnProperty.call(obj, key)) return;
+      const value = csCoerceBoolean(obj[key]);
+      if (value == null) delete obj[key];
+      else obj[key] = value;
+    }
+
+    function csCoerceBoolean(value) {
+      if (typeof value === "boolean") return value;
+      if (typeof value === "number") return value !== 0;
+      if (typeof value === "string") {
+        const normalized = value.trim().toLowerCase();
+        if (["true", "1", "yes", "on"].includes(normalized)) return true;
+        if (["false", "0", "no", "off", ""].includes(normalized)) return false;
+      }
+      return null;
+    }
+
+    function csNormalizeIntegerProperty(obj, key, min, max) {
+      if (!obj || typeof obj !== "object" || !Object.prototype.hasOwnProperty.call(obj, key)) return;
+      const value = obj[key];
+      if (value == null || value === "") {
+        delete obj[key];
+        return;
+      }
+      const number = Number(value);
+      if (!Number.isInteger(number) || (min != null && number < min) || (max != null && number > max)) {
+        delete obj[key];
+        return;
+      }
+      obj[key] = number;
+    }
+
+    function csNormalizeDefaultSort(value) {
+      if (Array.isArray(value)) {
+        const field = String(value[0] || "").trim();
+        const dir = String(value[1] || "desc").trim() || "desc";
+        return field ? [field, dir] : null;
+      }
+      if (value && typeof value === "object") {
+        const field = String(value.field || "").trim();
+        const dir = String(value.dir || "desc").trim() || "desc";
+        return field ? [field, dir] : null;
+      }
+      return null;
+    }
+
+    function csToast(message, icon) {
+      if (csState.layer && csState.layer.msg) {
+        csState.layer.msg(message, { icon: icon || 0, time: 2400 });
+      }
+    }
+
+    function csSetStatus(id, message, color) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerText = message || "";
+      el.style.color = color || "#0f766e";
+    }
+
+    function csSetPanelStatus(message, color) {
+      csSetStatus("cs_form_status", message, color);
+    }
+
+    function csEnsureXForm() {
+      if (!window.XForm || window.XForm.version !== "20260408_01") {
+        throw new Error("XForm 运行时不可用或版本不匹配");
+      }
+    }
+
+    function csEnsureSpecShape(spec) {
+      spec.identity = (spec.identity && typeof spec.identity === "object") ? spec.identity : {};
+      spec.entity = (spec.entity && typeof spec.entity === "object") ? spec.entity : {};
+      spec.entity.indexes = Array.isArray(spec.entity.indexes) ? spec.entity.indexes : [];
+      spec.entity.fields = Array.isArray(spec.entity.fields) ? spec.entity.fields : [];
+      spec.presentation = (spec.presentation && typeof spec.presentation === "object") ? spec.presentation : {};
+      spec.presentation.groups = Array.isArray(spec.presentation.groups) ? spec.presentation.groups : [];
+      spec.coreFeatures = (spec.coreFeatures && typeof spec.coreFeatures === "object") ? spec.coreFeatures : {};
+      spec.coreFeatures.draft = (spec.coreFeatures.draft && typeof spec.coreFeatures.draft === "object") ? spec.coreFeatures.draft : {};
+      csNormalizeBooleanProperty(spec.coreFeatures, "adminCrud");
+      csNormalizeBooleanProperty(spec.coreFeatures, "publicApi");
+      csNormalizeBooleanProperty(spec.coreFeatures.draft, "enabled");
+      spec.policies = (spec.policies && typeof spec.policies === "object") ? spec.policies : {};
+      spec.ui = (spec.ui && typeof spec.ui === "object") ? spec.ui : {};
+      spec.ui.list = (spec.ui.list && typeof spec.ui.list === "object") ? spec.ui.list : {};
+      spec.ui.form = (spec.ui.form && typeof spec.ui.form === "object") ? spec.ui.form : {};
+      spec.ui.detail = (spec.ui.detail && typeof spec.ui.detail === "object") ? spec.ui.detail : {};
+      csNormalizeIntegerProperty(spec.ui.list, "pageSize", 1, 200);
+      const normalizedDefaultSort = csNormalizeDefaultSort(spec.ui.list.defaultSort);
+      if (normalizedDefaultSort) {
+        spec.ui.list.defaultSort = normalizedDefaultSort;
+      } else {
+        delete spec.ui.list.defaultSort;
+      }
+      csNormalizeBooleanProperty(spec.ui.detail, "showAuthor");
+      csNormalizeBooleanProperty(spec.ui.detail, "showPublishedAt");
+      spec.metadata = (spec.metadata && typeof spec.metadata === "object") ? spec.metadata : {};
+      spec.metadata.labels = Array.isArray(spec.metadata.labels) ? spec.metadata.labels : [];
+      spec.metadata.tags = Array.isArray(spec.metadata.tags) ? spec.metadata.tags : [];
+      if (Object.prototype.hasOwnProperty.call(spec.metadata, "notes")) {
+        if (spec.metadata.notes == null) {
+          delete spec.metadata.notes;
+        } else if (typeof spec.metadata.notes !== "string") {
+          spec.metadata.notes = String(spec.metadata.notes);
+        }
+      }
+      for (const index of spec.entity.indexes || []) {
+        if (!index || typeof index !== "object") continue;
+        csNormalizeBooleanProperty(index, "unique");
+      }
+      for (const field of spec.entity.fields || []) {
+        if (!field || typeof field !== "object") continue;
+        [
+          "required",
+          "nullable",
+          "showInForm",
+          "showInList",
+          "showInDetail",
+          "readonly",
+          "disabled",
+          "sortable",
+          "filterable",
+          "searchable"
+        ].forEach((key) => csNormalizeBooleanProperty(field, key));
+        csNormalizeIntegerProperty(field, "layoutSpan", 1, 2);
+      }
+      spec.capabilitySlots = Array.isArray(spec.capabilitySlots) ? spec.capabilitySlots : [];
+      return spec;
+    }
+
+    function csReadSpec(showError) {
+      try {
+        const parsed = JSON.parse(document.getElementById("cs_spec").value);
+        return csEnsureSpecShape(parsed);
+      } catch (err) {
+        if (showError !== false) {
+          csSetPanelStatus("DSL JSON 不合法。", "#b91c1c");
+          csSetAssistantSectionStatus("请先修复 DSL JSON 语法，再重新加载模型设置。", "#b91c1c");
+          csSetStatus("cs_field_status", "DSL JSON 非法，字段蓝图暂时不可用。", "#b91c1c");
+        }
+        return null;
+      }
+    }
+
+    function csWriteSpec(spec, message) {
+      document.getElementById("cs_spec").value = csFormatJson(spec);
+      if (message) {
+        csSetPanelStatus(message);
+      }
+    }
+
+    function csUseTemplate() {
+      csState.fieldEditIndex = -1;
+      csWriteSpec(csStarterTemplate(), "已载入起始模板。");
+      csRefreshDesigner();
+    }
+
+    function csApplyMeta(typeData) {
+      const title = typeData && typeData.title ? typeData.title : "新建";
+      const currentRevision = typeData && typeData.currentRevision ? typeData.currentRevision : 0;
+      const generatedPluginXid = typeData && typeData.generatedPluginXid ? typeData.generatedPluginXid : "-";
+      const appliedRevision = typeData && typeData.appliedRevision ? typeData.appliedRevision : 0;
+      document.getElementById("cs_meta_title").innerText = title;
+      document.getElementById("cs_meta_revision").innerText = String(currentRevision);
+      document.getElementById("cs_meta_plugin").innerText = generatedPluginXid;
+      document.getElementById("cs_meta_applied").innerText = String(appliedRevision);
+    }
+function csSyncView() {
+      const editorView = document.getElementById("cs_editor_view");
+      const tabMap = {
+        overview: "cs_tab_overview",
+        design: "cs_tab_design",
+        display: "cs_tab_display",
+        policy: "cs_tab_policy",
+        fields: "cs_tab_fields",
+        dsl: "cs_tab_dsl",
+        revisions: "cs_tab_revisions",
+        advisor: "cs_tab_advisor"
+      };
+      csState.viewMode = "editor";
+      if (editorView) editorView.hidden = false;
+      for (const [key, panelId] of Object.entries(tabMap)) {
+        const button = document.getElementById(`cs_tab_${key}_btn`);
+        const panel = document.getElementById(panelId);
+        const active = csState.editorTab === key;
+        if (button) button.classList.toggle("active", active);
+        if (panel) panel.hidden = !active;
+      }
+    }
+
+    function csSetEditorTab(tab) {
+      csState.editorTab = tab || "overview";
+      csSyncView();
+    }
+
+    function csOpenEditor(tab) {
+      csState.viewMode = "editor";
+      if (tab) csState.editorTab = tab;
+      csSyncView();
+    }
+function csAssistantTabForField(fieldName) {
+      const name = String(fieldName || "").trim();
+      if (!name) return "design";
+      if (name.startsWith("ui_") || name.startsWith("metadata_") || name.startsWith("presentation_")) return "display";
+      if (name.startsWith("feature_") || name.startsWith("policy_") || name === "capability_slotsJson" || name === "entity_indexesJson") return "policy";
+      return "design";
+    }
+
+    function csAssistantHostForTab(tab) {
+      if (tab === "display") return "cs_display_form";
+      if (tab === "policy") return "cs_policy_form";
+      return "cs_assistant_form";
+    }
+
+    function csAssistantTabForHostId(hostId) {
+      if (hostId === "cs_display_form") return "display";
+      if (hostId === "cs_policy_form") return "policy";
+      return "design";
+    }
+
+    function csBuildAssistantSectionSchema(section) {
+      const base = csAssistantSchema();
+      let allowed = null;
+      if (section === "design") {
+        allowed = new Set([
+          "identity_xid", "identity_name", "identity_title", "identity_namespace", "identity_icon", "identity_description",
+          "entity_name", "entity_table", "entity_titleField", "entity_statusField", "entity_slugField", "entity_summaryField",
+          "entity_coverField", "entity_publishedAtField"
+        ]);
+      } else if (section === "display") {
+        allowed = new Set([
+          "ui_form_layout", "ui_detail_showAuthor", "ui_detail_showPublishedAt", "ui_list_pageSize",
+          "ui_list_defaultSortField", "ui_list_defaultSortDir", "ui_list_columnsJson",
+          "metadata_labelsJson", "metadata_tagsJson", "metadata_notes", "presentation_groupsJson"
+        ]);
+      } else if (section === "policy") {
+        allowed = new Set([
+          "feature_adminCrud", "feature_publicApi", "feature_draftEnabled", "feature_draftMode",
+          "policy_statusFlow", "policy_deleteMode", "policy_publishMode", "policy_authorMode",
+          "entity_indexesJson", "capability_slotsJson"
+        ]);
+      }
+      return {
+        title: base.title,
+        desc: base.desc,
+        groups: (base.groups || []).map((group) => {
+          return {
+            ...group,
+            fields: (group.fields || []).filter((field) => allowed ? allowed.has(field.name) : true)
+          };
+        }).filter((group) => (group.fields || []).length)
+      };
+    }
+
+    function csRenderRevisions(items) {
+      const host = document.getElementById("cs_revision_list");
+      if (!items || !items.length) {
+        host.innerHTML = "<div class='empty'>还没有修订记录。</div>";
+        return;
+      }
+      host.innerHTML = items.map((item) => {
+        return `<div class="list-item"><strong>修订 ${csEscape(item.revision)}</strong><div>${csEscape(item.note || "无说明")}</div><div style="margin-top:8px;color:#6b7280;font-size:12px;">哈希 ${csEscape(item.specHash || "")} | ${csEscape(item.createTimeText || "")}</div></div>`;
+      }).join("");
+    }
+
+    function csSeverityClass(severity) {
+      if (severity === "error") return "error";
+      if (severity === "warn") return "warn";
+      return "info";
+    }
+
+    function csSeverityRank(severity) {
+      if (severity === "error") return 3;
+      if (severity === "warn") return 2;
+      return 1;
+    }
+
+    function csAdvisorTargetForItem(item) {
+      const kind = String(((item || {}).kind) || "").trim();
+      const map = {
+        "meta-change": {
+          groupKey: "global:identity",
+          label: "模型身份信息",
+          hint: "跳转到内容类型身份字段。",
+          elementId: "cs_assistant_form",
+          fieldName: "identity_title"
+        },
+        "status-flow-change": {
+          groupKey: "global:workflow",
+          label: "发布流程策略",
+          hint: "跳转到状态流与发布流程配置。",
+          elementId: "cs_policy_form",
+          fieldName: "policy_statusFlow"
+        },
+        "author-mode-change": {
+          groupKey: "global:author-policy",
+          label: "作者归属策略",
+          hint: "跳转到作者归属与权限模式配置。",
+          elementId: "cs_policy_form",
+          fieldName: "policy_authorMode"
+        },
+        "publish-mode-change": {
+          groupKey: "global:publish-policy",
+          label: "发布模式策略",
+          hint: "跳转到发布模式配置。",
+          elementId: "cs_policy_form",
+          fieldName: "policy_publishMode"
+        },
+        "presentation-group-change": {
+          groupKey: "global:presentation",
+          label: "展示分组配置",
+          hint: "跳转到展示分组 JSON 配置。",
+          elementId: "cs_display_form",
+          fieldName: "presentation_groupsJson"
+        },
+        "capability-slot-change": {
+          groupKey: "global:capability-slots",
+          label: "能力槽位配置",
+          hint: "跳转到能力槽位 JSON 配置。",
+          elementId: "cs_policy_form",
+          fieldName: "capability_slotsJson"
+        },
+        "index-add": {
+          groupKey: "global:indexes",
+          label: "实体索引配置",
+          hint: "跳转到实体索引 JSON 配置。",
+          elementId: "cs_policy_form",
+          fieldName: "entity_indexesJson"
+        },
+        "index-fields-change": {
+          groupKey: "global:indexes",
+          label: "实体索引配置",
+          hint: "跳转到实体索引 JSON 配置。",
+          elementId: "cs_policy_form",
+          fieldName: "entity_indexesJson"
+        },
+        "index-unique-change": {
+          groupKey: "global:indexes",
+          label: "实体索引配置",
+          hint: "跳转到实体索引 JSON 配置。",
+          elementId: "cs_policy_form",
+          fieldName: "entity_indexesJson"
+        },
+        "index-remove": {
+          groupKey: "global:indexes",
+          label: "实体索引配置",
+          hint: "跳转到实体索引 JSON 配置。",
+          elementId: "cs_policy_form",
+          fieldName: "entity_indexesJson"
+        },
+        "initial-generation": {
+          groupKey: "global:revisions",
+          label: "修订历史",
+          hint: "跳转到修订历史与已应用状态。",
+          elementId: "cs_revision_list"
+        },
+        "no-diff": {
+          groupKey: "global:dsl",
+          label: "DSL JSON",
+          hint: "跳转到原始 DSL 编辑区。",
+          elementId: "cs_spec"
+        }
+      };
+      return map[kind] || {
+        groupKey: "global:dsl",
+        label: "DSL JSON",
+        hint: "跳转到原始 DSL 编辑区。",
+        elementId: "cs_spec"
+      };
+    }
+
+    function csAdvisorGroupLabel(key, items, target) {
+      if (target && target.label) return target.label;
+      if (key === "__global__") return "全局影响";
+      const first = (items || [])[0] || {};
+      return first.fieldName ? `字段：${first.fieldName}` : "局部影响";
+    }
+
+    function csAdvisorItems() {
+      return (((csState || {}).advisorData || {}).items) || [];
+    }
+
+    function csAdvisorSummary(items) {
+      const counts = { error: 0, warn: 0, info: 0 };
+      for (const item of items || []) {
+        const severity = csSeverityClass((item || {}).severity);
+        counts[severity] = (counts[severity] || 0) + 1;
+      }
+      return counts;
+    }
+
+    function csFieldAdvisorSummary(fieldName) {
+      const counts = { error: 0, warn: 0, info: 0 };
+      const name = String(fieldName || "").trim();
+      if (!name) return counts;
+      for (const item of csAdvisorItems()) {
+        if (!item || item.scope !== "field" || item.fieldName !== name) continue;
+        const severity = csSeverityClass(item.severity);
+        counts[severity] = (counts[severity] || 0) + 1;
+      }
+      return counts;
+    }
+
+    function csFieldTopAdvisor(fieldName) {
+      const name = String(fieldName || "").trim();
+      const rank = { error: 3, warn: 2, info: 1 };
+      let best = null;
+      if (!name) return null;
+      for (const item of csAdvisorItems()) {
+        const severity = csSeverityClass((item || {}).severity);
+        if (!item || item.scope !== "field" || item.fieldName !== name) continue;
+        if (!best || (rank[severity] || 0) > (rank[csSeverityClass(best.severity)] || 0)) {
+          best = item;
+          continue;
+        }
+        if ((rank[severity] || 0) === (rank[csSeverityClass(best.severity)] || 0)
+          && String(item.title || "").length > String(best.title || "").length) {
+          best = item;
+        }
+      }
+      return best;
+    }
+
+    function csTopAdvisorItem(items) {
+      let best = null;
+      for (const item of items || []) {
+        if (!item) continue;
+        if (!best || csSeverityRank(csSeverityClass(item.severity)) > csSeverityRank(csSeverityClass(best.severity))) {
+          best = item;
+          continue;
+        }
+        if (best && csSeverityRank(csSeverityClass(item.severity)) === csSeverityRank(csSeverityClass(best.severity))
+          && String(item.title || "").length > String(best.title || "").length) {
+          best = item;
+        }
+      }
+      return best;
+    }
+
+    function csFieldCardId(fieldName) {
+      return `cs_field_card_${String(fieldName || "").replace(/[^a-zA-Z0-9_-]/g, "_")}`;
+    }
+
+    function csFindNamedControl(hostId, fieldName) {
+      const host = document.getElementById(hostId);
+      const name = String(fieldName || "").trim();
+      if (!host || !name) return null;
+      return Array.from(host.querySelectorAll("[name]")).find((node) => {
+        return String(node.getAttribute("name") || "") === name;
+      }) || null;
+    }
+
+    function csPulseJumpTarget(node) {
+      if (!node || !node.classList) return;
+      node.classList.remove("jump-highlight");
+      void node.offsetWidth;
+      node.classList.add("jump-highlight");
+      window.setTimeout(() => node.classList.remove("jump-highlight"), 1300);
+    }
+
+    function csAssistantAdvisorGroups() {
+      const groups = new Map();
+      const items = csAdvisorItems();
+      const order = {
+        "global:identity": 1,
+        "global:workflow": 2,
+        "global:author-policy": 3,
+        "global:publish-policy": 4,
+        "global:indexes": 5,
+        "global:presentation": 6,
+        "global:capability-slots": 7
+      };
+      for (const item of items) {
+        let entry;
+        const target = item && item.scope === "field" ? null : csAdvisorTargetForItem(item);
+        if (!target) continue;
+        entry = groups.get(target.groupKey);
+        if (!entry) {
+          entry = { key: target.groupKey, target, items: [] };
+          groups.set(target.groupKey, entry);
+        }
+        entry.items.push(item || {});
+      }
+      return Array.from(groups.values()).sort((a, b) => {
+        const aOrder = order[a.key] || 99;
+        const bOrder = order[b.key] || 99;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+        return String((a.target || {}).label || "").localeCompare(String((b.target || {}).label || ""));
+      });
+    }
+
+    function csRenderAssistantAdvisorSummary() {
+      const host = document.getElementById("cs_assistant_advisor");
+      const groups = csAssistantAdvisorGroups();
+      if (!host) return;
+      if (!groups.length) {
+        host.innerHTML = "";
+        return;
+      }
+      host.innerHTML = groups.map((group) => {
+        const summary = csAdvisorSummary(group.items);
+        const top = csTopAdvisorItem(group.items);
+        const topSeverity = csSeverityClass((top || {}).severity);
+        const badges = [
+          summary.error ? `<span class="pill error">${csEscape(`${summary.error} 条错误`)}</span>` : "",
+          summary.warn ? `<span class="pill warn">${csEscape(`${summary.warn} 条警告`)}</span>` : "",
+          summary.info ? `<span class="pill info">${csEscape(`${summary.info} 条提示`)}</span>` : ""
+        ].filter(Boolean).join("");
+        const note = top ? `${csEscape(top.title || top.kind || "顾问项")}: ${csEscape(top.message || "")}` : csEscape((group.target || {}).hint || "");
+        return `<button type="button" class="assistant-advisor-card ${csEscape(topSeverity)}" onclick='csJumpToAdvisorTarget(${JSON.stringify(group.key)})'><strong>${csEscape((group.target || {}).label || "助手分区")}</strong><div class="advisor-summary">${badges}</div><p>${note}</p></button>`;
+      }).join("");
+    }
+
+    function csFocusFieldByName(fieldName) {
+      const spec = csReadSpec(true);
+      const name = String(fieldName || "").trim();
+      if (!spec || !name) return;
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      const index = fields.findIndex((field) => field && field.name === name);
+      if (index < 0) {
+        csToast(`字段 ${name} 已不存在。`, 2);
+        return;
+      }
+      csState.pendingFieldFocusName = name;
+      csState.fieldEditIndex = index;
+      csRefreshDesigner();
+    }
+
+    function csRevealFocusedFieldCard() {
+      const name = String(csState.pendingFieldFocusName || "").trim();
+      let card;
+      if (!name) return;
+      card = document.getElementById(csFieldCardId(name));
+      csState.pendingFieldFocusName = "";
+      if (!card) return;
+      card.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+
+    function csJumpToAssistantField(fieldName, tab) {
+      const targetTab = tab || csAssistantTabForField(fieldName);
+      const hostId = csAssistantHostForTab(targetTab);
+      csState.viewMode = "editor";
+      csState.editorTab = targetTab;
+      csSyncView();
+      const focus = () => {
+        const control = csFindNamedControl(hostId, fieldName);
+        if (!control) return false;
+        const block = control.closest(".layui-form-item") || control;
+        block.scrollIntoView({ behavior: "smooth", block: "center" });
+        csPulseJumpTarget(block);
+        if (typeof control.focus === "function") control.focus();
+        return true;
+      };
+      if (!focus()) {
+        window.setTimeout(focus, 120);
+      }
+    }
+
+    function csJumpToAdvisorTarget(groupKey) {
+      const target = (((csState || {}).advisorJumpTargets) || {})[groupKey];
+      let node = null;
+      let focusNode = null;
+      if (!target) return;
+      csState.viewMode = "editor";
+      csState.editorTab = csAssistantTabForHostId(target.elementId);
+      if (target.elementId === "cs_revision_list") csState.editorTab = "revisions";
+      if (target.elementId === "cs_spec") csState.editorTab = "dsl";
+      csSyncView();
+      if (target.fieldName) {
+        focusNode = csFindNamedControl(target.elementId, target.fieldName);
+        if (focusNode) {
+          node = focusNode.closest(".layui-form-item") || focusNode;
+        }
+      }
+      if (!node) {
+        node = document.getElementById(target.elementId);
+      }
+      if (!node) {
+        csToast(`无法定位到 ${target.label || "目标区域"}。`, 2);
+        return;
+      }
+      node.scrollIntoView({ behavior: "smooth", block: "center" });
+      csPulseJumpTarget(node);
+      if (focusNode && typeof focusNode.focus === "function") {
+        window.setTimeout(() => {
+          focusNode.focus({ preventScroll: true });
+          if (typeof focusNode.select === "function") {
+            focusNode.select();
+          }
+        }, 120);
+      }
+    }
+
+    function csRenderAdvisor(payload) {
+      const host = document.getElementById("cs_advisor_list");
+      const items = payload && payload.items ? payload.items : [];
+      const spec = csReadSpec(false);
+      csState.advisorData = payload && typeof payload === "object" ? payload : { items: [] };
+      csState.advisorJumpTargets = {};
+      csRenderAssistantAdvisorSummary();
+      if (!items.length) {
+        host.innerHTML = "<div class='empty'>当前没有检测到结构差异。</div>";
+        if (spec) csRenderFieldList(spec);
+        return;
+      }
+      const groups = new Map();
+      for (const item of items) {
+        const scopedField = item && item.scope === "field" && item.fieldName;
+        const target = scopedField ? null : csAdvisorTargetForItem(item);
+        const key = scopedField ? `field:${item.fieldName}` : ((target && target.groupKey) || "__global__");
+        if (!groups.has(key)) groups.set(key, { items: [], target });
+        groups.get(key).items.push(item || {});
+        if (target && key !== "__global__") {
+          csState.advisorJumpTargets[key] = target;
+        }
+      }
+      host.innerHTML = Array.from(groups.entries()).map(([key, group]) => {
+        const groupItems = (group && group.items) || [];
+        const target = (group && group.target) || null;
+        const first = groupItems[0] || {};
+        const fieldName = first.fieldName ? String(first.fieldName) : "";
+        const jumpable = (key !== "__global__" && fieldName) || !!target;
+        const body = groupItems.map((item) => {
+          const severity = csSeverityClass(item.severity);
+          return `<div class="list-item"><span class="pill ${severity}">${csEscape(item.severity === "error" ? "错误" : item.severity === "warn" ? "警告" : "提示")}</span><strong>${csEscape(item.title || item.kind || "顾问项")}</strong><div>${csEscape(item.message || "")}</div></div>`;
+        }).join("");
+        const onclick = fieldName
+          ? `csFocusFieldByName(${JSON.stringify(fieldName)})`
+          : `csJumpToAdvisorTarget(${JSON.stringify(key)})`;
+        const attrs = jumpable ? ` class="advisor-group jumpable" onclick='${onclick}'` : ` class="advisor-group"`;
+        const targetHint = target && target.hint ? `<div class="advisor-target">${csEscape(target.hint)}</div>` : "";
+        return `<section${attrs}><h4>${csEscape(csAdvisorGroupLabel(key, groupItems, target))}</h4>${targetHint}<div class="advisor-items">${body}</div></section>`;
+      }).join("");
+      csRenderAssistantAdvisorSummary();
+      if (spec) csRenderFieldList(spec);
+    }
+
+    function csExtractAssistantValues(spec) {
+      spec = csEnsureSpecShape(spec);
+      return {
+        identity_xid: spec.identity.xid || "",
+        identity_name: spec.identity.name || "",
+        identity_title: spec.identity.title || "",
+        identity_namespace: spec.identity.namespace || "",
+        identity_icon: spec.identity.icon || "",
+        identity_description: spec.identity.description || "",
+        entity_name: spec.entity.entityName || spec.identity.name || "",
+        entity_table: spec.entity.table || "",
+        entity_titleField: spec.entity.titleField || "",
+        entity_statusField: spec.entity.statusField || "",
+        entity_slugField: spec.entity.slugField || "",
+        entity_summaryField: spec.entity.summaryField || "",
+        entity_coverField: spec.entity.coverField || "",
+        entity_publishedAtField: spec.entity.publishedAtField || "",
+        entity_indexesJson: JSON.stringify(spec.entity.indexes || [], null, 2),
+        feature_adminCrud: spec.coreFeatures.adminCrud !== false,
+        feature_publicApi: spec.coreFeatures.publicApi !== false,
+        feature_draftEnabled: !!((spec.coreFeatures.draft || {}).enabled),
+        feature_draftMode: (spec.coreFeatures.draft || {}).mode || "same-table",
+        policy_statusFlow: spec.policies.statusFlow || "draft-published",
+        policy_deleteMode: spec.policies.deleteMode || "soft-delete",
+        policy_publishMode: spec.policies.publishMode || "manual",
+        policy_authorMode: spec.policies.authorMode || "admin-or-member",
+        ui_form_layout: (((spec.ui || {}).form || {}).layout) || "single-column",
+        ui_detail_showAuthor: !!((((spec.ui || {}).detail || {}).showAuthor)),
+        ui_detail_showPublishedAt: !!((((spec.ui || {}).detail || {}).showPublishedAt)),
+        ui_list_pageSize: Number(((((spec.ui || {}).list || {}).pageSize) || 0)) || "",
+        ui_list_defaultSortField: (csNormalizeDefaultSort(((((spec.ui || {}).list || {}).defaultSort)) || [])[0]) || "",
+        ui_list_defaultSortDir: (csNormalizeDefaultSort(((((spec.ui || {}).list || {}).defaultSort)) || [])[1]) || "desc",
+        ui_list_columnsJson: JSON.stringify((((spec.ui || {}).list || {}).columns) || [], null, 2),
+        metadata_labelsJson: JSON.stringify((spec.metadata || {}).labels || [], null, 2),
+        metadata_tagsJson: JSON.stringify((spec.metadata || {}).tags || [], null, 2),
+        metadata_notes: (spec.metadata || {}).notes || "",
+        presentation_groupsJson: JSON.stringify((((spec.presentation || {}).groups) || []), null, 2),
+        capability_slotsJson: JSON.stringify(spec.capabilitySlots || [], null, 2)
+      };
+    }
+
+    function csApplyAssistantValues(spec, values) {
+      let parsedGroups;
+      let parsedSlots;
+      let parsedIndexes;
+      let parsedColumns;
+      let parsedLabels;
+      let parsedTags;
+
+      spec = csEnsureSpecShape(spec);
+      spec.identity.xid = String(values.identity_xid || "").trim();
+      spec.identity.name = String(values.identity_name || "").trim();
+      spec.identity.title = String(values.identity_title || "").trim();
+      spec.identity.namespace = String(values.identity_namespace || "").trim();
+      spec.identity.icon = String(values.identity_icon || "").trim();
+      spec.identity.description = String(values.identity_description || "").trim();
+      spec.entity.entityName = String(values.entity_name || "").trim();
+      spec.entity.table = String(values.entity_table || "").trim();
+      spec.entity.titleField = String(values.entity_titleField || "").trim();
+      spec.entity.statusField = String(values.entity_statusField || "").trim();
+      spec.entity.slugField = String(values.entity_slugField || "").trim();
+      spec.entity.summaryField = String(values.entity_summaryField || "").trim();
+      spec.entity.coverField = String(values.entity_coverField || "").trim();
+      spec.entity.publishedAtField = String(values.entity_publishedAtField || "").trim();
+      spec.coreFeatures.adminCrud = csCoerceBoolean(values.feature_adminCrud) === true;
+      spec.coreFeatures.publicApi = csCoerceBoolean(values.feature_publicApi) === true;
+      spec.coreFeatures.draft.enabled = csCoerceBoolean(values.feature_draftEnabled) === true;
+      spec.coreFeatures.draft.mode = String(values.feature_draftMode || "same-table");
+      spec.policies.statusFlow = String(values.policy_statusFlow || "draft-published");
+      spec.policies.deleteMode = String(values.policy_deleteMode || "soft-delete");
+      spec.policies.publishMode = String(values.policy_publishMode || "manual");
+      spec.policies.authorMode = String(values.policy_authorMode || "admin-or-member");
+      spec.ui.form.layout = String(values.ui_form_layout || "single-column");
+      spec.ui.detail.showAuthor = csCoerceBoolean(values.ui_detail_showAuthor) === true;
+      spec.ui.detail.showPublishedAt = csCoerceBoolean(values.ui_detail_showPublishedAt) === true;
+      spec.ui.list.pageSize = Number(values.ui_list_pageSize || 0) || 0;
+      spec.ui.list.defaultSort = [
+        String(values.ui_list_defaultSortField || "").trim(),
+        String(values.ui_list_defaultSortDir || "desc").trim() || "desc"
+      ];
+      spec.metadata.notes = String(values.metadata_notes || "").trim();
+      try {
+        spec.presentation = spec.presentation && typeof spec.presentation === "object" ? spec.presentation : {};
+        parsedGroups = JSON.parse(String(values.presentation_groupsJson || "[]").trim() || "[]");
+        parsedSlots = JSON.parse(String(values.capability_slotsJson || "[]").trim() || "[]");
+        parsedIndexes = JSON.parse(String(values.entity_indexesJson || "[]").trim() || "[]");
+        parsedColumns = JSON.parse(String(values.ui_list_columnsJson || "[]").trim() || "[]");
+        parsedLabels = JSON.parse(String(values.metadata_labelsJson || "[]").trim() || "[]");
+        parsedTags = JSON.parse(String(values.metadata_tagsJson || "[]").trim() || "[]");
+      } catch (err) {
+        throw new Error("高级 JSON 字段格式不正确。");
+      }
+      if (!Array.isArray(parsedGroups) || !Array.isArray(parsedSlots) || !Array.isArray(parsedIndexes) || !Array.isArray(parsedColumns) || !Array.isArray(parsedLabels) || !Array.isArray(parsedTags)) {
+        throw new Error("分组、槽位、索引、列表列、标签和关键词都必须是数组。");
+      }
+      spec.presentation.groups = parsedGroups;
+      spec.capabilitySlots = parsedSlots;
+      spec.entity.indexes = parsedIndexes;
+      spec.ui.list.columns = parsedColumns;
+      spec.metadata.labels = parsedLabels;
+      spec.metadata.tags = parsedTags;
+      if (!spec.ui.list.defaultSort[0]) delete spec.ui.list.defaultSort;
+      if (!spec.ui.list.pageSize) delete spec.ui.list.pageSize;
+      if (spec.ui.list.defaultSort && (!spec.ui.list.defaultSort[0]) && !spec.ui.list.defaultSort[1]) {
+        delete spec.ui.list.defaultSort;
+      }
+      return spec;
+    }
+
+    function csExtractFieldValues(field) {
+      if (!field || typeof field !== "object") {
+        return csDefaultFieldValues();
+      }
+      const props = (((field || {}).component || {}).props) || {};
+      return {
+        field_name: field.name || "",
+        field_title: field.title || "",
+        field_desc: field.desc || field.description || "",
+        field_group: field.group || "",
+        storage_type: (((field || {}).storage || {}).type) || "text",
+        component_type: (((field || {}).component || {}).type) || "input",
+        semantic_role: ((((field || {}).semantic || {}).role) || ""),
+        field_required: !!field.required,
+        field_nullable: !!field.nullable,
+        field_defaultValueJson: Object.prototype.hasOwnProperty.call(field, "defaultValue") ? JSON.stringify(field.defaultValue, null, 2) : "",
+        field_showInForm: field.showInForm !== false,
+        field_showInList: field.showInList !== false,
+        field_showInDetail: field.showInDetail !== false,
+        field_readonly: !!field.readonly,
+        field_disabled: !!field.disabled,
+        field_sortable: !!field.sortable,
+        field_filterable: !!field.filterable,
+        field_searchable: !!field.searchable,
+        field_layoutSpan: field.layoutSpan != null ? String(field.layoutSpan) : "",
+        field_placeholder: props.placeholder || "",
+        field_uploadUrl: props.uploadUrl || "",
+        field_accept: props.accept || "",
+        field_acceptMime: props.acceptMime || "",
+        field_buttonText: props.buttonText || "",
+        field_listJson: field.list ? JSON.stringify(field.list, null, 2) : "",
+        field_componentPropsJson: (() => {
+          const extraProps = csFieldExtraComponentProps(field);
+          return Object.keys(extraProps).length ? JSON.stringify(extraProps, null, 2) : "";
+        })()
+      };
+    }
+
+    function csBuildFieldFromValues(values) {
+      let parsedDefaultValue;
+      const field = {
+        name: String(values.field_name || "").trim(),
+        title: String(values.field_title || "").trim(),
+        storage: { type: String(values.storage_type || "text") },
+        component: { type: String(values.component_type || "input") },
+        required: csCoerceBoolean(values.field_required) === true,
+        nullable: csCoerceBoolean(values.field_nullable) === true,
+        showInForm: csCoerceBoolean(values.field_showInForm) !== false,
+        showInList: csCoerceBoolean(values.field_showInList) !== false,
+        showInDetail: csCoerceBoolean(values.field_showInDetail) !== false,
+        readonly: csCoerceBoolean(values.field_readonly) === true,
+        disabled: csCoerceBoolean(values.field_disabled) === true,
+        sortable: csCoerceBoolean(values.field_sortable) === true,
+        filterable: csCoerceBoolean(values.field_filterable) === true,
+        searchable: csCoerceBoolean(values.field_searchable) === true
+      };
+      const desc = String(values.field_desc || "").trim();
+      const group = String(values.field_group || "").trim();
+      const role = String(values.semantic_role || "").trim();
+      const layoutSpan = String(values.field_layoutSpan || "").trim();
+      const placeholder = String(values.field_placeholder || "").trim();
+      const uploadUrl = String(values.field_uploadUrl || "").trim();
+      const accept = String(values.field_accept || "").trim();
+      const acceptMime = String(values.field_acceptMime || "").trim();
+      const buttonText = String(values.field_buttonText || "").trim();
+      const listJson = String(values.field_listJson || "").trim();
+      const componentPropsJson = String(values.field_componentPropsJson || "").trim();
+      const defaultValueJson = String(values.field_defaultValueJson || "").trim();
+      if (desc) field.desc = desc;
+      if (group) field.group = group;
+      if (role) field.semantic = { role };
+      if (layoutSpan) field.layoutSpan = Number(layoutSpan) || 1;
+      if (componentPropsJson) {
+        let parsedProps;
+        try {
+          parsedProps = JSON.parse(componentPropsJson);
+        } catch (err) {
+          throw new Error("组件属性 JSON 必须是合法 JSON。");
+        }
+        if (!parsedProps || typeof parsedProps !== "object" || Array.isArray(parsedProps)) {
+          throw new Error("组件属性 JSON 必须是对象。");
+        }
+        field.component.props = parsedProps;
+      }
+      if (placeholder) field.component.props = { ...(field.component.props || {}), placeholder };
+      if (uploadUrl) field.component.props = { ...(field.component.props || {}), uploadUrl };
+      if (accept) field.component.props = { ...(field.component.props || {}), accept };
+      if (acceptMime) field.component.props = { ...(field.component.props || {}), acceptMime };
+      if (buttonText) field.component.props = { ...(field.component.props || {}), buttonText };
+      if (defaultValueJson) {
+        try {
+          parsedDefaultValue = JSON.parse(defaultValueJson);
+        } catch (err) {
+          throw new Error("默认值 JSON 必须是合法 JSON。");
+        }
+        field.defaultValue = parsedDefaultValue;
+      }
+      if (listJson) {
+        let parsed;
+        try {
+          parsed = JSON.parse(listJson);
+        } catch (err) {
+          throw new Error("选项 JSON 必须是合法 JSON。");
+        }
+        if (!Array.isArray(parsed)) {
+          throw new Error("选项 JSON 必须是数组。");
+        }
+        field.list = parsed;
+      }
+      return field;
+    }
+
+    function csFieldFlags(field) {
+      const tags = [];
+      const props = (((field || {}).component || {}).props) || {};
+      if (field.required) tags.push("required");
+      if (field.nullable) tags.push("nullable");
+      if (field.group) tags.push(`group:${field.group}`);
+      if (field.showInForm !== false) tags.push("表单");
+      if (field.showInList !== false) tags.push("列表");
+      if (field.showInDetail !== false) tags.push("详情");
+      if (field.readonly) tags.push("只读");
+      if (field.disabled) tags.push("禁用");
+      if (field.sortable) tags.push("可排序");
+      if (field.filterable) tags.push("可筛选");
+      if (field.searchable) tags.push("可搜索");
+      if (field.layoutSpan && Number(field.layoutSpan) > 1) tags.push(`span:${field.layoutSpan}`);
+      if (Object.prototype.hasOwnProperty.call(field, "defaultValue")) tags.push("default");
+      if (props.uploadUrl) tags.push("upload-url");
+      if (props.accept) tags.push(`accept:${props.accept}`);
+      if (props.acceptMime) tags.push(`mime:${props.acceptMime}`);
+      if (props.buttonText) tags.push(`btn:${props.buttonText}`);
+      if ((((field || {}).semantic || {}).role)) tags.push(`role:${field.semantic.role}`);
+      return tags;
+    }
+
+    function csRenderFieldList(spec) {
+      const host = document.getElementById("cs_field_list");
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      if (!fields.length) {
+        host.innerHTML = "<div class='empty'>还没有定义字段。</div>";
+        return;
+      }
+      host.innerHTML = fields.map((field, index) => {
+        const active = index === csState.fieldEditIndex ? " active" : "";
+        const storageType = (((field || {}).storage || {}).type) || "-";
+        const componentType = (((field || {}).component || {}).type) || "-";
+        const advisorSummary = csFieldAdvisorSummary(field.name || "");
+        const topAdvisor = csFieldTopAdvisor(field.name || "");
+        const advisorBadges = [
+          advisorSummary.error ? `<span class="pill error">${csEscape(`${advisorSummary.error} 条错误`)}</span>` : "",
+          advisorSummary.warn ? `<span class="pill warn">${csEscape(`${advisorSummary.warn} 条警告`)}</span>` : "",
+          advisorSummary.info ? `<span class="pill info">${csEscape(`${advisorSummary.info} 条提示`)}</span>` : ""
+        ].filter(Boolean).join("");
+        const flags = csFieldFlags(field).map((flag) => `<span class="pill success">${csEscape(flag)}</span>`).join("");
+        const summaryRow = advisorBadges ? `<div class="advisor-summary">${advisorBadges}</div>` : "";
+        const note = topAdvisor ? `<div class="advisor-note">${csEscape(topAdvisor.title || topAdvisor.kind || "顾问项")}: ${csEscape(topAdvisor.message || "")}</div>` : "";
+        return `<article id="${csEscape(csFieldCardId(field.name || `field_${index}`))}" class="field-card${active}" onclick="csSelectField(${index})"><strong>${csEscape(field.title || field.name || `字段 ${index + 1}`)}</strong><span>${csEscape(field.name || "")}</span><span>${csEscape(storageType)} -> ${csEscape(componentType)}</span>${summaryRow}${note}<div style="margin-top:8px;">${flags || "<span class='pill info'>普通</span>"}</div></article>`;
+      }).join("");
+    }
+
+    function csSetAssistantSectionStatus(message, color) {
+      csSetStatus("cs_assistant_status", message, color);
+      csSetStatus("cs_display_status", message, color);
+      csSetStatus("cs_policy_status", message, color);
+    }
+
+    function csCollectAssistantValues() {
+      const sections = ["design", "display", "policy"];
+      const merged = {};
+      for (const section of sections) {
+        const form = ((csState || {}).assistantForms || {})[section];
+        if (!form) continue;
+        Object.assign(merged, form.collect());
+      }
+      return merged;
+    }
+
+    function csValidateAssistantForms() {
+      const sections = ["design", "display", "policy"];
+      for (const section of sections) {
+        const form = ((csState || {}).assistantForms || {})[section];
+        if (!form) {
+          return { result: false, message: "助手表单尚未就绪。" };
+        }
+        const check = form.validate();
+        if (!check.result) return check;
+      }
+      return { result: true };
+    }
+
+    async function csRenderAssistantSectionForm(hostId, section, spec, renderVersion) {
+      csEnsureXForm();
+      const host = document.getElementById(hostId);
+      host.innerHTML = "<div class='empty'>正在渲染助手表单...</div>";
+      const form = await window.XForm.render(host, csBuildAssistantSectionSchema(section), csExtractAssistantValues(spec), {}, {});
+      if (renderVersion !== csState.renderVersion) return;
+      csState.assistantForms[section] = form;
+    }
+
+    async function csRenderFieldForm(spec, field, renderVersion) {
+      csEnsureXForm();
+      const host = document.getElementById("cs_field_form");
+      host.innerHTML = "<div class='empty'>正在渲染字段编辑器...</div>";
+      const form = await window.XForm.render(host, csBuildFieldSchema(spec), csExtractFieldValues(field), {}, {});
+      if (renderVersion !== csState.renderVersion) return;
+      csState.fieldForm = form;
+      if (form && form.formEl) {
+        form.formEl.addEventListener("change", (evt) => {
+          const name = String((evt && evt.target && evt.target.getAttribute && evt.target.getAttribute("name")) || "").trim();
+          if (name === "component_type") {
+            csApplyFieldComponentGuidance();
+          }
+        });
+      }
+    }
+
+    async function csRefreshDesigner() {
+      const spec = csReadSpec(true);
+      const renderVersion = ++csState.renderVersion;
+      if (!spec) {
+        document.getElementById("cs_assistant_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能使用模型设置。</div>";
+        document.getElementById("cs_display_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑界面配置。</div>";
+        document.getElementById("cs_policy_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑能力与策略。</div>";
+        document.getElementById("cs_field_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑字段。</div>";
+        document.getElementById("cs_field_list").innerHTML = "<div class='empty'>字段蓝图暂不可用。</div>";
+        csState.assistantForms.design = null;
+        csState.assistantForms.display = null;
+        csState.assistantForms.policy = null;
+        csState.fieldForm = null;
+        return;
+      }
+      const fields = spec.entity.fields || [];
+      if ((csState.fieldEditIndex < 0) || (csState.fieldEditIndex >= fields.length)) {
+        csState.fieldEditIndex = -1;
+      }
+      try {
+        await Promise.all([
+          csRenderAssistantSectionForm("cs_assistant_form", "design", spec, renderVersion),
+          csRenderAssistantSectionForm("cs_display_form", "display", spec, renderVersion),
+          csRenderAssistantSectionForm("cs_policy_form", "policy", spec, renderVersion),
+          csRenderFieldForm(spec, csState.fieldEditIndex >= 0 ? fields[csState.fieldEditIndex] : null, renderVersion)
+        ]);
+        csRenderFieldList(spec);
+        csRevealFocusedFieldCard();
+        csSetAssistantSectionStatus("模型设置已与当前 DSL 同步。");
+        csSetStatus("cs_field_status", csState.fieldEditIndex >= 0 ? `正在编辑第 ${csState.fieldEditIndex + 1} 个字段。` : "可以追加一个新字段。");
+      } catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        csSetAssistantSectionStatus(message, "#b91c1c");
+        csSetStatus("cs_field_status", message, "#b91c1c");
+      }
+    }
+
+    function csSelectType(id, afterLoad) {
+      csState.selectedId = id;
+      return fetch(`/admin/api/plugin/content-system/type?id=${encodeURIComponent(id)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.result) throw new Error(data.message || "加载失败");
+          const info = data.data || {};
+          csState.currentRevision = info.currentRevision || 0;
+          csState.appliedRevision = info.appliedRevision || 0;
+          csState.generatedPluginXid = info.generatedPluginXid || "";
+          csState.fieldEditIndex = -1;
+          csApplyMeta(info);
+          document.getElementById("cs_spec").value = csFormatJson(info.spec || csStarterTemplate());
+          document.getElementById("cs_revision_note").value = "";
+          csRenderRevisions(info.revisions || []);
+          csRenderAdvisor(info.advisor || { items: [] });
+          return csRefreshDesigner().then(() => {
+            if (typeof afterLoad === "function") afterLoad();
+          });
+        })
+        .catch((err) => {
+          csSetPanelStatus(err.message || "加载失败", "#b91c1c");
+          throw err;
+        });
+    }
+
+    function csNewType(openEditor) {
+      csState.selectedId = 0;
+      csState.currentRevision = 0;
+      csState.appliedRevision = 0;
+      csState.generatedPluginXid = "";
+      csState.fieldEditIndex = -1;
+      csApplyMeta(null);
+      csRenderRevisions([]);
+      csRenderAdvisor({ items: [] });
+      document.getElementById("cs_revision_note").value = "";
+      csUseTemplate();
+      if (openEditor !== false) {
+        csOpenEditor("overview");
+      }
+    }
+function csLoadAdvisor() {
+      if (!csState.selectedId) {
+        csSetPanelStatus("请先保存内容模型，再生成升级顾问结果。", "#92400e");
+        return;
+      }
+      fetch(`/admin/api/plugin/content-system/advisor?typeId=${encodeURIComponent(csState.selectedId)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.result) throw new Error(data.message || "顾问刷新失败");
+          csRenderAdvisor(data.data || { items: [] });
+        })
+        .catch((err) => csSetPanelStatus(err.message || "升级顾问刷新失败", "#b91c1c"));
+    }
+
+    function csApplyAssistantToDsl() {
+      const check = csValidateAssistantForms();
+      if (!check.result) {
+        csSetAssistantSectionStatus(check.message || "助手表单校验失败。", "#b91c1c");
+        csToast(check.message || "助手表单校验失败。", 2);
+        return;
+      }
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      try {
+        csApplyAssistantValues(spec, csCollectAssistantValues());
+      } catch (err) {
+        csSetAssistantSectionStatus(err.message || "助手表单写回失败。", "#b91c1c");
+        csToast(err.message || "助手表单写回失败。", 2);
+        return;
+      }
+      csWriteSpec(spec, "助手表单内容已写回 DSL。");
+      csRefreshDesigner();
+      csToast("助手表单已写回 DSL", 1);
+    }
+
+    function csClearFieldEditor() {
+      csState.fieldEditIndex = -1;
+      csRefreshDesigner();
+    }
+
+    function csSelectField(index) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const fields = spec.entity.fields || [];
+      csState.fieldEditIndex = ((index >= 0) && (index < fields.length)) ? index : -1;
+      csRefreshDesigner();
+    }
+
+    function csCommitFieldToDsl() {
+      if (!csState.fieldForm) {
+        csSetStatus("cs_field_status", "字段编辑器尚未准备完成。", "#b91c1c");
+        return;
+      }
+      const check = csState.fieldForm.validate();
+      if (!check.result) {
+        csSetStatus("cs_field_status", check.message || "字段校验失败。", "#b91c1c");
+        csToast(check.message || "字段校验失败。", 2);
+        return;
+      }
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      let field;
+      try {
+        field = csBuildFieldFromValues(csState.fieldForm.collect());
+      } catch (err) {
+        csSetStatus("cs_field_status", err.message || "字段构建失败。", "#b91c1c");
+        csToast(err.message || "字段构建失败。", 2);
+        return;
+      }
+      const fields = spec.entity.fields || [];
+      const duplicateIndex = fields.findIndex((item, index) => item && item.name === field.name && index !== csState.fieldEditIndex);
+      if (duplicateIndex >= 0) {
+        csSetStatus("cs_field_status", "字段名已存在。", "#b91c1c");
+        csToast("字段名已存在", 2);
+        return;
+      }
+      if (csState.fieldEditIndex >= 0 && csState.fieldEditIndex < fields.length) {
+        fields[csState.fieldEditIndex] = field;
+        csWriteSpec(spec, `字段 ${field.name} 已更新到 DSL。`);
+      } else {
+        fields.push(field);
+        csState.fieldEditIndex = fields.length - 1;
+        csWriteSpec(spec, `字段 ${field.name} 已追加到 DSL。`);
+      }
+      csRefreshDesigner();
+      csToast("字段已写回 DSL", 1);
+    }
+
+    function csDeleteFieldFromDsl() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const fields = spec.entity.fields || [];
+      if (csState.fieldEditIndex < 0 || csState.fieldEditIndex >= fields.length) {
+        csSetStatus("cs_field_status", "请先选择一个字段。", "#92400e");
+        return;
+      }
+      const removed = fields.splice(csState.fieldEditIndex, 1)[0];
+      csState.fieldEditIndex = -1;
+      csWriteSpec(spec, `字段 ${(removed && removed.name) || "未命名字段"} 已从 DSL 中移除。`);
+      csRefreshDesigner();
+      csToast("字段已移除", 1);
+    }
+
+    function csSaveType() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const currentTab = csState.editorTab;
+      const revisionNoteInput = document.getElementById("cs_revision_note");
+      const revisionNote = revisionNoteInput ? String(revisionNoteInput.value || "").trim() : "";
+      csSetPanelStatus("正在保存修订...");
+      fetch("/admin/api/plugin/content-system/type/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: csState.selectedId || 0,
+          note: revisionNote,
+          spec
+        })
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.result) throw new Error(data.message || "保存失败");
+          const savedTypeId = data.typeId || csState.selectedId;
+          csState.selectedId = savedTypeId;
+          csSetPanelStatus(data.message || "修订已保存。");
+          return csSelectType(savedTypeId, function(){
+            csState.viewMode = "editor";
+            csState.editorTab = currentTab || "overview";
+            csSyncView();
+          }).then(() => {
+            csSetPanelStatus(data.message || "修订已保存。");
+            csToast(revisionNote ? "修订已保存并刷新当前模型" : "模型已保存并刷新当前状态", 1);
+          });
+        })
+        .catch((err) => {
+          csSetPanelStatus(err.message || "保存失败", "#b91c1c");
+          csToast(err.message || "保存失败", 2);
+        });
+    }
+    function csGenerate() {
+      if (!csState.selectedId) {
+        csSetPanelStatus("\u8bf7\u5148\u4fdd\u5b58\u5185\u5bb9\u7c7b\u578b\uff0c\u518d\u751f\u6210\u53d7\u7ba1\u63d2\u4ef6\u3002", "#92400e");
+        return;
+      }
+      csSetPanelStatus("\u6b63\u5728\u751f\u6210\u53d7\u7ba1\u63d2\u4ef6...");
+      fetch("/admin/api/plugin/content-system/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ typeId: csState.selectedId })
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.result) throw new Error(data.message || "\u751f\u6210\u5931\u8d25");
+          csSetPanelStatus(data.message || "\u53d7\u7ba1\u63d2\u4ef6\u5df2\u751f\u6210\u3002");
+          return csSelectType(csState.selectedId, function(){
+            csState.viewMode = "editor";
+            csSyncView();
+          }).then(() => {
+            csSetPanelStatus(data.message || "\u53d7\u7ba1\u63d2\u4ef6\u5df2\u751f\u6210\u3002");
+            csToast("受管插件已生成，当前模型状态已刷新", 1);
+          });
+        })
+        .then(() => {
+          setTimeout(csRefreshAdminShellAfterGenerate, 180);
+        })
+        .catch((err) => {
+          csSetPanelStatus(err.message || "\u751f\u6210\u5931\u8d25", "#b91c1c");
+          csToast(err.message || "生成失败", 2);
+        });
+    }
+
+    function csRefreshAdminShellAfterGenerate() {
+      const candidates = [];
+      if (window.top && window.top !== window) candidates.push(window.top);
+      if (window.parent && window.parent !== window && window.parent !== window.top) candidates.push(window.parent);
+      candidates.push(window);
+      for (const root of candidates) {
+        try {
+          if (root && typeof root.refreshMenu === "function") {
+            root.refreshMenu();
+            return;
+          }
+        } catch (err) {}
+      }
+      for (const root of candidates) {
+        try {
+          if (root && root.location && typeof root.location.reload === "function") {
+            root.location.reload();
+            return;
+          }
+        } catch (err) {}
+      }
+    }
+
+    function csHandleUnhandled(reason) {
+      const message = reason && reason.message ? reason.message : String(reason);
+      csSetPanelStatus(message, "#b91c1c");
+      csSetAssistantSectionStatus(message, "#b91c1c");
+      csSetStatus("cs_field_status", message, "#b91c1c");
+      csToast(message, 2);
+    }
+
+    function csEditorBootOptions() {
+      const params = new URLSearchParams(window.location.search || "");
+      const id = Number(params.get("id") || 0);
+      if (id > 0) {
+        return { selectId: id, viewMode: "editor", tab: "overview" };
+      }
+      if (params.has("new")) {
+        return { newType: true };
+      }
+      return null;
+    }
+
+    layui.use(["layer"], function(){
+      csState.layer = layui.layer;
+      window.addEventListener("unhandledrejection", function(event) {
+        csHandleUnhandled(event.reason);
+        event.preventDefault();
+      });
+      try {
+        csEnsureXForm();
+      } catch (err) {
+        csHandleUnhandled(err);
+      }
+      document.getElementById("cs_spec").addEventListener("input", function() {
+        csSetAssistantSectionStatus("你刚刚手动修改了 DSL，模型设置可能尚未同步。", "#92400e");
+        csSetStatus("cs_field_status", "手动修改 DSL 后，请重新从 DSL 加载字段设计。", "#92400e");
+      });
+      const boot = csEditorBootOptions();
+      csNewType(false);
+      csSyncView();
+      if (boot && boot.newType) {
+        csNewType(true);
+      } else if (boot && boot.selectId) {
+        csSelectType(boot.selectId, function(){
+          csState.viewMode = "editor";
+          csState.editorTab = boot.tab || "overview";
+          csSyncView();
+        }).catch(() => {});
+      }
+    });
+  </script>
+</body>
+</html>

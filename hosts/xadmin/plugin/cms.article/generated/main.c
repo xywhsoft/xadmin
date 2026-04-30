@@ -213,10 +213,10 @@ void Managed_SendJsonValue(XS_ResponseObject objResp, xvalue objValue)
 
 void Managed_SendError(XS_ResponseObject objResp, const char* sMessage)
 {
-	xvalue tblRet = Managed_CreateResult(FALSE, sMessage ? sMessage : "请求失败");
+	xvalue tblRet = Managed_CreateResult(FALSE, sMessage ? sMessage : "request failed");
 
 	if ( tblRet == NULL ) {
-		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"请求失败\"}", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"request failed\"}", 0);
 		return;
 	}
 	Managed_SendJsonValue(objResp, tblRet);
@@ -258,7 +258,7 @@ bool Managed_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	if ( pData == NULL ) {
 		return FALSE;
 	}
-	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store, no-cache, must-revalidate\r\nPragma: no-cache\r\nExpires: 0\r\n", pData, iSize);
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
 	return TRUE;
 }
@@ -286,60 +286,6 @@ xvalue Managed_LoadJsonFile(const char* sRelPath)
 	objValue = xrtParseJSON((str)pData, iSize);
 	xrtFree(pData);
 	return objValue;
-}
-
-str Managed_GetDataRootPath(void)
-{
-	if ( Managed_IsBlank(G_PrivateDbPath) ) {
-		return NULL;
-	}
-	return xrtPathGetDir((str)G_PrivateDbPath, 0);
-}
-
-str Managed_GetCustomMountsPath(bool bWritable)
-{
-	str sBaseRoot = NULL;
-	str sCustomDir = NULL;
-	str sPath = NULL;
-
-	if ( bWritable ) {
-		sBaseRoot = Managed_GetDataRootPath();
-		if ( sBaseRoot == NULL ) {
-			return NULL;
-		}
-		sCustomDir = xrtPathJoin(2, sBaseRoot, "custom");
-		if ( sCustomDir != NULL ) {
-			sPath = xrtPathJoin(2, sCustomDir, "capability.mounts.json");
-			xrtFree(sCustomDir);
-		}
-		xrtFree(sBaseRoot);
-		return sPath;
-	}
-
-	sBaseRoot = Managed_GetDataRootPath();
-	if ( sBaseRoot != NULL ) {
-		sCustomDir = xrtPathJoin(2, sBaseRoot, "custom");
-		if ( sCustomDir != NULL ) {
-			sPath = xrtPathJoin(2, sCustomDir, "capability.mounts.json");
-			xrtFree(sCustomDir);
-		}
-		xrtFree(sBaseRoot);
-		if ( (sPath != NULL) && xrtFileExists(sPath) ) {
-			return sPath;
-		}
-		if ( sPath ) xrtFree(sPath);
-	}
-
-	if ( Managed_IsBlank(G_RootPath) ) {
-		return NULL;
-	}
-	sCustomDir = xrtPathJoin(2, G_RootPath, "custom");
-	if ( sCustomDir == NULL ) {
-		return NULL;
-	}
-	sPath = xrtPathJoin(2, sCustomDir, "capability.mounts.json");
-	xrtFree(sCustomDir);
-	return sPath;
 }
 
 xvalue Managed_LoadJsonPath(const char* sPath)
@@ -377,26 +323,7 @@ xvalue Managed_LoadContractsMeta(void)
 
 xvalue Managed_LoadCustomMounts(void)
 {
-	str sPath = Managed_GetCustomMountsPath(FALSE);
-	ptr pData = NULL;
-	size_t iSize = 0;
-	xvalue objValue = NULL;
-
-	if ( sPath == NULL ) {
-		return NULL;
-	}
-	if ( !xrtFileExists(sPath) ) {
-		xrtFree(sPath);
-		return NULL;
-	}
-	pData = xrtFileGetAll(sPath, &iSize);
-	xrtFree(sPath);
-	if ( pData == NULL ) {
-		return NULL;
-	}
-	objValue = xrtParseJSON((str)pData, iSize);
-	xrtFree(pData);
-	return objValue;
+	return Managed_LoadJsonFile("custom/capability.mounts.json");
 }
 
 xvalue Managed_LoadMountSample(void)
@@ -649,16 +576,8 @@ bool Managed_ValidateMountEntry(xvalue tblMount, int iIndex, str* psError)
 	}
 	tblOptions = Managed_GetTableValue(tblMount, "options");
 	if ( (tblOptions != NULL) && (xvoType(tblOptions) != XVO_DT_TABLE) ) {
-		if ( xvoType(tblOptions) == XVO_DT_NULL ) {
-			xvoTableSetValue(tblMount, "options", 7, xvoCreateTable(), TRUE);
-			tblOptions = xvoTableGetValue(tblMount, "options", 7);
-		} else if ( (xvoType(tblOptions) == XVO_DT_TEXT) && Managed_IsBlank(xvoGetText(tblOptions)) ) {
-			xvoTableSetValue(tblMount, "options", 7, xvoCreateTable(), TRUE);
-			tblOptions = xvoTableGetValue(tblMount, "options", 7);
-		} else {
-			xvoTableSetValue(tblMount, "options", 7, xvoCreateTable(), TRUE);
-			tblOptions = xvoTableGetValue(tblMount, "options", 7);
-		}
+		if ( psError ) *psError = xrtFormat("mounts[%d].options must be an object", iIndex);
+		return FALSE;
 	}
 	sAdminHref = tblAdminEntry ? xvoTableGetText(tblAdminEntry, "href", 4) : NULL;
 	sPublicHref = tblPublicEntry ? xvoTableGetText(tblPublicEntry, "href", 4) : NULL;
@@ -695,61 +614,35 @@ bool Managed_ValidateCustomMounts(xvalue tblRoot, str* psError)
 	return TRUE;
 }
 
-bool Managed_SaveCustomMountsFile(xvalue tblRoot, str* psError)
+bool Managed_SaveCustomMountsFile(xvalue tblRoot)
 {
-	str sFilePath = NULL;
 	str sCustomDir = NULL;
+	str sFilePath = NULL;
 	str sJson = NULL;
-	FILE* fp = NULL;
 	size_t iSize = 0;
 	bool bOK = FALSE;
 
-	if ( psError ) *psError = NULL;
-	if ( (tblRoot == NULL) || (xvoType(tblRoot) != XVO_DT_TABLE) ) {
-		if ( psError ) *psError = xrtCopyStr("mount root is invalid", 0);
+	if ( (G_RootPath == NULL) || (tblRoot == NULL) || (xvoType(tblRoot) != XVO_DT_TABLE) ) {
 		return FALSE;
 	}
-	sFilePath = Managed_GetCustomMountsPath(TRUE);
-	if ( sFilePath == NULL ) {
-		if ( psError ) *psError = xrtFormat("failed to resolve mount registry path: root=%s privateDb=%s",
-			G_RootPath ? G_RootPath : "(null)",
-			G_PrivateDbPath ? G_PrivateDbPath : "(null)");
-		return FALSE;
-	}
-	sCustomDir = xrtPathGetDir(sFilePath, 0);
+	sCustomDir = xrtPathJoin(2, G_RootPath, "custom");
 	if ( sCustomDir == NULL ) {
-		if ( psError ) *psError = xrtFormat("failed to resolve mount registry directory: %s", sFilePath);
-		xrtFree(sFilePath);
 		return FALSE;
 	}
 	if ( !xrtDirCreateAll(sCustomDir) ) {
-		if ( psError ) *psError = xrtFormat("failed to create mount registry directory: %s", sCustomDir);
 		xrtFree(sCustomDir);
-		xrtFree(sFilePath);
 		return FALSE;
 	}
+	sFilePath = xrtPathJoin(2, G_RootPath, "custom/capability.mounts.json");
 	xrtFree(sCustomDir);
+	if ( sFilePath == NULL ) {
+		return FALSE;
+	}
 	sJson = xrtStringifyJSON(tblRoot, TRUE, &iSize);
-	if ( sJson == NULL ) {
-		if ( psError ) *psError = xrtFormat("failed to stringify mount registry json: %s", sFilePath);
-		xrtFree(sFilePath);
-		return FALSE;
-	}
-	fp = fopen((const char*)sFilePath, "wb");
-	if ( fp == NULL ) {
-		if ( psError ) *psError = xrtFormat("failed to open mount registry file for write: %s", sFilePath);
+	if ( sJson ) {
+		bOK = xrtFilePutAll(sFilePath, sJson, iSize) == 0;
 		xrtFree(sJson);
-		xrtFree(sFilePath);
-		return FALSE;
 	}
-	bOK = fwrite(sJson, 1, iSize, fp) == iSize;
-	if ( fclose(fp) != 0 ) {
-		bOK = FALSE;
-	}
-	if ( !bOK && psError ) {
-		*psError = xrtFormat("failed to write mount registry file: %s", sFilePath);
-	}
-	xrtFree(sJson);
 	xrtFree(sFilePath);
 	return bOK;
 }
@@ -3023,14 +2916,13 @@ void Managed_RequestContractsAdmin(XS_ServerObject objServer, XS_HostObject objH
 			if ( sError ) xrtFree(sError);
 			return;
 		}
-		if ( !Managed_SaveCustomMountsFile(tblForm, &sError) ) {
+		if ( !Managed_SaveCustomMountsFile(tblForm) ) {
 			xvoUnref(tblForm);
-			Managed_SendError(objResp, sError ? (const char*)sError : "failed to save capability.mounts.json");
-			if ( sError ) xrtFree(sError);
+			Managed_SendError(objResp, "failed to save capability.mounts.json");
 			return;
 		}
 		xvoUnref(tblForm);
-		tblRet = Managed_CreateResult(TRUE, "挂载注册表已保存");
+		tblRet = Managed_CreateResult(TRUE, "mount registry saved");
 	} else {
 		tblRet = Managed_CreateResult(TRUE, NULL);
 	}
