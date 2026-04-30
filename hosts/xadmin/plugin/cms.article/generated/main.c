@@ -22,13 +22,35 @@ static const char* G_SchemaSql =
 	"title TEXT NOT NULL DEFAULT '',"
 	"status INTEGER NOT NULL DEFAULT 0,"
 	"payload_json TEXT NOT NULL DEFAULT '{}',"
+	"category_id INTEGER NOT NULL DEFAULT 0,"
 	"is_draft INTEGER NOT NULL DEFAULT 0,"
 	"create_time INTEGER NOT NULL,"
 	"update_time INTEGER NOT NULL DEFAULT 0,"
 	"delete_time INTEGER NOT NULL DEFAULT 0"
 	");"
+	"CREATE TABLE IF NOT EXISTS content_category ("
+	"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+	"parent_id INTEGER NOT NULL DEFAULT 0,"
+	"title TEXT NOT NULL DEFAULT '',"
+	"slug TEXT NOT NULL DEFAULT '',"
+	"path TEXT NOT NULL DEFAULT '',"
+	"level INTEGER NOT NULL DEFAULT 0,"
+	"sort INTEGER NOT NULL DEFAULT 0,"
+	"status INTEGER NOT NULL DEFAULT 1,"
+	"seo_title TEXT NOT NULL DEFAULT '',"
+	"seo_keywords TEXT NOT NULL DEFAULT '',"
+	"seo_description TEXT NOT NULL DEFAULT '',"
+	"create_time INTEGER NOT NULL DEFAULT 0,"
+	"update_time INTEGER NOT NULL DEFAULT 0,"
+	"delete_time INTEGER NOT NULL DEFAULT 0"
+	");"
 	"CREATE INDEX IF NOT EXISTS idx_content_item_public ON content_item(delete_time, is_draft, status, update_time DESC);"
-	"CREATE INDEX IF NOT EXISTS idx_content_item_admin ON content_item(delete_time, update_time DESC);";
+	"CREATE INDEX IF NOT EXISTS idx_content_item_admin ON content_item(delete_time, update_time DESC);"
+	"CREATE INDEX IF NOT EXISTS idx_content_category_parent_sort ON content_category(parent_id, sort, id);"
+	"CREATE UNIQUE INDEX IF NOT EXISTS idx_content_category_parent_slug ON content_category(parent_id, slug) WHERE delete_time = 0;";
+
+static const char* G_PostMigrationIndexSql =
+	"CREATE INDEX IF NOT EXISTS idx_content_item_category_status ON content_item(category_id, status, is_draft, delete_time);";
 
 XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr)
 {
@@ -170,6 +192,33 @@ bool Managed_ExecSql(sqlite3* pDb, const char* sSql)
 	return iRet == SQLITE_OK;
 }
 
+bool Managed_TableColumnExists(sqlite3* pDb, const char* sTable, const char* sColumn)
+{
+	sqlite3_stmt* stmt = NULL;
+	str sSql = NULL;
+	bool bExists = FALSE;
+
+	if ( (pDb == NULL) || Managed_IsBlank(sTable) || Managed_IsBlank(sColumn) ) {
+		return FALSE;
+	}
+	sSql = xrtFormat("PRAGMA table_info(%s)", sTable);
+	if ( sSql == NULL ) {
+		return FALSE;
+	}
+	if ( sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			const char* sName = (const char*)sqlite3_column_text(stmt, 1);
+			if ( (sName != NULL) && (strcmp(sName, sColumn) == 0) ) {
+				bExists = TRUE;
+				break;
+			}
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	xrtFree(sSql);
+	return bExists;
+}
+
 bool Managed_EnsureSchema(void)
 {
 	sqlite3* pDb = NULL;
@@ -179,6 +228,12 @@ bool Managed_EnsureSchema(void)
 		return FALSE;
 	}
 	bOK = Managed_ExecSql(pDb, G_SchemaSql);
+	if ( bOK && !Managed_TableColumnExists(pDb, "content_item", "category_id") ) {
+		bOK = Managed_ExecSql(pDb, "ALTER TABLE content_item ADD COLUMN category_id INTEGER NOT NULL DEFAULT 0");
+	}
+	if ( bOK ) {
+		bOK = Managed_ExecSql(pDb, G_PostMigrationIndexSql);
+	}
 	Managed_CloseDb(pDb);
 	return bOK;
 }
@@ -949,7 +1004,8 @@ const char* Managed_GetStatusField(xvalue tblSpec)
 
 const char* Managed_GetSlugField(xvalue tblSpec)
 {
-	return Managed_GetEntityFieldOrRole(tblSpec, "slugField", "slug");
+	const char* sField = Managed_GetEntityFieldOrRole(tblSpec, "slugField", "slug");
+	return Managed_IsBlank(sField) ? "slug" : sField;
 }
 
 const char* Managed_GetSummaryField(xvalue tblSpec)
@@ -1152,7 +1208,7 @@ str Managed_SelectListSql(xvalue tblSpec, bool bAdmin, const char* sSortField, b
 		return NULL;
 	}
 	sSql = xrtFormat(
-		"SELECT id, title, status, payload_json, is_draft, create_time, update_time FROM content_item WHERE %s ORDER BY %s",
+		"SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE %s ORDER BY %s",
 		(const char*)sWhere,
 		sOrderBy);
 	xrtFree(sWhere);
@@ -2423,6 +2479,7 @@ void Managed_AppendRow(xvalue arrList, sqlite3_stmt* stmt, xvalue tblSpec)
 	xvoTableSetBool(tblItem, "isDraft", 7, sqlite3_column_int(stmt, 4) ? TRUE : FALSE);
 	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 5));
 	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 6));
+	xvoTableSetInt(tblItem, "categoryId", 10, sqlite3_column_int(stmt, 7));
 	Managed_AppendDerivedFields(tblItem, tblSpec);
 	xvoArrayAppendValue(arrList, tblItem, TRUE);
 }
@@ -2798,8 +2855,21 @@ bool Managed_RowMatchesFieldFilters(xvalue tblItem, xvalue tblSpec, XS_RequestOb
 
 bool Managed_RowMatchesFilters(xvalue tblItem, xvalue tblSpec, XS_RequestObject objReq, const char* sQuery, bool bAdmin, int iStatusFilter, int iDraftFilter)
 {
+	char sCategoryId[32];
+	int iCategoryId = 0;
+
 	if ( (tblItem == NULL) || (xvoType(tblItem) != XVO_DT_TABLE) ) {
 		return FALSE;
+	}
+	memset(sCategoryId, 0, sizeof(sCategoryId));
+	if ( objReq ) {
+		xsReqQueryValue(objReq, "categoryId", sCategoryId, sizeof(sCategoryId));
+	}
+	if ( sCategoryId[0] != '\0' ) {
+		iCategoryId = atoi(sCategoryId);
+		if ( (iCategoryId > 0) && (xvoTableGetInt(tblItem, "categoryId", 10) != iCategoryId) ) {
+			return FALSE;
+		}
 	}
 	if ( (iStatusFilter != 0x7fffffff) && (xvoTableGetInt(tblItem, "status", 6) != iStatusFilter) ) {
 		return FALSE;
@@ -2996,7 +3066,7 @@ void Managed_RequestFormMetaAdmin(XS_ServerObject objServer, XS_HostObject objHo
 	Managed_SendJsonValue(objResp, tblRet);
 }
 
-void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objReq, bool bAdmin)
+void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objReq, bool bAdmin, int iForcedDraftFilter)
 {
 	sqlite3* pDb = NULL;
 	sqlite3_stmt* stmt = NULL;
@@ -3014,7 +3084,7 @@ void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objRe
 	int iOffset;
 	int iCount;
 	int iStatusFilter = 0x7fffffff;
-	int iDraftFilter = -1;
+	int iDraftFilter = iForcedDraftFilter;
 	const char* sRequestedSortField = NULL;
 	const char* sSqlSortField = NULL;
 	bool bSortAsc = FALSE;
@@ -3032,7 +3102,7 @@ void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objRe
 	if ( sStatus[0] != '\0' ) {
 		iStatusFilter = atoi(sStatus);
 	}
-	if ( bAdmin && (sDraft[0] != '\0') ) {
+	if ( bAdmin && (iForcedDraftFilter < 0) && (sDraft[0] != '\0') ) {
 		iDraftFilter = atoi(sDraft);
 	}
 	sRequestedSortField = !Managed_IsBlank(sSortBy) ? sSortBy : Managed_GetUiListSortField(tblSpec);
@@ -3090,7 +3160,7 @@ void Managed_RequestListPublic(XS_ServerObject objServer, XS_HostObject objHost,
 	(void)objServer;
 	(void)objHost;
 	(void)objSession;
-	Managed_RequestListCommon(objResp, objReq, FALSE);
+	Managed_RequestListCommon(objResp, objReq, FALSE, 0);
 }
 
 void Managed_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -3098,7 +3168,15 @@ void Managed_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost, 
 	(void)objServer;
 	(void)objHost;
 	(void)objSession;
-	Managed_RequestListCommon(objResp, objReq, TRUE);
+	Managed_RequestListCommon(objResp, objReq, TRUE, 0);
+}
+
+void Managed_RequestDraftsAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	Managed_RequestListCommon(objResp, objReq, TRUE, 1);
 }
 
 void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject objReq, bool bAdmin)
@@ -3116,11 +3194,11 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 	memset(sId, 0, sizeof(sId));
 	memset(sSlug, 0, sizeof(sSlug));
 	sSqlById = bAdmin
-		? xrtCopyStr("SELECT id, title, status, payload_json, is_draft, create_time, update_time FROM content_item WHERE id = ? AND delete_time = 0", 0)
-		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time FROM content_item WHERE id = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d", Managed_PublicStatusThreshold(tblSpec));
+		? xrtCopyStr("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id = ? AND delete_time = 0", 0)
+		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d", Managed_PublicStatusThreshold(tblSpec));
 	sSqlScan = bAdmin
-		? xrtCopyStr("SELECT id, title, status, payload_json, is_draft, create_time, update_time FROM content_item WHERE delete_time = 0 ORDER BY update_time DESC, id DESC", 0)
-		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
+		? xrtCopyStr("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 ORDER BY update_time DESC, id DESC", 0)
+		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
 	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
 	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
 	if ( (sId[0] == '\0') && (sSlug[0] == '\0') ) {
@@ -3207,6 +3285,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	str sTitle = NULL;
 	str sError = NULL;
 	int64 iId = 0;
+	int iCategoryId = 0;
 	int iStatus = 0;
 	bool bDraft = FALSE;
 	xtime iNow = xrtNow();
@@ -3250,6 +3329,10 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	}
 
 	iId = xvoTableGetInt(tblForm, "id", 2);
+	iCategoryId = (int)xvoTableGetInt(tblForm, "categoryId", 10);
+	if ( iCategoryId <= 0 ) {
+		iCategoryId = (int)xvoTableGetInt(tblData, "categoryId", 10);
+	}
 	sTitle = Managed_ExtractTitle(tblData, tblSpec);
 	iStatus = Managed_NormalizeStatusForSave(tblSpec, bDraft, Managed_ExtractStatus(tblData, tblSpec));
 	Managed_StoreStatusValue(tblData, tblSpec, iStatus);
@@ -3267,7 +3350,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	}
 
 	if ( iId > 0 ) {
-		if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title = ?, status = ?, payload_json = ?, is_draft = ?, update_time = ? WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title = ?, status = ?, payload_json = ?, category_id = ?, is_draft = ?, update_time = ? WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) != SQLITE_OK ) {
 			Managed_CloseDb(pDb);
 			xvoUnref(tblSpec);
 			xvoUnref(tblForm);
@@ -3279,12 +3362,13 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_text(stmt, 1, sTitle ? (const char*)sTitle : "", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 2, iStatus);
 		sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_int(stmt, 4, bDraft ? 1 : 0);
-		sqlite3_bind_int64(stmt, 5, iNow);
-		sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iId);
+		sqlite3_bind_int(stmt, 4, iCategoryId > 0 ? iCategoryId : 0);
+		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
+		sqlite3_bind_int64(stmt, 6, iNow);
+		sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iId);
 		sqlite3_step(stmt);
 	} else {
-		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_item(title, status, payload_json, is_draft, create_time, update_time, delete_time) VALUES(?, ?, ?, ?, ?, ?, 0)", -1, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_item(title, status, payload_json, category_id, is_draft, create_time, update_time, delete_time) VALUES(?, ?, ?, ?, ?, ?, ?, 0)", -1, &stmt, NULL) != SQLITE_OK ) {
 			Managed_CloseDb(pDb);
 			xvoUnref(tblSpec);
 			xvoUnref(tblForm);
@@ -3296,9 +3380,10 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_text(stmt, 1, sTitle ? (const char*)sTitle : "", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 2, iStatus);
 		sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_int(stmt, 4, bDraft ? 1 : 0);
-		sqlite3_bind_int64(stmt, 5, iNow);
+		sqlite3_bind_int(stmt, 4, iCategoryId > 0 ? iCategoryId : 0);
+		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
 		sqlite3_bind_int64(stmt, 6, iNow);
+		sqlite3_bind_int64(stmt, 7, iNow);
 		sqlite3_step(stmt);
 		iId = sqlite3_last_insert_rowid(pDb);
 	}
@@ -3313,6 +3398,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	tblRet = Managed_CreateResult(TRUE, "saved");
 	xvoTableSetInt(tblRet, "id", 2, iId);
 	xvoTableSetInt(tblRet, "status", 6, iStatus);
+	xvoTableSetInt(tblRet, "categoryId", 10, iCategoryId > 0 ? iCategoryId : 0);
 	xvoTableSetBool(tblRet, "isDraft", 7, bDraft);
 	Managed_SendJsonValue(objResp, tblRet);
 }
@@ -3365,6 +3451,307 @@ void Managed_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	Managed_SendJsonValue(objResp, tblRet);
 }
 
+void Managed_AppendCategoryRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblItem = xvoCreateTable();
+
+	xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetInt(tblItem, "parentId", 8, sqlite3_column_int(stmt, 1));
+	xvoTableSetText(tblItem, "title", 5, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetText(tblItem, "slug", 4, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+	xvoTableSetText(tblItem, "path", 4, (str)sqlite3_column_text(stmt, 4), 0, FALSE);
+	xvoTableSetInt(tblItem, "level", 5, sqlite3_column_int(stmt, 5));
+	xvoTableSetInt(tblItem, "sort", 4, sqlite3_column_int(stmt, 6));
+	xvoTableSetInt(tblItem, "status", 6, sqlite3_column_int(stmt, 7));
+	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 8));
+	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 9));
+	xvoTableSetInt(tblItem, "contentCount", 12, sqlite3_column_int(stmt, 10));
+	xvoArrayAppendValue(arrList, tblItem, TRUE);
+}
+
+void Managed_RequestCategoryListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	int iCount = 0;
+	const char* sSql =
+		"SELECT c.id, c.parent_id, c.title, c.slug, c.path, c.level, c.sort, c.status, c.create_time, c.update_time, "
+		"(SELECT COUNT(*) FROM content_item i WHERE i.category_id = c.id AND i.delete_time = 0) AS content_count "
+		"FROM content_category c WHERE c.delete_time = 0 ORDER BY c.parent_id ASC, c.sort ASC, c.id ASC";
+
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendCategoryRow(arrList, stmt);
+			iCount++;
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetInt(tblRet, "count", 5, iCount);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestCategoryGetAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = NULL;
+	xvalue arrList = xvoCreateArray();
+	char sId[32];
+	int64 iId = 0;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	memset(sId, 0, sizeof(sId));
+	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
+	iId = atoll(sId);
+	if ( iId <= 0 ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "id is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb,
+		"SELECT c.id, c.parent_id, c.title, c.slug, c.path, c.level, c.sort, c.status, c.create_time, c.update_time, "
+		"(SELECT COUNT(*) FROM content_item i WHERE i.category_id = c.id AND i.delete_time = 0) AS content_count "
+		"FROM content_category c WHERE c.id = ? AND c.delete_time = 0",
+		-1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendCategoryRow(arrList, stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( xvoArrayItemCount(arrList) <= 0 ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "category not found");
+		return;
+	}
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, xvoArrayGetValue(arrList, 0), TRUE);
+	xvoUnref(arrList);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestCategorySaveAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblForm = NULL;
+	xvalue tblRet = NULL;
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = 0;
+	int iParentId = 0;
+	int iSort = 0;
+	int iStatus = 1;
+	xtime iNow = xrtNow();
+	const char* sTitle;
+	const char* sSlug;
+	str sPath = NULL;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		Managed_SendError(objResp, "method not allowed");
+		return;
+	}
+	tblForm = Managed_ParseJsonBody(objReq);
+	if ( tblForm == NULL ) {
+		Managed_SendError(objResp, "invalid json body");
+		return;
+	}
+	sTitle = xvoTableGetText(tblForm, "title", 5);
+	sSlug = xvoTableGetText(tblForm, "slug", 4);
+	if ( Managed_IsBlank(sTitle) || Managed_IsBlank(sSlug) ) {
+		xvoUnref(tblForm);
+		Managed_SendError(objResp, "title and slug are required");
+		return;
+	}
+	iId = xvoTableGetInt(tblForm, "id", 2);
+	iParentId = (int)xvoTableGetInt(tblForm, "parentId", 8);
+	iSort = (int)xvoTableGetInt(tblForm, "sort", 4);
+	iStatus = (int)xvoTableGetInt(tblForm, "status", 6);
+	if ( iStatus <= 0 ) iStatus = 1;
+	sPath = xrtFormat("/%s/", sSlug);
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblForm);
+		if ( sPath ) xrtFree(sPath);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_category SET parent_id = ?, title = ?, slug = ?, path = ?, level = 0, sort = ?, status = ?, update_time = ? WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int(stmt, 1, iParentId > 0 ? iParentId : 0);
+			sqlite3_bind_text(stmt, 2, sTitle, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 3, sSlug, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 4, sPath ? (const char*)sPath : "/", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 5, iSort);
+			sqlite3_bind_int(stmt, 6, iStatus);
+			sqlite3_bind_int64(stmt, 7, iNow);
+			sqlite3_bind_int64(stmt, 8, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	} else {
+		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_category(parent_id, title, slug, path, level, sort, status, create_time, update_time, delete_time) VALUES(?, ?, ?, ?, 0, ?, ?, ?, ?, 0)", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int(stmt, 1, iParentId > 0 ? iParentId : 0);
+			sqlite3_bind_text(stmt, 2, sTitle, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 3, sSlug, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 4, sPath ? (const char*)sPath : "/", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 5, iSort);
+			sqlite3_bind_int(stmt, 6, iStatus);
+			sqlite3_bind_int64(stmt, 7, iNow);
+			sqlite3_bind_int64(stmt, 8, iNow);
+			sqlite3_step(stmt);
+			iId = sqlite3_last_insert_rowid(pDb);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblForm);
+	if ( sPath ) xrtFree(sPath);
+	tblRet = Managed_CreateResult(TRUE, "saved");
+	xvoTableSetInt(tblRet, "id", 2, iId);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestCategoryDeleteAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblForm = NULL;
+	xvalue tblRet = NULL;
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = 0;
+	xtime iNow = xrtNow();
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		Managed_SendError(objResp, "method not allowed");
+		return;
+	}
+	tblForm = Managed_ParseJsonBody(objReq);
+	if ( tblForm == NULL ) {
+		Managed_SendError(objResp, "invalid json body");
+		return;
+	}
+	iId = xvoTableGetInt(tblForm, "id", 2);
+	if ( iId <= 0 ) {
+		xvoUnref(tblForm);
+		Managed_SendError(objResp, "id is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblForm);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_category SET delete_time = ?, update_time = ? WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, iNow);
+		sqlite3_bind_int64(stmt, 2, iNow);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblForm);
+	tblRet = Managed_CreateResult(TRUE, "deleted");
+	xvoTableSetInt(tblRet, "id", 2, iId);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestCategorySortAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblForm = NULL;
+	xvalue arrItems = NULL;
+	xvalue tblRet = NULL;
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xtime iNow = xrtNow();
+	int iUpdated = 0;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		Managed_SendError(objResp, "method not allowed");
+		return;
+	}
+	tblForm = Managed_ParseJsonBody(objReq);
+	if ( tblForm == NULL ) {
+		Managed_SendError(objResp, "invalid json body");
+		return;
+	}
+	arrItems = xvoTableGetValue(tblForm, "items", 5);
+	if ( (arrItems == NULL) || (xvoType(arrItems) != XVO_DT_ARRAY) ) {
+		xvoUnref(tblForm);
+		Managed_SendError(objResp, "items is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblForm);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_category SET sort = ?, update_time = ? WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) == SQLITE_OK ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrItems); i++ ) {
+			xvalue tblItem = xvoArrayGetValue(arrItems, i);
+			int64 iId;
+			int iSort;
+			if ( (tblItem == NULL) || (xvoType(tblItem) != XVO_DT_TABLE) ) {
+				continue;
+			}
+			iId = xvoTableGetInt(tblItem, "id", 2);
+			iSort = (int)xvoTableGetInt(tblItem, "sort", 4);
+			if ( iId <= 0 ) {
+				continue;
+			}
+			sqlite3_reset(stmt);
+			sqlite3_clear_bindings(stmt);
+			sqlite3_bind_int(stmt, 1, iSort);
+			sqlite3_bind_int64(stmt, 2, iNow);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+			if ( sqlite3_step(stmt) == SQLITE_DONE ) {
+				iUpdated++;
+			}
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblForm);
+	tblRet = Managed_CreateResult(TRUE, "saved");
+	xvoTableSetInt(tblRet, "updated", 7, iUpdated);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
 void Managed_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	(void)objServer;
@@ -3373,6 +3760,28 @@ void Managed_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, 
 	(void)objSession;
 	if ( !Managed_SendAssetHtml(objResp, "generated/admin.html") ) {
 		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "managed admin page missing", 0);
+	}
+}
+
+void Managed_RequestDraftsView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+	if ( !Managed_SendAssetHtml(objResp, "generated/drafts.html") ) {
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "managed drafts page missing", 0);
+	}
+}
+
+void Managed_RequestCategoriesView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+	if ( !Managed_SendAssetHtml(objResp, "generated/categories.html") ) {
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "managed categories page missing", 0);
 	}
 }
 
@@ -3399,6 +3808,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 {
 	XAdminRouteDecl route;
 	XAdminMenuDecl menu;
+	int iRootMenuId = 0;
 	xvalue tblSpec = Managed_LoadSpec();
 	bool bAdminCrud = Managed_AdminCrudEnabled(tblSpec);
 	bool bPublicApi = Managed_PublicApiEnabled(tblSpec);
@@ -3455,6 +3865,66 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&route, 0, sizeof(route));
 		route.path = "/admin/api/plugin/cms.article/list";
 		route.proc = Managed_RequestListAdmin;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/api/plugin/cms.article/drafts";
+		route.proc = Managed_RequestDraftsAdmin;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/api/plugin/cms.article/category/list";
+		route.proc = Managed_RequestCategoryListAdmin;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/api/plugin/cms.article/category/get";
+		route.proc = Managed_RequestCategoryGetAdmin;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/api/plugin/cms.article/category/save";
+		route.proc = Managed_RequestCategorySaveAdmin;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/api/plugin/cms.article/category/delete";
+		route.proc = Managed_RequestCategoryDeleteAdmin;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/api/plugin/cms.article/category/sort";
+		route.proc = Managed_RequestCategorySortAdmin;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
@@ -3522,15 +3992,94 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/view/plugin/cms.article/articles";
+		route.proc = Managed_RequestAdminView;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/view/plugin/cms.article/drafts";
+		route.proc = Managed_RequestDraftsView;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/view/plugin/cms.article/categories";
+		route.proc = Managed_RequestCategoriesView;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+			goto failed;
+		}
+
 		memset(&menu, 0, sizeof(menu));
+		menu.key = "cms.article.root";
 		menu.title = "文章";
 		menu.icon = "layui-icon layui-icon-template";
-		menu.type = 1;
-		menu.open_type = "_iframe";
-		menu.href = "/admin/view/plugin/cms.article";
+		menu.type = 0;
+		menu.open_type = "_component";
+		menu.href = "";
 		menu.sort = 990200;
 		menu.visible = TRUE;
-		menu.remark = "Managed content plugin";
+		menu.remark = "Managed content plugin root";
+		if ( XAdmin_RegisterMenu(handle, &menu, &iRootMenuId, NULL) != 0 ) {
+			printf("        [ManagedPlugin] menu register failed: xid=cms.article href=%s\n", menu.href);
+			goto failed;
+		}
+
+		memset(&menu, 0, sizeof(menu));
+		menu.key = "cms.article.categories";
+		menu.parent_id = iRootMenuId;
+		menu.title = "栏目管理";
+		menu.icon = "layui-icon layui-icon-tabs";
+		menu.type = 1;
+		menu.open_type = "_component";
+		menu.href = "/admin/view/plugin/cms.article/categories";
+		menu.sort = 10;
+		menu.visible = TRUE;
+		menu.remark = "Managed content categories";
+		if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
+			printf("        [ManagedPlugin] menu register failed: xid=cms.article href=%s\n", menu.href);
+			goto failed;
+		}
+
+		memset(&menu, 0, sizeof(menu));
+		menu.key = "cms.article.articles";
+		menu.parent_id = iRootMenuId;
+		menu.title = "文章列表";
+		menu.icon = "layui-icon layui-icon-list";
+		menu.type = 1;
+		menu.open_type = "_component";
+		menu.href = "/admin/view/plugin/cms.article/articles";
+		menu.sort = 20;
+		menu.visible = TRUE;
+		menu.remark = "Managed content articles";
+		if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
+			printf("        [ManagedPlugin] menu register failed: xid=cms.article href=%s\n", menu.href);
+			goto failed;
+		}
+
+		memset(&menu, 0, sizeof(menu));
+		menu.key = "cms.article.drafts";
+		menu.parent_id = iRootMenuId;
+		menu.title = "草稿箱";
+		menu.icon = "layui-icon layui-icon-file-b";
+		menu.type = 1;
+		menu.open_type = "_component";
+		menu.href = "/admin/view/plugin/cms.article/drafts";
+		menu.sort = 30;
+		menu.visible = TRUE;
+		menu.remark = "Managed content drafts";
 		if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
 			printf("        [ManagedPlugin] menu register failed: xid=cms.article href=%s\n", menu.href);
 			goto failed;

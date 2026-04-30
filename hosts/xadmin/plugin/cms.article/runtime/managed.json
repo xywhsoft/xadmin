@@ -27,7 +27,7 @@
   "migrationSqlFile": "generated/migration.sql",
   "migrationState": {
     "lastAppliedRevision": 1,
-    "lastAppliedAt": 63944808876
+    "lastAppliedAt": 63944822067
   },
-  "generatedAt": 63944808876
+  "generatedAt": 63944822067
 }

@@ -2974,14 +2974,84 @@ str CS_BuildManagedMainSource(const char* sPluginXid, const char* sTitle)
 	return sTemplate;
 }
 
+str CS_BuildPluginDomIdBase(const char* sPluginXid)
+{
+	const char* sBase = sPluginXid ? sPluginXid : "";
+	const char* sPrefix = "Content_MakePlugin_";
+	size_t iPrefixLen = strlen(sPrefix);
+	size_t iBaseLen = strlen(sBase);
+	char* sOut = (char*)xrtMalloc(iPrefixLen + iBaseLen + 1);
+	size_t iPos = 0;
+
+	if ( sOut == NULL ) {
+		return NULL;
+	}
+	memcpy(sOut, sPrefix, iPrefixLen);
+	iPos = iPrefixLen;
+	for ( size_t i = 0; i < iBaseLen; i++ ) {
+		char ch = sBase[i];
+		if ( ((ch >= 'a') && (ch <= 'z'))
+			|| ((ch >= 'A') && (ch <= 'Z'))
+			|| ((ch >= '0') && (ch <= '9')) ) {
+			sOut[iPos++] = ch;
+		} else {
+			sOut[iPos++] = '_';
+		}
+	}
+	sOut[iPos] = '\0';
+	return sOut;
+}
+
 str CS_BuildManagedHtml(const char* sPluginXid, const char* sPageTitle, bool bAdmin)
 {
 	str sTemplate = CS_LoadAssetText(bAdmin ? "managed_admin.template.html" : "managed_public.template.html");
+	str sDomIdBase = CS_BuildPluginDomIdBase(sPluginXid);
 	(void)sPageTitle;
 	if ( sTemplate == NULL ) {
+		if ( sDomIdBase ) xrtFree(sDomIdBase);
 		return NULL;
 	}
 	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_XID}}", sPluginXid);
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin");
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_PAGE_KIND}}", "articles");
+	if ( sDomIdBase ) xrtFree(sDomIdBase);
+	return sTemplate;
+}
+
+str CS_BuildManagedAdminPageHtml(const char* sPluginXid, const char* sPageKind)
+{
+	str sTemplate = CS_LoadAssetText("managed_admin.template.html");
+	str sDomIdBase = CS_BuildPluginDomIdBase(sPluginXid);
+	str sPageDomIdBase = NULL;
+
+	if ( sTemplate == NULL ) {
+		if ( sDomIdBase ) xrtFree(sDomIdBase);
+		return NULL;
+	}
+	sPageDomIdBase = xrtFormat("%s_%s", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin", (sPageKind && strcmp(sPageKind, "drafts") == 0) ? "Drafts" : "Articles");
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_XID}}", sPluginXid);
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sPageDomIdBase ? (const char*)sPageDomIdBase : (sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin"));
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_PAGE_KIND}}", sPageKind ? sPageKind : "articles");
+	if ( sPageDomIdBase ) xrtFree(sPageDomIdBase);
+	if ( sDomIdBase ) xrtFree(sDomIdBase);
+	return sTemplate;
+}
+
+str CS_BuildManagedCategoryHtml(const char* sPluginXid)
+{
+	str sTemplate = CS_LoadAssetText("managed_category.template.html");
+	str sDomIdBase = CS_BuildPluginDomIdBase(sPluginXid);
+	str sPageDomIdBase = NULL;
+
+	if ( sTemplate == NULL ) {
+		if ( sDomIdBase ) xrtFree(sDomIdBase);
+		return NULL;
+	}
+	sPageDomIdBase = xrtFormat("%s_Categories", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin");
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_XID}}", sPluginXid);
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sPageDomIdBase ? (const char*)sPageDomIdBase : (sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin_Category"));
+	if ( sPageDomIdBase ) xrtFree(sPageDomIdBase);
+	if ( sDomIdBase ) xrtFree(sDomIdBase);
 	return sTemplate;
 }
 
@@ -3370,6 +3440,8 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	str sPluginJson = NULL;
 	str sMainSource = NULL;
 	str sAdminHtml = NULL;
+	str sDraftHtml = NULL;
+	str sCategoryHtml = NULL;
 	str sPublicHtml = NULL;
 	str sConfigDefaults = NULL;
 	str sConfigSchema = NULL;
@@ -3377,7 +3449,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	str sPlanJson = NULL;
 	str sMigrationPlanJson = NULL;
 	str sMigrationSql = NULL;
-	XAdminGeneratedFile files[14];
+	XAdminGeneratedFile files[16];
 	XAdminGeneratedPluginSpec spec;
 	xvalue tblRet = NULL;
 	sqlite3_stmt* stmt = NULL;
@@ -3435,7 +3507,9 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	sMountSchemaJson = CS_BuildManagedMountSchemaJson();
 	sPluginJson = CS_BuildManagedPluginManifest(sXid, sTitle ? sTitle : sName, sDescription, tblSpec);
 	sMainSource = CS_BuildManagedMainSource(sXid, sTitle ? (const char*)sTitle : (const char*)sName);
-	sAdminHtml = CS_BuildManagedHtml(sXid, sTitle ? (const char*)sTitle : "Managed Content Plugin", TRUE);
+	sAdminHtml = CS_BuildManagedAdminPageHtml(sXid, "articles");
+	sDraftHtml = CS_BuildManagedAdminPageHtml(sXid, "drafts");
+	sCategoryHtml = CS_BuildManagedCategoryHtml(sXid);
 	sPublicHtml = CS_BuildManagedHtml(sXid, sTitle ? (const char*)sTitle : "Managed Content Plugin", FALSE);
 	sConfigDefaults = xrtCopyStr("{\n  \"pageSize\": 20\n}\n", 0);
 	sConfigSchema = xrtCopyStr("{\n  \"type\": \"object\",\n  \"properties\": {\n    \"pageSize\": {\n      \"type\": \"integer\",\n      \"title\": \"Page Size\"\n    }\n  },\n  \"additionalProperties\": false\n}\n", 0);
@@ -3484,6 +3558,12 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	files[13].relative_path = "generated/migration.sql";
 	files[13].data = sMigrationSql;
 	files[13].size = sMigrationSql ? strlen(sMigrationSql) : 0;
+	files[14].relative_path = "generated/drafts.html";
+	files[14].data = sDraftHtml;
+	files[14].size = sDraftHtml ? strlen(sDraftHtml) : 0;
+	files[15].relative_path = "generated/categories.html";
+	files[15].data = sCategoryHtml;
+	files[15].size = sCategoryHtml ? strlen(sCategoryHtml) : 0;
 
 	memset(&spec, 0, sizeof(spec));
 	spec.xid = sXid;
@@ -3491,7 +3571,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	spec.version = CS_GENERATOR_VERSION;
 	spec.entry = "generated/main.c";
 	spec.auto_enable = 1;
-	spec.file_count = 14;
+	spec.file_count = 16;
 	spec.files = files;
 
 	iGenerateRet = XAdmin_GeneratePlugin(G_CSHandle, &spec);
@@ -3587,6 +3667,8 @@ cleanup:
 	if ( sPluginJson ) xrtFree(sPluginJson);
 	if ( sMainSource ) xrtFree(sMainSource);
 	if ( sAdminHtml ) xrtFree(sAdminHtml);
+	if ( sDraftHtml ) xrtFree(sDraftHtml);
+	if ( sCategoryHtml ) xrtFree(sCategoryHtml);
 	if ( sPublicHtml ) xrtFree(sPublicHtml);
 	if ( sConfigDefaults ) xrtFree(sConfigDefaults);
 	if ( sConfigSchema ) xrtFree(sConfigSchema);

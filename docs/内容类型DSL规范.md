@@ -530,3 +530,35 @@
 - `policies`
 
 如果这几个部分还不稳定，就不应进入生成器实现阶段。
+
+## 19. 2026-05-01 修订：栏目进入核心能力
+
+早期规范中曾把 `category` 放在 `capabilityPacks` 示例里。该设计已调整。
+
+新的 DSL 规则：
+
+- `category` 属于 `coreFeatures`，不是可选能力包。
+- `category.enabled = true` 时，生成插件必须生成自己的栏目表、栏目 API、栏目管理页面和内容表 `category_id` 字段。
+- `semantic: "category"` 只能映射到当前生成插件内部的 `category_id`，不能指向宿主级全局栏目。
+- 栏目不能跨插件共享，也不能在同一栏目下混合不同内容模型。
+
+推荐结构：
+
+```json
+{
+  "coreFeatures": {
+    "adminCrud": true,
+    "publicApi": true,
+    "draft": true,
+    "category": {
+      "enabled": true,
+      "mode": "tree",
+      "required": false,
+      "maxDepth": 5,
+      "slugUniqueScope": "siblings"
+    }
+  }
+}
+```
+
+`capabilityPacks` 后续仍用于评论、标签、SEO、全文搜索、附件接入、审核流等可独立演进的能力。
