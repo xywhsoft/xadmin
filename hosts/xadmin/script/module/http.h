@@ -77,6 +77,11 @@ bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 	if ( (sPath == NULL) || (sPath[0] == '\0') ) {
 		return FALSE;
 	}
+
+	if ( (strcmp(sPath, "/") == 0) && (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		LoadSitePage(objResp, 200, HTTP_CT_HTML, "index.html");
+		return TRUE;
+	}
 	
 	// 查询路由表
 	bool bAdminEntryAlias = Option_AdminEntryIsMatch(sPath);

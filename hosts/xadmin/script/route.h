@@ -7,13 +7,43 @@ void RouteHTTP_Init()
 	printf("        RouteHTTP_Init \n");
 	// 创建 HTTP 全局静态路由表
 	G_StaticRouteTableHTTP = xrtDictCreate(sizeof(RouteInfo), XRT_OBJMODE_SHARED);
+
+#define XADMIN_PUBLIC_ROUTE(path_literal) \
+	do { \
+		RouteInfo* pPublicRoute = xrtDictGet(G_StaticRouteTableHTTP, path_literal, strlen(path_literal)); \
+		if ( pPublicRoute ) { \
+			pPublicRoute->bAuth = FALSE; \
+			pPublicRoute->bAdmin = FALSE; \
+		} \
+	} while (0)
 	
 	
 	
 	// ==================== 后台路由 ====================
 	
 	// 添加 HTTP 静态路由 - Index
-	AddStaticRouteHTTP("/",										Request_Index);
+	AddStaticRouteHTTP("/",										Request_Site_Home);
+	AddStaticRouteHTTP("/features",								Request_Site_Features);
+	AddStaticRouteHTTP("/plugins",								Request_Site_Plugins);
+	AddStaticRouteHTTP("/capabilities",							Request_Site_Capabilities);
+	AddStaticRouteHTTP("/content-system",						Request_Site_ContentSystem);
+	AddStaticRouteHTTP("/docs",									Request_Site_Docs);
+	AddStaticRouteHTTP("/docs/plugin",							Request_Site_Docs);
+	AddStaticRouteHTTP("/docs/content",							Request_Site_Docs);
+	AddStaticRouteHTTP("/docs/capability",						Request_Site_Docs);
+	AddStaticRouteHTTP("/download",								Request_Site_Download);
+	AddStaticRouteHTTP("/demo",									Request_Site_Demo);
+	XADMIN_PUBLIC_ROUTE("/");
+	XADMIN_PUBLIC_ROUTE("/features");
+	XADMIN_PUBLIC_ROUTE("/plugins");
+	XADMIN_PUBLIC_ROUTE("/capabilities");
+	XADMIN_PUBLIC_ROUTE("/content-system");
+	XADMIN_PUBLIC_ROUTE("/docs");
+	XADMIN_PUBLIC_ROUTE("/docs/plugin");
+	XADMIN_PUBLIC_ROUTE("/docs/content");
+	XADMIN_PUBLIC_ROUTE("/docs/capability");
+	XADMIN_PUBLIC_ROUTE("/download");
+	XADMIN_PUBLIC_ROUTE("/demo");
 	AddStaticRouteHTTP("/admin",									Request_Index);
 	
 	// 添加 HTTP 静态路由 - Login
@@ -254,6 +284,7 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/plugin/import",						Request_Plugin_Import);
 	AddStaticRouteHTTP("/admin/plugin/settings",					Request_Plugin_Settings);
 
+#undef XADMIN_PUBLIC_ROUTE
 }
 
 

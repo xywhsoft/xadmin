@@ -68,6 +68,7 @@
 
 
 // 路由调用 - HTTP
+#include "route_http/site.h"
 #include "route_http/index.h"
 #include "route_http/brand.h"
 #include "route_http/login.h"

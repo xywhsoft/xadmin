@@ -18,6 +18,7 @@ str DBPath;
 str LogPath;
 str TempPath;
 str PagePath;
+str SitePagePath;
 str ToolPath;
 str OptionPath;
 str InstallPath;
@@ -136,6 +137,7 @@ void AddStaticRouteHTTP(str uri, void* proc)
 
 // xadmin page helper api
 void LoadPage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
+void LoadSitePage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
 void XS_ImportScriptAPI(TCCState* s);
 
 static void XAdminTCCErrorHandler(void* pOpaque, const char* sMsg)
@@ -375,6 +377,7 @@ void Define_Init(XS_ServerObject objServer, XS_HostObject objHost)
 	LogPath = xrtPathJoin(3, AppPath, "data", "logs");
 	TempPath = xrtPathJoin(3, AppPath, "data", "temp");
 	PagePath = xrtPathJoin(3, AppPath, "data", "page");
+	SitePagePath = xrtPathJoin(4, AppPath, "data", "site", "page");
 	ToolPath = xrtPathJoin(2, ExePath, "tools");
 	OptionPath = xrtPathJoin(3, AppPath, "data", "options");
 	InstallPath = xrtPathJoin(3, AppPath, "data", "install");
@@ -396,6 +399,7 @@ void Define_Unit()
 	xrtFree(LogPath);
 	xrtFree(TempPath);
 	xrtFree(PagePath);
+	xrtFree(SitePagePath);
 	xrtFree(ToolPath);
 	xrtFree(OptionPath);
 	xrtFree(InstallPath);

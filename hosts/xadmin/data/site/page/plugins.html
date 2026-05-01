@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>xadmin 插件生态</title><link rel="stylesheet" href="/site/css/site.css"></head>
+<body>
+<header class="site-header"><nav class="nav"><a class="brand" href="/"><img src="/img/logo.png" alt="xadmin">xadmin</a><div class="nav-links"><a href="/features">功能</a><a href="/plugins">插件生态</a><a href="/capabilities">能力包</a><a href="/content-system">内容系统</a><a href="/docs">文档</a></div><a class="nav-action" href="/admin">进入后台</a></nav></header>
+<main>
+  <section class="section page-title"><span class="eyebrow">Plugin Runtime</span><h1>插件生态</h1><p class="lead">插件是 xadmin 的业务扩展单元。它拥有独立目录、路由、菜单、配置、静态资源和运行时生命周期。</p></section>
+  <section class="band"><div class="section"><h2>插件目录规范</h2><div class="grid">
+    <article class="card"><h3>page / template</h3><p>page 存放需要鉴权访问的后台页面，template 存放插件模板。</p></article>
+    <article class="card"><h3>option / static</h3><p>option 存放配置文件，static 通过 `/plugin-static/&lt;xid&gt;/...` 公开访问。</p></article>
+    <article class="card"><h3>src / inc / lib</h3><p>服务于 TCC 编译和第三方头文件、def 文件加载，保持插件代码边界清晰。</p></article>
+  </div></div></section>
+  <section class="section"><h2>插件市场方向</h2><p class="lead">插件商店、导入导出、版本和授权能力将围绕 xadmin 插件包展开。当前门户先提供入口和规范说明。</p></section>
+</main>
+<footer class="site-footer"><div class="section"><span>xadmin</span><span>插件生态</span></div></footer>
+</body></html>
