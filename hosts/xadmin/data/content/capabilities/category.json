@@ -1,0 +1,20 @@
+{
+	"key": "category",
+	"title": "Category",
+	"providerKind": "builtin",
+	"providerXid": "",
+	"surfaces": ["admin_list", "admin_detail", "public_detail"],
+	"defaults": {
+		"enabled": false,
+		"multiple": false
+	},
+	"schema": {
+		"type": "object",
+		"properties": {
+			"enabled": {"type": "boolean"},
+			"multiple": {"type": "boolean"}
+		}
+	},
+	"status": "draft",
+	"sort": 200
+}

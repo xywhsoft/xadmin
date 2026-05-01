@@ -1,0 +1,218 @@
+<style>
+	.content-model-page .layui-table-view .layui-table-body .layui-table-cell {
+		height: auto;
+		line-height: 1.6;
+		overflow: visible;
+	}
+
+	.content-model-meta {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		gap: 2px;
+		min-height: 42px;
+		padding: 3px 0;
+	}
+
+	.content-model-primary,
+	.content-model-secondary {
+		display: block;
+		max-width: 100%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.content-model-secondary {
+		color: #999;
+		font-size: 12px;
+	}
+</style>
+
+<div class="content-model-page" style="padding: 16px;">
+	<table class="layui-hide" id="Table_Content_Model" lay-filter="Table_Content_Model"></table>
+</div>
+
+<script type="text/html" id="Toolbar_Content_Model">
+	<div class="layui-inline">
+		<input type="text" id="Search_Content_Model" placeholder="搜索模型名称、标识或插件..." class="layui-input" style="width: 260px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Content_Model_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Content_Model_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="Content_Model_Add"><i class="layui-icon layui-icon-addition"></i> 新建模型</button>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Content_Model_Name">
+	<div class="content-model-meta">
+		<div class="content-model-primary" title="{{= d.title || d.name || d.xid || '-' }}"><strong>{{= d.title || d.name || d.xid || '-' }}</strong></div>
+		<div class="content-model-secondary" title="{{= d.xid || '' }}"><code>{{= d.xid || '-' }}</code></div>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Content_Model_Plugin">
+	<div class="content-model-meta">
+		<div class="content-model-primary" title="{{= d.generatedPluginXid || '-' }}"><code>{{= d.generatedPluginXid || '-' }}</code></div>
+		<div class="content-model-secondary">字段：{{= Number(d.fieldCount || 0) }}</div>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Content_Model_Revision">
+	<span class="layui-badge layui-bg-blue">{{= Number(d.currentRevision || 0) }}</span>
+	<span class="layui-badge layui-bg-green">{{= Number(d.appliedRevision || 0) }}</span>
+</script>
+
+<script type="text/html" id="Tpl_Content_Model_Status">
+	{{# if((d.status || '') === 'active'){ }}
+		<span class="layui-badge layui-bg-green">active</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-gray">{{= d.status || '-' }}</span>
+	{{# } }}
+</script>
+
+<script type="text/html" id="Tool_Content_Model">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+	</div>
+</script>
+
+<script>
+	layui.use(["table", "layer"], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		var allRows = [];
+
+		function textOf(value) {
+			return value == null ? "" : String(value);
+		}
+
+		function searchText(row) {
+			return [
+				row.title,
+				row.name,
+				row.xid,
+				row.namespace,
+				row.generatedPluginXid,
+				row.status
+			].map(textOf).join(" ").toLowerCase();
+		}
+
+		function filterRows(keyword) {
+			var q = textOf(keyword).trim().toLowerCase();
+			if ( !q ) return allRows.slice();
+			return allRows.filter(function(row){
+				return searchText(row).indexOf(q) >= 0;
+			});
+		}
+
+		function currentKeyword() {
+			var input = document.getElementById("Search_Content_Model");
+			return input ? input.value : "";
+		}
+
+		function reloadRows(rows) {
+			table.reloadData("Table_Content_Model", {
+				data: rows,
+				page: { curr: 1 }
+			});
+		}
+
+		function loadRows() {
+			fetch("/admin/content/types?page=1&limit=100", {
+				credentials: "same-origin",
+				headers: { "Accept": "application/json" }
+			})
+			.then(function(response){ return response.json(); })
+			.then(function(result){
+				if ( !result || result.result !== true ) {
+					throw new Error((result && result.message) || "加载模型列表失败");
+				}
+				allRows = result.data && Array.isArray(result.data.items) ? result.data.items : [];
+				reloadRows(filterRows(currentKeyword()));
+			})
+			.catch(function(error){
+				layer.msg(error.message || "加载模型列表失败", { icon: 2 });
+				allRows = [];
+				reloadRows([]);
+			});
+		}
+
+		function openEditor(xid) {
+			var url = "/admin/view/content/editor";
+			if ( xid ) {
+				url += "?xid=" + encodeURIComponent(xid);
+			} else {
+				url += "?new=1";
+			}
+			layer.open({
+				title: xid ? "编辑模型" : "新建模型",
+				type: 2,
+				shadeClose: false,
+				area: ["92%", "88%"],
+				content: url,
+				end: loadRows
+			});
+		}
+
+		table.render({
+			elem: "#Table_Content_Model",
+			toolbar: "#Toolbar_Content_Model",
+			data: [],
+			defaultToolbar: ["filter", "exports", "print"],
+			height: "full-135",
+			cellMinWidth: 80,
+			skin: "line",
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ["count", "prev", "page", "next", "limit", "refresh", "skip"]
+			},
+			cols: [[
+				{field: "id", width: 80, title: "ID", sort: true},
+				{title: "模型", minWidth: 220, templet: "#Tpl_Content_Model_Name"},
+				{field: "namespace", width: 130, title: "命名空间"},
+				{title: "插件", minWidth: 220, templet: "#Tpl_Content_Model_Plugin"},
+				{title: "修订", width: 110, templet: "#Tpl_Content_Model_Revision"},
+				{title: "状态", width: 100, templet: "#Tpl_Content_Model_Status"},
+				{field: "updateTimeText", width: 170, title: "修改时间"},
+				{width: 100, title: "操作", fixed: "right", templet: "#Tool_Content_Model"}
+			]]
+		});
+
+		table.on("toolbar(Table_Content_Model)", function(obj){
+			switch ( obj.event ) {
+				case "Content_Model_Search":
+					reloadRows(filterRows(currentKeyword()));
+					break;
+				case "Content_Model_Refresh":
+					loadRows();
+					break;
+				case "Content_Model_Add":
+					openEditor("");
+					break;
+			}
+		});
+
+		table.on("tool(Table_Content_Model)", function(obj){
+			if ( obj.event === "edit" ) {
+				openEditor((obj.data || {}).xid || "");
+			}
+		});
+
+		setTimeout(function(){
+			var input = document.getElementById("Search_Content_Model");
+			if ( input ) {
+				input.addEventListener("keydown", function(event){
+					if ( event.key === "Enter" ) {
+						reloadRows(filterRows(currentKeyword()));
+					}
+				});
+			}
+		}, 0);
+
+		loadRows();
+	});
+</script>

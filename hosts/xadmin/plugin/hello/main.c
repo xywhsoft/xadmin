@@ -1,4 +1,5 @@
 #include <xs_plugin.h>
+#include "hello_page.h"
 
 static XAdminPluginHandle G_HelloHandle = NULL;
 static sqlite3* G_HelloMainDb = NULL;
@@ -417,27 +418,12 @@ void Hello_RequestInfo(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 void Hello_RequestView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	const char* sHtml =
-		"<div style='padding:32px;text-align:center;'>"
-		"<h1 style='margin-bottom:12px;'>Hello Plugin</h1>"
-		"<p style='color:#666;'>This page is served by xs_plugin.h.</p>"
-		"<button class='layui-btn' onclick='helloPluginTest()'>Call API</button>"
-		"<pre id='hello_plugin_result' style='margin:24px auto 0;max-width:720px;text-align:left;background:#f7f7f7;padding:16px;border-radius:8px;'></pre>"
-		"</div>"
-		"<script>"
-		"function helloPluginTest(){"
-		"fetch('/api/plugin/hello/greeting')"
-		".then(function(r){return r.json();})"
-		".then(function(data){document.getElementById('hello_plugin_result').innerText=JSON.stringify(data,null,2);});"
-		"}"
-		"</script>";
-
 	(void)objServer;
 	(void)objHost;
 	(void)objReq;
 	(void)objSession;
 
-	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html\r\n", sHtml, 0);
+	XAdmin_LoadPluginPage(G_HelloHandle, objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", HELLO_ADMIN_PAGE);
 }
 
 void Hello_OnGreetingEvent(const char* event_name, void* payload, size_t payload_size)

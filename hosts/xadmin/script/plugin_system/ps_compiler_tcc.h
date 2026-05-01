@@ -5,6 +5,34 @@
 
 typedef void (*XAdminPluginSetGlobalDataProc)(int idx, void* ptr);
 
+void PS_TCCGenerationErrorHandler(void* pOpaque, const char* sMsg)
+{
+	PluginSystemGeneration* pGeneration = (PluginSystemGeneration*)pOpaque;
+	str sJoined;
+
+	if ( sMsg == NULL || sMsg[0] == '\0' ) {
+		return;
+	}
+
+	printf("        [PluginSystem][TCC] %s\n", sMsg);
+	if ( pGeneration == NULL ) {
+		return;
+	}
+
+	if ( pGeneration->sErrorMessage == NULL ) {
+		pGeneration->sErrorMessage = xrtCopyStr(sMsg, 0);
+		return;
+	}
+	if ( strlen(pGeneration->sErrorMessage) > 2048 ) {
+		return;
+	}
+	sJoined = xrtFormat("%s\n%s", pGeneration->sErrorMessage, sMsg);
+	if ( sJoined ) {
+		xrtFree(pGeneration->sErrorMessage);
+		pGeneration->sErrorMessage = sJoined;
+	}
+}
+
 void PS_TCCAddPathIfExists(TCCState* pTcc, str sRootPath, str sRelPath, bool bInclude)
 {
 	str sPath;
@@ -163,11 +191,13 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
 		return FALSE;
 	}
+	tcc_set_error_func(pTcc, pGeneration, PS_TCCGenerationErrorHandler);
 
 	PS_TCCRegisterPluginSdkSymbols(pTcc);
 	PS_TCCAddPublicInclude(pTcc);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "inc", TRUE);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "lib", FALSE);
+	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "src", TRUE);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "include", TRUE);
 
 	tblManifest = PS_PackageManifestRef(pPackage);
@@ -200,7 +230,9 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	}
 
 	if ( !bCompiled ) {
-		pGeneration->sErrorMessage = xrtCopyStr("failed to compile plugin sources", 0);
+		if ( pGeneration->sErrorMessage == NULL ) {
+			pGeneration->sErrorMessage = xrtCopyStr("failed to compile plugin sources", 0);
+		}
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
 		if ( tblManifest ) {
 			xvoUnref(tblManifest);

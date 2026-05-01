@@ -183,6 +183,19 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/view/attachment/edit",				Request_View_Attachment_Edit);
 	AddStaticRouteHTTP("/admin/view/attachment/upload",			Request_View_Attachment_Upload);
 	AddStaticRouteHTTP("/admin/view/attachment/stats",				Request_View_Attachment_Stats);
+
+	// Content generator
+	AddStaticRouteHTTP("/admin/view/content",					Request_View_Content_Index);
+	AddStaticRouteHTTP("/admin/view/content/editor",				Request_View_Content_Editor);
+	AddStaticRouteHTTP("/admin/content/types",					Request_Content_Types);
+	AddStaticRouteHTTP("/admin/content/type",					Request_Content_Type);
+	AddStaticRouteHTTP("/admin/content/save",					Request_Content_Save);
+	AddStaticRouteHTTP("/admin/content/revisions",				Request_Content_Revisions);
+	AddStaticRouteHTTP("/admin/content/generations",				Request_Content_Generations);
+	AddStaticRouteHTTP("/admin/content/advisor",					Request_Content_Advisor);
+	AddStaticRouteHTTP("/admin/content/generate",				Request_Content_Generate);
+	AddStaticRouteHTTP("/admin/content/capabilities",				Request_Content_Capabilities);
+	AddStaticRouteHTTP("/admin/content/templates",				Request_Content_Templates);
 	
 	// ==================== 前台API路由 ====================
 	

@@ -1,0 +1,19 @@
+{
+	"formatVersion": 4,
+	"xid": "cms.codex_verify_0501",
+	"name": "cms.codex_verify_0501",
+	"title": "验收模型",
+	"description": "内容系统浏览器验收模型",
+	"version": "1.0.0",
+	"author": "xAdmin",
+	"kind": "singleton",
+	"runtime": {"compiler":"tcc","language":"c"},
+	"resources": {"page":"page","template":"template","option":"option","static":"static"},
+	"build": {"entry":"main.c","sources":["main.c"],"defines":["XADMIN_PLUGIN=1"]},
+	"compat": {"minHostVersion":"4.0.0","maxHostVersion":"5.0.0","abiVersion":4},
+	"capabilities": [],
+	"dependencies": {"plugins":[],"services":[],"features":[]},
+	"contributes": {"menus":[],"routes":[],"hooks":[],"events":[]},
+	"defaultConfig": "config.defaults.json",
+	"configSchema": "config.schema.json"
+}

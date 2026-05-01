@@ -83,6 +83,9 @@ bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 	const char* sLookupPath = bAdminEntryAlias ? "/admin/login" : sPath;
 	const RouteInfo* pRoute = (const RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, (str)sLookupPath, strlen(sLookupPath));
 	if ( pRoute == NULL ) {
+		if ( PS_TryServePluginStatic(objReq, objResp, sPath) ) {
+			return TRUE;
+		}
 		return FALSE;
 	}
 	

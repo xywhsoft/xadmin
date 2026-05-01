@@ -30,9 +30,277 @@
     }
     .shell { max-width: 1540px; margin: 0 auto; padding: 20px; }
     .editor-shell {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr) 300px;
+      gap: 16px;
+      align-items: start;
+    }
+    .workbench-topbar {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      border: 1px solid #e6eaf0;
+      border-radius: 4px;
+      background: #fff;
+      padding: 14px 16px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    }
+    .workbench-title {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 5px;
+      min-width: 0;
+    }
+    .workbench-title strong {
+      font-size: 18px;
+      color: #1f2937;
+      line-height: 1.25;
+    }
+    .workbench-title span {
+      color: #667085;
+      font-size: 12px;
+    }
+    .workbench-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .workbench-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      flex: 1;
+      min-width: 360px;
+    }
+    .workbench-tabs .layui-btn {
+      height: 32px;
+      line-height: 32px;
+      padding: 0 12px;
+    }
+    .workbench-tabs .layui-btn-primary.active {
+      border-color: #1677ff;
+      color: #1677ff;
+      background: #eef6ff;
+    }
+    .workbench-sidebar,
+    .workbench-inspector {
+      border: 1px solid #e6eaf0;
+      border-radius: 4px;
+      background: #fff;
+      padding: 12px;
+      position: sticky;
+      top: 16px;
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+    }
+    .workbench-sidebar {
+      grid-column: 1;
+      grid-row: 2;
+    }
+    .workbench-inspector {
+      grid-column: 3;
+      grid-row: 2;
+    }
+    .workbench-main-note {
+      color: #667085;
+      font-size: 12px;
+      line-height: 1.6;
+      margin-top: 10px;
+    }
+    .nav-group-title,
+    .side-section-title {
+      color: #667085;
+      font-size: 12px;
+      font-weight: 700;
+      margin: 10px 0 8px;
+    }
+    .side-field-list,
+    .side-capability-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
+    }
+    .side-field-item,
+    .side-capability-item,
+    .impact-item {
+      border: 1px solid #edf1f5;
+      border-radius: 4px;
+      background: #fafcff;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .side-field-item {
+      cursor: pointer;
+    }
+    .side-field-item.active {
+      border-color: #1677ff;
+      background: #eef6ff;
+    }
+    .side-field-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 8px;
+    }
+    .side-field-actions .layui-btn {
+      height: 24px;
+      line-height: 24px;
+      padding: 0 7px;
+    }
+    .side-field-item strong,
+    .side-capability-item strong,
+    .impact-item strong {
+      display: block;
+      color: #1f2937;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .side-field-item span,
+    .side-capability-item span,
+    .impact-item span {
+      display: block;
+      color: #667085;
+    }
+    .workbench-inspector .layui-badge,
+    .side-field-item .layui-badge,
+    .side-capability-item .layui-badge {
+      margin-right: 4px;
+      margin-top: 4px;
+    }
+    .capability-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .capability-column {
+      border: 1px solid #eef2f7;
+      border-radius: 4px;
+      background: #fff;
+      padding: 12px;
+      min-height: 160px;
+    }
+    .capability-card {
+      border: 1px solid #e5eaf2;
+      border-radius: 4px;
+      padding: 12px;
+      background: #f8fbff;
+      margin-top: 10px;
+    }
+    .capability-card strong {
+      display: block;
+      color: #1f2937;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .capability-card p {
+      margin: 0 0 8px;
+      color: #667085;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+    .visual-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .visual-editor {
+      border: 1px solid #eef2f7;
+      border-radius: 4px;
+      background: #fff;
+      padding: 12px;
+      min-width: 0;
+    }
+    .visual-editor h3 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      color: #1f2937;
+    }
+    .visual-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .visual-item {
+      border: 1px solid #edf1f5;
+      border-radius: 4px;
+      background: #fafcff;
+      padding: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .visual-item strong {
+      display: block;
+      color: #1f2937;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .visual-item span {
+      display: block;
+      color: #667085;
+    }
+    .option-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    .option-table th,
+    .option-table td {
+      border-bottom: 1px solid #edf1f5;
+      padding: 7px 6px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .option-table th {
+      color: #667085;
+      font-weight: 700;
+      background: #fafcff;
+    }
+    .option-table .layui-input,
+    .option-table select {
+      height: 30px;
+      line-height: 30px;
+      font-size: 12px;
+    }
+    .quick-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .quick-form .layui-input,
+    .quick-form .layui-select,
+    .quick-form select {
+      height: 32px;
+      line-height: 32px;
+      font-size: 12px;
+    }
+    .quick-form .wide {
+      grid-column: 1 / -1;
+    }
+    .field-workbench {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      gap: 14px;
+    }
+    .field-list-panel {
+      border: 1px solid #eef2f7;
+      border-radius: 4px;
+      background: #fff;
+      padding: 12px;
+    }
+    .field-editor-panel {
+      min-width: 0;
+    }
+    .legacy-tabbar-panel {
+      display: none;
     }
     .tabbar {
       display: flex;
@@ -55,6 +323,11 @@
       background: #e8f1ff;
       border-color: #91caff;
       color: #0958d9;
+    }
+    .tab-panel {
+      grid-column: 2;
+      grid-row: 2;
+      min-width: 0;
     }
     .summary-grid {
       display: grid;
@@ -126,6 +399,7 @@
     .meta-card strong { display: block; font-size: 24px; margin-top: 8px; }
     .meta-card span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
     .designer-grid, .history-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .history-grid { grid-column: 2; grid-row: 2; min-width: 0; }
     .form-host {
       border-radius: 6px;
       border: 1px solid var(--line);
@@ -340,12 +614,26 @@
     .pill.success { background: #dcfce7; color: #166534; }
     .empty { padding: 24px 0; color: var(--muted); text-align: center; }
     @media (max-width: 1220px) {
+      .editor-shell { grid-template-columns: 220px minmax(0, 1fr); }
+      .workbench-inspector { grid-column: 1 / -1; position: static; max-height: none; }
       .designer-grid, .history-grid { grid-template-columns: 1fr; }
       .meta-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .summary-grid { grid-template-columns: 1fr; }
+      .capability-board,
+      .visual-grid,
+      .field-workbench { grid-template-columns: 1fr; }
     }
     @media (max-width: 720px) {
       .shell { padding: 18px 12px 32px; }
+      .editor-shell { grid-template-columns: 1fr; }
+      .workbench-topbar,
+      .workbench-sidebar,
+      .tab-panel,
+      .history-grid,
+      .workbench-inspector { grid-column: 1; position: static; max-height: none; }
+      .workbench-topbar { align-items: stretch; flex-direction: column; }
+      .workbench-tabs { min-width: 0; }
+      .workbench-actions { justify-content: flex-start; }
       .meta-grid { grid-template-columns: 1fr; }
       .form-host .layui-form-label { width: auto; margin-bottom: 8px; display: block; }
       .form-host .layui-input-block { margin-left: 0; }
@@ -356,12 +644,48 @@
   <div class="shell">
     <main class="stack">
         <section class="editor-shell view-panel" id="cs_editor_view">
-          <section class="panel stack">
+          <section class="workbench-topbar">
+            <div class="workbench-title">
+              <strong id="cs_workbench_title">编辑模型</strong>
+              <span id="cs_workbench_subtitle">内容模型生成器</span>
+            </div>
+            <div class="workbench-tabs">
+              <button class="layui-btn layui-btn-primary layui-btn-sm" id="cs_top_overview_btn" type="button" onclick="csSetEditorTab('overview')">概览</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" id="cs_top_fields_btn" type="button" onclick="csSetEditorTab('fields')">字段</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" id="cs_top_display_btn" type="button" onclick="csSetEditorTab('display')">页面</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" id="cs_top_capabilities_btn" type="button" onclick="csSetEditorTab('capabilities')">能力</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" id="cs_top_policy_btn" type="button" onclick="csSetEditorTab('policy')">策略</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" id="cs_top_generate_btn" type="button" onclick="csSetEditorTab('generate')">生成</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" id="cs_top_advanced_btn" type="button" onclick="csSetEditorTab('advanced')">高级</button>
+            </div>
+            <div class="workbench-actions">
+              <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csUseTemplate()">载入模板</button>
+              <button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csSaveType()">保存修订</button>
+              <button class="layui-btn layui-btn-warm layui-btn-sm" type="button" onclick="csSetEditorTab('generate')">生成预检</button>
+              <button class="layui-btn layui-btn-danger layui-btn-sm" type="button" onclick="csGenerate()">生成插件</button>
+            </div>
+          </section>
+
+          <aside class="workbench-sidebar">
+            <div id="cs_sidebar_context"><div class="empty">当前页面暂无侧栏内容。</div></div>
+          </aside>
+
+          <aside class="workbench-inspector">
+            <div class="side-section-title">当前状态</div>
+            <div class="impact-item"><strong id="cs_inspector_revision">Revision 0</strong><span id="cs_inspector_plugin">受管插件 -</span></div>
+            <div class="side-section-title">生成影响</div>
+            <div id="cs_inspector_impact"><div class="empty">保存后可查看生成影响</div></div>
+            <div class="side-section-title">依赖状态</div>
+            <div id="cs_inspector_dependencies"><div class="empty">暂无能力依赖</div></div>
+            <div class="workbench-main-note">高级 DSL 仍然保留，但普通建模操作优先通过字段、页面、能力和策略工作区完成。</div>
+          </aside>
+
+          <section class="panel stack legacy-tabbar-panel">
             <div class="tabbar">
               <button class="tab-button" id="cs_tab_overview_btn" onclick="csSetEditorTab('overview')">基础信息</button>
               <button class="tab-button" id="cs_tab_design_btn" onclick="csSetEditorTab('design')">基础与实体</button>
-              <button class="tab-button" id="cs_tab_display_btn" onclick="csSetEditorTab('display')">分组与界面</button>
-              <button class="tab-button" id="cs_tab_policy_btn" onclick="csSetEditorTab('policy')">能力与策略</button>
+              <button class="tab-button" id="cs_tab_display_btn" onclick="csSetEditorTab('display')">页面配置</button>
+              <button class="tab-button" id="cs_tab_policy_btn" onclick="csSetEditorTab('policy')">策略配置</button>
               <button class="tab-button" id="cs_tab_fields_btn" onclick="csSetEditorTab('fields')">字段设计</button>
               <button class="tab-button" id="cs_tab_dsl_btn" onclick="csSetEditorTab('dsl')">DSL</button>
               <button class="tab-button" id="cs_tab_revisions_btn" onclick="csSetEditorTab('revisions')">修订记录</button>
@@ -381,9 +705,9 @@
               <input class="input" id="cs_revision_note" placeholder="说明这一版改了什么">
             </div>
             <div class="toolbar">
-              <button class="button primary" onclick="csSaveType()">保存修订</button>
-              <button class="button warn" onclick="csGenerate()">生成受管插件</button>
-              <button class="button ghost" onclick="csUseTemplate()">载入起始模板</button>
+              <button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csSaveType()">保存修订</button>
+              <button class="layui-btn layui-btn-danger layui-btn-sm" type="button" onclick="csGenerate()">生成受管插件</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csUseTemplate()">载入起始模板</button>
             </div>
           </div>
           <div class="hint">先在这里确认当前模型、修订说明与生成动作，再切换到下方的模型设置、字段设计或 DSL 标签继续编辑。</div>
@@ -393,8 +717,8 @@
           <div class="toolbar-between">
             <h3>基础与实体</h3>
             <div class="toolbar">
-              <button class="button primary" onclick="csApplyAssistantToDsl()">写回 DSL</button>
-              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+              <button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csApplyAssistantToDsl()">写回 DSL</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csRefreshDesigner()">从 DSL 重载</button>
             </div>
           </div>
           <div class="status" id="cs_assistant_status"></div>
@@ -404,17 +728,17 @@
               <strong>身份与实体</strong>
               <span>快速定位到 XID、名称、数据表、标题字段等基础定义。</span>
             </button>
-            <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('presentation_groupsJson', 'display')">
-              <strong>分组与界面</strong>
+            <button type="button" class="section-shortcut" onclick="csJumpToWorkbenchPanel('display', 'cs_visual_groups')">
+              <strong>页面配置</strong>
               <span>快速定位到展示分组、列表列配置、排序与详情展示选项。</span>
             </button>
             <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('policy_statusFlow', 'policy')">
-              <strong>能力与策略</strong>
-              <span>快速定位到草稿、状态流、作者策略、发布模式与删除模式。</span>
+              <strong>策略配置</strong>
+              <span>快速定位到草稿、状态流、作者策略、发布模式与删除模式；能力装配进入能力页。</span>
             </button>
             <button type="button" class="section-shortcut" onclick="csJumpToAssistantField('metadata_notes', 'display')">
               <strong>元数据与备注</strong>
-              <span>快速定位到标签、关键字、运营备注与能力槽位 JSON。</span>
+              <span>快速定位到标签、关键字与运营备注。</span>
             </button>
           </div>
           <div class="assistant-advisor-grid" id="cs_assistant_advisor"></div>
@@ -423,51 +747,148 @@
 
         <section class="panel stack tab-panel" id="cs_tab_display" hidden>
           <div class="toolbar-between">
-            <h3>分组与界面</h3>
+            <h3>页面配置</h3>
             <div class="toolbar">
-              <button class="button primary" onclick="csApplyAssistantToDsl('display')">写回 DSL</button>
-              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+              <button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csApplyAssistantToDsl('display')">写回 DSL</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csRefreshDesigner()">从 DSL 重载</button>
             </div>
           </div>
           <div class="status" id="cs_display_status"></div>
           <div class="hint">这里集中维护展示分组、列表列、默认排序、详情展示与元数据备注。</div>
+          <div class="visual-grid">
+            <div class="visual-editor">
+              <h3>列表列</h3>
+              <div id="cs_visual_columns"><div class="empty">暂无列表列。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>展示分组</h3>
+              <div id="cs_visual_groups"><div class="empty">暂无展示分组。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>字段分组</h3>
+              <div id="cs_visual_field_groups"><div class="empty">暂无字段。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>默认排序</h3>
+              <div id="cs_visual_default_sort"><div class="empty">暂无默认排序。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>前台详情</h3>
+              <div id="cs_visual_detail_fields"><div class="empty">暂无详情字段配置。</div></div>
+            </div>
+          </div>
           <div class="form-host" id="cs_display_form"><div class="empty">正在加载界面配置表单...</div></div>
         </section>
 
         <section class="panel stack tab-panel" id="cs_tab_policy" hidden>
           <div class="toolbar-between">
-            <h3>能力与策略</h3>
+            <h3>策略配置</h3>
             <div class="toolbar">
-              <button class="button primary" onclick="csApplyAssistantToDsl('policy')">写回 DSL</button>
-              <button class="button ghost" onclick="csRefreshDesigner()">从 DSL 重载</button>
+              <button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csApplyAssistantToDsl('policy')">写回 DSL</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csRefreshDesigner()">从 DSL 重载</button>
             </div>
           </div>
           <div class="status" id="cs_policy_status"></div>
           <div class="hint">这里集中维护草稿、发布、作者、删除策略，以及能力槽位与索引配置。</div>
-          <div class="form-host" id="cs_policy_form"><div class="empty">正在加载能力与策略表单...</div></div>
+          <div class="visual-grid">
+            <div class="visual-editor">
+              <h3>实体索引</h3>
+              <div id="cs_visual_indexes"><div class="empty">暂无索引。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>策略摘要</h3>
+              <div id="cs_visual_policy_summary"><div class="empty">暂无策略摘要。</div></div>
+            </div>
+          </div>
+          <div class="form-host" id="cs_policy_form"><div class="empty">正在加载策略配置表单...</div></div>
         </section>
 
         <section class="panel stack tab-panel" id="cs_tab_fields" hidden>
           <div class="toolbar-between">
             <h3>字段设计</h3>
             <div class="toolbar">
-              <button class="button primary" onclick="csCommitFieldToDsl()">应用字段</button>
-              <button class="button ghost" onclick="csClearFieldEditor()">新建字段</button>
-              <button class="button danger" onclick="csDeleteFieldFromDsl()">删除当前字段</button>
+              <button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csCommitFieldToDsl()">应用字段</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csClearFieldEditor()">新建字段</button>
+              <button class="layui-btn layui-btn-danger layui-btn-sm" type="button" onclick="csDeleteFieldFromDsl()">删除当前字段</button>
             </div>
           </div>
           <div class="status" id="cs_field_status"></div>
           <div class="hint">通过表单逐个新增或修改字段定义，再合并回 `entity.fields`。</div>
+          <div id="cs_field_options_editor"></div>
           <div class="form-host" id="cs_field_form"><div class="empty">正在加载字段编辑器...</div></div>
-          <div class="field-list" id="cs_field_list"><div class="empty">还没有定义字段。</div></div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_capabilities" hidden>
+          <div class="toolbar-between">
+            <h3>能力装配</h3>
+            <div class="toolbar">
+              <button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csSetEditorTab('policy'); csJumpToAssistantField('capability_slotsJson', 'policy')">高级配置</button>
+              <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csRefreshDesigner()">刷新</button>
+            </div>
+          </div>
+          <div class="status" id="cs_capability_status"></div>
+          <div id="cs_capability_quick_config"></div>
+          <div class="capability-board">
+            <div class="capability-column">
+              <h3>已装配能力</h3>
+              <div id="cs_enabled_capabilities"><div class="empty">当前模型还没有装配能力。</div></div>
+            </div>
+            <div class="capability-column">
+              <h3>可用能力</h3>
+              <div id="cs_available_capabilities"><div class="empty">当前可通过 provider 或能力槽接入评论等能力。</div></div>
+            </div>
+          </div>
+          <div class="hint">这里先以可视化方式展示和检查能力装配。底层仍写回现有 capabilitySlots，复杂配置可进入高级配置。</div>
+        </section>
+
+        <section class="panel stack tab-panel" id="cs_tab_generate" hidden>
+          <div class="toolbar-between">
+            <h3>生成预检</h3>
+            <div class="toolbar">
+              <button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csLoadAdvisor()">刷新预检</button>
+              <button class="layui-btn layui-btn-danger layui-btn-sm" type="button" onclick="csGenerate()">生成插件</button>
+            </div>
+          </div>
+          <div class="status" id="cs_generate_status"></div>
+          <div id="cs_generate_summary" class="summary-grid"></div>
+          <div class="visual-grid">
+            <div class="visual-editor">
+              <h3>修订状态</h3>
+              <div id="cs_generate_revision"><div class="empty">暂无修订状态。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>升级顾问</h3>
+              <div id="cs_generate_advisor"><div class="empty">暂无顾问结果。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>文件影响</h3>
+              <div id="cs_generate_files"><div class="empty">暂无文件影响。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>数据库影响</h3>
+              <div id="cs_generate_database"><div class="empty">暂无数据库影响。</div></div>
+            </div>
+            <div class="visual-editor">
+              <h3>能力影响</h3>
+              <div id="cs_generate_capabilities"><div class="empty">暂无能力影响。</div></div>
+            </div>
+          </div>
         </section>
 
         <section class="panel stack tab-panel" id="cs_tab_dsl" hidden>
+          <div class="toolbar-between">
+            <h3>高级 DSL</h3>
+            <div class="toolbar">
+              <button class="layui-btn layui-btn-primary layui-btn-sm" id="cs_dsl_unlock_btn" type="button" onclick="csToggleDslLock()">解锁编辑</button>
+              <button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csValidateDsl()">校验 DSL</button>
+              <button class="layui-btn layui-btn-warm layui-btn-sm" type="button" onclick="csSyncDesignerFromDsl()">同步可视化表单</button>
+            </div>
+          </div>
           <div class="status" id="cs_form_status"></div>
-          <div class="hint">DSL JSON 仍然是唯一真源。下面的助手面板会以表单方式编辑同一份 DSL，再回写到编辑器。</div>
+          <div class="hint">DSL JSON 仍然是唯一真源，但默认只读。需要直接改 DSL 时先解锁，修改后再同步可视化表单。</div>
           <div class="field">
             <div class="label">内容类型 DSL（JSON）</div>
-            <textarea class="textarea" id="cs_spec"></textarea>
+            <textarea class="textarea" id="cs_spec" readonly></textarea>
           </div>
         </section>
 
@@ -507,6 +928,7 @@
       pendingFieldFocusName: "",
       renderVersion: 0,
       fieldGuidanceMuted: false,
+      dslUnlocked: false,
       layer: null
     };
 
@@ -914,7 +1336,6 @@
               { name: "field_accept", type: "text", label: "上传 accept", props: { placeholder: "file, images, video, audio" } },
               { name: "field_acceptMime", type: "text", label: "允许 MIME", props: { placeholder: "image/* 或 application/pdf" } },
               { name: "field_buttonText", type: "text", label: "上传按钮文字", props: { placeholder: "上传" } },
-              { name: "field_listJson", type: "textarea", label: "选项 JSON", props: { height: 140, placeholder: "[{\"label\":\"已发布\",\"value\":1}]" } },
               { name: "field_componentPropsJson", type: "textarea", label: "组件属性 JSON", props: { height: 140, placeholder: "{\"min\":0,\"max\":100,\"step\":1,\"height\":240}" } }
             ]
           }
@@ -1237,9 +1658,36 @@
 
     function csWriteSpec(spec, message) {
       document.getElementById("cs_spec").value = csFormatJson(spec);
+      csSyncDslLock();
       if (message) {
         csSetPanelStatus(message);
       }
+    }
+
+    function csSyncDslLock() {
+      const textarea = document.getElementById("cs_spec");
+      const button = document.getElementById("cs_dsl_unlock_btn");
+      if (textarea) textarea.readOnly = !csState.dslUnlocked;
+      if (button) button.innerText = csState.dslUnlocked ? "锁定 DSL" : "解锁编辑";
+    }
+
+    function csToggleDslLock() {
+      csState.dslUnlocked = !csState.dslUnlocked;
+      csSyncDslLock();
+      csSetStatus("cs_form_status", csState.dslUnlocked ? "DSL 已解锁。手动修改后请校验并同步可视化表单。" : "DSL 已锁定为只读。");
+    }
+
+    function csValidateDsl() {
+      const spec = csReadSpec(true);
+      if (!spec) return false;
+      csSetStatus("cs_form_status", "DSL JSON 校验通过。");
+      return true;
+    }
+
+    function csSyncDesignerFromDsl() {
+      if (!csValidateDsl()) return;
+      csRefreshDesigner();
+      csToast("可视化表单已从 DSL 同步", 1);
     }
 
     function csUseTemplate() {
@@ -1257,6 +1705,723 @@
       document.getElementById("cs_meta_revision").innerText = String(currentRevision);
       document.getElementById("cs_meta_plugin").innerText = generatedPluginXid;
       document.getElementById("cs_meta_applied").innerText = String(appliedRevision);
+      const topTitle = document.getElementById("cs_workbench_title");
+      const topSubtitle = document.getElementById("cs_workbench_subtitle");
+      const inspectorRevision = document.getElementById("cs_inspector_revision");
+      const inspectorPlugin = document.getElementById("cs_inspector_plugin");
+      if (topTitle) topTitle.innerText = title;
+      if (topSubtitle) topSubtitle.innerText = `${generatedPluginXid} | revision ${currentRevision} / applied ${appliedRevision}`;
+      if (inspectorRevision) inspectorRevision.innerText = `Revision ${currentRevision} / Applied ${appliedRevision}`;
+      if (inspectorPlugin) inspectorPlugin.innerText = `受管插件 ${generatedPluginXid}`;
+    }
+
+    function csCapabilitySlots(spec) {
+      return Array.isArray((spec || {}).capabilitySlots) ? spec.capabilitySlots : [];
+    }
+
+    function csDefaultCommentCapabilitySlot() {
+      return {
+        key: "comments",
+        title: "评论",
+        desc: "在内容详情页挂载评论能力。",
+        serviceXid: "comment-system",
+        routeBase: "/plugin/comment-system",
+        mount: {
+          surface: "public.record-detail",
+          mode: "optional"
+        },
+        configSchema: {
+          type: "object",
+          properties: {
+            threadTitle: { type: "string", title: "评论标题" },
+            pageSize: { type: "integer", title: "每页数量" },
+            allowPublicPost: { type: "boolean", title: "允许公开提交" },
+            moderationMode: { type: "string", title: "审核模式" }
+          }
+        },
+        options: {
+          threadTitle: "评论",
+          pageSize: 50,
+          allowPublicPost: true,
+          moderationMode: "inherit",
+          sortOrder: "newest"
+        }
+      };
+    }
+
+    function csHasCapabilitySlot(spec, key) {
+      return csCapabilitySlots(spec).some((slot) => {
+        return slot && String(slot.key || "").trim() === key;
+      });
+    }
+
+    function csKnownCapabilityProviders() {
+      return [
+        {
+          key: "comments",
+          title: "评论",
+          providerPlugin: "comment-system",
+          serviceXidList: ["comment-system", "comment.system"],
+          surfaces: ["public.record-detail"],
+          builtin: true
+        }
+      ];
+    }
+
+    function csResolveCapabilityProvider(slot) {
+      const service = String((slot && (slot.serviceXid || slot.providerPlugin)) || "");
+      const key = String((slot && slot.key) || "");
+      return csKnownCapabilityProviders().find((provider) => {
+        return provider.key === key
+          || provider.providerPlugin === service
+          || (provider.serviceXidList || []).includes(service);
+      }) || null;
+    }
+
+    function csCapabilityProviderStatus(slot) {
+      const provider = csResolveCapabilityProvider(slot);
+      const surface = String((((slot || {}).mount || {}).surface) || "");
+      if (!provider) {
+        return { label: "未发现 provider", className: "layui-bg-orange", matched: false };
+      }
+      if (surface && !(provider.surfaces || []).includes(surface)) {
+        return { label: "挂载面不匹配", className: "layui-bg-red", matched: false };
+      }
+      return { label: provider.builtin ? "内置已知 provider" : "已发现 provider", className: "layui-bg-green", matched: true };
+    }
+
+    function csAddCommentCapability() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      spec.capabilitySlots = csCapabilitySlots(spec);
+      if (csHasCapabilitySlot(spec, "comments")) {
+        csSetStatus("cs_capability_status", "评论能力已经装配。", "#92400e");
+        csToast("评论能力已经装配", 0);
+        return;
+      }
+      spec.capabilitySlots.push(csDefaultCommentCapabilitySlot());
+      csWriteSpec(spec, "评论能力已写入 capabilitySlots。");
+      csSetEditorTab("capabilities");
+      csRefreshDesigner();
+      csToast("评论能力已装配", 1);
+    }
+
+    function csRemoveCapabilitySlot(index) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const slots = csCapabilitySlots(spec).slice();
+      if (index < 0 || index >= slots.length) {
+        csSetStatus("cs_capability_status", "能力槽位不存在。", "#b91c1c");
+        return;
+      }
+      const removed = slots.splice(index, 1)[0];
+      spec.capabilitySlots = slots;
+      csWriteSpec(spec, `能力 ${(removed && (removed.title || removed.key)) || "slot"} 已移除。`);
+      csSetEditorTab("capabilities");
+      csRefreshDesigner();
+      csToast("能力已移除", 1);
+    }
+
+    function csRenderWorkbenchSidebars(spec) {
+      const contextHost = document.getElementById("cs_sidebar_context");
+      const tab = csState.editorTab || "overview";
+      if (contextHost) {
+        if (tab === "fields") {
+          contextHost.innerHTML = csBuildFieldSidebarHtml(spec);
+        } else if (tab === "capabilities") {
+          contextHost.innerHTML = csBuildCapabilitySidebarHtml(spec);
+        } else if (tab === "display") {
+          contextHost.innerHTML = csBuildSimpleSidebarHtml("页面", [
+            ["后台表单", "csJumpToWorkbenchPanel('display', 'cs_visual_field_groups')"],
+            ["后台列表", "csJumpToWorkbenchPanel('display', 'cs_visual_columns')"],
+            ["前台详情", "csJumpToAssistantField('ui_detail_showAuthor', 'display')"]
+          ]);
+        } else if (tab === "policy") {
+          contextHost.innerHTML = csBuildSimpleSidebarHtml("策略", [
+            ["草稿", "csJumpToAssistantField('feature_draftEnabled', 'policy')"],
+            ["发布", "csJumpToAssistantField('policy_statusFlow', 'policy')"],
+            ["删除", "csJumpToAssistantField('policy_deleteMode', 'policy')"],
+            ["索引", "csJumpToWorkbenchPanel('policy', 'cs_visual_indexes')"]
+          ]);
+        } else if (tab === "generate") {
+          contextHost.innerHTML = csBuildSimpleSidebarHtml("生成", [
+            ["生成影响", "csSetEditorTab('generate')"],
+            ["修订记录", "csSetEditorTab('revisions')"],
+            ["升级顾问", "csSetEditorTab('advisor')"]
+          ]);
+        } else if (tab === "advanced" || tab === "dsl") {
+          contextHost.innerHTML = csBuildSimpleSidebarHtml("高级", [
+            ["DSL", "csSetEditorTab('advanced')"],
+            ["从 DSL 重载", "csRefreshDesigner()"]
+          ]);
+        } else {
+          contextHost.innerHTML = csBuildSimpleSidebarHtml("概览", [
+            ["身份与实体", "csSetEditorTab('design')"],
+            ["字段", "csSetEditorTab('fields')"],
+            ["能力", "csSetEditorTab('capabilities')"],
+            ["生成", "csSetEditorTab('generate')"]
+          ]);
+        }
+      }
+      const slots = csCapabilitySlots(spec);
+      csRenderCapabilityBoard(spec);
+      csRenderGenerateSummary(spec);
+      csRenderVisualEditors(spec);
+      csRenderFieldOptionEditor(spec);
+    }
+
+    function csBuildSimpleSidebarHtml(title, items) {
+      return `<div class="side-section-title">${csEscape(title)}</div><div class="side-field-list">${items.map((item) => `<button type="button" class="side-field-item" onclick="${item[1]}"><strong>${csEscape(item[0])}</strong></button>`).join("")}</div>`;
+    }
+
+    function csBuildFieldSidebarHtml(spec) {
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      if (!fields.length) {
+        return "<div class='toolbar-between'><div class='side-section-title'>字段</div><button class='layui-btn layui-btn-primary layui-btn-xs' type='button' onclick='csClearFieldEditor()'>新增</button></div><div class='side-field-list' id='cs_field_list' data-compact='1'><div class='empty'>暂无字段</div></div>";
+      }
+      return `<div class="toolbar-between"><div class="side-section-title">字段</div><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="csClearFieldEditor()">新增</button></div><div class="side-field-list" id="cs_field_list" data-compact="1">${fields.map((field, index) => {
+        const active = index === csState.fieldEditIndex ? " active" : "";
+        const storageType = (((field || {}).storage || {}).type) || "-";
+        const componentType = (((field || {}).component || {}).type) || "-";
+        const badges = [
+          field && field.required ? "<span class='layui-badge layui-bg-red'>必填</span>" : "",
+          field && field.showInList !== false ? "<span class='layui-badge layui-bg-blue'>列表</span>" : "",
+          field && field.showInDetail !== false ? "<span class='layui-badge layui-bg-green'>详情</span>" : ""
+        ].filter(Boolean).join("");
+        return `<button type="button" class="side-field-item${active}" onclick="csSelectField(${index}); csSetEditorTab('fields')"><strong>${csEscape((field && (field.title || field.name)) || `field_${index}`)}</strong><span>${csEscape((field && field.name) || "-")} | ${csEscape(storageType)} / ${csEscape(componentType)}</span>${badges}</button>`;
+      }).join("")}</div>`;
+    }
+
+    function csBuildCapabilitySidebarHtml(spec) {
+      const slots = csCapabilitySlots(spec);
+      if (!slots.length) {
+        return "<div class='side-section-title'>能力</div><div class='empty'>暂无能力</div><div class='summary-actions'><button class='layui-btn layui-btn-normal layui-btn-sm' type='button' onclick='csAddCommentCapability()'>装配评论能力</button></div>";
+      }
+      return `<div class="side-section-title">已装配能力</div><div class="side-capability-list">${slots.map((slot) => {
+        const key = slot && (slot.title || slot.key || slot.serviceXid) || "能力";
+        const service = slot && (slot.serviceXid || slot.providerPlugin) || "-";
+        const mount = ((slot || {}).mount || {});
+        const surface = mount.surface || "-";
+        return `<button type="button" class="side-capability-item" onclick="csSetEditorTab('capabilities')"><strong>${csEscape(key)}</strong><span>${csEscape(service)} | ${csEscape(surface)}</span><span class="layui-badge layui-bg-blue">已装配</span></button>`;
+      }).join("")}</div>`;
+    }
+
+    function csRenderCapabilityBoard(spec) {
+      const enabledHost = document.getElementById("cs_enabled_capabilities");
+      const availableHost = document.getElementById("cs_available_capabilities");
+      const dependencyHost = document.getElementById("cs_inspector_dependencies");
+      const slots = csCapabilitySlots(spec);
+      if (enabledHost) {
+        if (!slots.length) {
+          enabledHost.innerHTML = "<div class='empty'>当前模型还没有装配能力。</div>";
+        } else {
+          enabledHost.innerHTML = slots.map((slot) => {
+            const mount = ((slot || {}).mount || {});
+            const schema = slot && slot.configSchema ? "已声明配置 schema" : "未声明配置 schema";
+            const providerStatus = csCapabilityProviderStatus(slot);
+            return `<article class="capability-card"><strong>${csEscape((slot && (slot.title || slot.key)) || "能力")}</strong><p>${csEscape((slot && slot.desc) || "通过能力槽位接入运行期能力。")}</p><span class="layui-badge layui-bg-blue">${csEscape((slot && (slot.serviceXid || slot.providerPlugin)) || "provider")}</span><span class="layui-badge layui-bg-green">${csEscape(mount.surface || "mount")}</span><span class="layui-badge ${csEscape(providerStatus.className)}">${csEscape(providerStatus.label)}</span><span class="layui-badge">${csEscape(schema)}</span><div class="summary-actions"><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="csSetEditorTab('policy'); csJumpToAssistantField('capability_slotsJson', 'policy')">配置</button></div></article>`;
+          }).join("");
+        }
+      }
+      if (availableHost) {
+        availableHost.innerHTML = [
+          "<article class='capability-card'><strong>评论</strong><p>当前可通过 comment-system provider 挂载到内容详情页。正式能力包目录扫描后会在这里列出更多能力。</p><span class='layui-badge layui-bg-blue'>comment-system</span><span class='layui-badge layui-bg-green'>public.record-detail</span></article>",
+          "<article class='capability-card'><strong>分类 / 标签 / SEO</strong><p>保留为后续能力包入口。当前阶段先保持现有 DSL 和生成器能力不变。</p><span class='layui-badge'>待接入</span></article>"
+        ].join("");
+        if (!csHasCapabilitySlot(spec, "comments")) {
+          availableHost.innerHTML += "<div class='summary-actions'><button class='layui-btn layui-btn-normal layui-btn-sm' type='button' onclick='csAddCommentCapability()'>装配评论能力</button></div>";
+        } else {
+          availableHost.innerHTML += "<div class='hint'>评论能力已装配，可在左侧或已装配能力中查看。</div>";
+        }
+      }
+      if (dependencyHost) {
+        if (!slots.length) {
+          dependencyHost.innerHTML = "<div class='empty'>暂无能力依赖</div>";
+        } else {
+          dependencyHost.innerHTML = slots.map((slot) => {
+            const status = csCapabilityProviderStatus(slot);
+            return `<div class="impact-item"><strong>${csEscape((slot && (slot.title || slot.key)) || "能力依赖")}</strong><span>${csEscape((slot && (slot.serviceXid || slot.providerPlugin)) || "未指定 provider")} | ${csEscape(status.label)}</span></div>`;
+          }).join("");
+        }
+      }
+      csSetStatus("cs_capability_status", slots.length ? `已装配 ${slots.length} 个能力槽位。` : "当前模型尚未装配能力。");
+    }
+
+    function csRenderGenerateSummary(spec) {
+      const host = document.getElementById("cs_generate_summary");
+      const impactHost = document.getElementById("cs_inspector_impact");
+      const revisionHost = document.getElementById("cs_generate_revision");
+      const advisorHost = document.getElementById("cs_generate_advisor");
+      const filesHost = document.getElementById("cs_generate_files");
+      const databaseHost = document.getElementById("cs_generate_database");
+      const capabilityHost = document.getElementById("cs_generate_capabilities");
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      const slots = csCapabilitySlots(spec);
+      const indexes = ((((spec || {}).entity || {}).indexes) || []);
+      const advisorItems = csAdvisorItems();
+      const advisorSummary = csAdvisorSummary(advisorItems);
+      const revision = Number((csState || {}).currentRevision || 0);
+      const applied = Number((csState || {}).appliedRevision || 0);
+      const targetPlugin = (((spec || {}).identity || {}).xid) || "-";
+      const cards = [
+        { title: "字段", value: `${fields.length} 个字段`, desc: "会影响后台表单、列表、详情和 payload 校验。" },
+        { title: "能力", value: `${slots.length} 个能力槽位`, desc: "会写入 contracts、managed.json 和挂载样例。" },
+        { title: "目标插件", value: targetPlugin, desc: "生成文件仍写入受管插件目录。" },
+        { title: "生成文件", value: "generated / runtime", desc: "main.c、admin.html、public.html、managed.json 等。" }
+      ];
+      const html = cards.map((card) => `<div class="summary-card"><h3>${csEscape(card.title)}</h3><p><strong>${csEscape(card.value)}</strong></p><p>${csEscape(card.desc)}</p></div>`).join("");
+      if (host) host.innerHTML = html;
+      if (impactHost) {
+        impactHost.innerHTML = cards.map((card) => `<div class="impact-item"><strong>${csEscape(card.title)}：${csEscape(card.value)}</strong><span>${csEscape(card.desc)}</span></div>`).join("");
+      }
+      if (revisionHost) {
+        const state = revision === applied ? "当前修订已应用" : "当前修订尚未应用";
+        revisionHost.innerHTML = `<div class="visual-list"><div class="visual-item"><strong>Revision ${revision} / Applied ${applied}</strong><span>${csEscape(state)}</span></div><div class="visual-item"><strong>目标插件</strong><span>${csEscape(targetPlugin)}</span></div></div>`;
+      }
+      if (advisorHost) {
+        if (!advisorItems.length) {
+          advisorHost.innerHTML = "<div class='empty'>暂无顾问结果。保存后可刷新预检。</div>";
+        } else {
+          advisorHost.innerHTML = `<div class="visual-list"><div class="visual-item"><strong>错误 ${advisorSummary.error || 0} / 警告 ${advisorSummary.warn || 0} / 提示 ${advisorSummary.info || 0}</strong><span>升级顾问已按影响范围分组。</span></div></div><div class="summary-actions"><button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csSetEditorTab('advisor')">查看顾问明细</button></div>`;
+        }
+      }
+      if (filesHost) {
+        const fileItems = [
+          "main.c",
+          "generated/admin.html",
+          "generated/public.html",
+          "runtime/managed.json",
+          "runtime/contracts.json"
+        ];
+        filesHost.innerHTML = `<div class="visual-list">${fileItems.map((file) => `<div class="visual-item"><strong>${csEscape(file)}</strong><span>生成或刷新</span></div>`).join("")}</div>`;
+      }
+      if (databaseHost) {
+        const fieldText = fields.length ? `${fields.length} 个字段参与表结构和 payload 校验` : "暂无字段";
+        const indexText = indexes.length ? `${indexes.length} 个索引配置` : "暂无索引配置";
+        databaseHost.innerHTML = `<div class="visual-list"><div class="visual-item"><strong>字段</strong><span>${csEscape(fieldText)}</span></div><div class="visual-item"><strong>索引</strong><span>${csEscape(indexText)}</span></div></div>`;
+      }
+      if (capabilityHost) {
+        if (!slots.length) {
+          capabilityHost.innerHTML = "<div class='empty'>暂无能力影响。</div>";
+        } else {
+          capabilityHost.innerHTML = `<div class="visual-list">${slots.map((slot) => {
+            const mount = ((slot || {}).mount || {});
+            const status = csCapabilityProviderStatus(slot);
+            return `<div class="visual-item"><strong>${csEscape((slot && (slot.title || slot.key)) || "能力")}</strong><span>${csEscape((slot && (slot.serviceXid || slot.providerPlugin)) || "provider")} | ${csEscape(mount.surface || "mount")}</span><span>${csEscape(status.label)}</span></div>`;
+          }).join("")}</div>`;
+        }
+      }
+      const riskText = advisorSummary.error ? `存在 ${advisorSummary.error} 个错误，建议修复后再生成。` : "生成预检基于当前 DSL 草稿展示，保存后以升级顾问为准。";
+      csSetStatus("cs_generate_status", riskText, advisorSummary.error ? "#b91c1c" : undefined);
+    }
+
+    function csRenderVisualEditors(spec) {
+      csRenderDisplayVisualEditors(spec);
+      csRenderPolicyVisualEditors(spec);
+      csRenderCapabilityQuickConfig(spec);
+    }
+
+    function csFieldNameOptions(spec, selected) {
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      const selectedValue = String(selected || "");
+      const options = fields.map((field) => {
+        const name = String((field || {}).name || "");
+        if (!name) return "";
+        return `<option value="${csEscape(name)}"${name === selectedValue ? " selected" : ""}>${csEscape((field && (field.title || field.name)) || name)} (${csEscape(name)})</option>`;
+      }).filter(Boolean).join("");
+      return `<option value="">选择字段</option>${options}`;
+    }
+
+    function csFieldNameCheckboxes(spec, name, selectedFields) {
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      const selected = new Set((selectedFields || []).map((item) => String(item || "")));
+      return fields.map((field) => {
+        const fieldName = String((field || {}).name || "");
+        if (!fieldName) return "";
+        return `<label><input type="checkbox" name="${csEscape(name)}" value="${csEscape(fieldName)}"${selected.has(fieldName) ? " checked" : ""}> ${csEscape((field && (field.title || field.name)) || fieldName)}</label>`;
+      }).filter(Boolean).join("");
+    }
+
+    function csRenderDisplayVisualEditors(spec) {
+      const columnsHost = document.getElementById("cs_visual_columns");
+      const groupsHost = document.getElementById("cs_visual_groups");
+      const fieldGroupsHost = document.getElementById("cs_visual_field_groups");
+      const sortHost = document.getElementById("cs_visual_default_sort");
+      const detailHost = document.getElementById("cs_visual_detail_fields");
+      const columns = ((((spec || {}).ui || {}).list || {}).columns) || [];
+      const groups = ((((spec || {}).presentation || {}).groups) || []);
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      const defaultSort = csNormalizeDefaultSort(((((spec || {}).ui || {}).list || {}).defaultSort) || []);
+      if (columnsHost) {
+        const list = columns.length ? `<div class="visual-list">${columns.map((column, index) => {
+          return `<div class="visual-item"><strong>${csEscape(column)}</strong><span>列表第 ${index + 1} 列</span><div class="summary-actions"><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="csMoveListColumn(${index}, -1)">上移</button><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="csMoveListColumn(${index}, 1)">下移</button><button class="layui-btn layui-btn-danger layui-btn-xs" type="button" onclick="csRemoveListColumn(${index})">移除</button></div></div>`;
+        }).join("")}</div>` : "<div class='empty'>暂无列表列。</div>";
+        columnsHost.innerHTML = `${list}<div class="quick-form"><select id="cs_add_column_field">${csFieldNameOptions(spec, "")}</select><button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csAddListColumn()">加入列表</button></div>`;
+      }
+      if (groupsHost) {
+        const list = groups.length ? `<div class="visual-list">${groups.map((group, index) => {
+          return `<div class="visual-item"><strong>${csEscape((group && group.title) || (group && group.key) || `分组 ${index + 1}`)}</strong><span>${csEscape((group && group.key) || "-")}</span><div class="summary-actions"><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="csMovePresentationGroup(${index}, -1)">上移</button><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="csMovePresentationGroup(${index}, 1)">下移</button><button class="layui-btn layui-btn-danger layui-btn-xs" type="button" onclick="csRemovePresentationGroup(${index})">移除</button></div></div>`;
+        }).join("")}</div>` : "<div class='empty'>暂无展示分组。</div>";
+        groupsHost.innerHTML = `${list}<div class="quick-form"><input class="layui-input" id="cs_new_group_key" placeholder="分组 key"><input class="layui-input" id="cs_new_group_title" placeholder="分组标题"><button class="layui-btn layui-btn-normal layui-btn-sm wide" type="button" onclick="csAddPresentationGroup()">新增分组</button></div>`;
+      }
+      if (fieldGroupsHost) {
+        const groupOptions = (selected) => {
+          const selectedValue = String(selected || "");
+          return `<option value="">未分组</option>${groups.map((group) => {
+            const key = String((group || {}).key || "");
+            if (!key) return "";
+            return `<option value="${csEscape(key)}"${key === selectedValue ? " selected" : ""}>${csEscape((group && (group.title || group.key)) || key)}</option>`;
+          }).join("")}`;
+        };
+        if (!fields.length) {
+          fieldGroupsHost.innerHTML = "<div class='empty'>暂无字段。</div>";
+        } else {
+          fieldGroupsHost.innerHTML = `<div class="visual-list">${fields.map((field, index) => {
+            return `<div class="visual-item"><strong>${csEscape((field && (field.title || field.name)) || `字段 ${index + 1}`)}</strong><span>${csEscape((field && field.name) || "")}</span><div class="quick-form"><select id="cs_field_group_${index}" class="wide">${groupOptions(field && field.group)}</select></div></div>`;
+          }).join("")}</div><div class="summary-actions"><button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csSaveFieldGroups()">保存字段分组</button></div>`;
+        }
+      }
+      if (sortHost) {
+        const fieldName = defaultSort[0] || "";
+        const direction = defaultSort[1] || "desc";
+        sortHost.innerHTML = `<div class="visual-item"><strong>${fieldName ? csEscape(fieldName) : "未设置"}</strong><span>${fieldName ? (direction === "asc" ? "升序" : "降序") : "生成器使用默认排序"}</span></div><div class="quick-form"><select id="cs_default_sort_field">${csFieldNameOptions(spec, fieldName)}</select><select id="cs_default_sort_dir"><option value="desc"${direction !== "asc" ? " selected" : ""}>降序</option><option value="asc"${direction === "asc" ? " selected" : ""}>升序</option></select><button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csUpdateDefaultSort()">保存排序</button><button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csClearDefaultSort()">清空排序</button></div>`;
+      }
+      if (detailHost) {
+        const entity = ((spec || {}).entity) || {};
+        detailHost.innerHTML = `<div class="visual-list"><div class="visual-item"><strong>标题字段</strong><span>${csEscape(entity.titleField || "-")}</span></div><div class="visual-item"><strong>摘要字段</strong><span>${csEscape(entity.summaryField || "-")}</span></div><div class="visual-item"><strong>封面字段</strong><span>${csEscape(entity.coverField || "-")}</span></div><div class="visual-item"><strong>发布时间字段</strong><span>${csEscape(entity.publishedAtField || "-")}</span></div></div><div class="quick-form"><select id="cs_detail_title_field">${csFieldNameOptions(spec, entity.titleField || "")}</select><select id="cs_detail_summary_field">${csFieldNameOptions(spec, entity.summaryField || "")}</select><select id="cs_detail_cover_field">${csFieldNameOptions(spec, entity.coverField || "")}</select><select id="cs_detail_published_field">${csFieldNameOptions(spec, entity.publishedAtField || "")}</select><button class="layui-btn layui-btn-normal layui-btn-sm wide" type="button" onclick="csUpdateDetailFields()">保存详情字段</button></div>`;
+      }
+    }
+
+    function csRenderPolicyVisualEditors(spec) {
+      const indexesHost = document.getElementById("cs_visual_indexes");
+      const summaryHost = document.getElementById("cs_visual_policy_summary");
+      const indexes = ((((spec || {}).entity || {}).indexes) || []);
+      if (indexesHost) {
+        const list = indexes.length ? `<div class="visual-list">${indexes.map((indexDef, index) => {
+          const fields = Array.isArray((indexDef || {}).fields) ? indexDef.fields.join(", ") : "";
+          return `<div class="visual-item"><strong>${csEscape((indexDef && indexDef.name) || `index_${index + 1}`)}</strong><span>${csEscape(fields || "未选择字段")}</span>${indexDef && indexDef.unique ? "<span class='layui-badge layui-bg-blue'>唯一</span>" : ""}<div class="summary-actions"><button class="layui-btn layui-btn-danger layui-btn-xs" type="button" onclick="csRemoveEntityIndex(${index})">移除</button></div></div>`;
+        }).join("")}</div>` : "<div class='empty'>暂无索引。</div>";
+        indexesHost.innerHTML = `${list}<div class="quick-form"><input class="layui-input" id="cs_new_index_name" placeholder="索引名称"><div class="wide">${csFieldNameCheckboxes(spec, "cs_new_index_fields", [])}</div><select id="cs_new_index_unique"><option value="0">普通索引</option><option value="1">唯一索引</option></select><button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csAddEntityIndex()">新增索引</button></div>`;
+      }
+      if (summaryHost) {
+        const policies = ((spec || {}).policies) || {};
+        const draft = (((spec || {}).coreFeatures || {}).draft) || {};
+        summaryHost.innerHTML = `<div class="visual-list"><div class="visual-item"><strong>草稿</strong><span>${draft.enabled ? `已启用 / ${csEscape(draft.mode || "same-table")}` : "未启用"}</span></div><div class="visual-item"><strong>发布流程</strong><span>${csEscape(policies.statusFlow || "draft-published")}</span></div><div class="visual-item"><strong>作者策略</strong><span>${csEscape(policies.authorMode || "admin-or-member")}</span></div><div class="visual-item"><strong>删除策略</strong><span>${csEscape(policies.deleteMode || "soft-delete")}</span></div></div>`;
+      }
+    }
+
+    function csRenderCapabilityQuickConfig(spec) {
+      const host = document.getElementById("cs_capability_quick_config");
+      if (!host) return;
+      const slots = csCapabilitySlots(spec);
+      const index = slots.findIndex((slot) => slot && String(slot.key || "") === "comments");
+      if (index < 0) {
+        host.innerHTML = "";
+        return;
+      }
+      const slot = slots[index] || {};
+      const options = slot.options || {};
+      host.innerHTML = `<div class="visual-editor"><h3>评论能力配置</h3><div class="quick-form"><input class="layui-input" id="cs_comment_thread_title" placeholder="评论标题" value="${csEscape(options.threadTitle || slot.title || "评论")}"><input class="layui-input" id="cs_comment_page_size" type="number" min="1" max="200" step="1" value="${csEscape(options.pageSize || 50)}"><select id="cs_comment_public_post"><option value="1"${options.allowPublicPost !== false ? " selected" : ""}>允许公开提交</option><option value="0"${options.allowPublicPost === false ? " selected" : ""}>关闭公开提交</option></select><select id="cs_comment_moderation"><option value="inherit"${String(options.moderationMode || "inherit") === "inherit" ? " selected" : ""}>继承站点审核</option><option value="pre"${String(options.moderationMode || "") === "pre" ? " selected" : ""}>先审后发</option><option value="none"${String(options.moderationMode || "") === "none" ? " selected" : ""}>不审核</option></select><button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csUpdateCommentCapability(${index})">保存能力配置</button><button class="layui-btn layui-btn-danger layui-btn-sm" type="button" onclick="csRemoveCapabilitySlot(${index})">移除评论能力</button></div></div>`;
+    }
+
+    function csCommitSpecAndRefresh(spec, message, tab) {
+      csWriteSpec(spec, message);
+      if (tab) csState.editorTab = tab;
+      csRefreshDesigner();
+    }
+
+    function csEnsureListColumns(spec) {
+      spec.ui = spec.ui && typeof spec.ui === "object" ? spec.ui : {};
+      spec.ui.list = spec.ui.list && typeof spec.ui.list === "object" ? spec.ui.list : {};
+      spec.ui.list.columns = Array.isArray(spec.ui.list.columns) ? spec.ui.list.columns : [];
+      return spec.ui.list.columns;
+    }
+
+    function csAddListColumn() {
+      const spec = csReadSpec(true);
+      const input = document.getElementById("cs_add_column_field");
+      const fieldName = String((input && input.value) || "").trim();
+      if (!spec || !fieldName) return;
+      const columns = csEnsureListColumns(spec);
+      if (!columns.includes(fieldName)) columns.push(fieldName);
+      csCommitSpecAndRefresh(spec, `列表列 ${fieldName} 已更新。`, "display");
+    }
+
+    function csRemoveListColumn(index) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const columns = csEnsureListColumns(spec);
+      if (index < 0 || index >= columns.length) return;
+      const removed = columns.splice(index, 1)[0];
+      csCommitSpecAndRefresh(spec, `列表列 ${removed} 已移除。`, "display");
+    }
+
+    function csMoveListColumn(index, direction) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const columns = csEnsureListColumns(spec);
+      const nextIndex = index + direction;
+      if (index < 0 || index >= columns.length || nextIndex < 0 || nextIndex >= columns.length) return;
+      const item = columns[index];
+      columns[index] = columns[nextIndex];
+      columns[nextIndex] = item;
+      csCommitSpecAndRefresh(spec, "列表列顺序已调整。", "display");
+    }
+
+    function csEnsurePresentationGroups(spec) {
+      spec.presentation = spec.presentation && typeof spec.presentation === "object" ? spec.presentation : {};
+      spec.presentation.groups = Array.isArray(spec.presentation.groups) ? spec.presentation.groups : [];
+      return spec.presentation.groups;
+    }
+
+    function csAddPresentationGroup() {
+      const spec = csReadSpec(true);
+      const key = String((document.getElementById("cs_new_group_key") || {}).value || "").trim();
+      const title = String((document.getElementById("cs_new_group_title") || {}).value || "").trim();
+      if (!spec || !key) return;
+      const groups = csEnsurePresentationGroups(spec);
+      if (groups.some((group) => group && group.key === key)) {
+        csSetStatus("cs_display_status", "分组 key 已存在。", "#b91c1c");
+        return;
+      }
+      groups.push({ key, title: title || key });
+      csCommitSpecAndRefresh(spec, `展示分组 ${key} 已新增。`, "display");
+    }
+
+    function csRemovePresentationGroup(index) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const groups = csEnsurePresentationGroups(spec);
+      if (index < 0 || index >= groups.length) return;
+      const removed = groups.splice(index, 1)[0];
+      csCommitSpecAndRefresh(spec, `展示分组 ${(removed && removed.key) || "group"} 已移除。`, "display");
+    }
+
+    function csMovePresentationGroup(index, direction) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const groups = csEnsurePresentationGroups(spec);
+      const nextIndex = index + direction;
+      if (index < 0 || index >= groups.length || nextIndex < 0 || nextIndex >= groups.length) return;
+      const item = groups[index];
+      groups[index] = groups[nextIndex];
+      groups[nextIndex] = item;
+      csCommitSpecAndRefresh(spec, "展示分组顺序已调整。", "display");
+    }
+
+    function csSaveFieldGroups() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      fields.forEach((field, index) => {
+        const select = document.getElementById(`cs_field_group_${index}`);
+        const group = String((select && select.value) || "").trim();
+        if (!field) return;
+        if (group) {
+          field.group = group;
+        } else {
+          delete field.group;
+        }
+      });
+      csCommitSpecAndRefresh(spec, "字段分组已更新。", "display");
+    }
+
+    function csUpdateDefaultSort() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      spec.ui = spec.ui && typeof spec.ui === "object" ? spec.ui : {};
+      spec.ui.list = spec.ui.list && typeof spec.ui.list === "object" ? spec.ui.list : {};
+      const fieldName = String((document.getElementById("cs_default_sort_field") || {}).value || "").trim();
+      const direction = String((document.getElementById("cs_default_sort_dir") || {}).value || "desc").trim() || "desc";
+      if (fieldName) {
+        spec.ui.list.defaultSort = [fieldName, direction];
+      } else {
+        delete spec.ui.list.defaultSort;
+      }
+      csCommitSpecAndRefresh(spec, "默认排序已更新。", "display");
+    }
+
+    function csClearDefaultSort() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      spec.ui = spec.ui && typeof spec.ui === "object" ? spec.ui : {};
+      spec.ui.list = spec.ui.list && typeof spec.ui.list === "object" ? spec.ui.list : {};
+      delete spec.ui.list.defaultSort;
+      csCommitSpecAndRefresh(spec, "默认排序已清空。", "display");
+    }
+
+    function csUpdateDetailFields() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      spec.entity = spec.entity && typeof spec.entity === "object" ? spec.entity : {};
+      spec.entity.titleField = String((document.getElementById("cs_detail_title_field") || {}).value || "").trim();
+      spec.entity.summaryField = String((document.getElementById("cs_detail_summary_field") || {}).value || "").trim();
+      spec.entity.coverField = String((document.getElementById("cs_detail_cover_field") || {}).value || "").trim();
+      spec.entity.publishedAtField = String((document.getElementById("cs_detail_published_field") || {}).value || "").trim();
+      csCommitSpecAndRefresh(spec, "前台详情关键字段已更新。", "display");
+    }
+
+    function csEnsureEntityIndexes(spec) {
+      spec.entity = spec.entity && typeof spec.entity === "object" ? spec.entity : {};
+      spec.entity.indexes = Array.isArray(spec.entity.indexes) ? spec.entity.indexes : [];
+      return spec.entity.indexes;
+    }
+
+    function csAddEntityIndex() {
+      const spec = csReadSpec(true);
+      const name = String((document.getElementById("cs_new_index_name") || {}).value || "").trim();
+      const unique = String((document.getElementById("cs_new_index_unique") || {}).value || "0") === "1";
+      const checked = Array.from(document.querySelectorAll("input[name='cs_new_index_fields']:checked")).map((node) => node.value).filter(Boolean);
+      if (!spec || !name || !checked.length) {
+        csSetStatus("cs_policy_status", "请填写索引名称并选择字段。", "#92400e");
+        return;
+      }
+      const indexes = csEnsureEntityIndexes(spec);
+      if (indexes.some((item) => item && item.name === name)) {
+        csSetStatus("cs_policy_status", "索引名称已存在。", "#b91c1c");
+        return;
+      }
+      indexes.push({ name, fields: checked, unique });
+      csCommitSpecAndRefresh(spec, `实体索引 ${name} 已新增。`, "policy");
+    }
+
+    function csRemoveEntityIndex(index) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const indexes = csEnsureEntityIndexes(spec);
+      if (index < 0 || index >= indexes.length) return;
+      const removed = indexes.splice(index, 1)[0];
+      csCommitSpecAndRefresh(spec, `实体索引 ${(removed && removed.name) || "index"} 已移除。`, "policy");
+    }
+
+    function csUpdateCommentCapability(index) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const slots = csCapabilitySlots(spec).slice();
+      const slot = slots[index];
+      if (!slot) return;
+      slot.options = slot.options && typeof slot.options === "object" ? slot.options : {};
+      slot.title = String((document.getElementById("cs_comment_thread_title") || {}).value || "评论").trim() || "评论";
+      slot.options.threadTitle = slot.title;
+      slot.options.pageSize = Number((document.getElementById("cs_comment_page_size") || {}).value || 50) || 50;
+      slot.options.allowPublicPost = String((document.getElementById("cs_comment_public_post") || {}).value || "1") === "1";
+      slot.options.moderationMode = String((document.getElementById("cs_comment_moderation") || {}).value || "inherit");
+      spec.capabilitySlots = slots;
+      csCommitSpecAndRefresh(spec, "评论能力配置已更新。", "capabilities");
+    }
+
+    function csOptionValueType(value) {
+      if (typeof value === "number") return "number";
+      if (typeof value === "boolean") return "boolean";
+      return "string";
+    }
+
+    function csOptionValueText(value) {
+      if (value == null) return "";
+      if (typeof value === "object") return JSON.stringify(value);
+      return String(value);
+    }
+
+    function csNormalizeOptionItem(item) {
+      if (item && typeof item === "object" && !Array.isArray(item)) {
+        const value = Object.prototype.hasOwnProperty.call(item, "value") ? item.value : (item.label || "");
+        return {
+          label: String(item.label != null ? item.label : value),
+          value,
+          type: csOptionValueType(value)
+        };
+      }
+      return {
+        label: String(item != null ? item : ""),
+        value: item != null ? item : "",
+        type: csOptionValueType(item)
+      };
+    }
+
+    function csBuildOptionValue(raw, type) {
+      const text = String(raw || "").trim();
+      if (type === "number") return Number(text || 0);
+      if (type === "boolean") return text === "true" || text === "1" || text === "yes";
+      return text;
+    }
+
+    function csCurrentField(spec) {
+      const fields = (((spec || {}).entity || {}).fields) || [];
+      if (csState.fieldEditIndex < 0 || csState.fieldEditIndex >= fields.length) return null;
+      return fields[csState.fieldEditIndex] || null;
+    }
+
+    function csFieldSupportsOptions(field) {
+      const type = String((((field || {}).component || {}).type) || "").toLowerCase();
+      return ["select", "combobox", "radio", "checkbox", "checklist"].includes(type);
+    }
+
+    function csRenderFieldOptionEditor(spec) {
+      const host = document.getElementById("cs_field_options_editor");
+      if (!host) return;
+      const field = csCurrentField(spec);
+      if (!field) {
+        host.innerHTML = "";
+        return;
+      }
+      if (!csFieldSupportsOptions(field)) {
+        host.innerHTML = "";
+        return;
+      }
+      const options = Array.isArray(field.list) ? field.list.map(csNormalizeOptionItem) : [];
+      const rows = options.length ? options.map((option, index) => {
+        return `<tr><td><input class="layui-input" name="cs_option_label" value="${csEscape(option.label)}" placeholder="显示文本"></td><td><input class="layui-input" name="cs_option_value" value="${csEscape(csOptionValueText(option.value))}" placeholder="提交值"></td><td><select name="cs_option_type"><option value="string"${option.type === "string" ? " selected" : ""}>文本</option><option value="number"${option.type === "number" ? " selected" : ""}>数字</option><option value="boolean"${option.type === "boolean" ? " selected" : ""}>布尔</option></select></td><td><button class="layui-btn layui-btn-danger layui-btn-xs" type="button" onclick="csRemoveFieldOption(${index})">移除</button></td></tr>`;
+      }).join("") : `<tr><td colspan="4"><div class="empty">当前字段暂无选项。</div></td></tr>`;
+      host.innerHTML = `<div class="visual-editor"><div class="toolbar-between"><h3>选项配置</h3><div class="toolbar"><button class="layui-btn layui-btn-normal layui-btn-sm" type="button" onclick="csSaveFieldOptions()">保存选项</button><button class="layui-btn layui-btn-primary layui-btn-sm" type="button" onclick="csAddFieldOption()">新增选项</button></div></div><table class="option-table"><thead><tr><th>显示文本</th><th>提交值</th><th>值类型</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table><div class="hint">用于下拉、单选、复选字段，写回当前字段的 list 配置；复杂选项仍可在高级属性中保留。</div></div>`;
+    }
+
+    function csCollectFieldOptionsFromTable() {
+      const host = document.getElementById("cs_field_options_editor");
+      if (!host) return [];
+      const labels = Array.from(host.querySelectorAll("input[name='cs_option_label']"));
+      const values = Array.from(host.querySelectorAll("input[name='cs_option_value']"));
+      const types = Array.from(host.querySelectorAll("select[name='cs_option_type']"));
+      return labels.map((labelNode, index) => {
+        const label = String(labelNode.value || "").trim();
+        const type = String((types[index] && types[index].value) || "string");
+        const value = csBuildOptionValue(values[index] ? values[index].value : "", type);
+        return label || String(value) ? { label: label || String(value), value } : null;
+      }).filter(Boolean);
+    }
+
+    function csSaveFieldOptions() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const field = csCurrentField(spec);
+      if (!field) return;
+      const options = csCollectFieldOptionsFromTable();
+      if (options.length) {
+        field.list = options;
+      } else {
+        delete field.list;
+      }
+      csCommitSpecAndRefresh(spec, `字段 ${field.name || "field"} 的选项已更新。`, "fields");
+    }
+
+    function csAddFieldOption() {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const field = csCurrentField(spec);
+      if (!field) return;
+      field.list = csCollectFieldOptionsFromTable();
+      const index = (field.list || []).length + 1;
+      field.list.push({ label: `选项 ${index}`, value: String(index) });
+      csCommitSpecAndRefresh(spec, `字段 ${field.name || "field"} 已新增选项。`, "fields");
+    }
+
+    function csRemoveFieldOption(index) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const field = csCurrentField(spec);
+      if (!field || !Array.isArray(field.list)) return;
+      field.list.splice(index, 1);
+      if (!field.list.length) delete field.list;
+      csCommitSpecAndRefresh(spec, `字段 ${field.name || "field"} 已移除选项。`, "fields");
     }
 function csSyncView() {
       const editorView = document.getElementById("cs_editor_view");
@@ -1265,20 +2430,37 @@ function csSyncView() {
         design: "cs_tab_design",
         display: "cs_tab_display",
         policy: "cs_tab_policy",
+        capabilities: "cs_tab_capabilities",
         fields: "cs_tab_fields",
+        generate: "cs_tab_generate",
+        advanced: "cs_tab_dsl",
         dsl: "cs_tab_dsl",
         revisions: "cs_tab_revisions",
         advisor: "cs_tab_advisor"
       };
       csState.viewMode = "editor";
       if (editorView) editorView.hidden = false;
+      const activePanels = new Set();
+      for (const [key, panelId] of Object.entries(tabMap)) {
+        if (csState.editorTab === key) activePanels.add(panelId);
+      }
       for (const [key, panelId] of Object.entries(tabMap)) {
         const button = document.getElementById(`cs_tab_${key}_btn`);
+        const topButton = document.getElementById(`cs_top_${key}_btn`);
         const panel = document.getElementById(panelId);
         const active = csState.editorTab === key;
         if (button) button.classList.toggle("active", active);
-        if (panel) panel.hidden = !active;
+        if (topButton) topButton.classList.toggle("active", active);
+        if (panel) panel.hidden = !activePanels.has(panelId);
       }
+      const overviewButton = document.getElementById("cs_top_overview_btn");
+      if (overviewButton) overviewButton.classList.toggle("active", csState.editorTab === "overview" || csState.editorTab === "design");
+      const advancedButton = document.getElementById("cs_top_advanced_btn");
+      if (advancedButton) advancedButton.classList.toggle("active", csState.editorTab === "advanced" || csState.editorTab === "dsl");
+      const spec = csReadSpec(false);
+      csRenderWorkbenchSidebars(spec);
+      if (csState.editorTab === "fields") csRenderFieldList(spec);
+      csSyncDslLock();
     }
 
     function csSetEditorTab(tab) {
@@ -1314,6 +2496,36 @@ function csAssistantTabForField(fieldName) {
     function csBuildAssistantSectionSchema(section) {
       const base = csAssistantSchema();
       let allowed = null;
+      const sectionText = {
+        design: {
+          title: "模型概览",
+          desc: "维护模型身份、实体命名、数据表和关键字段。",
+          groups: {
+            identity: { title: "身份信息" },
+            entity: { title: "实体配置" }
+          }
+        },
+        display: {
+          title: "页面配置",
+          desc: "维护后台表单、后台列表、前台详情与元数据备注。",
+          groups: {
+            features: {
+              title: "页面基础配置",
+              desc: "常用页面选项保留在这里，列表列、展示分组、字段分组和默认排序优先通过上方可视化编辑器维护。"
+            }
+          }
+        },
+        policy: {
+          title: "策略配置",
+          desc: "维护草稿、发布、删除、作者归属和基础运行开关。",
+          groups: {
+            features: {
+              title: "业务策略",
+              desc: "能力装配已移动到能力页，实体索引优先通过上方可视化编辑器维护。"
+            }
+          }
+        }
+      };
       if (section === "design") {
         allowed = new Set([
           "identity_xid", "identity_name", "identity_title", "identity_namespace", "identity_icon", "identity_description",
@@ -1323,22 +2535,24 @@ function csAssistantTabForField(fieldName) {
       } else if (section === "display") {
         allowed = new Set([
           "ui_form_layout", "ui_detail_showAuthor", "ui_detail_showPublishedAt", "ui_list_pageSize",
-          "ui_list_defaultSortField", "ui_list_defaultSortDir", "ui_list_columnsJson",
-          "metadata_labelsJson", "metadata_tagsJson", "metadata_notes", "presentation_groupsJson"
+          "ui_list_defaultSortField", "ui_list_defaultSortDir",
+          "metadata_labelsJson", "metadata_tagsJson", "metadata_notes"
         ]);
       } else if (section === "policy") {
         allowed = new Set([
           "feature_adminCrud", "feature_publicApi", "feature_draftEnabled", "feature_draftMode",
-          "policy_statusFlow", "policy_deleteMode", "policy_publishMode", "policy_authorMode",
-          "entity_indexesJson", "capability_slotsJson"
+          "policy_statusFlow", "policy_deleteMode", "policy_publishMode", "policy_authorMode"
         ]);
       }
+      const meta = sectionText[section] || {};
       return {
-        title: base.title,
-        desc: base.desc,
+        title: meta.title || base.title,
+        desc: meta.desc || base.desc,
         groups: (base.groups || []).map((group) => {
+          const groupMeta = ((meta.groups || {})[group.key]) || {};
           return {
             ...group,
+            ...groupMeta,
             fields: (group.fields || []).filter((field) => allowed ? allowed.has(field.name) : true)
           };
         }).filter((group) => (group.fields || []).length)
@@ -1403,43 +2617,43 @@ function csAssistantTabForField(fieldName) {
           groupKey: "global:presentation",
           label: "展示分组配置",
           hint: "跳转到展示分组 JSON 配置。",
-          elementId: "cs_display_form",
-          fieldName: "presentation_groupsJson"
+          elementId: "cs_visual_groups",
+          tab: "display"
         },
         "capability-slot-change": {
           groupKey: "global:capability-slots",
           label: "能力槽位配置",
           hint: "跳转到能力槽位 JSON 配置。",
-          elementId: "cs_policy_form",
-          fieldName: "capability_slotsJson"
+          elementId: "cs_enabled_capabilities",
+          tab: "capabilities"
         },
         "index-add": {
           groupKey: "global:indexes",
           label: "实体索引配置",
           hint: "跳转到实体索引 JSON 配置。",
-          elementId: "cs_policy_form",
-          fieldName: "entity_indexesJson"
+          elementId: "cs_visual_indexes",
+          tab: "policy"
         },
         "index-fields-change": {
           groupKey: "global:indexes",
           label: "实体索引配置",
           hint: "跳转到实体索引 JSON 配置。",
-          elementId: "cs_policy_form",
-          fieldName: "entity_indexesJson"
+          elementId: "cs_visual_indexes",
+          tab: "policy"
         },
         "index-unique-change": {
           groupKey: "global:indexes",
           label: "实体索引配置",
           hint: "跳转到实体索引 JSON 配置。",
-          elementId: "cs_policy_form",
-          fieldName: "entity_indexesJson"
+          elementId: "cs_visual_indexes",
+          tab: "policy"
         },
         "index-remove": {
           groupKey: "global:indexes",
           label: "实体索引配置",
           hint: "跳转到实体索引 JSON 配置。",
-          elementId: "cs_policy_form",
-          fieldName: "entity_indexesJson"
+          elementId: "cs_visual_indexes",
+          tab: "policy"
         },
         "initial-generation": {
           groupKey: "global:revisions",
@@ -1649,13 +2863,30 @@ function csAssistantTabForField(fieldName) {
       }
     }
 
+    function csJumpToWorkbenchPanel(tab, elementId) {
+      csState.viewMode = "editor";
+      csState.editorTab = tab || "overview";
+      csSyncView();
+      const focus = () => {
+        const node = document.getElementById(elementId);
+        if (!node) return false;
+        const target = node.closest(".visual-editor") || node;
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        csPulseJumpTarget(target);
+        return true;
+      };
+      if (!focus()) {
+        window.setTimeout(focus, 120);
+      }
+    }
+
     function csJumpToAdvisorTarget(groupKey) {
       const target = (((csState || {}).advisorJumpTargets) || {})[groupKey];
       let node = null;
       let focusNode = null;
       if (!target) return;
       csState.viewMode = "editor";
-      csState.editorTab = csAssistantTabForHostId(target.elementId);
+      csState.editorTab = target.tab || csAssistantTabForHostId(target.elementId);
       if (target.elementId === "cs_revision_list") csState.editorTab = "revisions";
       if (target.elementId === "cs_spec") csState.editorTab = "dsl";
       csSyncView();
@@ -1946,6 +3177,13 @@ function csAssistantTabForField(fieldName) {
         }
         field.list = parsed;
       }
+      if (!field.list && csFieldSupportsOptions(field)) {
+        const spec = csReadSpec(false);
+        const current = csCurrentField(spec);
+        if (current && Array.isArray(current.list)) {
+          field.list = JSON.parse(JSON.stringify(current.list));
+        }
+      }
       return field;
     }
 
@@ -1976,8 +3214,26 @@ function csAssistantTabForField(fieldName) {
     function csRenderFieldList(spec) {
       const host = document.getElementById("cs_field_list");
       const fields = (((spec || {}).entity || {}).fields) || [];
+      if (!host) {
+        return;
+      }
       if (!fields.length) {
         host.innerHTML = "<div class='empty'>还没有定义字段。</div>";
+        return;
+      }
+      if (host.getAttribute("data-compact") === "1") {
+        host.innerHTML = fields.map((field, index) => {
+          const active = index === csState.fieldEditIndex ? " active" : "";
+          const storageType = (((field || {}).storage || {}).type) || "-";
+          const componentType = (((field || {}).component || {}).type) || "-";
+          const badges = [
+            field && field.required ? "<span class='layui-badge layui-bg-red'>必填</span>" : "",
+            field && field.showInList !== false ? "<span class='layui-badge layui-bg-blue'>列表</span>" : "",
+            field && field.showInDetail !== false ? "<span class='layui-badge layui-bg-green'>详情</span>" : ""
+          ].filter(Boolean).join("");
+          const actions = `<div class="side-field-actions"><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="event.stopPropagation(); csSelectField(${index})">编辑</button><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="event.stopPropagation(); csDuplicateField(${index})">复制</button><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="event.stopPropagation(); csMoveField(${index}, -1)">上移</button><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="event.stopPropagation(); csMoveField(${index}, 1)">下移</button></div>`;
+          return `<article class="side-field-item${active}" onclick="csSelectField(${index}); csSetEditorTab('fields')" tabindex="0"><strong>${csEscape((field && (field.title || field.name)) || `字段 ${index + 1}`)}</strong><span>${csEscape((field && field.name) || "")} | ${csEscape(storageType)} / ${csEscape(componentType)}</span>${badges}${actions}</article>`;
+        }).join("");
         return;
       }
       host.innerHTML = fields.map((field, index) => {
@@ -1994,7 +3250,8 @@ function csAssistantTabForField(fieldName) {
         const flags = csFieldFlags(field).map((flag) => `<span class="pill success">${csEscape(flag)}</span>`).join("");
         const summaryRow = advisorBadges ? `<div class="advisor-summary">${advisorBadges}</div>` : "";
         const note = topAdvisor ? `<div class="advisor-note">${csEscape(topAdvisor.title || topAdvisor.kind || "顾问项")}: ${csEscape(topAdvisor.message || "")}</div>` : "";
-        return `<article id="${csEscape(csFieldCardId(field.name || `field_${index}`))}" class="field-card${active}" onclick="csSelectField(${index})"><strong>${csEscape(field.title || field.name || `字段 ${index + 1}`)}</strong><span>${csEscape(field.name || "")}</span><span>${csEscape(storageType)} -> ${csEscape(componentType)}</span>${summaryRow}${note}<div style="margin-top:8px;">${flags || "<span class='pill info'>普通</span>"}</div></article>`;
+        const actions = `<div class="summary-actions"><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="event.stopPropagation(); csSelectField(${index})">编辑</button><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="event.stopPropagation(); csDuplicateField(${index})">复制</button><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="event.stopPropagation(); csMoveField(${index}, -1)">上移</button><button class="layui-btn layui-btn-primary layui-btn-xs" type="button" onclick="event.stopPropagation(); csMoveField(${index}, 1)">下移</button></div>`;
+        return `<article id="${csEscape(csFieldCardId(field.name || `field_${index}`))}" class="field-card${active}" onclick="csSelectField(${index})"><strong>${csEscape(field.title || field.name || `字段 ${index + 1}`)}</strong><span>${csEscape(field.name || "")}</span><span>${csEscape(storageType)} -> ${csEscape(componentType)}</span>${summaryRow}${note}<div style="margin-top:8px;">${flags || "<span class='pill info'>普通</span>"}</div>${actions}</article>`;
       }).join("");
     }
 
@@ -2060,9 +3317,11 @@ function csAssistantTabForField(fieldName) {
       if (!spec) {
         document.getElementById("cs_assistant_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能使用模型设置。</div>";
         document.getElementById("cs_display_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑界面配置。</div>";
-        document.getElementById("cs_policy_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑能力与策略。</div>";
+        document.getElementById("cs_policy_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑策略配置。</div>";
         document.getElementById("cs_field_form").innerHTML = "<div class='empty'>请先修复 DSL JSON，才能编辑字段。</div>";
-        document.getElementById("cs_field_list").innerHTML = "<div class='empty'>字段蓝图暂不可用。</div>";
+        const fieldList = document.getElementById("cs_field_list");
+        if (fieldList) fieldList.innerHTML = "<div class='empty'>字段蓝图暂不可用。</div>";
+        csRenderWorkbenchSidebars(null);
         csState.assistantForms.design = null;
         csState.assistantForms.display = null;
         csState.assistantForms.policy = null;
@@ -2080,6 +3339,7 @@ function csAssistantTabForField(fieldName) {
           csRenderAssistantSectionForm("cs_policy_form", "policy", spec, renderVersion),
           csRenderFieldForm(spec, csState.fieldEditIndex >= 0 ? fields[csState.fieldEditIndex] : null, renderVersion)
         ]);
+        csRenderWorkbenchSidebars(spec);
         csRenderFieldList(spec);
         csRevealFocusedFieldCard();
         csSetAssistantSectionStatus("模型设置已与当前 DSL 同步。");
@@ -2178,6 +3438,47 @@ function csLoadAdvisor() {
       const fields = spec.entity.fields || [];
       csState.fieldEditIndex = ((index >= 0) && (index < fields.length)) ? index : -1;
       csRefreshDesigner();
+    }
+
+    function csMoveField(index, direction) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const fields = spec.entity.fields || [];
+      const nextIndex = index + direction;
+      if (index < 0 || index >= fields.length || nextIndex < 0 || nextIndex >= fields.length) {
+        return;
+      }
+      const item = fields[index];
+      fields[index] = fields[nextIndex];
+      fields[nextIndex] = item;
+      csState.fieldEditIndex = nextIndex;
+      csWriteSpec(spec, `字段 ${(item && item.name) || "field"} 已调整顺序。`);
+      csRefreshDesigner();
+    }
+
+    function csDuplicateField(index) {
+      const spec = csReadSpec(true);
+      if (!spec) return;
+      const fields = spec.entity.fields || [];
+      const source = fields[index];
+      if (!source) {
+        csSetStatus("cs_field_status", "请先选择要复制的字段。", "#92400e");
+        return;
+      }
+      const copy = JSON.parse(JSON.stringify(source));
+      const baseName = `${copy.name || "field"}_copy`;
+      let name = baseName;
+      let suffix = 2;
+      while (fields.some((field) => field && field.name === name)) {
+        name = `${baseName}_${suffix++}`;
+      }
+      copy.name = name;
+      copy.title = `${copy.title || copy.name} Copy`;
+      fields.splice(index + 1, 0, copy);
+      csState.fieldEditIndex = index + 1;
+      csWriteSpec(spec, `字段 ${source.name || "field"} 已复制为 ${name}。`);
+      csRefreshDesigner();
+      csToast("字段已复制", 1);
     }
 
     function csCommitFieldToDsl() {
@@ -2360,7 +3661,9 @@ function csLoadAdvisor() {
       document.getElementById("cs_spec").addEventListener("input", function() {
         csSetAssistantSectionStatus("你刚刚手动修改了 DSL，模型设置可能尚未同步。", "#92400e");
         csSetStatus("cs_field_status", "手动修改 DSL 后，请重新从 DSL 加载字段设计。", "#92400e");
+        csSetStatus("cs_form_status", "DSL 已修改，请校验并同步可视化表单。", "#92400e");
       });
+      csSyncDslLock();
       const boot = csEditorBootOptions();
       csNewType(false);
       csSyncView();

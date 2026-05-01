@@ -181,6 +181,21 @@ int XAdmin_ReleaseService(XAdminServiceLease lease);
 int XAdmin_GeneratePlugin(XAdminPluginHandle plugin_handle, const XAdminGeneratedPluginSpec* spec);
 int XAdmin_ReloadPlugin(XAdminPluginHandle plugin_handle, const char* xid);
 int XAdmin_SetPluginEnabled(XAdminPluginHandle plugin_handle, const char* xid, int enabled);
+int XAdmin_LoadPluginPage(XAdminPluginHandle plugin_handle, XS_ResponseObject resp, int code, const char* header, const char* page);
+char* XAdmin_RenderPluginTemplate(XAdminPluginHandle plugin_handle, const char* template_name, xvalue data, size_t* out_size, char** out_error);
+xvalue XAdmin_PluginOptionLoad(XAdminPluginHandle plugin_handle, const char* file_name);
+int XAdmin_PluginOptionSave(XAdminPluginHandle plugin_handle, const char* file_name, xvalue values);
+void XAdmin_Log(XAdminPluginHandle plugin_handle, int level, const char* message);
+int XAdmin_ReplyJson(XS_ResponseObject resp, int code, xvalue data);
+const char* XAdmin_PluginPrivateDbPath(XAdminPluginHandle plugin_handle);
+int XAdmin_OpenPluginPrivateDb(XAdminPluginHandle plugin_handle, sqlite3** out_db);
+int64 XAdmin_SessionAdminId(xvalue session);
+int64 XAdmin_SessionAdminRoleId(xvalue session);
+char* XAdmin_PluginResourcePath(XAdminPluginHandle plugin_handle, const char* resource_dir, const char* rel_path);
+char* XAdmin_AttachmentUrl(const char* attachment_xid);
+char* XAdmin_AttachmentUploadUrl(XAdminPluginHandle plugin_handle, const char* model_name, int64 record_id);
+char* XAdmin_AttachmentListUrl(XAdminPluginHandle plugin_handle, const char* model_name);
+void XAdmin_Free(void* ptr);
 
 #define XADMIN_DECLARE_PLUGIN(descriptor) \
 	XADMIN_EXPORT const XAdminPluginDescriptor* XAdmin_GetPluginDescriptor(void) \

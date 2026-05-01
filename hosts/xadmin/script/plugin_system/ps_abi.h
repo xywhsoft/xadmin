@@ -580,6 +580,173 @@ int PS_HostSetPluginEnabled(void* plugin_handle, const char* xid, int enabled)
 	return (enabled ? PluginSystem_Enable((str)xid) : PluginSystem_DisableWithActor((str)xid, PS_HostGetGeneration(plugin_handle))) ? 0 : -1;
 }
 
+int PS_HostLoadPluginPage(void* plugin_handle, XS_ResponseObject resp, int code, const char* header, const char* page)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (resp == NULL) || (page == NULL) || (page[0] == '\0') ) {
+		return -1;
+	}
+
+	return PS_ResourceLoadPluginPage(pGeneration, resp, code, header, page) ? 0 : -1;
+}
+
+char* PS_HostRenderPluginTemplate(void* plugin_handle, const char* template_name, xvalue data, size_t* out_size, char** out_error)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+
+	if ( out_error ) {
+		*out_error = NULL;
+	}
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (template_name == NULL) || (template_name[0] == '\0') ) {
+		if ( out_error ) *out_error = xrtCopyStr("invalid plugin template request", 0);
+		return NULL;
+	}
+	return PS_PluginRenderTemplateFile(pGeneration->pPackage, template_name, data, out_size, out_error);
+}
+
+xvalue PS_HostPluginOptionLoad(void* plugin_handle, const char* file_name)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (file_name == NULL) || (file_name[0] == '\0') ) {
+		return NULL;
+	}
+	return PS_PluginOptionLoadFile((const char*)PS_PackageKey(pGeneration->pPackage), file_name);
+}
+
+int PS_HostPluginOptionSave(void* plugin_handle, const char* file_name, xvalue values)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) || (file_name == NULL) || (file_name[0] == '\0') || (values == NULL) ) {
+		return -1;
+	}
+	return PS_PluginOptionSaveFile((const char*)PS_PackageKey(pGeneration->pPackage), file_name, values) ? 0 : -1;
+}
+
+const char* PS_HostPluginPrivateDbPath(void* plugin_handle)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
+		return NULL;
+	}
+	return (const char*)pGeneration->pPackage->sPrivateDbPath;
+}
+
+int PS_HostOpenPluginPrivateDb(void* plugin_handle, sqlite3** out_db)
+{
+	const char* sPath = PS_HostPluginPrivateDbPath(plugin_handle);
+
+	if ( out_db ) {
+		*out_db = NULL;
+	}
+	if ( (sPath == NULL) || (sPath[0] == '\0') || (out_db == NULL) ) {
+		return -1;
+	}
+	return sqlite3_open_v2(sPath, out_db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL) == SQLITE_OK ? 0 : -1;
+}
+
+int64 PS_HostSessionInt(xvalue session, const char* key, int key_len)
+{
+	if ( (session == NULL) || (xvoType(session) != XVO_DT_TABLE) || (key == NULL) ) {
+		return 0;
+	}
+	return xvoTableGetInt(session, key, key_len);
+}
+
+char* PS_HostPluginResourcePath(void* plugin_handle, const char* resource_dir, const char* rel_path)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) || !PS_ResourceIsSafeRelativePath(resource_dir) || !PS_ResourceIsSafeRelativePath(rel_path) ) {
+		return NULL;
+	}
+	return PS_ResourceBuildPath(pGeneration->pPackage, resource_dir, rel_path);
+}
+
+static bool PS_HostAppendQueryText(char* sQuery, size_t iCap, size_t* pOffset, const char* sKey, const char* sValue)
+{
+	return xrtQueryAppendPair(sQuery, iCap, pOffset, sKey, sValue ? sValue : "");
+}
+
+char* PS_HostAttachmentUrl(const char* attachment_xid)
+{
+	char sQuery[256] = {0};
+	size_t iOffset = 0;
+
+	if ( (attachment_xid == NULL) || (attachment_xid[0] == '\0') ) {
+		return NULL;
+	}
+	if ( !PS_HostAppendQueryText(sQuery, sizeof(sQuery), &iOffset, "xid", attachment_xid) ) {
+		return NULL;
+	}
+	return xrtFormat("/attachment?%s", sQuery);
+}
+
+char* PS_HostAttachmentUploadUrl(void* plugin_handle, const char* model_name, int64 record_id)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+	char sQuery[512] = {0};
+	char sRecordID[48];
+	size_t iOffset = 0;
+	const char* sModelName = model_name;
+
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
+		return NULL;
+	}
+	if ( (sModelName == NULL) || (sModelName[0] == '\0') ) {
+		sModelName = (const char*)PS_PackageKey(pGeneration->pPackage);
+	}
+	if ( !PS_HostAppendQueryText(sQuery, sizeof(sQuery), &iOffset, "modelName", sModelName ? sModelName : "") ) {
+		return NULL;
+	}
+	if ( record_id > 0 ) {
+		snprintf(sRecordID, sizeof(sRecordID), "%lld", (long long)record_id);
+		if ( !PS_HostAppendQueryText(sQuery, sizeof(sQuery), &iOffset, "recordId", sRecordID) ) {
+			return NULL;
+		}
+	}
+	return xrtFormat("/admin/view/attachment/upload?%s", sQuery);
+}
+
+char* PS_HostAttachmentListUrl(void* plugin_handle, const char* model_name)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+	char sQuery[512] = {0};
+	size_t iOffset = 0;
+	const char* sModelName = model_name;
+
+	if ( (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
+		return NULL;
+	}
+	if ( (sModelName == NULL) || (sModelName[0] == '\0') ) {
+		sModelName = (const char*)PS_PackageKey(pGeneration->pPackage);
+	}
+	if ( !PS_HostAppendQueryText(sQuery, sizeof(sQuery), &iOffset, "modelName", sModelName ? sModelName : "") ) {
+		return NULL;
+	}
+	return xrtFormat("/admin/view/attachment?%s", sQuery);
+}
+
+int PS_HostReplyJsonValue(XS_ResponseObject resp, int code, xvalue data)
+{
+	size_t iSize = 0;
+	str sJson;
+
+	if ( (resp == NULL) || (data == NULL) ) {
+		return -1;
+	}
+	sJson = xrtStringifyJSON(data, FALSE, &iSize);
+	if ( sJson == NULL ) {
+		return -1;
+	}
+	xsHttpReplyAuto(resp, code, HTTP_CT_JSON, sJson, iSize);
+	xrtFree(sJson);
+	return 0;
+}
+
 int PS_HostFindMenuId(PluginSystemGeneration* pGeneration, const XAdminMenuDecl* decl)
 {
 	sqlite3_stmt* stmt = NULL;
@@ -1616,6 +1783,81 @@ int XAdmin_SetPluginEnabled(XAdminPluginHandle plugin_handle, const char* xid, i
 	return PS_HostSetPluginEnabled(plugin_handle, xid, enabled);
 }
 
+int XAdmin_LoadPluginPage(XAdminPluginHandle plugin_handle, XS_ResponseObject resp, int code, const char* header, const char* page)
+{
+	return PS_HostLoadPluginPage(plugin_handle, resp, code, header, page);
+}
+
+char* XAdmin_RenderPluginTemplate(XAdminPluginHandle plugin_handle, const char* template_name, xvalue data, size_t* out_size, char** out_error)
+{
+	return PS_HostRenderPluginTemplate(plugin_handle, template_name, data, out_size, out_error);
+}
+
+xvalue XAdmin_PluginOptionLoad(XAdminPluginHandle plugin_handle, const char* file_name)
+{
+	return PS_HostPluginOptionLoad(plugin_handle, file_name);
+}
+
+int XAdmin_PluginOptionSave(XAdminPluginHandle plugin_handle, const char* file_name, xvalue values)
+{
+	return PS_HostPluginOptionSave(plugin_handle, file_name, values);
+}
+
+void XAdmin_Log(XAdminPluginHandle plugin_handle, int level, const char* message)
+{
+	PS_HostLog(level, "plugin=%s %s", PS_HostGetActorXid(plugin_handle), message ? message : "");
+}
+
+int XAdmin_ReplyJson(XS_ResponseObject resp, int code, xvalue data)
+{
+	return PS_HostReplyJsonValue(resp, code, data);
+}
+
+const char* XAdmin_PluginPrivateDbPath(XAdminPluginHandle plugin_handle)
+{
+	return PS_HostPluginPrivateDbPath(plugin_handle);
+}
+
+int XAdmin_OpenPluginPrivateDb(XAdminPluginHandle plugin_handle, sqlite3** out_db)
+{
+	return PS_HostOpenPluginPrivateDb(plugin_handle, out_db);
+}
+
+int64 XAdmin_SessionAdminId(xvalue session)
+{
+	return PS_HostSessionInt(session, "id", 2);
+}
+
+int64 XAdmin_SessionAdminRoleId(xvalue session)
+{
+	return PS_HostSessionInt(session, "roleID", 6);
+}
+
+char* XAdmin_PluginResourcePath(XAdminPluginHandle plugin_handle, const char* resource_dir, const char* rel_path)
+{
+	return PS_HostPluginResourcePath(plugin_handle, resource_dir, rel_path);
+}
+
+char* XAdmin_AttachmentUrl(const char* attachment_xid)
+{
+	return PS_HostAttachmentUrl(attachment_xid);
+}
+
+char* XAdmin_AttachmentUploadUrl(XAdminPluginHandle plugin_handle, const char* model_name, int64 record_id)
+{
+	return PS_HostAttachmentUploadUrl(plugin_handle, model_name, record_id);
+}
+
+char* XAdmin_AttachmentListUrl(XAdminPluginHandle plugin_handle, const char* model_name)
+{
+	return PS_HostAttachmentListUrl(plugin_handle, model_name);
+}
+
+void XAdmin_Free(void* ptr)
+{
+	PS_HostFree(ptr);
+}
+
 void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc)
 {
 	if ( pTcc == NULL ) {
@@ -1646,6 +1888,21 @@ void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc)
 	tcc_add_symbol(pTcc, "XAdmin_GeneratePlugin", XAdmin_GeneratePlugin);
 	tcc_add_symbol(pTcc, "XAdmin_ReloadPlugin", XAdmin_ReloadPlugin);
 	tcc_add_symbol(pTcc, "XAdmin_SetPluginEnabled", XAdmin_SetPluginEnabled);
+	tcc_add_symbol(pTcc, "XAdmin_LoadPluginPage", XAdmin_LoadPluginPage);
+	tcc_add_symbol(pTcc, "XAdmin_RenderPluginTemplate", XAdmin_RenderPluginTemplate);
+	tcc_add_symbol(pTcc, "XAdmin_PluginOptionLoad", XAdmin_PluginOptionLoad);
+	tcc_add_symbol(pTcc, "XAdmin_PluginOptionSave", XAdmin_PluginOptionSave);
+	tcc_add_symbol(pTcc, "XAdmin_Log", XAdmin_Log);
+	tcc_add_symbol(pTcc, "XAdmin_ReplyJson", XAdmin_ReplyJson);
+	tcc_add_symbol(pTcc, "XAdmin_PluginPrivateDbPath", XAdmin_PluginPrivateDbPath);
+	tcc_add_symbol(pTcc, "XAdmin_OpenPluginPrivateDb", XAdmin_OpenPluginPrivateDb);
+	tcc_add_symbol(pTcc, "XAdmin_SessionAdminId", XAdmin_SessionAdminId);
+	tcc_add_symbol(pTcc, "XAdmin_SessionAdminRoleId", XAdmin_SessionAdminRoleId);
+	tcc_add_symbol(pTcc, "XAdmin_PluginResourcePath", XAdmin_PluginResourcePath);
+	tcc_add_symbol(pTcc, "XAdmin_AttachmentUrl", XAdmin_AttachmentUrl);
+	tcc_add_symbol(pTcc, "XAdmin_AttachmentUploadUrl", XAdmin_AttachmentUploadUrl);
+	tcc_add_symbol(pTcc, "XAdmin_AttachmentListUrl", XAdmin_AttachmentListUrl);
+	tcc_add_symbol(pTcc, "XAdmin_Free", XAdmin_Free);
 }
 
 #endif

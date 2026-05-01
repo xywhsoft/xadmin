@@ -111,6 +111,10 @@ struct PluginSystemPackage {
 	str sRootPath;
 	str sManifestPath;
 	str sEntry;
+	str sPageDir;
+	str sTemplateDir;
+	str sOptionDir;
+	str sStaticDir;
 	str sDataPath;
 	str sPrivateDbPath;
 	bool bEnabled;
@@ -605,6 +609,10 @@ void PS_DestroyPackage(PluginSystemPackage* pPackage)
 	PS_FreeString(&pPackage->sRootPath);
 	PS_FreeString(&pPackage->sManifestPath);
 	PS_FreeString(&pPackage->sEntry);
+	PS_FreeString(&pPackage->sPageDir);
+	PS_FreeString(&pPackage->sTemplateDir);
+	PS_FreeString(&pPackage->sOptionDir);
+	PS_FreeString(&pPackage->sStaticDir);
 	PS_FreeString(&pPackage->sDataPath);
 	PS_FreeString(&pPackage->sPrivateDbPath);
 	xrtFree(pPackage);

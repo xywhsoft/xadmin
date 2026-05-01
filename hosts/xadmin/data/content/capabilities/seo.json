@@ -1,0 +1,22 @@
+{
+	"key": "seo",
+	"title": "SEO",
+	"providerKind": "builtin",
+	"providerXid": "",
+	"surfaces": ["admin_detail", "public_detail"],
+	"defaults": {
+		"enabled": false,
+		"metaTitle": true,
+		"metaDescription": true
+	},
+	"schema": {
+		"type": "object",
+		"properties": {
+			"enabled": {"type": "boolean"},
+			"metaTitle": {"type": "boolean"},
+			"metaDescription": {"type": "boolean"}
+		}
+	},
+	"status": "draft",
+	"sort": 400
+}

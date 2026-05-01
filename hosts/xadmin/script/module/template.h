@@ -2,6 +2,7 @@
 xvalue tblENV = NULL;
 xteengine G_TemplateEngine = NULL;
 static char* Form_RenderTemplateBlockHTML(xvalue tblSpec, str* psError);
+static char* Template_RenderCompiledTemplate(xtetemplate hTemplate, xvalue tblData, size_t* pRetSize, str* psError);
 
 // shared include table (kept for compatibility)
 xdict G_Template = NULL;
@@ -162,7 +163,7 @@ static int Template_BufferWriterProc(void* pUserData, const char* sText, size_t 
 	return xrtBufferAppend(pBuf, (ptr)sText, (uint32)iSize, XBUF_BINARY) ? 1 : 0;
 }
 
-static char* Template_RenderCompiledTemplate(xtetemplate hTemplate, xvalue tblData, size_t* pRetSize, str* psError)
+static char* Template_RenderCompiledTemplateWithIncludeMap(xtetemplate hTemplate, xdict hIncludeMap, xvalue tblData, size_t* pRetSize, str* psError)
 {
 	XTE_RenderOptions tOptions = { 0 };
 	XTE_Writer tWriter = { 0 };
@@ -181,7 +182,7 @@ static char* Template_RenderCompiledTemplate(xtetemplate hTemplate, xvalue tblDa
 	tOptions.pCurrent = tblData;
 	tOptions.pRoot = tblData;
 	tOptions.pGlobal = tblENV;
-	tOptions.pIncludeMap = G_Template;
+	tOptions.pIncludeMap = hIncludeMap ? hIncludeMap : G_Template;
 	tOptions.pWriter = &tWriter;
 
 	if ( !xteRenderEx(hTemplate, &tOptions, &tError) ) {
@@ -603,6 +604,11 @@ char* MakeTextWithTemplate(char* sTemplate, xvalue tblData, size_t* pRetSize)
 	}
 
 	return sOutput;
+}
+
+static char* Template_RenderCompiledTemplate(xtetemplate hTemplate, xvalue tblData, size_t* pRetSize, str* psError)
+{
+	return Template_RenderCompiledTemplateWithIncludeMap(hTemplate, G_Template, tblData, pRetSize, psError);
 }
 
 

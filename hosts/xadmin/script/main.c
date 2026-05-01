@@ -63,6 +63,7 @@
 
 // 插件系统
 #include "plugin_system/plugin_system.h"
+#include "content/content_init.h"
 
 
 
@@ -87,6 +88,7 @@
 #include "route_http/member_message.h"
 #include "route_http/attachment.h"
 #include "route_http/attachment_api.h"
+#include "route_http/content.h"
 #include "route_http/plugin.h"
 
 
@@ -145,6 +147,8 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	DB_Init();
 	printf("[xadmin:init] DB_Init done\n");
 	fflush(stdout);
+
+	Content_Init();
 
 	printf("[xadmin:init] RouteHTTP_Init begin\n");
 	fflush(stdout);

@@ -156,6 +156,51 @@ str PS_ManifestTextDup(xvalue tblData, const char* sKey, int iKeyLen, const char
 	return sDefault ? xrtCopyStr((str)sDefault, 0) : NULL;
 }
 
+bool PS_ManifestIsSafeResourceDir(const char* sRelPath)
+{
+	if ( (sRelPath == NULL) || (sRelPath[0] == '\0') ) {
+		return FALSE;
+	}
+	if ( (sRelPath[0] == '/') || (sRelPath[0] == '\\') ) {
+		return FALSE;
+	}
+	if ( strchr(sRelPath, ':') != NULL ) {
+		return FALSE;
+	}
+	if ( strstr(sRelPath, "..") != NULL ) {
+		return FALSE;
+	}
+	if ( strchr(sRelPath, '%') != NULL ) {
+		return FALSE;
+	}
+	for ( const char* p = sRelPath; *p; p++ ) {
+		if ( ((unsigned char)*p) < 32 ) {
+			return FALSE;
+		}
+	}
+	return TRUE;
+}
+
+str PS_ManifestResourceDirDup(xvalue tblResources, const char* sKey, int iKeyLen, const char* sDefault)
+{
+	str sValue = tblResources ? xvoTableGetText(tblResources, sKey, iKeyLen) : NULL;
+	char sCompatKey[64];
+
+	if ( (sValue == NULL) && (tblResources != NULL) && ((size_t)iKeyLen + 4 < sizeof(sCompatKey)) ) {
+		memcpy(sCompatKey, sKey, iKeyLen);
+		memcpy(sCompatKey + iKeyLen, "Dir", 4);
+		sCompatKey[iKeyLen + 3] = '\0';
+		sValue = xvoTableGetText(tblResources, sCompatKey, iKeyLen + 3);
+	}
+	if ( (sValue == NULL) || (sValue[0] == '\0') ) {
+		sValue = (str)sDefault;
+	}
+	if ( !PS_ManifestIsSafeResourceDir(sValue) ) {
+		return xrtCopyStr((str)sDefault, 0);
+	}
+	return xrtCopyStr(sValue, 0);
+}
+
 xvalue PS_ManifestLoadJsonIfExists(str sRootPath, str sRelPath)
 {
 	str sPath;
@@ -178,6 +223,7 @@ xvalue PS_ManifestLoadJsonIfExists(str sRootPath, str sRelPath)
 bool PS_LoadManifest(PluginSystemPackage* pPackage, str sRootPath)
 {
 	xvalue tblBuild;
+	xvalue tblResources;
 	str sDefaultConfig;
 	str sConfigSchema;
 
@@ -221,6 +267,13 @@ bool PS_LoadManifest(PluginSystemPackage* pPackage, str sRootPath)
 	if ( pPackage->sEntry == NULL ) {
 		pPackage->sEntry = PS_ManifestTextDup(pPackage->tblManifest, "entry", 5, "main.c");
 	}
+
+	tblResources = xvoTableGetValue(pPackage->tblManifest, "resources", 9);
+	pPackage->sPageDir = PS_ManifestResourceDirDup(tblResources, "page", 4, "page");
+	pPackage->sTemplateDir = PS_ManifestResourceDirDup(tblResources, "template", 8, "template");
+	pPackage->sOptionDir = PS_ManifestResourceDirDup(tblResources, "option", 6, "option");
+	pPackage->sStaticDir = PS_ManifestResourceDirDup(tblResources, "static", 6, "static");
+
 	if ( !PS_ManifestValidateRequiredFields(pPackage, tblBuild) ) {
 		printf("        [PluginSystem] Manifest required fields invalid: path=%s\n",
 			pPackage->sManifestPath ? (const char*)pPackage->sManifestPath : "(null)");
