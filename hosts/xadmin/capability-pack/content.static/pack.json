@@ -1,8 +1,8 @@
-{
+﻿{
   "formatVersion": 1,
   "packId": "content.static",
   "name": "static",
-  "title": "Static Generation",
+  "title": "静态化管理",
   "description": "Generate static output rules, generation tasks, incremental generation, and cleanup logic.",
   "version": "1.0.0",
   "author": "xAdmin",

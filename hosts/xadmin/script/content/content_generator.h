@@ -377,6 +377,19 @@ bool Content_IsBuiltinAbilityPack(const char* sPackId)
 	return FALSE;
 }
 
+const char* Content_DefaultAbilityMenuTitle(const char* sPackId, const char* sFallback)
+{
+	if ( sPackId == NULL ) return sFallback;
+	if ( strcmp(sPackId, "content.comment") == 0 ) return "评论管理";
+	if ( strcmp(sPackId, "content.tag") == 0 ) return "标签管理";
+	if ( strcmp(sPackId, "content.topic") == 0 ) return "专题管理";
+	if ( strcmp(sPackId, "content.sensitive") == 0 ) return "敏感词管理";
+	if ( strcmp(sPackId, "content.static") == 0 ) return "静态化管理";
+	if ( strcmp(sPackId, "content.like") == 0 ) return "点赞管理";
+	if ( strcmp(sPackId, "content.view-stat") == 0 ) return "访问统计";
+	return sFallback;
+}
+
 str Content_BuildAbilityPackAuthCode(const char* sPluginXid, const char* sPluginTitle, xvalue tblSpec)
 {
 	xvalue arrPacks = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
@@ -582,6 +595,7 @@ str Content_BuildAbilityPackMenuCode(const char* sPluginXid, xvalue tblSpec)
 
 		tblPack = ContentPack_GetDetail((const char*)sKey);
 		sTitle = tblPack ? xvoTableGetText(tblPack, "title", 5) : sKey;
+		sTitle = (str)Content_DefaultAbilityMenuTitle((const char*)sKey, (const char*)sTitle);
 		sSafeKey = Content_SanitizeSqlIdent((const char*)sKey, "pack");
 		sSafeTitle = Content_EscapeCString(Content_TextOr((const char*)sTitle, (const char*)sKey));
 		sNext = xrtFormat(

@@ -1,8 +1,8 @@
-{
+﻿{
   "formatVersion": 1,
   "packId": "content.sensitive",
   "name": "sensitive",
-  "title": "Sensitive Word Filter",
+  "title": "敏感词管理",
   "description": "Generate sensitive word dictionaries, filter logs, and save/publish/comment filtering hooks.",
   "version": "1.0.0",
   "author": "xAdmin",

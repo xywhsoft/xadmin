@@ -1,8 +1,8 @@
-{
+﻿{
   "formatVersion": 1,
   "packId": "content.comment",
   "name": "comment",
-  "title": "Comment System",
+  "title": "评论管理",
   "description": "Generate comment moderation, public comment APIs, counters, and admin comment pages.",
   "version": "1.0.0",
   "author": "xAdmin",

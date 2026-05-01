@@ -1,8 +1,8 @@
-{
+﻿{
   "formatVersion": 1,
   "packId": "content.tag",
   "name": "tag",
-  "title": "Tag System",
+  "title": "标签管理",
   "description": "Generate tag management, tag bindings, tag query APIs, and admin tag pages.",
   "version": "1.0.0",
   "author": "xAdmin",

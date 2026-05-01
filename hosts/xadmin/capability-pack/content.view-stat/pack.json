@@ -1,8 +1,8 @@
-{
+﻿{
   "formatVersion": 1,
   "packId": "content.view-stat",
   "name": "view-stat",
-  "title": "View Statistics",
+  "title": "访问统计",
   "description": "Generate view counters, view logs, rank APIs, and admin statistics reports.",
   "version": "1.0.0",
   "author": "xAdmin",

@@ -1,8 +1,8 @@
-{
+﻿{
   "formatVersion": 1,
   "packId": "content.topic",
   "name": "topic",
-  "title": "Topic System",
+  "title": "专题管理",
   "description": "Generate topic management, topic-content arranging, topic pages, and public topic APIs.",
   "version": "1.0.0",
   "author": "xAdmin",

@@ -8573,7 +8573,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&menu, 0, sizeof(menu));
 		menu.key = "cms.article.pack.content_comment";
 		menu.parent_id = iRootMenuId;
-		menu.title = "Comment System";
+		menu.title = "评论管理";
 		menu.icon = "layui-icon layui-icon-component";
 		menu.type = 1;
 		menu.open_type = "_component";
@@ -8589,7 +8589,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&menu, 0, sizeof(menu));
 		menu.key = "cms.article.pack.content_tag";
 		menu.parent_id = iRootMenuId;
-		menu.title = "Tag System";
+		menu.title = "标签管理";
 		menu.icon = "layui-icon layui-icon-component";
 		menu.type = 1;
 		menu.open_type = "_component";
@@ -8605,7 +8605,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&menu, 0, sizeof(menu));
 		menu.key = "cms.article.pack.content_topic";
 		menu.parent_id = iRootMenuId;
-		menu.title = "Topic System";
+		menu.title = "专题管理";
 		menu.icon = "layui-icon layui-icon-component";
 		menu.type = 1;
 		menu.open_type = "_component";
@@ -8621,7 +8621,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&menu, 0, sizeof(menu));
 		menu.key = "cms.article.pack.content_sensitive";
 		menu.parent_id = iRootMenuId;
-		menu.title = "Sensitive Word Filter";
+		menu.title = "敏感词管理";
 		menu.icon = "layui-icon layui-icon-component";
 		menu.type = 1;
 		menu.open_type = "_component";
@@ -8637,7 +8637,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&menu, 0, sizeof(menu));
 		menu.key = "cms.article.pack.content_static";
 		menu.parent_id = iRootMenuId;
-		menu.title = "Static Generation";
+		menu.title = "静态化管理";
 		menu.icon = "layui-icon layui-icon-component";
 		menu.type = 1;
 		menu.open_type = "_component";
@@ -8653,7 +8653,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&menu, 0, sizeof(menu));
 		menu.key = "cms.article.pack.content_like";
 		menu.parent_id = iRootMenuId;
-		menu.title = "Like System";
+		menu.title = "点赞管理";
 		menu.icon = "layui-icon layui-icon-component";
 		menu.type = 1;
 		menu.open_type = "_component";
@@ -8669,7 +8669,7 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&menu, 0, sizeof(menu));
 		menu.key = "cms.article.pack.content_view_stat";
 		menu.parent_id = iRootMenuId;
-		menu.title = "View Statistics";
+		menu.title = "访问统计";
 		menu.icon = "layui-icon layui-icon-component";
 		menu.type = 1;
 		menu.open_type = "_component";

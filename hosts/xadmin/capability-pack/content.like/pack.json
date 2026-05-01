@@ -1,8 +1,8 @@
-{
+﻿{
   "formatVersion": 1,
   "packId": "content.like",
   "name": "like",
-  "title": "Like System",
+  "title": "点赞管理",
   "description": "Generate like/cancel APIs, duplicate prevention, counters, and admin like pages.",
   "version": "1.0.0",
   "author": "xAdmin",
