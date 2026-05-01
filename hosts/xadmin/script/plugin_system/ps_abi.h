@@ -1618,8 +1618,58 @@ bool PS_HostApplyMenuGenerationTokens(PluginSystemGeneration* pGeneration, bool 
 	return TRUE;
 }
 
+void PS_HostCleanupObsoleteMenuResources(PluginSystemGeneration* pGeneration)
+{
+	sqlite3_stmt* stmt = NULL;
+	sqlite3_stmt* stmtMenu = NULL;
+	sqlite3_stmt* stmtResource = NULL;
+	const char* sXid;
+
+	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
+		return;
+	}
+	sXid = PS_HostGenerationXid(pGeneration);
+	if ( (sXid == NULL) || (sXid[0] == '\0') ) {
+		return;
+	}
+	if ( sqlite3_prepare_v3(
+		G_DB,
+		"SELECT id, resource_ref FROM plugin_resource WHERE xid = ? AND resource_type = 'menu' AND status = 'active' AND generation <> ?",
+		-1,
+		SQL_PREPARE_DEFAULT,
+		&stmt,
+		NULL) != SQLITE_OK ) {
+		return;
+	}
+	PS_StorageBindText(stmt, 1, (str)sXid);
+	sqlite3_bind_int(stmt, 2, (int)pGeneration->iGeneration);
+	while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+		int iResourceId = sqlite3_column_int(stmt, 0);
+		const char* sRef = (const char*)sqlite3_column_text(stmt, 1);
+		int iMenuId = sRef ? atoi(sRef) : 0;
+		if ( iMenuId > 0 ) {
+			if ( sqlite3_prepare_v3(G_DB, "UPDATE menu SET isDelete = 1, updateTime = ? WHERE id = ? AND plugin_xid = ?", -1, SQL_PREPARE_DEFAULT, &stmtMenu, NULL) == SQLITE_OK ) {
+				sqlite3_bind_int64(stmtMenu, 1, xrtNow());
+				sqlite3_bind_int(stmtMenu, 2, iMenuId);
+				PS_StorageBindText(stmtMenu, 3, (str)sXid);
+				sqlite3_step(stmtMenu);
+				sqlite3_finalize(stmtMenu);
+				stmtMenu = NULL;
+			}
+		}
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE plugin_resource SET status = 'removed' WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmtResource, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int(stmtResource, 1, iResourceId);
+			sqlite3_step(stmtResource);
+			sqlite3_finalize(stmtResource);
+			stmtResource = NULL;
+		}
+	}
+	sqlite3_finalize(stmt);
+}
+
 bool PS_HostApplyGenerationEntryPoints(PluginSystemGeneration* pGeneration, bool bForce)
 {
+	bool bMenuOK;
 	if ( pGeneration == NULL ) {
 		return FALSE;
 	}
@@ -1660,7 +1710,11 @@ bool PS_HostApplyGenerationEntryPoints(PluginSystemGeneration* pGeneration, bool
 		}
 	}
 
-	return PS_HostApplyMenuGenerationTokens(pGeneration, bForce);
+	bMenuOK = PS_HostApplyMenuGenerationTokens(pGeneration, bForce);
+	if ( bMenuOK && !bForce ) {
+		PS_HostCleanupObsoleteMenuResources(pGeneration);
+	}
+	return bMenuOK;
 }
 
 bool PS_HostPublishGenerationEntryPoints(PluginSystemGeneration* pGeneration)

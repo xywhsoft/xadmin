@@ -22,6 +22,9 @@ var ContentApi = {
 	saveModel: function(spec) {
 		return ContentApi.request('/admin/content/save', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(spec)});
 	},
+	deleteModel: function(xid) {
+		return ContentApi.request('/admin/content/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({xid:xid})});
+	},
 	getRevisions: function(xid) {
 		return ContentApi.request('/admin/content/revisions?xid=' + encodeURIComponent(xid));
 	},

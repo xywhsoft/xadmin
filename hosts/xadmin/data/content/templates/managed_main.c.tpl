@@ -1360,12 +1360,12 @@ xvalue Managed_ResolveFieldList(xvalue tblField)
 	}
 
 	objList = xvoTableGetValue(tblField, "list", 4);
-	if ( objList != NULL ) {
+	if ( objList != NULL && xvoType(objList) == XVO_DT_ARRAY ) {
 		return Managed_NormalizeOptionList(objList);
 	}
 
 	objList = xvoTableGetValue(tblField, "options", 7);
-	if ( objList != NULL ) {
+	if ( objList != NULL && xvoType(objList) == XVO_DT_ARRAY ) {
 		return Managed_NormalizeOptionList(objList);
 	}
 
@@ -1426,6 +1426,17 @@ const char* Managed_MapFieldType(xvalue tblField)
 	if ( strcmp(sComponentType, "markdown") == 0 ) return "editor_md";
 	if ( strcmp(sComponentType, "code") == 0 ) return "editor_code";
 	if ( strcmp(sComponentType, "icon") == 0 ) return "icon_picker";
+	if ( strcmp(sComponentType, "editor_html") == 0 ) return "editor_html";
+	if ( strcmp(sComponentType, "editor_md") == 0 ) return "editor_md";
+	if ( strcmp(sComponentType, "editor_code") == 0 ) return "editor_code";
+	if ( strcmp(sComponentType, "icon_picker") == 0 ) return "icon_picker";
+	if ( strcmp(sComponentType, "intrange") == 0 ) return "intrange";
+	if ( strcmp(sComponentType, "numrange") == 0 ) return "numrange";
+	if ( strcmp(sComponentType, "daterange") == 0 ) return "daterange";
+	if ( strcmp(sComponentType, "timerange") == 0 ) return "timerange";
+	if ( strcmp(sComponentType, "datetimerange") == 0 ) return "datetimerange";
+	if ( strcmp(sComponentType, "password") == 0 ) return "password";
+	if ( strcmp(sComponentType, "badge_picker") == 0 ) return "badge_picker";
 
 	if ( strcmp(sStorageType, "integer") == 0 ) return "int";
 	if ( strcmp(sStorageType, "float") == 0 ) return "number";
@@ -1837,15 +1848,15 @@ xvalue Managed_BuildFormSchema(xvalue tblSpec)
 				tblGroup = Managed_EnsureSchemaGroup(
 					arrGroups,
 					Managed_IsBlank(sGroupKey) ? "content" : sGroupKey,
-					tblPresentationGroup ? (const char*)xvoTableGetText(tblPresentationGroup, "title", 5) : "Content Fields",
-					tblPresentationGroup ? (const char*)xvoTableGetText(tblPresentationGroup, "desc", 4) : "Generated from the managed content model.");
+					tblPresentationGroup ? (const char*)xvoTableGetText(tblPresentationGroup, "title", 5) : "内容表单",
+					tblPresentationGroup ? (const char*)xvoTableGetText(tblPresentationGroup, "desc", 4) : "");
 				arrFormFields = xvoTableGetValue(tblGroup, "fields", 6);
 				xvoArrayAppendValue(arrFormFields, tblFormField, TRUE);
 			}
 		}
 	}
 	if ( xvoArrayItemCount(arrGroups) == 0 ) {
-		Managed_EnsureSchemaGroup(arrGroups, "content", "Content Fields", "Generated from the managed content model.");
+		Managed_EnsureSchemaGroup(arrGroups, "content", "内容表单", "");
 	}
 	return tblSchema;
 }
@@ -3774,6 +3785,17 @@ void Managed_RequestDraftsView(XS_ServerObject objServer, XS_HostObject objHost,
 	}
 }
 
+void Managed_RequestEditorView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+	if ( !Managed_SendAssetHtml(objResp, "generated/editor.html") ) {
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "managed editor page missing", 0);
+	}
+}
+
 void Managed_RequestCategoriesView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	(void)objServer;
@@ -4005,6 +4027,16 @@ int Managed_OnStart(XAdminPluginHandle handle)
 		memset(&route, 0, sizeof(route));
 		route.path = "/admin/view/plugin/{{PLUGIN_XID}}/drafts";
 		route.proc = Managed_RequestDraftsView;
+		route.need_auth = TRUE;
+		route.admin_only = TRUE;
+		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+			goto failed;
+		}
+
+		memset(&route, 0, sizeof(route));
+		route.path = "/admin/view/plugin/{{PLUGIN_XID}}/editor";
+		route.proc = Managed_RequestEditorView;
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {

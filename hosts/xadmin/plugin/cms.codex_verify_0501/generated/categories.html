@@ -12,25 +12,25 @@
 </style>
 
 <div class="managed-category-page">
-  <table class="layui-hide" id="Table_Content_MakePlugin_cms_article_Categories" lay-filter="Table_Content_MakePlugin_cms_article_Categories"></table>
+  <table class="layui-hide" id="Table_Content_MakePlugin_cms_codex_verify_0501_Categories" lay-filter="Table_Content_MakePlugin_cms_codex_verify_0501_Categories"></table>
 </div>
 
-<script type="text/html" id="Toolbar_Content_MakePlugin_cms_article_Categories">
+<script type="text/html" id="Toolbar_Content_MakePlugin_cms_codex_verify_0501_Categories">
   <div class="layui-inline">
-    <button class="layui-btn layui-btn-sm" lay-event="Add_Content_MakePlugin_cms_article_Categories"><i class="layui-icon layui-icon-addition"></i> &#28155;&#21152;&#26639;&#30446;</button>
-    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_Content_MakePlugin_cms_article_Categories"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
+    <button class="layui-btn layui-btn-sm" lay-event="Add_Content_MakePlugin_cms_codex_verify_0501_Categories"><i class="layui-icon layui-icon-addition"></i> &#28155;&#21152;&#26639;&#30446;</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_Content_MakePlugin_cms_codex_verify_0501_Categories"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
   </div>
 </script>
 
-<script type="text/html" id="Tool_Content_MakePlugin_cms_article_Categories">
+<script type="text/html" id="Tool_Content_MakePlugin_cms_codex_verify_0501_Categories">
   <div class="layui-clear-space">
     <a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">&#32534;&#36753;</a>
     <a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">&#21024;&#38500;</a>
   </div>
 </script>
 
-<div id="Editor_Content_MakePlugin_cms_article_Categories" class="managed-category-editor" style="display:none;">
-  <form class="layui-form" lay-filter="Form_Content_MakePlugin_cms_article_Categories">
+<div id="Editor_Content_MakePlugin_cms_codex_verify_0501_Categories" class="managed-category-editor" style="display:none;">
+  <form class="layui-form" lay-filter="Form_Content_MakePlugin_cms_codex_verify_0501_Categories">
     <input type="hidden" name="id">
     <div class="layui-form-item">
       <label class="layui-form-label">&#26639;&#30446;&#21517;&#31216;</label>
@@ -66,8 +66,8 @@
       </div>
     </div>
     <div class="managed-category-actions">
-      <button type="button" class="layui-btn" id="Save_Content_MakePlugin_cms_article_Categories"><i class="layui-icon layui-icon-ok"></i> &#20445;&#23384;</button>
-      <button type="button" class="layui-btn layui-btn-primary" id="Cancel_Content_MakePlugin_cms_article_Categories"><i class="layui-icon layui-icon-close"></i> &#21462;&#28040;</button>
+      <button type="button" class="layui-btn" id="Save_Content_MakePlugin_cms_codex_verify_0501_Categories"><i class="layui-icon layui-icon-ok"></i> &#20445;&#23384;</button>
+      <button type="button" class="layui-btn layui-btn-primary" id="Cancel_Content_MakePlugin_cms_codex_verify_0501_Categories"><i class="layui-icon layui-icon-close"></i> &#21462;&#28040;</button>
     </div>
   </form>
 </div>
@@ -78,8 +78,8 @@ layui.use(['table', 'form'], function(){
   var form = layui.form;
   var layer = layui.layer;
   var $ = layui.$;
-  var pluginXid = 'cms.article';
-  var domBase = 'Content_MakePlugin_cms_article_Categories';
+  var pluginXid = 'cms.codex_verify_0501';
+  var domBase = 'Content_MakePlugin_cms_codex_verify_0501_Categories';
   var ids = {
     table: 'Table_' + domBase,
     toolbar: 'Toolbar_' + domBase,
@@ -186,8 +186,8 @@ layui.use(['table', 'form'], function(){
   });
 
   table.on('toolbar(' + ids.table + ')', function(obj){
-    if (obj.event === 'Add_Content_MakePlugin_cms_article_Categories') openEditor({});
-    if (obj.event === 'Refresh_Content_MakePlugin_cms_article_Categories') reloadTable();
+    if (obj.event === 'Add_Content_MakePlugin_cms_codex_verify_0501_Categories') openEditor({});
+    if (obj.event === 'Refresh_Content_MakePlugin_cms_codex_verify_0501_Categories') reloadTable();
   });
   table.on('tool(' + ids.table + ')', function(obj){
     if (obj.event === 'edit') openEditor(obj.data || {});

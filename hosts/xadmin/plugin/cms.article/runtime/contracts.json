@@ -1,8 +1,6 @@
 {
-  "pluginXid": "cms.article",
-  "typeId": 1,
-  "appliedRevision": 1,
-  "specHash": "029e620c04087ec6",
-  "capabilitySlots": [{"serviceXid":"comment.system","mount":{"surface":"public.record-detail","mode":"optional"},"routeBase":"/comments","key":"comments","title":"评论","configSchema":{"type":"object","properties":{"threadKeyField":{"title":"主题键字段","type":"string"}}},"desc":"在文章详情页挂载评论能力。"}],
-  "presentationGroups": [{"key":"basic","title":"基础信息","desc":"内容主体字段。"},{"key":"publishing","title":"发布设置","desc":"可见性和发布流程。"}]
+	"model": "cms.article",
+	"revision": 3,
+	"capabilities": [{"mount":{},"key":"comment","config":{"moderation":"manual","enabled":true},"enabled":true}]
 }
+

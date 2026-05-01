@@ -1,29 +1,29 @@
 <!-- Main table -->
 <div style="padding: 16px;">
-  <table class="layui-hide" id="Table_Content_MakePlugin_cms_article_Articles" lay-filter="Table_Content_MakePlugin_cms_article_Articles"></table>
+  <table class="layui-hide" id="Table_{{PLUGIN_DOM_ID_BASE}}" lay-filter="Table_{{PLUGIN_DOM_ID_BASE}}"></table>
 </div>
 
 <!-- Table toolbar -->
-<script type="text/html" id="Toolbar_Content_MakePlugin_cms_article_Articles">
+<script type="text/html" id="Toolbar_{{PLUGIN_DOM_ID_BASE}}">
   <div class="layui-inline">
-    <input type="text" id="Search_Content_MakePlugin_cms_article_Articles" placeholder="&#25628;&#32034;&#26631;&#39064;&#12289;&#25688;&#35201;&#12289;Slug..." class="layui-input" style="width: 260px; height: 32px; margin-right: 10px;">
+    <input type="text" id="Search_{{PLUGIN_DOM_ID_BASE}}" placeholder="&#25628;&#32034;&#26631;&#39064;&#12289;&#25688;&#35201;&#12289;Slug..." class="layui-input" style="width: 260px; height: 32px; margin-right: 10px;">
   </div>
   <div class="layui-inline">
-    <select id="Category_Content_MakePlugin_cms_article_Articles" class="layui-select" style="height:32px; min-width:150px; margin-right:10px;">
+    <select id="Category_{{PLUGIN_DOM_ID_BASE}}" class="layui-select" style="height:32px; min-width:150px; margin-right:10px;">
       <option value="">&#20840;&#37096;&#26639;&#30446;</option>
     </select>
   </div>
   <div class="layui-inline">
-    <button class="layui-btn layui-btn-sm" lay-event="Search_Content_MakePlugin_cms_article_Articles"><i class="layui-icon layui-icon-search"></i> &#25628;&#32034;</button>
-    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_Content_MakePlugin_cms_article_Articles"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
+    <button class="layui-btn layui-btn-sm" lay-event="Search_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-search"></i> &#25628;&#32034;</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
   </div>
   <div class="layui-inline" style="float: right;">
-    <button class="layui-btn layui-btn-sm" lay-event="Add_Content_MakePlugin_cms_article_Articles"><i class="layui-icon layui-icon-addition"></i> &#26032;&#22686;&#20869;&#23481;</button>
+    <button class="layui-btn layui-btn-sm" lay-event="Add_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-addition"></i> &#26032;&#22686;&#20869;&#23481;</button>
   </div>
 </script>
 
 <!-- Row tools -->
-<script type="text/html" id="Tool_Content_MakePlugin_cms_article_Articles">
+<script type="text/html" id="Tool_{{PLUGIN_DOM_ID_BASE}}">
   <div class="layui-clear-space">
     <a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">&#32534;&#36753;</a>
     <a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">&#21024;&#38500;</a>
@@ -37,9 +37,9 @@ layui.use(['table', 'form'], function(){
   var form = layui.form;
   var layer = layui.layer;
   var $ = layui.$;
-  var pluginXid = 'cms.article';
-  var domBase = 'Content_MakePlugin_cms_article_Articles';
-  var pageKind = 'articles';
+  var pluginXid = '{{PLUGIN_XID}}';
+  var domBase = '{{PLUGIN_DOM_ID_BASE}}';
+  var pageKind = '{{PLUGIN_PAGE_KIND}}';
   var ids = {
     table: 'Table_' + domBase,
     toolbar: 'Toolbar_' + domBase,
@@ -239,13 +239,13 @@ layui.use(['table', 'form'], function(){
 
   table.on('toolbar(' + ids.table + ')', function(obj){
     switch (obj.event) {
-      case 'Search_Content_MakePlugin_cms_article_Articles':
+      case 'Search_{{PLUGIN_DOM_ID_BASE}}':
         reloadTable(true);
         break;
-      case 'Refresh_Content_MakePlugin_cms_article_Articles':
+      case 'Refresh_{{PLUGIN_DOM_ID_BASE}}':
         reloadTable(false);
         break;
-      case 'Add_Content_MakePlugin_cms_article_Articles':
+      case 'Add_{{PLUGIN_DOM_ID_BASE}}':
         openEditor(0);
         break;
     }

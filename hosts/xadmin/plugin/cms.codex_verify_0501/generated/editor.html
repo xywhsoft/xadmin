@@ -1,0 +1,331 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="renderer" content="webkit">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="/layui/css/layui.css" rel="stylesheet">
+<script src="/layui/layui.js"></script>
+</head>
+<body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: #fff;">
+<div class="layui-form managed-content-editor-layout" lay-filter="FormHost_Content_MakePlugin_cms_codex_verify_0501_Editor">
+  <div class="managed-content-editor-body">
+    <div id="Form_Content_MakePlugin_cms_codex_verify_0501_Editor" class="managed-content-form">
+      <div class="managed-content-empty">&#27491;&#22312;&#21152;&#36733;&#34920;&#21333;...</div>
+    </div>
+  </div>
+  <div class="managed-content-editor-footer">
+    <div class="layui-input-block managed-content-editor-actions" style="margin-left: 0;">
+      <button type="button" class="layui-btn layui-bg-blue" id="Save_Content_MakePlugin_cms_codex_verify_0501_Editor"><i class="layui-icon layui-icon-ok"></i> &#20445;&#23384;</button>
+      <button type="button" class="layui-btn layui-btn-warm" id="SaveDraft_Content_MakePlugin_cms_codex_verify_0501_Editor"><i class="layui-icon layui-icon-file-b"></i> &#20445;&#23384;&#33609;&#31295;</button>
+      <button type="button" class="layui-btn layui-btn-primary" id="Cancel_Content_MakePlugin_cms_codex_verify_0501_Editor"><i class="layui-icon layui-icon-close"></i> &#21462;&#28040;</button>
+    </div>
+    <div class="managed-content-status" id="Status_Content_MakePlugin_cms_codex_verify_0501_Editor"></div>
+  </div>
+</div>
+
+<style>
+  .managed-content-editor-layout {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+  .managed-content-editor-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    padding: 18px 22px 12px;
+  }
+  .managed-content-editor-footer {
+    flex: 0 0 auto;
+    padding: 10px 20px;
+    border-top: 1px solid #e6e6e6;
+    background: #fff;
+    text-align: right;
+    z-index: 20;
+  }
+  .managed-content-editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  .managed-content-form .xform-group {
+    border: 1px solid #eef2f7;
+    border-radius: 8px;
+    overflow: visible;
+    margin-bottom: 16px;
+    background: #fff;
+  }
+  .managed-content-form .xform-group-title {
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    color: #243047;
+    background: #f8fbff;
+    border-bottom: 1px solid #eef2f7;
+  }
+  .managed-content-form .xform-group-desc { padding: 0 16px 12px; color: #667085; font-size: 13px; }
+  .managed-content-form .xform-group-fields { padding: 16px 16px 1px; }
+  .managed-content-form .xform-group-fields.xform-layout-two-column {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 16px;
+  }
+  .managed-content-form .xform-group-fields.xform-layout-two-column .xform-field-span-2 { grid-column: 1 / -1; }
+  .managed-content-empty { padding: 42px 20px; color: #667085; text-align: center; }
+  .managed-content-status { min-height: 0; color: #1677ff; font-size: 13px; text-align: right; }
+  .managed-content-status:not(:empty) { margin-top: 8px; min-height: 18px; }
+  @media (max-width: 900px) {
+    .managed-content-form .xform-group-fields.xform-layout-two-column { grid-template-columns: 1fr; }
+  }
+</style>
+
+<script>
+layui.use(['form'], function(){
+  var form = layui.form;
+  var layer = layui.layer;
+  var pluginXid = 'cms.codex_verify_0501';
+  var domBase = 'Content_MakePlugin_cms_codex_verify_0501_Editor';
+  var ids = {
+    form: 'Form_' + domBase,
+    save: 'Save_' + domBase,
+    saveDraft: 'SaveDraft_' + domBase,
+    cancel: 'Cancel_' + domBase,
+    status: 'Status_' + domBase
+  };
+  var state = {
+    meta: null,
+    categories: null,
+    form: null,
+    currentId: 0
+  };
+
+  function t(key) {
+    var dict = {
+      loadingForm: '\u6b63\u5728\u52a0\u8f7d\u8868\u5355...',
+      xformMissing: 'XForm \u8868\u5355\u8fd0\u884c\u65f6\u52a0\u8f7d\u5931\u8d25',
+      metaLoadFailed: '\u8868\u5355\u5143\u6570\u636e\u52a0\u8f7d\u5931\u8d25',
+      recordLoadFailed: '\u8bb0\u5f55\u52a0\u8f7d\u5931\u8d25',
+      formNotReady: '\u8868\u5355\u5c1a\u672a\u51c6\u5907\u5b8c\u6210',
+      validateFailed: '\u6821\u9a8c\u5931\u8d25',
+      saving: '\u6b63\u5728\u4fdd\u5b58...',
+      saveFailed: '\u4fdd\u5b58\u5931\u8d25',
+      saved: '\u5185\u5bb9\u5df2\u4fdd\u5b58',
+      draftSaved: '\u8349\u7a3f\u5df2\u4fdd\u5b58',
+      failed: '\u64cd\u4f5c\u5931\u8d25'
+    };
+    return dict[key] || key;
+  }
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function queryValue(name) {
+    var params = new URLSearchParams(window.location.search || '');
+    return params.get(name) || '';
+  }
+
+  function loadStyleOnce(id, href) {
+    if (byId(id)) return;
+    var link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  }
+
+  function loadScriptOnce(id, src) {
+    window.__managedContentScriptPromises = window.__managedContentScriptPromises || {};
+    if (byId(id)) return window.__managedContentScriptPromises[id] || Promise.resolve();
+    var script = document.createElement('script');
+    script.id = id;
+    script.src = src;
+    script.async = true;
+    var promise = new Promise(function(resolve, reject){
+      script.onload = resolve;
+      script.onerror = function(){ reject(new Error('Failed to load ' + src)); };
+    });
+    window.__managedContentScriptPromises[id] = promise;
+    document.head.appendChild(script);
+    return promise;
+  }
+
+  async function ensureAssets() {
+    window.__xformDebug = false;
+    loadStyleOnce('managed-content-editormd-css', '/lib/editormd/css/editormd.min.css');
+    loadStyleOnce('managed-content-wangeditor-css', '/lib/wangEditor/css/style.css');
+    loadStyleOnce('managed-content-codemirror-css', '/lib/CodeMirror/lib/codemirror.css');
+    loadStyleOnce('managed-content-codemirror-monokai-css', '/lib/CodeMirror/theme/monokai.css');
+    if (!window.XForm || window.XForm.version !== '20260408_01') {
+      await loadScriptOnce('managed-content-xform-runtime', '/lib/xform/xform.js?v=20260408_01');
+    }
+    if (!window.XForm || window.XForm.version !== '20260408_01') throw new Error(t('xformMissing'));
+  }
+
+  function textOf(value) {
+    return value == null ? '' : String(value);
+  }
+
+  function setStatus(message, color) {
+    var el = byId(ids.status);
+    if (!el) return;
+    el.innerText = message || '';
+    el.style.color = color || '#1677ff';
+  }
+
+  async function loadMeta() {
+    if (state.meta) return state.meta;
+    var response = await fetch('/admin/api/plugin/' + pluginXid + '/form-meta', { cache: 'no-store' });
+    var result = await response.json();
+    if (!result || !result.result) throw new Error((result && result.message) || t('metaLoadFailed'));
+    state.meta = result.data || {};
+    return state.meta;
+  }
+
+  function categoryLabel(row) {
+    var level = Number((row && row.level) || 0);
+    var prefix = '';
+    for (var i = 0; i < level; i++) prefix += '\u3000\u3000';
+    return prefix + textOf((row && row.title) || '');
+  }
+
+  async function loadCategories() {
+    if (state.categories) return state.categories;
+    var response = await fetch('/admin/api/plugin/' + pluginXid + '/category/list', { cache: 'no-store' });
+    var result = await response.json();
+    if (!result || !result.result) {
+      state.categories = [];
+      return state.categories;
+    }
+    state.categories = Array.isArray(result.data) ? result.data : [];
+    return state.categories;
+  }
+
+  function categoryOptions(categories, includeEmpty) {
+    var list = [];
+    if (includeEmpty) list.push({ value: 0, label: '\u672a\u5f52\u7c7b' });
+    (categories || []).forEach(function(row){
+      list.push({ value: Number(row.id || 0), label: categoryLabel(row) });
+    });
+    return list;
+  }
+
+  function hasSchemaField(schema, name) {
+    var groups = (schema && schema.groups) || [];
+    for (var i = 0; i < groups.length; i++) {
+      var fields = groups[i].fields || [];
+      for (var j = 0; j < fields.length; j++) {
+        if (fields[j] && fields[j].name === name) return true;
+      }
+    }
+    return false;
+  }
+
+  function withManagedSystemFields(schema, categories) {
+    var next = JSON.parse(JSON.stringify(schema || { title: 'Content', groups: [] }));
+    next.groups = Array.isArray(next.groups) ? next.groups : [];
+    if (!hasSchemaField(next, 'categoryId')) {
+      next.groups.unshift({
+        key: 'category',
+        title: '\u53d1\u5e03\u8bbe\u7f6e',
+        desc: '',
+        fields: [{
+          name: 'categoryId',
+          type: 'select',
+          label: '\u6240\u5c5e\u680f\u76ee',
+          required: false,
+          list: categoryOptions(categories, true)
+        }]
+      });
+    }
+    if (!hasSchemaField(next, 'slug')) {
+      var publishGroup = next.groups[0];
+      if (!publishGroup || publishGroup.key !== 'category') {
+        publishGroup = { key: 'category', title: '\u53d1\u5e03\u8bbe\u7f6e', desc: '', fields: [] };
+        next.groups.unshift(publishGroup);
+      }
+      publishGroup.fields = Array.isArray(publishGroup.fields) ? publishGroup.fields : [];
+      publishGroup.fields.push({
+        name: 'slug',
+        type: 'text',
+        label: 'URL\u6807\u8bc6',
+        required: false,
+        placeholder: 'my-first-post'
+      });
+    }
+    return next;
+  }
+
+  function formValuesFromRecord(record) {
+    var data = record && record.data && typeof record.data === 'object' ? record.data : {};
+    var values = JSON.parse(JSON.stringify(data));
+    values.categoryId = Number((record && record.categoryId) || values.categoryId || 0);
+    return values;
+  }
+
+  async function loadRecord(id) {
+    if (!id) return null;
+    var response = await fetch('/admin/api/plugin/' + pluginXid + '/get?id=' + encodeURIComponent(id), { cache: 'no-store' });
+    var result = await response.json();
+    if (!result || !result.result) throw new Error((result && result.message) || t('recordLoadFailed'));
+    return result.data || {};
+  }
+
+  async function renderEditor() {
+    await ensureAssets();
+    var meta = await loadMeta();
+    var categories = await loadCategories();
+    var record = await loadRecord(state.currentId);
+    var host = byId(ids.form);
+    host.innerHTML = '<div class="managed-content-empty">' + t('loadingForm') + '</div>';
+    state.form = await window.XForm.render(host, withManagedSystemFields(meta.schema || { title: 'Content', groups: [] }, categories), formValuesFromRecord(record), meta.fieldTypes || {}, {});
+    setStatus('');
+  }
+
+  function closeFrame() {
+    if (parent && parent.layer) {
+      parent.layer.close(parent.layer.getFrameIndex(window.name));
+      return;
+    }
+    window.close();
+  }
+
+  async function saveRecord(asDraft) {
+    if (!state.form) { layer.msg(t('formNotReady'), { icon: 2 }); return; }
+    var check = state.form.validate ? state.form.validate() : { result: true };
+    if (!check.result) { setStatus(check.message || t('validateFailed'), '#b91c1c'); return; }
+    var values = state.form.collect ? state.form.collect() : {};
+    var categoryId = Number(values.categoryId || 0);
+    setStatus(t('saving'));
+    var response = await fetch('/admin/api/plugin/' + pluginXid + '/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: state.currentId || 0, categoryId: categoryId, isDraft: !!asDraft, data: values })
+    });
+    var result = await response.json();
+    if (!result || !result.result) throw new Error((result && result.message) || t('saveFailed'));
+    layer.msg(asDraft ? t('draftSaved') : t('saved'), { icon: 1 });
+    if (parent && parent.layui && parent.layui.table) {
+      parent.layui.table.reloadData('Table_Content_MakePlugin_cms_codex_verify_0501_Articles');
+      parent.layui.table.reloadData('Table_Content_MakePlugin_cms_codex_verify_0501_Drafts');
+    }
+    closeFrame();
+  }
+
+  function handleError(error) {
+    var message = error && error.message ? error.message : String(error || t('failed'));
+    layer.msg(message, { icon: 2 });
+    setStatus(message, '#b91c1c');
+  }
+
+  state.currentId = Number(queryValue('id') || 0);
+  byId(ids.save).onclick = function(){ saveRecord(false).catch(handleError); };
+  byId(ids.saveDraft).onclick = function(){ saveRecord(true).catch(handleError); };
+  byId(ids.cancel).onclick = closeFrame;
+  renderEditor().catch(handleError);
+});
+</script>
+</body>
+</html>

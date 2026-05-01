@@ -190,6 +190,7 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/content/types",					Request_Content_Types);
 	AddStaticRouteHTTP("/admin/content/type",					Request_Content_Type);
 	AddStaticRouteHTTP("/admin/content/save",					Request_Content_Save);
+	AddStaticRouteHTTP("/admin/content/delete",					Request_Content_Delete);
 	AddStaticRouteHTTP("/admin/content/revisions",				Request_Content_Revisions);
 	AddStaticRouteHTTP("/admin/content/generations",				Request_Content_Generations);
 	AddStaticRouteHTTP("/admin/content/advisor",					Request_Content_Advisor);

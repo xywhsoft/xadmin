@@ -132,6 +132,9 @@ str Content_TemplatePath(const char* sName)
 	if ( (AppPath == NULL) || (sName == NULL) || (sName[0] == '\0') ) {
 		return NULL;
 	}
+	if ( strncmp(sName, "managed_", 8) == 0 ) {
+		return xrtPathJoin(5, AppPath, "data", "content", "templates", (str)sName);
+	}
 	return xrtPathJoin(5, AppPath, "data", "template", "content", (str)sName);
 }
 
@@ -302,7 +305,7 @@ str Content_BuildPluginDomIdBase(const char* sPluginXid)
 
 str Content_BuildManagedMainC(const char* sPluginXid, const char* sPluginTitle, const char* sMenuTitle)
 {
-	str sTemplate = Content_LoadGeneratorTemplate("managed_main.template.c");
+	str sTemplate = Content_LoadGeneratorTemplate("managed_main.c.tpl");
 	str sSafePluginTitle = Content_EscapeCString(Content_TextOr(sPluginTitle, sPluginXid ? sPluginXid : "Generated Content Plugin"));
 	str sSafeMenuTitle = Content_EscapeCString(Content_TextOr(sMenuTitle, sPluginTitle ? sPluginTitle : (sPluginXid ? sPluginXid : "Generated Content Plugin")));
 	if ( sTemplate == NULL ) {
@@ -329,7 +332,7 @@ str Content_BuildManagedMainC(const char* sPluginXid, const char* sPluginTitle, 
 
 str Content_BuildManagedAdminPageHtml(const char* sPluginXid, const char* sPageKind)
 {
-	str sTemplate = Content_LoadGeneratorTemplate("managed_admin.template.html");
+	str sTemplate = Content_LoadGeneratorTemplate("managed_admin.html.tpl");
 	str sDomIdBase = Content_BuildPluginDomIdBase(sPluginXid);
 	str sPageDomIdBase = NULL;
 	if ( sTemplate == NULL ) {
@@ -345,9 +348,27 @@ str Content_BuildManagedAdminPageHtml(const char* sPluginXid, const char* sPageK
 	return sTemplate;
 }
 
+str Content_BuildManagedEditorHtml(const char* sPluginXid)
+{
+	str sTemplate = Content_LoadGeneratorTemplate("managed_editor.html.tpl");
+	str sDomIdBase = Content_BuildPluginDomIdBase(sPluginXid);
+	str sPageDomIdBase = NULL;
+	if ( sTemplate == NULL ) {
+		if ( sDomIdBase ) xrtFree(sDomIdBase);
+		return NULL;
+	}
+	sPageDomIdBase = xrtFormat("%s_Editor", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin");
+	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_XID}}", sPluginXid ? sPluginXid : "");
+	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sPageDomIdBase ? (const char*)sPageDomIdBase : (sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin_Editor"));
+	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_LIST_DOM_ID_BASE}}", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin");
+	if ( sPageDomIdBase ) xrtFree(sPageDomIdBase);
+	if ( sDomIdBase ) xrtFree(sDomIdBase);
+	return sTemplate;
+}
+
 str Content_BuildManagedCategoryHtml(const char* sPluginXid)
 {
-	str sTemplate = Content_LoadGeneratorTemplate("managed_category.template.html");
+	str sTemplate = Content_LoadGeneratorTemplate("managed_category.html.tpl");
 	str sDomIdBase = Content_BuildPluginDomIdBase(sPluginXid);
 	str sPageDomIdBase = NULL;
 	if ( sTemplate == NULL ) {
@@ -364,7 +385,7 @@ str Content_BuildManagedCategoryHtml(const char* sPluginXid)
 
 str Content_BuildManagedPublicHtml(const char* sPluginXid)
 {
-	str sTemplate = Content_LoadGeneratorTemplate("managed_public.template.html");
+	str sTemplate = Content_LoadGeneratorTemplate("managed_public.html.tpl");
 	str sDomIdBase = Content_BuildPluginDomIdBase(sPluginXid);
 	if ( sTemplate == NULL ) {
 		if ( sDomIdBase ) xrtFree(sDomIdBase);

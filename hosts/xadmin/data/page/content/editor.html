@@ -123,14 +123,37 @@
 								<label class="layui-form-label">类型</label>
 								<div class="layui-input-block">
 									<select name="type">
+										<option value="input">input</option>
 										<option value="text">text</option>
 										<option value="textarea">textarea</option>
+										<option value="number">number</option>
+										<option value="int">int</option>
 										<option value="integer">integer</option>
 										<option value="decimal">decimal</option>
+										<option value="password">password</option>
 										<option value="select">select</option>
+										<option value="combobox">combobox</option>
+										<option value="radio">radio</option>
+										<option value="checkbox">checkbox</option>
+										<option value="checklist">checklist</option>
 										<option value="switch">switch</option>
+										<option value="date">date</option>
 										<option value="datetime">datetime</option>
+										<option value="time">time</option>
+										<option value="intrange">intrange</option>
+										<option value="numrange">numrange</option>
+										<option value="daterange">daterange</option>
+										<option value="timerange">timerange</option>
+										<option value="datetimerange">datetimerange</option>
+										<option value="editor_md">editor_md</option>
+										<option value="editor_html">editor_html</option>
+										<option value="editor_code">editor_code</option>
+										<option value="icon_picker">icon_picker</option>
 										<option value="image">image</option>
+										<option value="images">images</option>
+										<option value="file">file</option>
+										<option value="files">files</option>
+										<option value="badge_picker">badge_picker</option>
 										<option value="json">json</option>
 									</select>
 								</div>
@@ -140,9 +163,66 @@
 								<div class="layui-input-block"><input name="defaultValue" class="layui-input"></div>
 							</div>
 						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">存储类型</label>
+								<div class="layui-input-block">
+									<select name="storageType">
+										<option value="">自动</option>
+										<option value="text">text</option>
+										<option value="integer">integer</option>
+										<option value="real">real</option>
+										<option value="boolean">boolean</option>
+										<option value="date">date</option>
+										<option value="datetime">datetime</option>
+										<option value="time">time</option>
+										<option value="json">json</option>
+									</select>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">语义角色</label>
+								<div class="layui-input-block">
+									<select name="semanticRole">
+										<option value="">无</option>
+										<option value="title">标题</option>
+										<option value="slug">URL 标识</option>
+										<option value="summary">摘要</option>
+										<option value="content">正文</option>
+										<option value="cover">封面</option>
+										<option value="status">状态</option>
+										<option value="author">作者</option>
+										<option value="publishedAt">发布时间</option>
+										<option value="sort">排序</option>
+										<option value="category">分类</option>
+										<option value="tag">标签</option>
+									</select>
+								</div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">占位提示</label>
+								<div class="layui-input-block"><input name="placeholder" class="layui-input" placeholder="请输入标题"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">布局跨度</label>
+								<div class="layui-input-block">
+									<select name="layoutSpan">
+										<option value="">自动</option>
+										<option value="1">单列</option>
+										<option value="2">通栏</option>
+									</select>
+								</div>
+							</div>
+						</div>
 						<div class="layui-form-item">
 							<label class="layui-form-label">选项</label>
 							<div class="layui-input-block"><input name="options" class="layui-input" placeholder="value:Label, draft:Draft"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">选项 JSON</label>
+							<div class="layui-input-block"><textarea name="listJson" class="layui-textarea" placeholder='[{"value":"draft","label":"草稿"}]'></textarea></div>
 						</div>
 						<div class="layui-form-item">
 							<label class="layui-form-label">选项列表</label>
@@ -155,9 +235,39 @@
 							<label class="layui-form-label">标记</label>
 							<div class="layui-input-block">
 								<input type="checkbox" name="required" title="必填">
+								<input type="checkbox" name="nullable" title="可空">
 								<input type="checkbox" name="list" title="列表">
 								<input type="checkbox" name="detail" title="详情">
+								<input type="checkbox" name="readonly" title="只读">
+								<input type="checkbox" name="disabled" title="禁用">
+								<input type="checkbox" name="sortable" title="排序">
+								<input type="checkbox" name="filterable" title="筛选">
+								<input type="checkbox" name="searchable" title="搜索">
 							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">上传地址</label>
+								<div class="layui-input-block"><input name="uploadUrl" class="layui-input" placeholder="/admin/attachment/upload"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">允许 MIME</label>
+								<div class="layui-input-block"><input name="acceptMime" class="layui-input" placeholder="image/*"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">上传 accept</label>
+								<div class="layui-input-block"><input name="accept" class="layui-input" placeholder="images 或 file"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">按钮文字</label>
+								<div class="layui-input-block"><input name="buttonText" class="layui-input" placeholder="上传"></div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">组件属性</label>
+							<div class="layui-input-block"><textarea name="componentPropsJson" class="layui-textarea" placeholder='{"min":0,"max":100,"step":1,"height":240}'></textarea></div>
 						</div>
 						<div class="layui-form-item">
 							<label class="layui-form-label">说明</label>

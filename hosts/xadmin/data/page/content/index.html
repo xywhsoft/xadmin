@@ -76,6 +76,7 @@
 <script type="text/html" id="Tool_Content_Model">
 	<div class="layui-clear-space">
 		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
 	</div>
 </script>
 
@@ -157,6 +158,32 @@
 			});
 		}
 
+		function deleteModel(row) {
+			var xid = (row && row.xid) || "";
+			var title = (row && (row.title || row.name || row.xid)) || xid;
+			if ( !xid ) return;
+			layer.confirm("确定删除模型 \"" + title + "\" 吗？已生成的业务插件不会被自动删除。", { icon: 3, title: "删除确认" }, function(index){
+				fetch("/admin/content/delete", {
+					method: "POST",
+					credentials: "same-origin",
+					headers: { "Content-Type": "application/json", "Accept": "application/json" },
+					body: JSON.stringify({ xid: xid })
+				})
+				.then(function(response){ return response.json(); })
+				.then(function(result){
+					if ( !result || result.result !== true ) {
+						throw new Error((result && result.message) || "删除模型失败");
+					}
+					layer.msg("删除成功", { icon: 1 });
+					loadRows();
+				})
+				.catch(function(error){
+					layer.msg(error.message || "删除模型失败", { icon: 2 });
+				});
+				layer.close(index);
+			});
+		}
+
 		table.render({
 			elem: "#Table_Content_Model",
 			toolbar: "#Toolbar_Content_Model",
@@ -178,7 +205,7 @@
 				{title: "修订", width: 110, templet: "#Tpl_Content_Model_Revision"},
 				{title: "状态", width: 100, templet: "#Tpl_Content_Model_Status"},
 				{field: "updateTimeText", width: 170, title: "修改时间"},
-				{width: 100, title: "操作", fixed: "right", templet: "#Tool_Content_Model"}
+				{width: 140, title: "操作", fixed: "right", templet: "#Tool_Content_Model"}
 			]]
 		});
 
@@ -199,6 +226,8 @@
 		table.on("tool(Table_Content_Model)", function(obj){
 			if ( obj.event === "edit" ) {
 				openEditor((obj.data || {}).xid || "");
+			} else if ( obj.event === "delete" ) {
+				deleteModel(obj.data || {});
 			}
 		});
 

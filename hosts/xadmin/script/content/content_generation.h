@@ -121,7 +121,34 @@ const char* Content_FieldStorageType(const char* sType)
 const char* Content_FieldComponentType(const char* sType, const char* sOptions)
 {
 	if ( sType && strcmp(sType, "textarea") == 0 ) return "textarea";
+	if ( sType && strcmp(sType, "text") == 0 ) return "text";
+	if ( sType && strcmp(sType, "number") == 0 ) return "number";
+	if ( sType && strcmp(sType, "int") == 0 ) return "int";
+	if ( sType && strcmp(sType, "integer") == 0 ) return "int";
+	if ( sType && strcmp(sType, "decimal") == 0 ) return "number";
+	if ( sType && strcmp(sType, "password") == 0 ) return "password";
 	if ( sType && strcmp(sType, "select") == 0 ) return "select";
+	if ( sType && strcmp(sType, "combobox") == 0 ) return "combobox";
+	if ( sType && strcmp(sType, "radio") == 0 ) return "radio";
+	if ( sType && strcmp(sType, "checkbox") == 0 ) return "checkbox";
+	if ( sType && strcmp(sType, "checklist") == 0 ) return "checklist";
+	if ( sType && strcmp(sType, "date") == 0 ) return "date";
+	if ( sType && strcmp(sType, "datetime") == 0 ) return "datetime";
+	if ( sType && strcmp(sType, "time") == 0 ) return "time";
+	if ( sType && strcmp(sType, "intrange") == 0 ) return "intrange";
+	if ( sType && strcmp(sType, "numrange") == 0 ) return "numrange";
+	if ( sType && strcmp(sType, "daterange") == 0 ) return "daterange";
+	if ( sType && strcmp(sType, "timerange") == 0 ) return "timerange";
+	if ( sType && strcmp(sType, "datetimerange") == 0 ) return "datetimerange";
+	if ( sType && strcmp(sType, "editor_md") == 0 ) return "editor_md";
+	if ( sType && strcmp(sType, "editor_html") == 0 ) return "editor_html";
+	if ( sType && strcmp(sType, "editor_code") == 0 ) return "editor_code";
+	if ( sType && strcmp(sType, "icon_picker") == 0 ) return "icon_picker";
+	if ( sType && strcmp(sType, "image") == 0 ) return "image";
+	if ( sType && strcmp(sType, "images") == 0 ) return "images";
+	if ( sType && strcmp(sType, "file") == 0 ) return "file";
+	if ( sType && strcmp(sType, "files") == 0 ) return "files";
+	if ( sType && strcmp(sType, "badge_picker") == 0 ) return "badge_picker";
 	if ( sOptions && sOptions[0] ) return "select";
 	if ( sType && (strcmp(sType, "bool") == 0 || strcmp(sType, "boolean") == 0 || strcmp(sType, "switch") == 0) ) return "switch";
 	return "input";
@@ -202,28 +229,53 @@ xvalue Content_BuildManagedSpecField(xvalue tblField)
 	xvalue tblComponent = xvoCreateTable();
 	xvalue tblSemantic = xvoCreateTable();
 	xvalue arrList = Content_ParseOptionList(sOptions);
+	xvalue tblExistingStorage = xvoTableGetValue(tblField, "storage", 7);
+	xvalue tblExistingComponent = xvoTableGetValue(tblField, "component", 9);
+	xvalue tblExistingSemantic = xvoTableGetValue(tblField, "semantic", 8);
 
 	if ( tblOut == NULL ) {
 		tblOut = xvoCreateTable();
 	}
-	xvoTableSetText(tblStorage, "type", 4, (str)Content_FieldStorageType(sType), 0, FALSE);
-	xvoTableSetText(tblComponent, "type", 4, (str)Content_FieldComponentType(sType, sOptions), 0, FALSE);
-	xvoTableSetValue(tblOut, "storage", 7, tblStorage, TRUE);
-	xvoTableSetValue(tblOut, "component", 9, tblComponent, TRUE);
-	if ( sRole[0] ) {
+	if ( tblExistingStorage && xvoType(tblExistingStorage) == XVO_DT_TABLE ) {
+		xvoUnref(tblStorage);
+		xvoTableSetValue(tblOut, "storage", 7, xvoCopy(tblExistingStorage), TRUE);
+	} else {
+		xvoTableSetText(tblStorage, "type", 4, (str)Content_FieldStorageType(sType), 0, FALSE);
+		xvoTableSetValue(tblOut, "storage", 7, tblStorage, TRUE);
+	}
+	if ( tblExistingComponent && xvoType(tblExistingComponent) == XVO_DT_TABLE ) {
+		xvoUnref(tblComponent);
+		xvoTableSetValue(tblOut, "component", 9, xvoCopy(tblExistingComponent), TRUE);
+	} else {
+		xvoTableSetText(tblComponent, "type", 4, (str)Content_FieldComponentType(sType, sOptions), 0, FALSE);
+		if ( arrList && xvoArrayItemCount(arrList) > 0 ) {
+			xvoTableSetValue(tblComponent, "list", 4, xvoCopy(arrList), TRUE);
+		}
+		xvoTableSetValue(tblOut, "component", 9, tblComponent, TRUE);
+	}
+	if ( tblExistingSemantic && xvoType(tblExistingSemantic) == XVO_DT_TABLE ) {
+		xvoUnref(tblSemantic);
+		xvoTableSetValue(tblOut, "semantic", 8, xvoCopy(tblExistingSemantic), TRUE);
+	} else if ( sRole[0] ) {
 		xvoTableSetText(tblSemantic, "role", 4, (str)sRole, 0, FALSE);
 		xvoTableSetValue(tblOut, "semantic", 8, tblSemantic, TRUE);
 	} else {
 		xvoUnref(tblSemantic);
 	}
-	if ( arrList && xvoArrayItemCount(arrList) > 0 ) {
+	if ( arrList && xvoArrayItemCount(arrList) > 0 && !xvoTableGetValue(tblOut, "options", 7) ) {
 		xvoTableSetValue(tblOut, "list", 4, arrList, TRUE);
 	} else if ( arrList ) {
 		xvoUnref(arrList);
 	}
-	xvoTableSetBool(tblOut, "showInForm", 10, TRUE);
-	xvoTableSetBool(tblOut, "showInList", 10, Content_TableBoolDefault(tblField, "list", 4, TRUE));
-	xvoTableSetBool(tblOut, "showInDetail", 12, Content_TableBoolDefault(tblField, "detail", 6, TRUE));
+	if ( xvoTableGetValue(tblOut, "showInForm", 10) == NULL ) {
+		xvoTableSetBool(tblOut, "showInForm", 10, TRUE);
+	}
+	if ( xvoTableGetValue(tblOut, "showInList", 10) == NULL ) {
+		xvoTableSetBool(tblOut, "showInList", 10, Content_TableBoolDefault(tblField, "list", 4, TRUE));
+	}
+	if ( xvoTableGetValue(tblOut, "showInDetail", 12) == NULL ) {
+		xvoTableSetBool(tblOut, "showInDetail", 12, Content_TableBoolDefault(tblField, "detail", 6, TRUE));
+	}
 	return tblOut;
 }
 
@@ -316,12 +368,13 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	str sManagedSpecJson = NULL;
 	xvalue tblSpecJson = NULL;
 	xvalue tblAdvisor = NULL;
-	XAdminGeneratedFile files[16];
+	XAdminGeneratedFile files[17];
 	XAdminGeneratedPluginSpec spec;
 	str sPluginJson = NULL;
 	str sMainC = NULL;
 	str sAdminHtml = NULL;
 	str sDraftHtml = NULL;
+	str sEditorHtml = NULL;
 	str sCategoryHtml = NULL;
 	str sDefaults = NULL;
 	str sSchema = NULL;
@@ -377,6 +430,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sMainC = Content_BuildManagedMainC(sGeneratedPluginXid, Content_TextOr((const char*)sPluginTitle, (const char*)sTitle), Content_TextOr((const char*)sMenuTitle, Content_TextOr((const char*)sPluginTitle, (const char*)sTitle)));
 	sAdminHtml = Content_BuildManagedAdminPageHtml(sGeneratedPluginXid, "articles");
 	sDraftHtml = Content_BuildManagedAdminPageHtml(sGeneratedPluginXid, "drafts");
+	sEditorHtml = Content_BuildManagedEditorHtml(sGeneratedPluginXid);
 	sCategoryHtml = Content_BuildManagedCategoryHtml(sGeneratedPluginXid);
 	sPublicHtml = Content_BuildManagedPublicHtml(sGeneratedPluginXid);
 	sDefaults = xrtCopyStr("{\"pageSize\":20}\n", 0);
@@ -389,7 +443,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sMigrationSql = xrtCopyStr("-- Managed content migration is handled by generated plugin startup.\n", 0);
 	sCustomReadme = xrtCopyStr("This directory is reserved for user-owned extensions.\n", 0);
 	sOutputJson = xrtFormat(
-		"{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/categories.html\",\"generated/public.html\",\"generated/spec.json\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}",
+		"{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/public.html\",\"generated/spec.json\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}",
 		sGeneratedPluginXid ? (const char*)sGeneratedPluginXid : "",
 		iRevision
 	);
@@ -399,18 +453,19 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	Content_SetGeneratedFile(&files[1], "generated/main.c", sMainC);
 	Content_SetGeneratedFile(&files[2], "generated/admin.html", sAdminHtml);
 	Content_SetGeneratedFile(&files[3], "generated/drafts.html", sDraftHtml);
-	Content_SetGeneratedFile(&files[4], "generated/categories.html", sCategoryHtml);
-	Content_SetGeneratedFile(&files[5], "generated/public.html", sPublicHtml);
-	Content_SetGeneratedFile(&files[6], "generated/spec.json", sManagedSpecJson);
-	Content_SetGeneratedFile(&files[7], "config.defaults.json", sDefaults);
-	Content_SetGeneratedFile(&files[8], "config.schema.json", sSchema);
-	Content_SetGeneratedFile(&files[9], "runtime/managed.json", sManaged);
-	Content_SetGeneratedFile(&files[10], "runtime/contracts.json", sContracts);
-	Content_SetGeneratedFile(&files[11], "runtime/capability.mounts.example.json", sMountExample);
-	Content_SetGeneratedFile(&files[12], "runtime/capability.mounts.schema.json", sMountSchema);
-	Content_SetGeneratedFile(&files[13], "runtime/migration.plan.json", sMigrationPlan);
-	Content_SetGeneratedFile(&files[14], "generated/migration.sql", sMigrationSql);
-	Content_SetGeneratedFile(&files[15], "custom/README.txt", sCustomReadme);
+	Content_SetGeneratedFile(&files[4], "generated/editor.html", sEditorHtml);
+	Content_SetGeneratedFile(&files[5], "generated/categories.html", sCategoryHtml);
+	Content_SetGeneratedFile(&files[6], "generated/public.html", sPublicHtml);
+	Content_SetGeneratedFile(&files[7], "generated/spec.json", sManagedSpecJson);
+	Content_SetGeneratedFile(&files[8], "config.defaults.json", sDefaults);
+	Content_SetGeneratedFile(&files[9], "config.schema.json", sSchema);
+	Content_SetGeneratedFile(&files[10], "runtime/managed.json", sManaged);
+	Content_SetGeneratedFile(&files[11], "runtime/contracts.json", sContracts);
+	Content_SetGeneratedFile(&files[12], "runtime/capability.mounts.example.json", sMountExample);
+	Content_SetGeneratedFile(&files[13], "runtime/capability.mounts.schema.json", sMountSchema);
+	Content_SetGeneratedFile(&files[14], "runtime/migration.plan.json", sMigrationPlan);
+	Content_SetGeneratedFile(&files[15], "generated/migration.sql", sMigrationSql);
+	Content_SetGeneratedFile(&files[16], "custom/README.txt", sCustomReadme);
 
 	memset(&spec, 0, sizeof(spec));
 	spec.xid = sGeneratedPluginXid;
@@ -418,7 +473,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	spec.version = "1.0.0";
 	spec.entry = "generated/main.c";
 	spec.auto_enable = 0;
-	spec.file_count = 16;
+	spec.file_count = 17;
 	spec.files = files;
 	bOK = PluginSystem_Generate(&spec);
 
@@ -448,6 +503,7 @@ cleanup:
 	if ( sMainC ) xrtFree(sMainC);
 	if ( sAdminHtml ) xrtFree(sAdminHtml);
 	if ( sDraftHtml ) xrtFree(sDraftHtml);
+	if ( sEditorHtml ) xrtFree(sEditorHtml);
 	if ( sCategoryHtml ) xrtFree(sCategoryHtml);
 	if ( sDefaults ) xrtFree(sDefaults);
 	if ( sSchema ) xrtFree(sSchema);

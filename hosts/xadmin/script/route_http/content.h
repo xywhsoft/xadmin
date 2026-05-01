@@ -151,6 +151,40 @@ void Request_Content_Save(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	xvoUnref(tblSpec);
 }
 
+void Request_Content_Delete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = NULL;
+	str sXid = NULL;
+	char* sError = NULL;
+	xvalue tblData;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		Content_ReplyError(objResp, "method not allowed");
+		return;
+	}
+	tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+	if ( (tblBody == NULL) || (xvoType(tblBody) != XVO_DT_TABLE) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Content_ReplyError(objResp, "invalid json body");
+		return;
+	}
+	sXid = xvoTableGetText(tblBody, "xid", 3);
+	if ( !Content_DeleteModelByXid(sXid, &sError) ) {
+		xvoUnref(tblBody);
+		Content_ReplyError(objResp, sError ? sError : "delete model failed");
+		if ( sError ) xrtFree(sError);
+		return;
+	}
+	tblData = xvoCreateTable();
+	xvoTableSetText(tblData, "xid", 3, sXid, 0, FALSE);
+	Content_ReplySuccess(objResp, tblData);
+	xvoUnref(tblBody);
+}
+
 void Request_Content_Revisions(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sXid[128] = {0};

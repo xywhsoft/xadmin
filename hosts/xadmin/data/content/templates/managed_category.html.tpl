@@ -1,4 +1,17 @@
-<div style="padding: 16px;">
+<style>
+.managed-category-page { padding: 16px; }
+.managed-category-editor { position: relative; height: 100%; min-height: 380px; box-sizing: border-box; padding: 18px 22px 74px; }
+.managed-category-editor .layui-form-label { width: 92px; }
+.managed-category-editor .layui-input-block { margin-left: 122px; }
+.managed-category-editor .managed-category-actions { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; box-sizing: border-box; padding: 10px 22px; border-top: 1px solid #eee; background: #fff; text-align: right; }
+.managed-category-editor .managed-category-actions .layui-btn { min-width: 92px; }
+@media (max-width: 640px) {
+  .managed-category-editor .layui-form-label { width: 88px; }
+  .managed-category-editor .layui-input-block { margin-left: 118px; }
+}
+</style>
+
+<div class="managed-category-page">
   <table class="layui-hide" id="Table_{{PLUGIN_DOM_ID_BASE}}" lay-filter="Table_{{PLUGIN_DOM_ID_BASE}}"></table>
 </div>
 
@@ -16,19 +29,19 @@
   </div>
 </script>
 
-<div id="Editor_{{PLUGIN_DOM_ID_BASE}}" style="display:none; padding: 18px 22px 0;">
+<div id="Editor_{{PLUGIN_DOM_ID_BASE}}" class="managed-category-editor" style="display:none;">
   <form class="layui-form" lay-filter="Form_{{PLUGIN_DOM_ID_BASE}}">
     <input type="hidden" name="id">
     <div class="layui-form-item">
       <label class="layui-form-label">&#26639;&#30446;&#21517;&#31216;</label>
       <div class="layui-input-block">
-        <input type="text" name="title" required lay-verify="required" placeholder="Please input title" autocomplete="off" class="layui-input">
+        <input type="text" name="title" required lay-verify="required" placeholder="&#35831;&#36755;&#20837;&#26639;&#30446;&#21517;&#31216;" autocomplete="off" class="layui-input">
       </div>
     </div>
     <div class="layui-form-item">
-      <label class="layui-form-label">Slug</label>
+      <label class="layui-form-label">&#26639;&#30446;&#21035;&#21517;</label>
       <div class="layui-input-block">
-        <input type="text" name="slug" required lay-verify="required" placeholder="category-slug" autocomplete="off" class="layui-input">
+        <input type="text" name="slug" required lay-verify="required" placeholder="&#20363;&#22914; news &#25110; product" autocomplete="off" class="layui-input">
       </div>
     </div>
     <div class="layui-form-item">
@@ -39,22 +52,22 @@
     </div>
     <div class="layui-form-item">
       <label class="layui-form-label">&#25490;&#24207;</label>
-      <div class="layui-input-inline">
+      <div class="layui-input-block">
         <input type="number" name="sort" placeholder="0" autocomplete="off" class="layui-input">
       </div>
+    </div>
+    <div class="layui-form-item">
       <label class="layui-form-label">&#29366;&#24577;</label>
-      <div class="layui-input-inline">
+      <div class="layui-input-block">
         <select name="status">
           <option value="1">&#21551;&#29992;</option>
           <option value="0">&#20572;&#29992;</option>
         </select>
       </div>
     </div>
-    <div class="layui-form-item">
-      <div class="layui-input-block" style="text-align:right;">
-        <button type="button" class="layui-btn" id="Save_{{PLUGIN_DOM_ID_BASE}}">&#20445;&#23384;</button>
-        <button type="button" class="layui-btn layui-btn-primary" id="Cancel_{{PLUGIN_DOM_ID_BASE}}">&#21462;&#28040;</button>
-      </div>
+    <div class="managed-category-actions">
+      <button type="button" class="layui-btn" id="Save_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-ok"></i> &#20445;&#23384;</button>
+      <button type="button" class="layui-btn layui-btn-primary" id="Cancel_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-close"></i> &#21462;&#28040;</button>
     </div>
   </form>
 </div>
@@ -100,7 +113,7 @@ layui.use(['table', 'form'], function(){
     state.layerIndex = layer.open({
       title: state.current.id ? '\u7f16\u8f91\u680f\u76ee' : '\u6dfb\u52a0\u680f\u76ee',
       type: 1,
-      area: ['620px', '430px'],
+      area: ['620px', '470px'],
       shadeClose: false,
       content: $('#' + ids.editor),
       success: function(){
@@ -162,9 +175,8 @@ layui.use(['table', 'form'], function(){
     page: false,
     cols: [[
       { field: 'id', width: 80, title: 'ID' },
-      { field: 'title', minWidth: 220, title: '\u680f\u76ee\u540d\u79f0', templet: function(d){ return escapeHtml(d.title || '-'); } },
+      { field: 'title', minWidth: 240, title: '\u680f\u76ee\u540d\u79f0', templet: function(d){ return escapeHtml(d.title || '\u672a\u547d\u540d\u680f\u76ee'); } },
       { field: 'parentId', width: 100, title: '\u7236\u680f\u76ee' },
-      { field: 'slug', width: 180, title: 'Slug', templet: function(d){ return escapeHtml(d.slug || '-'); } },
       { field: 'contentCount', width: 110, title: '\u5185\u5bb9\u6570' },
       { field: 'sort', width: 90, title: '\u6392\u5e8f' },
       { field: 'status', width: 100, title: '\u72b6\u6001', templet: function(d){ return d.status ? '<span class="layui-badge layui-bg-green">\u542f\u7528</span>' : '<span class="layui-badge">\u505c\u7528</span>'; } },

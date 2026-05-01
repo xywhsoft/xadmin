@@ -220,6 +220,53 @@ xvalue Content_GetModelByXid(const char* sXid)
 	return tblModel;
 }
 
+bool Content_DeleteModelByXid(const char* sXid, char** psError)
+{
+	sqlite3_stmt* stmt = NULL;
+	int iModelId = 0;
+	int64 iNow = xrtNow();
+	bool bOK = FALSE;
+
+	if ( psError ) {
+		*psError = NULL;
+	}
+	if ( !Content_IsValidXid(sXid) ) {
+		if ( psError ) *psError = xrtCopyStr("invalid xid", 0);
+		return FALSE;
+	}
+	if ( !Content_FindModelIdAndRevision(sXid, &iModelId, NULL) || (iModelId <= 0) ) {
+		if ( psError ) *psError = xrtCopyStr("model not found", 0);
+		return FALSE;
+	}
+	if ( !ContentDB_BeginImmediate() ) {
+		if ( psError ) *psError = xrtCopyStr("begin transaction failed", 0);
+		return FALSE;
+	}
+	if ( sqlite3_prepare_v3(G_DB, "UPDATE content_model SET status='deleted', update_time=? WHERE id=? AND status <> 'deleted'", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		ContentDB_Rollback();
+		if ( psError ) *psError = xrtCopyStr("prepare delete failed", 0);
+		return FALSE;
+	}
+	sqlite3_bind_int64(stmt, 1, iNow);
+	sqlite3_bind_int(stmt, 2, iModelId);
+	bOK = (sqlite3_step(stmt) == SQLITE_DONE) && (sqlite3_changes(G_DB) > 0);
+	sqlite3_finalize(stmt);
+	stmt = NULL;
+	if ( !bOK ) {
+		ContentDB_Rollback();
+		if ( psError ) *psError = xrtCopyStr("delete model failed", 0);
+		return FALSE;
+	}
+	if ( sqlite3_prepare_v3(G_DB, "UPDATE content_model_capability SET status='deleted', update_time=? WHERE model_id=?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, iNow);
+		sqlite3_bind_int(stmt, 2, iModelId);
+		sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+	}
+	ContentDB_Commit();
+	return TRUE;
+}
+
 xvalue Content_SaveModelSpec(xvalue tblSpec, char** psError)
 {
 	str sSpecJson;

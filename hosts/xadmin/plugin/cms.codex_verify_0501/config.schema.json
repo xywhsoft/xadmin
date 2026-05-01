@@ -1,1 +1,1 @@
-{"type":"object","properties":{"enabled":{"type":"boolean"}}}
+{"type":"object","properties":{"pageSize":{"type":"integer","title":"Page Size"}},"additionalProperties":false}

@@ -9,11 +9,12 @@
 	"kind": "singleton",
 	"runtime": {"compiler":"tcc","language":"c"},
 	"resources": {"page":"page","template":"template","option":"option","static":"static"},
-	"build": {"entry":"main.c","sources":["main.c"],"defines":["XADMIN_PLUGIN=1"]},
+	"build": {"entry":"generated/main.c","sources":["generated/main.c"],"defines":["XADMIN_PLUGIN=1"]},
 	"compat": {"minHostVersion":"4.0.0","maxHostVersion":"5.0.0","abiVersion":4},
-	"capabilities": [],
+	"capabilities": ["route.public","route.admin"],
 	"dependencies": {"plugins":[],"services":[],"features":[]},
 	"contributes": {"menus":[],"routes":[],"hooks":[],"events":[]},
 	"defaultConfig": "config.defaults.json",
-	"configSchema": "config.schema.json"
+	"configSchema": "config.schema.json",
+	"xadminManaged": {"managed":true,"generator":"content","managedBy":"content","managedType":"generated-plugin","generatedRoot":"generated","runtimeRoot":"runtime","customRoot":"custom"}
 }
