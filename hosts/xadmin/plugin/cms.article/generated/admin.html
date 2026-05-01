@@ -13,6 +13,16 @@
       <option value="">&#20840;&#37096;&#26639;&#30446;</option>
     </select>
   </div>
+  <div class="layui-inline" id="TagWrap_Content_MakePlugin_cms_article_Articles" style="display:none;">
+    <select id="Tag_Content_MakePlugin_cms_article_Articles" class="layui-select" style="height:32px; min-width:140px; margin-right:10px;">
+      <option value="">&#20840;&#37096;&#26631;&#31614;</option>
+    </select>
+  </div>
+  <div class="layui-inline" id="TopicWrap_Content_MakePlugin_cms_article_Articles" style="display:none;">
+    <select id="Topic_Content_MakePlugin_cms_article_Articles" class="layui-select" style="height:32px; min-width:140px; margin-right:10px;">
+      <option value="">&#20840;&#37096;&#19987;&#39064;</option>
+    </select>
+  </div>
   <div class="layui-inline">
     <button class="layui-btn layui-btn-sm" lay-event="Search_Content_MakePlugin_cms_article_Articles"><i class="layui-icon layui-icon-search"></i> &#25628;&#32034;</button>
     <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_Content_MakePlugin_cms_article_Articles"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
@@ -45,11 +55,23 @@ layui.use(['table', 'form'], function(){
     toolbar: 'Toolbar_' + domBase,
     tool: 'Tool_' + domBase,
     search: 'Search_' + domBase,
-    category: 'Category_' + domBase
+    category: 'Category_' + domBase,
+    tag: 'Tag_' + domBase,
+    tagWrap: 'TagWrap_' + domBase,
+    topic: 'Topic_' + domBase,
+    topicWrap: 'TopicWrap_' + domBase
   };
   var state = {
+    meta: null,
     categories: null,
-    categoryMap: {}
+    tags: null,
+    topics: null,
+    categoryMap: {},
+    hasTag: false,
+    hasTopic: false,
+    hasComment: false,
+    hasLike: false,
+    hasView: false
   };
 
   function t(key) {
@@ -110,8 +132,18 @@ layui.use(['table', 'form'], function(){
     return el ? el.value : '';
   }
 
+  function tagValue() {
+    var el = byId(ids.tag);
+    return el ? el.value : '';
+  }
+
+  function topicValue() {
+    var el = byId(ids.topic);
+    return el ? el.value : '';
+  }
+
   function reloadTable(resetPage) {
-    var options = { where: { q: searchValue(), categoryId: categoryValue() } };
+    var options = { where: { q: searchValue(), categoryId: categoryValue(), tagId: tagValue(), topicId: topicValue() } };
     if (resetPage !== false) options.page = { curr: 1 };
     table.reloadData(ids.table, options);
   }
@@ -133,6 +165,43 @@ layui.use(['table', 'form'], function(){
     }
     state.categories = Array.isArray(result.data) ? result.data : [];
     return state.categories;
+  }
+
+  async function loadMeta() {
+    if (state.meta) return state.meta;
+    var response = await fetch('/admin/api/plugin/' + pluginXid + '/form-meta', { cache: 'no-store' });
+    var result = await response.json();
+    state.meta = result && result.result ? (result.data || {}) : {};
+    state.hasTag = hasMountedPack(state.meta, 'content.tag');
+    state.hasTopic = hasMountedPack(state.meta, 'content.topic');
+    state.hasComment = hasMountedPack(state.meta, 'content.comment');
+    state.hasLike = hasMountedPack(state.meta, 'content.like');
+    state.hasView = hasMountedPack(state.meta, 'content.view-stat');
+    return state.meta;
+  }
+
+  function hasMountedPack(meta, packId) {
+    var packs = meta && meta.contracts && meta.contracts.abilityPacks;
+    if (!Array.isArray(packs)) return false;
+    return packs.some(function(pack){ return pack && pack.packId === packId; });
+  }
+
+  async function loadTags() {
+    if (!state.hasTag) return [];
+    if (state.tags) return state.tags;
+    var response = await fetch('/api/plugin/' + pluginXid + '/tag/list', { cache: 'no-store' });
+    var result = await response.json();
+    state.tags = result && result.result && Array.isArray(result.data) ? result.data : [];
+    return state.tags;
+  }
+
+  async function loadTopics() {
+    if (!state.hasTopic) return [];
+    if (state.topics) return state.topics;
+    var response = await fetch('/api/plugin/' + pluginXid + '/topic/list', { cache: 'no-store' });
+    var result = await response.json();
+    state.topics = result && result.result && Array.isArray(result.data) ? result.data : [];
+    return state.topics;
   }
 
   function categoryOptions(categories, includeEmpty) {
@@ -162,7 +231,26 @@ layui.use(['table', 'form'], function(){
       return '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.label) + '</option>';
     }).join('');
     form.render('select');
-    reloadTable(false);
+  }
+
+  async function renderTaxonomyFilters() {
+    var tagWrap = byId(ids.tagWrap);
+    var topicWrap = byId(ids.topicWrap);
+    var tagEl = byId(ids.tag);
+    var topicEl = byId(ids.topic);
+    if (state.hasTag && tagWrap && tagEl) {
+      tagWrap.style.display = '';
+      tagEl.innerHTML = '<option value="">\u5168\u90e8\u6807\u7b7e</option>' + (await loadTags()).map(function(row){
+        return '<option value="' + escapeHtml(row.id || 0) + '">' + escapeHtml(row.name || row.id) + '</option>';
+      }).join('');
+    }
+    if (state.hasTopic && topicWrap && topicEl) {
+      topicWrap.style.display = '';
+      topicEl.innerHTML = '<option value="">\u5168\u90e8\u4e13\u9898</option>' + (await loadTopics()).map(function(row){
+        return '<option value="' + escapeHtml(row.id || 0) + '">' + escapeHtml(row.title || row.id) + '</option>';
+      }).join('');
+    }
+    form.render('select');
   }
 
   function openEditor(id) {
@@ -201,41 +289,55 @@ layui.use(['table', 'form'], function(){
     layer.msg(message, { icon: 2 });
   }
 
-  table.render({
-    elem: '#' + ids.table,
-    toolbar: '#' + ids.toolbar,
-    url: '/admin/api/plugin/' + pluginXid + (pageKind === 'drafts' ? '/drafts' : '/list'),
-    method: 'get',
-    where: { q: '', categoryId: '' },
-    request: { pageName: 'page', limitName: 'limit' },
-    parseData: function(result){
-      return {
-        code: result && result.result ? 0 : 1,
-        msg: (result && result.message) || '',
-        count: (result && result.count) || 0,
-        data: (result && result.data) || []
-      };
-    },
-    defaultToolbar: ['filter', 'exports', 'print'],
-    height: 'full-135',
-    cellMinWidth: 80,
-    skin: 'line',
-    page: {
-      limit: 20,
-      groups: 11,
-      layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
-    },
-    cols: [[
+  function tableColumns() {
+    var cols = [
       { field: 'id', width: 80, title: 'ID' },
       { title: t('title'), minWidth: 220, templet: function(d){ return '<code>' + escapeHtml(rowTitle(d)) + '</code>'; } },
       { title: t('status'), width: 100, templet: statusTemplate },
       { field: 'categoryId', width: 150, title: '\u680f\u76ee', templet: function(d){ return escapeHtml(categoryTitle(d.categoryId)); } },
-      { field: 'summary', minWidth: 220, title: t('summary'), templet: function(d){ return escapeHtml(d.summary || '-'); } },
+      { field: 'summary', minWidth: 180, title: t('summary'), templet: function(d){ return escapeHtml(d.summary || '-'); } },
+    ];
+    if (state.hasTag) cols.push({ field: 'tagNamesText', minWidth: 140, title: '\u6807\u7b7e', templet: function(d){ return escapeHtml(d.tagNamesText || '-'); } });
+    if (state.hasTopic) cols.push({ field: 'topicTitlesText', minWidth: 140, title: '\u4e13\u9898', templet: function(d){ return escapeHtml(d.topicTitlesText || '-'); } });
+    if (state.hasComment) cols.push({ field: 'visibleCommentCount', width: 100, title: '\u8bc4\u8bba', templet: function(d){ return escapeHtml(d.visibleCommentCount || 0); } });
+    if (state.hasLike) cols.push({ field: 'likeCount', width: 100, title: '\u70b9\u8d5e', templet: function(d){ return escapeHtml(d.likeCount || 0); } });
+    if (state.hasView) cols.push({ field: 'viewCount', width: 100, title: '\u8bbf\u95ee', templet: function(d){ return escapeHtml(d.viewCount || 0); } });
+    cols = cols.concat([
       { field: 'createTimeText', width: 170, title: t('createTime') },
       { field: 'updateTimeText', width: 170, title: t('updateTime') },
       { width: 140, title: t('operation'), fixed: 'right', templet: '#' + ids.tool }
-    ]]
-  });
+    ]);
+    return [cols];
+  }
+
+  function renderTable() {
+    table.render({
+      elem: '#' + ids.table,
+      toolbar: '#' + ids.toolbar,
+      url: '/admin/api/plugin/' + pluginXid + (pageKind === 'drafts' ? '/drafts' : '/list'),
+      method: 'get',
+      where: { q: '', categoryId: '', tagId: '', topicId: '' },
+      request: { pageName: 'page', limitName: 'limit' },
+      parseData: function(result){
+        return {
+          code: result && result.result ? 0 : 1,
+          msg: (result && result.message) || '',
+          count: (result && result.count) || 0,
+          data: (result && result.data) || []
+        };
+      },
+      defaultToolbar: ['filter', 'exports', 'print'],
+      height: 'full-135',
+      cellMinWidth: 80,
+      skin: 'line',
+      page: {
+        limit: 20,
+        groups: 11,
+        layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+      },
+      cols: tableColumns()
+    });
+  }
 
   table.on('toolbar(' + ids.table + ')', function(obj){
     switch (obj.event) {
@@ -259,10 +361,20 @@ layui.use(['table', 'form'], function(){
     }
   });
 
-  byId(ids.search).addEventListener('keydown', function(event){
-    if (event.key === 'Enter') reloadTable(true);
-  });
-  byId(ids.category).addEventListener('change', function(){ reloadTable(true); });
-  renderCategoryFilter().catch(handleError);
+  async function initPage() {
+    await loadMeta();
+    renderTable();
+    await renderCategoryFilter();
+    await renderTaxonomyFilters();
+    byId(ids.search).addEventListener('keydown', function(event){
+      if (event.key === 'Enter') reloadTable(true);
+    });
+    byId(ids.category).addEventListener('change', function(){ reloadTable(true); });
+    if (byId(ids.tag)) byId(ids.tag).addEventListener('change', function(){ reloadTable(true); });
+    if (byId(ids.topic)) byId(ids.topic).addEventListener('change', function(){ reloadTable(true); });
+    reloadTable(false);
+  }
+
+  initPage().catch(handleError);
 });
 </script>

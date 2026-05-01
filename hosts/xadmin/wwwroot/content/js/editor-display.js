@@ -126,8 +126,9 @@ function fillForm(spec) {
 			contentState.enabledCapabilities = {};
 			contentState.capabilityConfig = {};
 			(parsed.capabilities || []).forEach(function(item) {
-				if (item.enabled !== false) contentState.enabledCapabilities[item.key] = true;
-				contentState.capabilityConfig[item.key] = item.config || {};
+				var key = normalizeCapabilityKey(item.key);
+				if (item.enabled !== false) contentState.enabledCapabilities[key] = true;
+				contentState.capabilityConfig[key] = item.config || {};
 			});
 			writePageControls(parsed.pages);
 			writePolicyControls(parsed.policies);

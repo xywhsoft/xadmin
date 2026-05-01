@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "packId": "content.like",
+  "name": "like",
+  "title": "Like System",
+  "description": "Generate like/cancel APIs, duplicate prevention, counters, and admin like pages.",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 600,
+  "update": {
+    "channel": "official",
+    "packageId": "content.like",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": []
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json"
+}

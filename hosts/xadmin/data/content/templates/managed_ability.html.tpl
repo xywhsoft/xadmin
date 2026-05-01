@@ -1,0 +1,337 @@
+<style>
+	.managed-ability-page{padding:16px;background:#f2f2f2;color:#1f2937;min-height:100%}
+	.managed-ability-page .x-shell{background:#fff;border:1px solid #e6e6e6}
+	.managed-ability-page .x-head{padding:14px 16px;border-bottom:1px solid #e6e6e6;display:flex;align-items:center;justify-content:space-between;gap:12px}
+	.managed-ability-page .x-title{font-size:16px;font-weight:600}
+	.managed-ability-page .x-sub{font-size:12px;color:#6b7280;margin-top:4px}
+	.managed-ability-page .x-body{padding:15px}
+	.managed-ability-page .x-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+	.managed-ability-page .x-form{background:#fafafa;border:1px solid #eeeeee;padding:12px;margin-bottom:12px}
+	.managed-ability-page .x-form .layui-form-item{margin-bottom:10px}
+	.managed-ability-page .x-form .layui-form-label{width:86px}
+	.managed-ability-page .x-form .layui-input-block{margin-left:116px}
+	.managed-ability-page .x-muted{color:#6b7280}
+	.managed-ability-page .x-empty{padding:40px 0;text-align:center;color:#9ca3af}
+	.managed-ability-page .x-code{white-space:pre-wrap;background:#fafafa;border:1px solid #eee;padding:10px;max-height:180px;overflow:auto}
+	.managed-ability-page .x-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+	.managed-ability-page .x-stat{border:1px solid #e6e6e6;background:#fff;padding:12px}
+	.managed-ability-page .x-stat b{display:block;font-size:22px;margin-top:6px}
+	@media(max-width:900px){.managed-ability-page .x-grid{grid-template-columns:repeat(2,1fr)}.managed-ability-page .x-toolbar{display:block}.managed-ability-page .x-toolbar .layui-btn-container{margin-top:10px}}
+</style>
+<div class="managed-ability-page">
+	<div class="x-shell">
+		<div class="x-head">
+			<div>
+				<div class="x-title" id="pageTitle">能力包管理</div>
+				<div class="x-sub" id="pageSub">@@PLUGIN_XID@@</div>
+			</div>
+			<div class="layui-btn-container">
+				<button class="layui-btn layui-btn-primary layui-btn-sm" id="btnReload"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+			</div>
+		</div>
+		<div class="x-body">
+			<div id="summary" class="x-grid"></div>
+			<div id="editor"></div>
+			<table id="dataTable" lay-filter="dataTable"></table>
+			<div id="detail" style="margin-top:12px"></div>
+		</div>
+	</div>
+
+	<script type="text/html" id="rowActions">
+		{{# if(d.__ops && d.__ops.indexOf('audit') >= 0){ }}
+		<a class="layui-btn layui-btn-xs" lay-event="approve">通过</a>
+		<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="reject">驳回</a>
+		{{# } }}
+		{{# if(d.__ops && d.__ops.indexOf('hide') >= 0){ }}
+		<a class="layui-btn layui-btn-warm layui-btn-xs" lay-event="hide">隐藏</a>
+		{{# } }}
+		{{# if(d.__ops && d.__ops.indexOf('delete') >= 0){ }}
+		<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">删除</a>
+		{{# } }}
+		{{# if(d.__ops && d.__ops.indexOf('unbind') >= 0){ }}
+		<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="unbind">解绑</a>
+		{{# } }}
+	</script>
+	<script>
+	(function(){
+		var pluginXid = '@@PLUGIN_XID@@';
+		var currentScript = document.currentScript;
+		var pendingRoots = document.querySelectorAll('.managed-ability-page:not([data-ability-bound])');
+		var root = currentScript && currentScript.closest ? currentScript.closest('.managed-ability-page') : null;
+		if(!root) root = pendingRoots[pendingRoots.length - 1] || document.querySelector('.managed-ability-page');
+		if(root && root.setAttribute) root.setAttribute('data-ability-bound', '1');
+		var safeToPack = {
+			content_comment:'content.comment',
+			content_tag:'content.tag',
+			content_topic:'content.topic',
+			content_sensitive:'content.sensitive',
+			content_static:'content.static',
+			content_like:'content.like',
+			content_view_stat:'content.view-stat'
+		};
+		var pageKey = '@@ABILITY_PAGE_KEY@@' || location.pathname.split('/').pop() || 'overview';
+		var packId = safeToPack[pageKey] || '';
+		var instanceKey = (pluginXid + '_' + pageKey + '_' + Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9_]/g, '_');
+		var tableFilter = 'dataTable_' + instanceKey;
+		var tableSelector = '#dataTable_' + instanceKey;
+		var actionTplId = 'rowActions_' + instanceKey;
+		var tableEl = root.querySelector('#dataTable');
+		var actionTpl = root.querySelector('#rowActions');
+		if(tableEl){
+			tableEl.id = 'dataTable_' + instanceKey;
+			tableEl.setAttribute('lay-filter', tableFilter);
+		}
+		if(actionTpl) actionTpl.id = actionTplId;
+		var packTitles = {
+			'content.comment':'评论管理',
+			'content.tag':'标签管理',
+			'content.topic':'专题管理',
+			'content.sensitive':'敏感词管理',
+			'content.static':'静态化管理',
+			'content.like':'点赞统计',
+			'content.view-stat':'访问统计'
+		};
+		var tableIns = null;
+		var activeViews = {};
+		function byId(id){ return root.querySelector('#' + id); }
+		function scopedCols(cols){
+			return (cols || []).map(function(col){
+				var next = {};
+				Object.keys(col).forEach(function(key){ next[key] = col[key]; });
+				if(next.toolbar === '#rowActions') next.toolbar = '#' + actionTplId;
+				return next;
+			});
+		}
+		function api(path){ return '/admin/api/plugin/' + pluginXid + path; }
+		function pub(path){ return '/api/plugin/' + pluginXid + path; }
+		function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
+		function post(url, data){
+			return fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data||{})}).then(function(r){return r.json();});
+		}
+		function get(url){ return fetch(url,{cache:'no-store'}).then(function(r){return r.json();}); }
+		function message(ret, fallback){
+			if(window.layer) layer.msg((ret && (ret.message || ret.error)) || fallback || '操作完成', {icon: ret && ret.result === false ? 2 : 1});
+		}
+		function currentConfig(){
+			return configs[packId] || configs.overview;
+		}
+		function currentView(){
+			var cfg = currentConfig();
+			var key = activeViews[packId] || 'main';
+			if(cfg.views && cfg.views[key]) return cfg.views[key];
+			return cfg;
+		}
+		function renderSummary(meta){
+			var p = meta && meta.data && meta.data.pack ? meta.data.pack : {};
+			var effects = p.effects || {};
+			var contracts = p.contracts || {};
+			var items = [
+				['数据表', (effects.tables || contracts.tables || []).length],
+				['后台页', (effects.adminPages || contracts.adminPages || []).length],
+				['前端接口', (effects.publicApis || contracts.publicApis || []).length],
+				['权限点', (effects.permissions || contracts.permissions || []).length]
+			];
+			byId('summary').innerHTML = items.map(function(item){
+				return '<div class="x-stat"><span class="x-muted">'+item[0]+'</span><b>'+item[1]+'</b></div>';
+			}).join('');
+		}
+		function renderEditor(){
+			var cfg = currentConfig();
+			byId('editor').innerHTML = cfg.form ? cfg.form() : '';
+			if(window.layui && layui.form) layui.form.render();
+			bindEditor();
+		}
+		function bindEditor(){
+			var btnSave = byId('btnSaveAbility');
+			var btnGenerate = byId('btnStaticGenerate');
+			if(btnSave) btnSave.onclick = saveEditor;
+			if(btnGenerate) btnGenerate.onclick = runStaticGenerate;
+			Array.prototype.forEach.call(root.querySelectorAll('[data-view]'), function(btn){
+				btn.onclick = function(){
+					activeViews[packId] = btn.getAttribute('data-view') || 'main';
+					reload();
+				};
+			});
+		}
+		function formData(formId){
+			var form = byId(formId);
+			var data = {};
+			Array.prototype.forEach.call(form ? form.elements : [], function(el){
+				if(!el.name) return;
+				if(el.type === 'number') data[el.name] = Number(el.value || 0);
+				else data[el.name] = el.value;
+			});
+			return data;
+		}
+		function saveEditor(){
+			var cfg = currentConfig();
+			if(!cfg.saveApi) return;
+			post(api(cfg.saveApi), formData('abilityForm')).then(function(ret){ message(ret); reload(); });
+		}
+		function runStaticGenerate(){
+			post(api('/static/generate'), formData('staticGenerateForm')).then(function(ret){ message(ret); reload(); });
+		}
+		function loadRows(){
+			var cfg = currentConfig();
+			var view = currentView();
+			var url = view.listApi ? api(view.listApi) : api('/pack/list?pack=' + encodeURIComponent(packId));
+			return get(url).then(function(ret){
+				var rows = ret && ret.data ? ret.data : [];
+				var ops = view.ops || cfg.ops || '';
+				rows.forEach(function(row){ row.__ops = ops; });
+				return rows;
+			});
+		}
+		function renderTable(rows){
+			var cfg = currentConfig();
+			var view = currentView();
+			layui.table.render({
+				elem:tableSelector,
+				data: rows,
+				page:true,
+				limit:20,
+				cols:[scopedCols(view.cols || cfg.cols)],
+				text:{none:'暂无数据'}
+			});
+		}
+		function reload(){
+			if(!packId){
+				renderOverview();
+				return;
+			}
+			byId('pageTitle').innerText = packTitles[packId] || packId;
+			byId('pageSub').innerText = packId + ' / ' + pluginXid;
+			renderEditor();
+			get(api('/pack/meta?pack=' + encodeURIComponent(packId))).then(renderSummary);
+			loadRows().then(renderTable);
+		}
+		function renderOverview(){
+			byId('pageTitle').innerText = '能力包管理';
+			byId('editor').innerHTML = '';
+			get(api('/contracts')).then(function(ret){
+				var packs = ret && ret.data && ret.data.contracts && ret.data.contracts.abilityPacks || [];
+				byId('summary').innerHTML = '';
+				byId('detail').innerHTML = '<div class="layui-row layui-col-space12">' + packs.map(function(p){
+					return '<div class="layui-col-md4"><div class="layui-card"><div class="layui-card-header">'+esc(p.title || p.packId)+'</div><div class="layui-card-body"><div class="x-muted">'+esc(p.packId)+'</div><div class="x-code">'+esc(JSON.stringify(p.instanceConfig || {}, null, 2))+'</div></div></div></div>';
+				}).join('') + '</div>';
+			});
+		}
+		function simpleForm(fields, buttons){
+			return '<div class="x-form"><form class="layui-form" id="abilityForm">' + fields.map(function(f){
+				return '<div class="layui-form-item"><label class="layui-form-label">'+f.label+'</label><div class="layui-input-block"><input name="'+f.name+'" type="'+(f.type||'text')+'" value="'+esc(f.value||'')+'" placeholder="'+esc(f.placeholder||'')+'" class="layui-input"></div></div>';
+			}).join('') + '<div class="layui-form-item"><div class="layui-input-block">'+(buttons || '<button type="button" class="layui-btn layui-btn-sm" id="btnSaveAbility"><i class="layui-icon layui-icon-ok"></i> 保存</button>')+'</div></div></form></div>';
+		}
+		function viewSwitch(buttons){
+			return '<div class="layui-btn-container" style="margin-bottom:10px">' + buttons.map(function(b){
+				var active = (activeViews[packId] || 'main') === b.key;
+				return '<button type="button" class="layui-btn layui-btn-sm '+(active ? '' : 'layui-btn-primary')+'" data-view="'+b.key+'">'+b.text+'</button>';
+			}).join('') + '</div>';
+		}
+		var configs = {
+			overview:{cols:[{field:'packId',title:'能力包'}]},
+			'content.comment':{
+				ops:'audit,hide,delete',
+				cols:[{field:'id',title:'ID',width:80},{field:'content_id',title:'内容ID',width:100},{field:'author_name',title:'作者',width:140},{field:'body',title:'评论内容'},{field:'status',title:'状态',width:90},{field:'create_time',title:'创建时间',width:160},{title:'操作',toolbar:'#rowActions',width:140}],
+				views:{
+					main:{cols:[{field:'id',title:'ID',width:80},{field:'content_id',title:'内容ID',width:100},{field:'author_name',title:'作者',width:140},{field:'body',title:'评论内容'},{field:'status',title:'状态',width:90},{field:'create_time',title:'创建时间',width:160},{title:'操作',toolbar:'#rowActions',width:140}]},
+					audit:{cols:[{field:'id',title:'ID',width:80},{field:'content_id',title:'内容ID',width:100},{field:'author_name',title:'作者',width:140},{field:'body',title:'待审评论'},{field:'status',title:'状态',width:90},{field:'create_time',title:'提交时间',width:160},{title:'审核',toolbar:'#rowActions',width:140}]}
+				},
+				form:function(){return viewSwitch([{key:'main',text:'全部评论'},{key:'audit',text:'审核'}]) + '<div class="x-form x-muted">评论由前端接口提交，可在列表中审核通过、驳回或隐藏。</div>';}
+			},
+			'content.tag':{
+				ops:'delete',
+				saveApi:'/tag/save',
+				cols:[{field:'id',title:'ID',width:80},{field:'name',title:'标签名'},{field:'slug',title:'别名'},{field:'content_count',title:'内容数',width:100},{field:'status',title:'状态',width:90},{title:'操作',toolbar:'#rowActions',width:100}],
+				views:{
+					main:{cols:[{field:'id',title:'ID',width:80},{field:'name',title:'标签名'},{field:'slug',title:'别名'},{field:'content_count',title:'内容数',width:100},{field:'status',title:'状态',width:90},{title:'操作',toolbar:'#rowActions',width:100}]},
+					contents:{listApi:'/tag/content/list', ops:'unbind', cols:[{field:'id',title:'ID',width:80},{field:'tagId',title:'标签ID',width:100},{field:'tagName',title:'标签名',width:160},{field:'contentId',title:'内容ID',width:100},{field:'contentTitle',title:'内容标题'},{field:'sort',title:'排序',width:90},{field:'createTime',title:'绑定时间',width:160},{title:'操作',toolbar:'#rowActions',width:100}]}
+				},
+				form:function(){return viewSwitch([{key:'main',text:'标签'},{key:'contents',text:'内容关联'}]) + simpleForm([{name:'name',label:'标签名',placeholder:'请输入标签名'},{name:'slug',label:'别名',placeholder:'例如 news'},{name:'status',label:'状态',type:'number',value:'1'}]);}
+			},
+			'content.topic':{
+				ops:'delete',
+				saveApi:'/topic/save',
+				cols:[{field:'id',title:'ID',width:80},{field:'title',title:'专题标题'},{field:'slug',title:'别名'},{field:'content_count',title:'内容数',width:100},{field:'status',title:'状态',width:90},{title:'操作',toolbar:'#rowActions',width:100}],
+				views:{
+					main:{cols:[{field:'id',title:'ID',width:80},{field:'title',title:'专题标题'},{field:'slug',title:'别名'},{field:'content_count',title:'内容数',width:100},{field:'status',title:'状态',width:90},{title:'操作',toolbar:'#rowActions',width:100}]},
+					contents:{listApi:'/topic/content/list', ops:'unbind', cols:[{field:'id',title:'ID',width:80},{field:'topicId',title:'专题ID',width:100},{field:'topicTitle',title:'专题标题',width:180},{field:'contentId',title:'内容ID',width:100},{field:'contentTitle',title:'内容标题'},{field:'sort',title:'排序',width:90},{field:'createTime',title:'绑定时间',width:160},{title:'操作',toolbar:'#rowActions',width:100}]}
+				},
+				form:function(){return viewSwitch([{key:'main',text:'专题'},{key:'contents',text:'内容关联'}]) + simpleForm([{name:'title',label:'专题标题',placeholder:'请输入专题标题'},{name:'slug',label:'别名',placeholder:'例如 product'},{name:'status',label:'状态',type:'number',value:'1'}]);}
+			},
+			'content.sensitive':{
+				ops:'delete',
+				saveApi:'/sensitive/word/save',
+				cols:[{field:'id',title:'ID',width:80},{field:'word',title:'敏感词'},{field:'level',title:'级别',width:90},{field:'scope',title:'作用域',width:120},{field:'replacement',title:'替换词'},{field:'status',title:'状态',width:90},{title:'操作',toolbar:'#rowActions',width:100}],
+				views:{
+					main:{cols:[{field:'id',title:'ID',width:80},{field:'word',title:'敏感词'},{field:'level',title:'级别',width:90},{field:'scope',title:'作用域',width:120},{field:'replacement',title:'替换词'},{field:'status',title:'状态',width:90},{title:'操作',toolbar:'#rowActions',width:100}]},
+					logs:{listApi:'/sensitive/log/list', cols:[{field:'id',title:'ID',width:80},{field:'targetType',title:'目标类型',width:110},{field:'targetId',title:'目标ID',width:100},{field:'word',title:'命中词'},{field:'fieldName',title:'字段',width:120},{field:'action',title:'动作',width:100},{field:'createTime',title:'命中时间',width:160}]}
+				},
+				form:function(){return viewSwitch([{key:'main',text:'词库'},{key:'logs',text:'命中日志'}]) + simpleForm([{name:'word',label:'敏感词',placeholder:'请输入敏感词'},{name:'level',label:'级别',type:'number',value:'1'},{name:'scope',label:'作用域',value:'content'},{name:'replacement',label:'替换词',value:'***'},{name:'status',label:'状态',type:'number',value:'1'}]);}
+			},
+			'content.static':{
+				ops:'delete',
+				saveApi:'/static/rule/save',
+				cols:[{field:'id',title:'ID',width:80},{field:'name',title:'规则名'},{field:'pathPattern',title:'路径规则'},{field:'templateName',title:'模板'},{field:'status',title:'状态',width:90},{title:'操作',toolbar:'#rowActions',width:100}],
+				listApi:'/static/rule/list',
+				views:{
+					main:{listApi:'/static/rule/list', cols:[{field:'id',title:'ID',width:80},{field:'name',title:'规则名'},{field:'pathPattern',title:'路径规则'},{field:'templateName',title:'模板'},{field:'status',title:'状态',width:90},{title:'操作',toolbar:'#rowActions',width:100}]},
+					tasks:{listApi:'/static/task/list', cols:[{field:'id',title:'ID',width:80},{field:'ruleId',title:'规则ID',width:100},{field:'targetId',title:'内容ID',width:100},{field:'status',title:'状态',width:90},{field:'message',title:'消息'},{field:'createTime',title:'创建时间',width:160},{field:'finishTime',title:'完成时间',width:160}]},
+					artifacts:{listApi:'/static/artifact/list', cols:[{field:'id',title:'ID',width:80},{field:'ruleId',title:'规则ID',width:100},{field:'targetId',title:'内容ID',width:100},{field:'path',title:'输出路径'},{field:'hash',title:'Hash',width:120},{field:'updateTime',title:'更新时间',width:160}]}
+				},
+				form:function(){return viewSwitch([{key:'main',text:'规则'},{key:'tasks',text:'任务'},{key:'artifacts',text:'产物'}]) + simpleForm([{name:'name',label:'规则名',placeholder:'详情页静态化'},{name:'pathPattern',label:'路径规则',placeholder:'/article/{id}.html'},{name:'templateName',label:'模板',placeholder:'detail'},{name:'status',label:'状态',type:'number',value:'1'}]) + '<div class="x-form"><form class="layui-form" id="staticGenerateForm"><div class="layui-form-item"><label class="layui-form-label">内容ID</label><div class="layui-input-block"><input name="targetId" type="number" class="layui-input" value="0"></div></div><div class="layui-form-item"><label class="layui-form-label">规则ID</label><div class="layui-input-block"><input name="ruleId" type="number" class="layui-input" value="0"></div></div><div class="layui-form-item"><label class="layui-form-label">输出路径</label><div class="layui-input-block"><input name="path" class="layui-input" placeholder="/article/1.html"></div></div><div class="layui-form-item"><div class="layui-input-block"><button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="btnStaticGenerate"><i class="layui-icon layui-icon-release"></i> 生成静态页</button></div></div></form></div>';}
+			},
+			'content.like':{
+				listApi:'/like/counter/list',
+				cols:[{field:'contentId',title:'内容ID',width:120},{field:'likeCount',title:'点赞数',width:120},{field:'updateTime',title:'更新时间'}],
+				views:{
+					main:{listApi:'/like/counter/list', cols:[{field:'contentId',title:'内容ID',width:120},{field:'likeCount',title:'点赞数',width:120},{field:'updateTime',title:'更新时间'}]},
+					records:{listApi:'/like/list', cols:[{field:'id',title:'ID',width:80},{field:'contentId',title:'内容ID',width:100},{field:'actorId',title:'用户ID',width:120},{field:'actorKey',title:'去重键'},{field:'ip',title:'IP',width:140},{field:'status',title:'状态',width:90},{field:'updateTime',title:'更新时间',width:160}]}
+				},
+				form:function(){return viewSwitch([{key:'main',text:'计数'},{key:'records',text:'记录'}]) + '<div class="x-form x-muted">点赞通过前端接口记录，后台可查看内容维度计数和明细记录。</div>';}
+			},
+			'content.view-stat':{
+				listApi:'/view/counter/list',
+				cols:[{field:'contentId',title:'内容ID',width:120},{field:'viewCount',title:'访问量',width:120},{field:'uniqueViewCount',title:'独立访问',width:120},{field:'lastViewTime',title:'最后访问时间'}],
+				views:{
+					main:{listApi:'/view/counter/list', cols:[{field:'contentId',title:'内容ID',width:120},{field:'viewCount',title:'访问量',width:120},{field:'uniqueViewCount',title:'独立访问',width:120},{field:'lastViewTime',title:'最后访问时间'}]},
+					logs:{listApi:'/view/log/list', cols:[{field:'id',title:'ID',width:80},{field:'contentId',title:'内容ID',width:100},{field:'visitorKey',title:'访客标识'},{field:'ip',title:'IP',width:140},{field:'referer',title:'来源'},{field:'createTime',title:'访问时间',width:160}]},
+					daily:{listApi:'/view/daily/list', cols:[{field:'id',title:'ID',width:80},{field:'contentId',title:'内容ID',width:100},{field:'statDate',title:'日期',width:130},{field:'viewCount',title:'访问量',width:120},{field:'uniqueViewCount',title:'独立访问',width:120}]}
+				},
+				form:function(){return viewSwitch([{key:'main',text:'计数'},{key:'logs',text:'日志'},{key:'daily',text:'日统计'}]) + '<div class="x-form x-muted">访问统计通过前端接口记录，后台可查看内容计数、访问日志和日统计。</div>';}
+			}
+		};
+		function startAbilityPage(){
+			layui.use(['table','form','layer'],function(){
+				layui.table.on('tool(' + tableFilter + ')', function(obj){
+					if(obj.event === 'approve') post(api('/comment/status'), {id:obj.data.id,status:1}).then(function(ret){message(ret);reload();});
+					if(obj.event === 'reject') post(api('/comment/status'), {id:obj.data.id,status:2}).then(function(ret){message(ret);reload();});
+					if(obj.event === 'hide') post(pub('/comment/hide'), {id:obj.data.id}).then(function(ret){message(ret);reload();});
+					if(obj.event === 'delete'){
+						var cfg = currentConfig();
+						var delApi = packId === 'content.comment' ? '/comment/delete' : packId === 'content.tag' ? '/tag/delete' : packId === 'content.topic' ? '/topic/delete' : packId === 'content.sensitive' ? '/sensitive/word/delete' : packId === 'content.static' ? '/static/rule/delete' : '';
+						if(delApi) post(api(delApi), {id:obj.data.id}).then(function(ret){message(ret);reload();});
+					}
+					if(obj.event === 'unbind'){
+						var unbindApi = packId === 'content.tag' ? '/tag/unbind' : packId === 'content.topic' ? '/topic/unbind' : '';
+						if(unbindApi) post(api(unbindApi), {id:obj.data.id}).then(function(ret){message(ret);reload();});
+					}
+				});
+				byId('btnReload').onclick = reload;
+				reload();
+			});
+		}
+		if(window.layui){
+			startAbilityPage();
+		} else {
+			var css = document.createElement('link');
+			css.rel = 'stylesheet';
+			css.href = '/layui/css/layui.css';
+			document.head.appendChild(css);
+			var script = document.createElement('script');
+			script.src = '/layui/layui.js';
+			script.onload = startAbilityPage;
+			document.head.appendChild(script);
+		}
+	})();
+	</script>
+</div>

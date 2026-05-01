@@ -1,0 +1,41 @@
+{
+  "formatVersion": 1,
+  "packId": "content.view-stat",
+  "name": "view-stat",
+  "title": "View Statistics",
+  "description": "Generate view counters, view logs, rank APIs, and admin statistics reports.",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 700,
+  "update": {
+    "channel": "official",
+    "packageId": "content.view-stat",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": [
+      "task"
+    ]
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json"
+}

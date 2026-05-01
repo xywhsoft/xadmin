@@ -187,6 +187,8 @@ void RouteHTTP_Init()
 	// Content generator
 	AddStaticRouteHTTP("/admin/view/content",					Request_View_Content_Index);
 	AddStaticRouteHTTP("/admin/view/content/editor",				Request_View_Content_Editor);
+	AddStaticRouteHTTP("/admin/view/content/packs",				Request_View_Content_Packs);
+	AddStaticRouteHTTP("/admin/view/content/pack-store",			Request_View_Content_PackStore);
 	AddStaticRouteHTTP("/admin/content/types",					Request_Content_Types);
 	AddStaticRouteHTTP("/admin/content/type",					Request_Content_Type);
 	AddStaticRouteHTTP("/admin/content/save",					Request_Content_Save);
@@ -195,7 +197,9 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/content/generations",				Request_Content_Generations);
 	AddStaticRouteHTTP("/admin/content/advisor",					Request_Content_Advisor);
 	AddStaticRouteHTTP("/admin/content/generate",				Request_Content_Generate);
-	AddStaticRouteHTTP("/admin/content/capabilities",				Request_Content_Capabilities);
+	AddStaticRouteHTTP("/admin/content/packs",					Request_Content_Packs);
+	AddStaticRouteHTTP("/admin/content/pack",					Request_Content_Pack);
+	AddStaticRouteHTTP("/admin/content/pack/options",				Request_Content_Pack_Options);
 	AddStaticRouteHTTP("/admin/content/templates",				Request_Content_Templates);
 	
 	// ==================== 前台API路由 ====================

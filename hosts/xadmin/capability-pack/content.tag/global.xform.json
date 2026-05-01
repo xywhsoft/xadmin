@@ -1,0 +1,16 @@
+{
+  "groups": [
+    {
+      "key": "tag",
+      "title": "Tag System Global Options",
+      "fields": [
+        {
+          "name": "maxTagsDefault",
+          "type": "number",
+          "label": "Default max tags",
+          "value": 8
+        }
+      ]
+    }
+  ]
+}

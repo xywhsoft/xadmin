@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "key": "topic",
+      "title": "Topic System Model Options",
+      "fields": [
+        {
+          "name": "mode",
+          "type": "select",
+          "label": "Binding mode",
+          "value": "single",
+          "list": [
+            {
+              "value": "single",
+              "label": "Single topic"
+            },
+            {
+              "value": "multiple",
+              "label": "Multiple topics"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

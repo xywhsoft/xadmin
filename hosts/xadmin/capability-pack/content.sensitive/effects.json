@@ -1,0 +1,28 @@
+{
+  "tables": [
+    "sensitive_word",
+    "sensitive_hit_log"
+  ],
+  "fields": [],
+  "adminPages": [
+    "sensitive_words",
+    "sensitive_logs"
+  ],
+  "publicApis": [
+    "sensitive.check"
+  ],
+  "permissions": [
+    "sensitive.view",
+    "sensitive.manage"
+  ],
+  "events": [
+    "content.beforeSave",
+    "content.beforePublish",
+    "comment.beforeCreate"
+  ],
+  "tasks": [],
+  "files": [
+    "generated/pack_sensitive.c",
+    "generated/admin_sensitive.html"
+  ]
+}

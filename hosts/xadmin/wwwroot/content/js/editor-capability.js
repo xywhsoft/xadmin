@@ -1,64 +1,59 @@
+function packKey(pack) {
+	return pack && (pack.packId || pack.key || pack.name) ? (pack.packId || pack.key || pack.name) : '';
+}
+
 function renderCapabilities() {
 	var side = $('side_capabilities');
 	var main = $('capability_workspace');
-	if (!contentState.capabilities.length) {
-		side.innerHTML = '<div class="side-item"><div class="side-item-meta">暂无能力</div></div>';
-		main.innerHTML = '<div class="status-text">暂无能力。</div>';
+	var packs = contentState.capabilities || [];
+
+	if (!packs.length) {
+		side.innerHTML = '<div class="side-item"><div class="side-item-meta">暂无能力包</div></div>';
+		main.innerHTML = '<div class="status-text">暂无可用能力包。</div>';
 		return;
 	}
-	var sideHtml = contentState.capabilities.map(function(cap) {
-		var enabled = contentState.enabledCapabilities[cap.key];
-		return '<div class="side-item ' + (enabled ? 'active' : '') + '" data-cap="' + esc(cap.key) + '">'
-			+ '<div class="side-item-title">' + esc(cap.title || cap.key) + '</div>'
-			+ '<div class="side-item-meta">' + esc(cap.key) + ' | ' + (enabled ? '已启用' : '未启用') + '</div>'
+
+	side.innerHTML = packs.map(function(pack) {
+		var key = packKey(pack);
+		var enabled = !!contentState.enabledCapabilities[key];
+		return '<div class="side-item ' + (enabled ? 'active' : '') + '" data-cap="' + esc(key) + '">'
+			+ '<div class="side-item-title">' + esc(pack.title || key) + '</div>'
+			+ '<div class="side-item-meta">' + esc(key) + ' | ' + (enabled ? '已启用' : '未启用') + '</div>'
 			+ '</div>';
 	}).join('');
-	var detailHtml = contentState.capabilities.map(function(cap) {
-		var checked = contentState.enabledCapabilities[cap.key] ? 'checked' : '';
-		var cfg = contentState.capabilityConfig[cap.key] || {};
-		var surfaces = readJsonArrayText(cap.surfacesJson);
-		var defaults = readJsonObjectText(cap.defaultsJson);
-		var configHtml = '';
-		if (cap.key === 'comment' && contentState.enabledCapabilities[cap.key]) {
-			configHtml = '<div class="cap-config">'
-				+ '<label>审核</label><select class="cap-config-input" data-key="comment" data-name="moderation">'
-				+ '<option value="manual" ' + ((cfg.moderation || 'manual') === 'manual' ? 'selected' : '') + '>人工</option>'
-				+ '<option value="auto" ' + (cfg.moderation === 'auto' ? 'selected' : '') + '>自动</option>'
-				+ '</select>'
-				+ '<label><input type="checkbox" class="cap-config-input" data-key="comment" data-name="allowPublicPost" ' + (cfg.allowPublicPost !== false ? 'checked' : '') + '> 允许前台提交</label>'
-				+ '</div>';
-		}
+
+	main.innerHTML = packs.map(function(pack) {
+		var key = packKey(pack);
+		var enabled = !!contentState.enabledCapabilities[key];
+		var checked = enabled ? 'checked' : '';
+		var cfg = contentState.capabilityConfig[key] || {};
+		var effects = readPackEffects(pack.effectsJson);
+		var configHtml = renderPackConfig(key, cfg, enabled);
 		return '<div class="cap-item">'
-			+ '<div><div class="cap-title">' + esc(cap.title || cap.key) + '</div><div class="cap-meta">' + esc(cap.key) + ' | ' + esc(cap.providerKind) + '</div>'
-			+ '<div class="cap-meta">挂载面：' + esc(surfaces || '-') + '</div>'
-			+ '<div class="cap-meta">默认配置：' + esc(defaults || '{}') + '</div>'
-			+ configHtml + '</div>'
-			+ '<input type="checkbox" class="cap-check" data-key="' + esc(cap.key) + '" ' + checked + '>'
+			+ '<div>'
+			+ '<div class="cap-title">' + esc(pack.title || key) + '</div>'
+			+ '<div class="cap-meta">' + esc(key) + ' | ' + esc(pack.version || 'v0.0.0') + ' | ' + esc(pack.installType || 'local') + '</div>'
+			+ '<div class="cap-meta">' + esc(pack.description || '用于增强生成内容插件的能力包。') + '</div>'
+			+ '<div class="cap-meta">生成影响：' + esc(effects || '未声明') + '</div>'
+			+ configHtml
+			+ '</div>'
+			+ '<input type="checkbox" class="cap-check" data-key="' + esc(key) + '" ' + checked + '>'
 			+ '</div>';
 	}).join('');
-	side.innerHTML = sideHtml;
-	main.innerHTML = detailHtml;
+
 	Array.prototype.forEach.call(side.querySelectorAll('.side-item'), function(item) {
 		item.onclick = function() {
 			var key = item.getAttribute('data-cap');
-			contentState.enabledCapabilities[key] = !contentState.enabledCapabilities[key];
-			if (contentState.enabledCapabilities[key] && !contentState.capabilityConfig[key]) {
-				contentState.capabilityConfig[key] = capabilityDefaults(key);
-			}
-			renderCapabilities();
-			updateImpact();
+			togglePack(key, !contentState.enabledCapabilities[key]);
 		};
 	});
+
 	Array.prototype.forEach.call(main.querySelectorAll('.cap-check'), function(chk) {
 		chk.onchange = function() {
-				contentState.enabledCapabilities[chk.getAttribute('data-key')] = chk.checked;
-				if (chk.checked && !contentState.capabilityConfig[chk.getAttribute('data-key')]) {
-					contentState.capabilityConfig[chk.getAttribute('data-key')] = capabilityDefaults(chk.getAttribute('data-key'));
-				}
-				renderCapabilities();
-				updateImpact();
-			};
+			togglePack(chk.getAttribute('data-key'), chk.checked);
+		};
 	});
+
 	Array.prototype.forEach.call(main.querySelectorAll('.cap-config-input'), function(input) {
 		input.onchange = function() {
 			var key = input.getAttribute('data-key');
@@ -70,43 +65,77 @@ function renderCapabilities() {
 	});
 }
 
+function togglePack(key, enabled) {
+	contentState.enabledCapabilities[key] = enabled;
+	if (enabled && !contentState.capabilityConfig[key]) {
+		contentState.capabilityConfig[key] = capabilityDefaults(key);
+	}
+	renderCapabilities();
+	updateImpact();
+}
+
+function renderPackConfig(key, cfg, enabled) {
+	if (!enabled) return '';
+
+	if (key === 'content.comment') {
+		return '<div class="cap-config">'
+			+ '<label>审核方式</label><select class="cap-config-input" data-key="' + esc(key) + '" data-name="moderation">'
+			+ '<option value="manual" ' + ((cfg.moderation || 'manual') === 'manual' ? 'selected' : '') + '>人工审核</option>'
+			+ '<option value="auto" ' + (cfg.moderation === 'auto' ? 'selected' : '') + '>自动通过</option>'
+			+ '</select>'
+			+ '<label><input type="checkbox" class="cap-config-input" data-key="' + esc(key) + '" data-name="allowPublicPost" ' + (cfg.allowPublicPost !== false ? 'checked' : '') + '> 允许前台提交</label>'
+			+ '</div>';
+	}
+
+	return '<div class="cap-config"><div class="cap-meta">该能力包的实例配置将由 XForm 配置面板渲染。</div></div>';
+}
+
 function capabilityDefaults(key) {
-	for (var i = 0; i < contentState.capabilities.length; i++) {
-		var cap = contentState.capabilities[i];
-		if (cap.key !== key) continue;
-		try {
-			return JSON.parse(cap.defaultsJson || '{}') || {};
-		} catch (err) {
-			return {};
-		}
+	for (var i = 0; i < (contentState.capabilities || []).length; i++) {
+		var pack = contentState.capabilities[i];
+		if (packKey(pack) !== key) continue;
+		return readPackFormDefaults(pack.instanceFormJson);
 	}
 	return {};
 }
 
-function readJsonArrayText(text) {
+function readPackFormDefaults(text) {
+	var defaults = {};
 	try {
-		var value = JSON.parse(text || '[]');
-		return Array.isArray(value) ? value.join(', ') : '';
+		var form = JSON.parse(text || '{}');
+		var fields = form.fields || [];
+		if (!Array.isArray(fields)) return defaults;
+		fields.forEach(function(field) {
+			if (!field || !field.name) return;
+			if (field.defaultValue !== undefined) defaults[field.name] = field.defaultValue;
+			else if (field.value !== undefined) defaults[field.name] = field.value;
+		});
 	} catch (err) {
-		return '';
+		return {};
 	}
+	return defaults;
 }
 
-function readJsonObjectText(text) {
+function readPackEffects(text) {
 	try {
 		var value = JSON.parse(text || '{}');
-		return Object.keys(value).map(function(key) { return key + '=' + value[key]; }).join(', ');
+		var parts = [];
+		if (Array.isArray(value.adminPages) && value.adminPages.length) parts.push('后台页面 ' + value.adminPages.length);
+		if (Array.isArray(value.publicApis) && value.publicApis.length) parts.push('前端接口 ' + value.publicApis.length);
+		if (Array.isArray(value.tables) && value.tables.length) parts.push('数据表 ' + value.tables.length);
+		if (Array.isArray(value.files) && value.files.length) parts.push('生成文件 ' + value.files.length);
+		return parts.join(' / ');
 	} catch (err) {
 		return '';
 	}
 }
 
 function contentLoadCapabilities() {
-	ContentApi.getCapabilities().then(function(ret) {
+	ContentApi.getPacks().then(function(ret) {
 		if (!ret || !ret.result) {
 			contentState.capabilities = [];
 			renderCapabilities();
-			$('content_state').innerText = ret && ret.message ? ret.message : '能力加载失败';
+			$('content_state').innerText = ret && ret.message ? ret.message : '能力包加载失败';
 			return;
 		}
 		contentState.capabilities = ret && ret.data ? ret.data : [];

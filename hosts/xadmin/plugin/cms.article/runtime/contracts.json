@@ -1,6 +1,389 @@
 {
-	"model": "cms.article",
-	"revision": 3,
-	"capabilities": [{"mount":{},"key":"comment","config":{"moderation":"manual","enabled":true},"enabled":true}]
+	"permissionBindingNote":	"Ability permissions are registered and each mounted ability admin page route is bound to the first permission declared by that ability pack.",
+	"capabilities":	[
+		{
+			"mount":	{},
+			"key":	"content.comment",
+			"config":	{
+				"moderation":	"manual",
+				"enabled":	true
+			},
+			"enabled":	true
+		}, {
+			"mount":	{},
+			"key":	"content.tag",
+			"config":	{},
+			"enabled":	true
+		}, {
+			"mount":	{},
+			"key":	"content.topic",
+			"config":	{},
+			"enabled":	true
+		}, {
+			"mount":	{},
+			"key":	"content.sensitive",
+			"config":	{},
+			"enabled":	true
+		}, {
+			"mount":	{},
+			"key":	"content.static",
+			"config":	{},
+			"enabled":	true
+		}, {
+			"mount":	{},
+			"key":	"content.like",
+			"config":	{},
+			"enabled":	true
+		}, {
+			"mount":	{},
+			"key":	"content.view-stat",
+			"config":	{},
+			"enabled":	true
+		}
+	],
+	"abilityPacks":	[
+		{
+			"instanceConfig":	{
+				"moderation":	"manual",
+				"enabled":	true
+			},
+			"hooks":	{
+				"tasks":	[],
+				"events":	[
+					{
+						"handler":	"comment_content_afterDelete",
+						"event":	"content.afterDelete"
+					}, {
+						"handler":	"comment_content_afterPublish",
+						"event":	"content.afterPublish"
+					}, {
+						"handler":	"comment_content_afterView",
+						"event":	"content.afterView"
+					}
+				]
+			},
+			"mount":	{},
+			"contracts":	{
+				"permissions":	["comment.view", "comment.audit", "comment.delete"],
+				"adminPages":	["comments", "comment_audit"],
+				"tables":	["comment_thread", "comment_item", "comment_audit_log"],
+				"tasks":	[],
+				"events":	["content.afterDelete", "content.afterPublish", "content.afterView"],
+				"publicApis":	["comment.list", "comment.create", "comment.hide", "comment.count"]
+			},
+			"description":	"Generate comment moderation, public comment APIs, counters, and admin comment pages.",
+			"title":	"Comment System",
+			"permissionBinding":	"ability-admin-page-bound",
+			"effects":	{
+				"permissions":	["comment.view", "comment.audit", "comment.delete"],
+				"adminPages":	["comments", "comment_audit"],
+				"tables":	["comment_thread", "comment_item", "comment_audit_log"],
+				"tasks":	[],
+				"events":	["content.afterDelete", "content.afterPublish", "content.afterView"],
+				"files":	["generated/pack_comment.c", "generated/admin_comment.html"],
+				"publicApis":	["comment.list", "comment.create", "comment.hide", "comment.count"],
+				"fields":	[
+					{
+						"storage":	{
+							"type":	"integer"
+						},
+						"title":	"Comment Count",
+						"name":	"comment_count",
+						"showInList":	true
+					}
+				]
+			},
+			"version":	"1.0.0",
+			"packId":	"content.comment"
+		}, {
+			"instanceConfig":	{},
+			"hooks":	{
+				"tasks":	[],
+				"events":	[
+					{
+						"handler":	"tag_content_afterDelete",
+						"event":	"content.afterDelete"
+					}, {
+						"handler":	"tag_tag_afterBind",
+						"event":	"tag.afterBind"
+					}
+				]
+			},
+			"mount":	{},
+			"contracts":	{
+				"permissions":	["tag.view", "tag.manage"],
+				"adminPages":	["tags"],
+				"tables":	["tag", "content_tag"],
+				"tasks":	[],
+				"events":	["content.afterDelete", "tag.afterBind"],
+				"publicApis":	["tag.list", "tag.detail", "tag.contents"]
+			},
+			"description":	"Generate tag management, tag bindings, tag query APIs, and admin tag pages.",
+			"title":	"Tag System",
+			"permissionBinding":	"ability-admin-page-bound",
+			"effects":	{
+				"permissions":	["tag.view", "tag.manage"],
+				"adminPages":	["tags"],
+				"tables":	["tag", "content_tag"],
+				"tasks":	[],
+				"events":	["content.afterDelete", "tag.afterBind"],
+				"files":	["generated/pack_tag.c", "generated/admin_tag.html"],
+				"publicApis":	["tag.list", "tag.detail", "tag.contents"],
+				"fields":	[
+					{
+						"storage":	{
+							"type":	"text"
+						},
+						"title":	"Tags",
+						"name":	"tag_ids",
+						"showInList":	false
+					}
+				]
+			},
+			"version":	"1.0.0",
+			"packId":	"content.tag"
+		}, {
+			"instanceConfig":	{},
+			"hooks":	{
+				"tasks":	[],
+				"events":	[
+					{
+						"handler":	"topic_content_afterDelete",
+						"event":	"content.afterDelete"
+					}, {
+						"handler":	"topic_topic_afterBind",
+						"event":	"topic.afterBind"
+					}
+				]
+			},
+			"mount":	{},
+			"contracts":	{
+				"permissions":	["topic.view", "topic.manage", "topic.arrange"],
+				"adminPages":	["topics", "topic_contents"],
+				"tables":	["topic", "topic_content"],
+				"tasks":	[],
+				"events":	["content.afterDelete", "topic.afterBind"],
+				"publicApis":	["topic.list", "topic.detail", "topic.contents"]
+			},
+			"description":	"Generate topic management, topic-content arranging, topic pages, and public topic APIs.",
+			"title":	"Topic System",
+			"permissionBinding":	"ability-admin-page-bound",
+			"effects":	{
+				"permissions":	["topic.view", "topic.manage", "topic.arrange"],
+				"adminPages":	["topics", "topic_contents"],
+				"tables":	["topic", "topic_content"],
+				"tasks":	[],
+				"events":	["content.afterDelete", "topic.afterBind"],
+				"files":	["generated/pack_topic.c", "generated/admin_topic.html"],
+				"publicApis":	["topic.list", "topic.detail", "topic.contents"],
+				"fields":	[
+					{
+						"storage":	{
+							"type":	"text"
+						},
+						"title":	"Topics",
+						"name":	"topic_ids",
+						"showInList":	false
+					}
+				]
+			},
+			"version":	"1.0.0",
+			"packId":	"content.topic"
+		}, {
+			"instanceConfig":	{},
+			"hooks":	{
+				"tasks":	[],
+				"events":	[
+					{
+						"handler":	"sensitive_content_beforeSave",
+						"event":	"content.beforeSave"
+					}, {
+						"handler":	"sensitive_content_beforePublish",
+						"event":	"content.beforePublish"
+					}, {
+						"handler":	"sensitive_comment_beforeCreate",
+						"event":	"comment.beforeCreate"
+					}
+				]
+			},
+			"mount":	{},
+			"contracts":	{
+				"permissions":	["sensitive.view", "sensitive.manage"],
+				"adminPages":	["sensitive_words", "sensitive_logs"],
+				"tables":	["sensitive_word", "sensitive_hit_log"],
+				"tasks":	[],
+				"events":	["content.beforeSave", "content.beforePublish", "comment.beforeCreate"],
+				"publicApis":	["sensitive.check"]
+			},
+			"description":	"Generate sensitive word dictionaries, filter logs, and save/publish/comment filtering hooks.",
+			"title":	"Sensitive Word Filter",
+			"permissionBinding":	"ability-admin-page-bound",
+			"effects":	{
+				"permissions":	["sensitive.view", "sensitive.manage"],
+				"adminPages":	["sensitive_words", "sensitive_logs"],
+				"tables":	["sensitive_word", "sensitive_hit_log"],
+				"tasks":	[],
+				"events":	["content.beforeSave", "content.beforePublish", "comment.beforeCreate"],
+				"files":	["generated/pack_sensitive.c", "generated/admin_sensitive.html"],
+				"publicApis":	["sensitive.check"],
+				"fields":	[]
+			},
+			"version":	"1.0.0",
+			"packId":	"content.sensitive"
+		}, {
+			"instanceConfig":	{},
+			"hooks":	{
+				"tasks":	[
+					{
+						"task":	"task.generate",
+						"handler":	"static_task_generate"
+					}, {
+						"task":	"task.clean",
+						"handler":	"static_task_clean"
+					}
+				],
+				"events":	[
+					{
+						"handler":	"static_content_afterPublish",
+						"event":	"content.afterPublish"
+					}, {
+						"handler":	"static_content_afterDelete",
+						"event":	"content.afterDelete"
+					}
+				]
+			},
+			"mount":	{},
+			"contracts":	{
+				"permissions":	["static.view", "static.generate", "static.manage"],
+				"adminPages":	["static_rules", "static_tasks"],
+				"tables":	["static_rule", "static_task", "static_artifact"],
+				"tasks":	["task.generate", "task.clean"],
+				"events":	["content.afterPublish", "content.afterDelete"],
+				"publicApis":	["static.generate", "static.preview"]
+			},
+			"description":	"Generate static output rules, generation tasks, incremental generation, and cleanup logic.",
+			"title":	"Static Generation",
+			"permissionBinding":	"ability-admin-page-bound",
+			"effects":	{
+				"permissions":	["static.view", "static.generate", "static.manage"],
+				"adminPages":	["static_rules", "static_tasks"],
+				"tables":	["static_rule", "static_task", "static_artifact"],
+				"tasks":	["task.generate", "task.clean"],
+				"events":	["content.afterPublish", "content.afterDelete"],
+				"files":	["generated/pack_static.c", "generated/admin_static.html"],
+				"publicApis":	["static.generate", "static.preview"],
+				"fields":	[]
+			},
+			"version":	"1.0.0",
+			"packId":	"content.static"
+		}, {
+			"instanceConfig":	{},
+			"hooks":	{
+				"tasks":	[],
+				"events":	[
+					{
+						"handler":	"like_content_afterDelete",
+						"event":	"content.afterDelete"
+					}, {
+						"handler":	"like_like_afterCreate",
+						"event":	"like.afterCreate"
+					}, {
+						"handler":	"like_like_afterCancel",
+						"event":	"like.afterCancel"
+					}
+				]
+			},
+			"mount":	{},
+			"contracts":	{
+				"permissions":	["like.view", "like.manage"],
+				"adminPages":	["likes"],
+				"tables":	["like_record", "like_counter"],
+				"tasks":	[],
+				"events":	["content.afterDelete", "like.afterCreate", "like.afterCancel"],
+				"publicApis":	["like.create", "like.cancel", "like.status"]
+			},
+			"description":	"Generate like/cancel APIs, duplicate prevention, counters, and admin like pages.",
+			"title":	"Like System",
+			"permissionBinding":	"ability-admin-page-bound",
+			"effects":	{
+				"permissions":	["like.view", "like.manage"],
+				"adminPages":	["likes"],
+				"tables":	["like_record", "like_counter"],
+				"tasks":	[],
+				"events":	["content.afterDelete", "like.afterCreate", "like.afterCancel"],
+				"files":	["generated/pack_like.c", "generated/admin_like.html"],
+				"publicApis":	["like.create", "like.cancel", "like.status"],
+				"fields":	[
+					{
+						"storage":	{
+							"type":	"integer"
+						},
+						"title":	"Like Count",
+						"name":	"like_count",
+						"showInList":	true
+					}
+				]
+			},
+			"version":	"1.0.0",
+			"packId":	"content.like"
+		}, {
+			"instanceConfig":	{},
+			"hooks":	{
+				"tasks":	[
+					{
+						"task":	"task.aggregate",
+						"handler":	"view-stat_task_aggregate"
+					}, {
+						"task":	"task.clean",
+						"handler":	"view-stat_task_clean"
+					}
+				],
+				"events":	[
+					{
+						"handler":	"view-stat_content_afterView",
+						"event":	"content.afterView"
+					}, {
+						"handler":	"view-stat_content_afterDelete",
+						"event":	"content.afterDelete"
+					}
+				]
+			},
+			"mount":	{},
+			"contracts":	{
+				"permissions":	["view_stat.view", "view_stat.export"],
+				"adminPages":	["view_stats", "view_rank"],
+				"tables":	["view_counter", "view_log", "view_daily_stat"],
+				"tasks":	["task.aggregate", "task.clean"],
+				"events":	["content.afterView", "content.afterDelete"],
+				"publicApis":	["view.count", "view.rank", "view.detail"]
+			},
+			"description":	"Generate view counters, view logs, rank APIs, and admin statistics reports.",
+			"title":	"View Statistics",
+			"permissionBinding":	"ability-admin-page-bound",
+			"effects":	{
+				"permissions":	["view_stat.view", "view_stat.export"],
+				"adminPages":	["view_stats", "view_rank"],
+				"tables":	["view_counter", "view_log", "view_daily_stat"],
+				"tasks":	["task.aggregate", "task.clean"],
+				"events":	["content.afterView", "content.afterDelete"],
+				"files":	["generated/pack_view-stat.c", "generated/admin_view-stat.html"],
+				"publicApis":	["view.count", "view.rank", "view.detail"],
+				"fields":	[
+					{
+						"storage":	{
+							"type":	"integer"
+						},
+						"title":	"View Count",
+						"name":	"view_count",
+						"showInList":	true
+					}
+				]
+			},
+			"version":	"1.0.0",
+			"packId":	"content.view-stat"
+		}
+	],
+	"revision":	4,
+	"permissionBinding":	"ability-admin-page-bound",
+	"model":	"cms.article"
 }
-

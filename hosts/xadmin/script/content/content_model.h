@@ -49,7 +49,7 @@ bool Content_SyncModelCapabilities(int iModelId, xvalue tblSpec, int64 iNow)
 		return FALSE;
 	}
 
-	if ( sqlite3_prepare_v3(G_DB, "DELETE FROM content_model_capability WHERE model_id=?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+	if ( sqlite3_prepare_v3(G_DB, "DELETE FROM content_model_pack WHERE model_id=?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 		return FALSE;
 	}
 	sqlite3_bind_int(stmt, 1, iModelId);
@@ -82,6 +82,7 @@ bool Content_SyncModelCapabilities(int iModelId, xvalue tblSpec, int64 iNow)
 		}
 
 		sKey = xvoTableGetText(tblItem, "key", 3);
+		sKey = (str)ContentPack_NormalizeId(sKey);
 		if ( (sKey == NULL) || (sKey[0] == '\0') ) {
 			continue;
 		}
@@ -97,7 +98,7 @@ bool Content_SyncModelCapabilities(int iModelId, xvalue tblSpec, int64 iNow)
 		sConfigJson = tblConfig ? xrtStringifyJSON(tblConfig, FALSE, NULL) : xrtCopyStr("{}", 0);
 		sMountJson = tblMount ? xrtStringifyJSON(tblMount, FALSE, NULL) : xrtCopyStr("{}", 0);
 
-		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO content_model_capability (model_id,capability_key,config_json,mount_json,status,create_time,update_time) VALUES (?,?,?,?, 'enabled', ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO content_model_pack (model_id,pack_id,enabled,instance_options_json,mount_json,sort,create_time,update_time) VALUES (?,?,1,?,?,?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			if ( sConfigJson ) xrtFree(sConfigJson);
 			if ( sMountJson ) xrtFree(sMountJson);
 			return FALSE;
@@ -106,8 +107,9 @@ bool Content_SyncModelCapabilities(int iModelId, xvalue tblSpec, int64 iNow)
 		Content_BindText(stmt, 2, sKey);
 		Content_BindText(stmt, 3, sConfigJson);
 		Content_BindText(stmt, 4, sMountJson);
-		sqlite3_bind_int64(stmt, 5, iNow);
+		sqlite3_bind_int(stmt, 5, (int)i);
 		sqlite3_bind_int64(stmt, 6, iNow);
+		sqlite3_bind_int64(stmt, 7, iNow);
 		if ( sqlite3_step(stmt) != SQLITE_DONE ) {
 			sqlite3_finalize(stmt);
 			if ( sConfigJson ) xrtFree(sConfigJson);
@@ -257,9 +259,8 @@ bool Content_DeleteModelByXid(const char* sXid, char** psError)
 		if ( psError ) *psError = xrtCopyStr("delete model failed", 0);
 		return FALSE;
 	}
-	if ( sqlite3_prepare_v3(G_DB, "UPDATE content_model_capability SET status='deleted', update_time=? WHERE model_id=?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
-		sqlite3_bind_int64(stmt, 1, iNow);
-		sqlite3_bind_int(stmt, 2, iModelId);
+	if ( sqlite3_prepare_v3(G_DB, "DELETE FROM content_model_pack WHERE model_id=?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int(stmt, 1, iModelId);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
 	}

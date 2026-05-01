@@ -1,0 +1,28 @@
+{
+  "permissions": [
+    "view_stat.view",
+    "view_stat.export"
+  ],
+  "adminPages": [
+    "view_stats",
+    "view_rank"
+  ],
+  "publicApis": [
+    "view.count",
+    "view.rank",
+    "view.detail"
+  ],
+  "tables": [
+    "view_counter",
+    "view_log",
+    "view_daily_stat"
+  ],
+  "events": [
+    "content.afterView",
+    "content.afterDelete"
+  ],
+  "tasks": [
+    "task.aggregate",
+    "task.clean"
+  ]
+}

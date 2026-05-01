@@ -1,0 +1,17 @@
+{
+  "events": [
+    {
+      "event": "content.beforeSave",
+      "handler": "sensitive_content_beforeSave"
+    },
+    {
+      "event": "content.beforePublish",
+      "handler": "sensitive_content_beforePublish"
+    },
+    {
+      "event": "comment.beforeCreate",
+      "handler": "sensitive_comment_beforeCreate"
+    }
+  ],
+  "tasks": []
+}

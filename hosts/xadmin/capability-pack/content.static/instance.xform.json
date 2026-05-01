@@ -1,0 +1,28 @@
+{
+  "groups": [
+    {
+      "key": "static",
+      "title": "Static Generation Model Options",
+      "fields": [
+        {
+          "name": "outputDir",
+          "type": "input",
+          "label": "Output directory",
+          "value": "static/content"
+        },
+        {
+          "name": "autoGenerate",
+          "type": "switch",
+          "label": "Auto generate after publish",
+          "value": true
+        },
+        {
+          "name": "autoClean",
+          "type": "switch",
+          "label": "Auto clean after delete",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

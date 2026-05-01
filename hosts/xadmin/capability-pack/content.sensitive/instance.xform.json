@@ -1,0 +1,58 @@
+{
+  "groups": [
+    {
+      "key": "sensitive",
+      "title": "Sensitive Word Filter Model Options",
+      "fields": [
+        {
+          "name": "strategy",
+          "type": "select",
+          "label": "Strategy",
+          "value": "mark",
+          "list": [
+            {
+              "value": "block",
+              "label": "Block"
+            },
+            {
+              "value": "replace",
+              "label": "Replace"
+            },
+            {
+              "value": "mark",
+              "label": "Mark for review"
+            },
+            {
+              "value": "log",
+              "label": "Log only"
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "type": "checkbox",
+          "label": "Target fields",
+          "value": [
+            "title",
+            "summary",
+            "content"
+          ],
+          "list": [
+            {
+              "value": "title",
+              "label": "Title"
+            },
+            {
+              "value": "summary",
+              "label": "Summary"
+            },
+            {
+              "value": "content",
+              "label": "Content"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

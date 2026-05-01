@@ -1,0 +1,8 @@
+{
+  "prefix": "cms_tag",
+  "tables": [
+    "tag",
+    "content_tag"
+  ],
+  "counters": []
+}

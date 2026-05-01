@@ -1,0 +1,36 @@
+{
+  "groups": [
+    {
+      "key": "like",
+      "title": "Like System Model Options",
+      "fields": [
+        {
+          "name": "allowGuest",
+          "type": "switch",
+          "label": "Allow guest likes",
+          "value": true
+        },
+        {
+          "name": "dedup",
+          "type": "select",
+          "label": "Dedup strategy",
+          "value": "ip",
+          "list": [
+            {
+              "value": "member",
+              "label": "Member"
+            },
+            {
+              "value": "ip",
+              "label": "IP"
+            },
+            {
+              "value": "cookie",
+              "label": "Cookie"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,166 @@
+<style>
+	.content-pack-page { padding: 16px; }
+	.content-pack-meta { color: #777; font-size: 12px; line-height: 1.7; }
+	.content-pack-title { font-weight: 600; line-height: 1.7; }
+	.content-pack-json { min-height: 320px; white-space: pre; font-family: Consolas, Menlo, monospace; font-size: 12px; }
+	.content-pack-detail .layui-tab-content { padding: 12px 0 0; }
+</style>
+
+<div class="content-pack-page">
+	<table class="layui-hide" id="Table_Content_Pack" lay-filter="Table_Content_Pack"></table>
+</div>
+
+<script type="text/html" id="Toolbar_Content_Pack">
+	<div class="layui-inline">
+		<input type="text" id="Search_Content_Pack" placeholder="搜索能力包标识、名称、说明..." class="layui-input" style="width: 280px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Content_Pack_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Content_Pack_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Content_Pack_Name">
+	<div>
+		<div class="content-pack-title">{{= d.title || d.name || d.packId || '-' }}</div>
+		<div class="content-pack-meta"><code>{{= d.packId || '-' }}</code></div>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Content_Pack_Source">
+	<span class="layui-badge layui-bg-blue">{{= d.installType || '-' }}</span>
+	{{# if(d.system){ }}<span class="layui-badge layui-bg-green">系统</span>{{# } }}
+	{{# if(d.readonly){ }}<span class="layui-badge layui-bg-gray">只读</span>{{# } }}
+	{{# if(d.canUpdate){ }}<span class="layui-badge layui-bg-orange">可更新</span>{{# } }}
+</script>
+
+<script type="text/html" id="Tpl_Content_Pack_Status">
+	{{# if((d.status || '') === 'active'){ }}
+		<span class="layui-badge layui-bg-green">active</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-gray">{{= d.status || '-' }}</span>
+	{{# } }}
+</script>
+
+<script type="text/html" id="Tool_Content_Pack">
+	<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="detail">详情</a>
+</script>
+
+<script>
+layui.use(["table", "layer", "form"], function(){
+	var table = layui.table;
+	var layer = layui.layer;
+	var allRows = [];
+
+	function esc(text) {
+		return String(text == null ? "" : text).replace(/[&<>"']/g, function(ch){
+			return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[ch];
+		});
+	}
+
+	function parseJsonText(text) {
+		try { return JSON.stringify(JSON.parse(text || "{}"), null, 2); }
+		catch (err) { return text || "{}"; }
+	}
+
+	function searchText(row) {
+		return [row.packId,row.name,row.title,row.description,row.version,row.source,row.installType,row.status].join(" ").toLowerCase();
+	}
+
+	function filterRows(keyword) {
+		var q = String(keyword || "").trim().toLowerCase();
+		if (!q) return allRows.slice();
+		return allRows.filter(function(row){ return searchText(row).indexOf(q) >= 0; });
+	}
+
+	function currentKeyword() {
+		var input = document.getElementById("Search_Content_Pack");
+		return input ? input.value : "";
+	}
+
+	function reloadRows(rows) {
+		table.reloadData("Table_Content_Pack", { data: rows, page: { curr: 1 } });
+	}
+
+	function loadRows() {
+		fetch("/admin/content/packs", { credentials: "same-origin", headers: {"Accept":"application/json"} })
+			.then(function(resp){ return resp.json(); })
+			.then(function(ret){
+				if (!ret || ret.result !== true) throw new Error((ret && ret.message) || "加载能力包失败");
+				allRows = Array.isArray(ret.data) ? ret.data : [];
+				reloadRows(filterRows(currentKeyword()));
+			})
+			.catch(function(err){
+				layer.msg(err.message || "加载能力包失败", {icon:2});
+				allRows = [];
+				reloadRows([]);
+			});
+	}
+
+	function detailTabs(data) {
+		return '<div class="content-pack-detail">'
+			+ '<div class="layui-tab layui-tab-brief">'
+			+ '<ul class="layui-tab-title">'
+			+ '<li class="layui-this">Manifest</li><li>全局表单</li><li>实例表单</li><li>Effects</li><li>Hooks</li><li>Contracts</li>'
+			+ '</ul>'
+			+ '<div class="layui-tab-content">'
+			+ '<div class="layui-tab-item layui-show"><textarea class="layui-textarea content-pack-json" readonly>' + esc(parseJsonText(data.manifestJson)) + '</textarea></div>'
+			+ '<div class="layui-tab-item"><textarea class="layui-textarea content-pack-json" readonly>' + esc(parseJsonText(data.globalFormJson)) + '</textarea></div>'
+			+ '<div class="layui-tab-item"><textarea class="layui-textarea content-pack-json" readonly>' + esc(parseJsonText(data.instanceFormJson)) + '</textarea></div>'
+			+ '<div class="layui-tab-item"><textarea class="layui-textarea content-pack-json" readonly>' + esc(parseJsonText(data.effectsJson)) + '</textarea></div>'
+			+ '<div class="layui-tab-item"><textarea class="layui-textarea content-pack-json" readonly>' + esc(parseJsonText(data.hooksJson)) + '</textarea></div>'
+			+ '<div class="layui-tab-item"><textarea class="layui-textarea content-pack-json" readonly>' + esc(parseJsonText(data.contractsJson)) + '</textarea></div>'
+			+ '</div></div></div>';
+	}
+
+	function openDetail(packId) {
+		fetch("/admin/content/pack?packId=" + encodeURIComponent(packId), { credentials: "same-origin", headers: {"Accept":"application/json"} })
+			.then(function(resp){ return resp.json(); })
+			.then(function(ret){
+				if (!ret || ret.result !== true) throw new Error((ret && ret.message) || "加载能力包详情失败");
+				layer.open({
+					type: 1,
+					title: (ret.data.title || ret.data.packId || "能力包详情"),
+					area: ["860px", "680px"],
+					content: '<div style="padding:16px;">' + detailTabs(ret.data) + '</div>'
+				});
+			})
+			.catch(function(err){ layer.msg(err.message || "加载能力包详情失败", {icon:2}); });
+	}
+
+	table.render({
+		elem: "#Table_Content_Pack",
+		toolbar: "#Toolbar_Content_Pack",
+		data: [],
+		defaultToolbar: ["filter", "exports", "print"],
+		height: "full-135",
+		cellMinWidth: 80,
+		skin: "line",
+		page: { limit: 20, groups: 9, layout: ["count", "prev", "page", "next", "limit", "refresh", "skip"] },
+		cols: [[
+			{title:"能力包", minWidth:240, templet:"#Tpl_Content_Pack_Name"},
+			{field:"version", width:100, title:"版本"},
+			{title:"来源", width:220, templet:"#Tpl_Content_Pack_Source"},
+			{title:"状态", width:100, templet:"#Tpl_Content_Pack_Status"},
+			{field:"description", minWidth:280, title:"说明"},
+			{width:90, title:"操作", fixed:"right", templet:"#Tool_Content_Pack"}
+		]]
+	});
+
+	table.on("toolbar(Table_Content_Pack)", function(obj){
+		if (obj.event === "Content_Pack_Search") reloadRows(filterRows(currentKeyword()));
+		else if (obj.event === "Content_Pack_Refresh") loadRows();
+	});
+
+	table.on("tool(Table_Content_Pack)", function(obj){
+		if (obj.event === "detail") openDetail((obj.data || {}).packId || "");
+	});
+
+	setTimeout(function(){
+		var input = document.getElementById("Search_Content_Pack");
+		if (input) input.addEventListener("keydown", function(event){ if (event.key === "Enter") reloadRows(filterRows(currentKeyword())); });
+	}, 0);
+
+	loadRows();
+});
+</script>

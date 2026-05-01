@@ -97,6 +97,8 @@ layui.use(['form'], function(){
   var state = {
     meta: null,
     categories: null,
+    tags: null,
+    topics: null,
     form: null,
     currentId: 0
   };
@@ -212,6 +214,53 @@ layui.use(['form'], function(){
     return list;
   }
 
+  function hasMountedPack(meta, packId) {
+    var packs = meta && meta.contracts && meta.contracts.abilityPacks;
+    if (!Array.isArray(packs)) return false;
+    return packs.some(function(pack){ return pack && pack.packId === packId; });
+  }
+
+  function optionList(rows, labelField) {
+    return (rows || []).map(function(row){
+      return { value: Number(row.id || 0), label: textOf(row[labelField] || row.name || row.title || row.id) };
+    }).filter(function(item){ return item.value > 0; });
+  }
+
+  async function fetchJson(path) {
+    var response = await fetch(path, { cache: 'no-store' });
+    return response.json();
+  }
+
+  async function loadTags(meta) {
+    if (!hasMountedPack(meta, 'content.tag')) return [];
+    if (state.tags) return state.tags;
+    var result = await fetchJson('/api/plugin/' + pluginXid + '/tag/list');
+    state.tags = result && result.result && Array.isArray(result.data) ? result.data : [];
+    return state.tags;
+  }
+
+  async function loadTopics(meta) {
+    if (!hasMountedPack(meta, 'content.topic')) return [];
+    if (state.topics) return state.topics;
+    var result = await fetchJson('/api/plugin/' + pluginXid + '/topic/list');
+    state.topics = result && result.result && Array.isArray(result.data) ? result.data : [];
+    return state.topics;
+  }
+
+  async function loadRelationValues(meta, contentId) {
+    var values = {};
+    if (!contentId) return values;
+    if (hasMountedPack(meta, 'content.tag')) {
+      var tagResult = await fetchJson('/admin/api/plugin/' + pluginXid + '/tag/content/list?contentId=' + encodeURIComponent(contentId));
+      values.tagIds = tagResult && tagResult.result && Array.isArray(tagResult.data) ? tagResult.data.map(function(row){ return Number(row.tagId || 0); }).filter(Boolean) : [];
+    }
+    if (hasMountedPack(meta, 'content.topic')) {
+      var topicResult = await fetchJson('/admin/api/plugin/' + pluginXid + '/topic/content/list?contentId=' + encodeURIComponent(contentId));
+      values.topicIds = topicResult && topicResult.result && Array.isArray(topicResult.data) ? topicResult.data.map(function(row){ return Number(row.topicId || 0); }).filter(Boolean) : [];
+    }
+    return values;
+  }
+
   function hasSchemaField(schema, name) {
     var groups = (schema && schema.groups) || [];
     for (var i = 0; i < groups.length; i++) {
@@ -223,9 +272,10 @@ layui.use(['form'], function(){
     return false;
   }
 
-  function withManagedSystemFields(schema, categories) {
+  function withManagedSystemFields(schema, categories, meta, tags, topics) {
     var next = JSON.parse(JSON.stringify(schema || { title: 'Content', groups: [] }));
     next.groups = Array.isArray(next.groups) ? next.groups : [];
+    var publishGroup = next.groups[0];
     if (!hasSchemaField(next, 'categoryId')) {
       next.groups.unshift({
         key: 'category',
@@ -241,7 +291,7 @@ layui.use(['form'], function(){
       });
     }
     if (!hasSchemaField(next, 'slug')) {
-      var publishGroup = next.groups[0];
+      publishGroup = next.groups[0];
       if (!publishGroup || publishGroup.key !== 'category') {
         publishGroup = { key: 'category', title: '\u53d1\u5e03\u8bbe\u7f6e', desc: '', fields: [] };
         next.groups.unshift(publishGroup);
@@ -255,13 +305,46 @@ layui.use(['form'], function(){
         placeholder: 'my-first-post'
       });
     }
+    publishGroup = next.groups[0];
+    if (publishGroup && publishGroup.key === 'category') {
+      publishGroup.fields = Array.isArray(publishGroup.fields) ? publishGroup.fields : [];
+      if (hasMountedPack(meta, 'content.tag') && !hasSchemaField(next, 'tagIds')) {
+        publishGroup.fields.push({
+          name: 'tagIds',
+          type: 'checklist',
+          label: '\u6807\u7b7e',
+          required: false,
+          list: optionList(tags, 'name')
+        });
+        publishGroup.fields.push({
+          name: 'tagNames',
+          type: 'text',
+          label: '\u65b0\u6807\u7b7e',
+          required: false,
+          placeholder: '\u591a\u4e2a\u6807\u7b7e\u7528\u9017\u53f7\u5206\u9694'
+        });
+      }
+      if (hasMountedPack(meta, 'content.topic') && !hasSchemaField(next, 'topicIds')) {
+        publishGroup.fields.push({
+          name: 'topicIds',
+          type: 'checklist',
+          label: '\u4e13\u9898',
+          required: false,
+          list: optionList(topics, 'title')
+        });
+      }
+    }
     return next;
   }
 
-  function formValuesFromRecord(record) {
+  function formValuesFromRecord(record, relationValues) {
     var data = record && record.data && typeof record.data === 'object' ? record.data : {};
     var values = JSON.parse(JSON.stringify(data));
     values.categoryId = Number((record && record.categoryId) || values.categoryId || 0);
+    if (relationValues) {
+      if (relationValues.tagIds) values.tagIds = relationValues.tagIds;
+      if (relationValues.topicIds) values.topicIds = relationValues.topicIds;
+    }
     return values;
   }
 
@@ -277,10 +360,13 @@ layui.use(['form'], function(){
     await ensureAssets();
     var meta = await loadMeta();
     var categories = await loadCategories();
+    var tags = await loadTags(meta);
+    var topics = await loadTopics(meta);
     var record = await loadRecord(state.currentId);
+    var relationValues = await loadRelationValues(meta, state.currentId);
     var host = byId(ids.form);
     host.innerHTML = '<div class="managed-content-empty">' + t('loadingForm') + '</div>';
-    state.form = await window.XForm.render(host, withManagedSystemFields(meta.schema || { title: 'Content', groups: [] }, categories), formValuesFromRecord(record), meta.fieldTypes || {}, {});
+    state.form = await window.XForm.render(host, withManagedSystemFields(meta.schema || { title: 'Content', groups: [] }, categories, meta, tags, topics), formValuesFromRecord(record, relationValues), meta.fieldTypes || {}, {});
     setStatus('');
   }
 
@@ -298,6 +384,12 @@ layui.use(['form'], function(){
     if (!check.result) { setStatus(check.message || t('validateFailed'), '#b91c1c'); return; }
     var values = state.form.collect ? state.form.collect() : {};
     var categoryId = Number(values.categoryId || 0);
+    var tagIds = Array.isArray(values.tagIds) ? values.tagIds.map(Number).filter(Boolean) : [];
+    var topicIds = Array.isArray(values.topicIds) ? values.topicIds.map(Number).filter(Boolean) : [];
+    var tagNames = textOf(values.tagNames).split(',').map(function(item){ return item.trim(); }).filter(Boolean);
+    delete values.tagIds;
+    delete values.topicIds;
+    delete values.tagNames;
     setStatus(t('saving'));
     var response = await fetch('/admin/api/plugin/' + pluginXid + '/save', {
       method: 'POST',
@@ -306,12 +398,36 @@ layui.use(['form'], function(){
     });
     var result = await response.json();
     if (!result || !result.result) throw new Error((result && result.message) || t('saveFailed'));
+    await saveAbilityRelations(result.id || state.currentId || 0, tagIds, tagNames, topicIds);
     layer.msg(asDraft ? t('draftSaved') : t('saved'), { icon: 1 });
     if (parent && parent.layui && parent.layui.table) {
       parent.layui.table.reloadData('Table_Content_MakePlugin_cms_article_Articles');
       parent.layui.table.reloadData('Table_Content_MakePlugin_cms_article_Drafts');
     }
     closeFrame();
+  }
+
+  async function saveAbilityRelations(contentId, tagIds, tagNames, topicIds) {
+    var meta = await loadMeta();
+    if (contentId <= 0) return;
+    if (hasMountedPack(meta, 'content.tag')) {
+      await fetch('/admin/api/plugin/' + pluginXid + '/tag/bind', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentId: contentId, tagIds: tagIds || [], tagNames: tagNames || [] })
+      }).then(function(r){ return r.json(); }).then(function(result){
+        if (!result || !result.result) throw new Error((result && result.message) || '\u6807\u7b7e\u7ed1\u5b9a\u5931\u8d25');
+      });
+    }
+    if (hasMountedPack(meta, 'content.topic')) {
+      await fetch('/admin/api/plugin/' + pluginXid + '/topic/bind-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contentId: contentId, topicIds: topicIds || [] })
+      }).then(function(r){ return r.json(); }).then(function(result){
+        if (!result || !result.result) throw new Error((result && result.message) || '\u4e13\u9898\u7ed1\u5b9a\u5931\u8d25');
+      });
+    }
   }
 
   function handleError(error) {

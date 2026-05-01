@@ -50,14 +50,34 @@ function formData(filter) {
 	return data;
 }
 
+function normalizeCapabilityKey(key) {
+	var map = {
+		comment: 'content.comment',
+		tag: 'content.tag',
+		topic: 'content.topic',
+		sensitive: 'content.sensitive',
+		static: 'content.static',
+		like: 'content.like',
+		view: 'content.view-stat',
+		'view-stat': 'content.view-stat'
+	};
+	return map[key] || key;
+}
+
 function buildSpec() {
 	var data = formData('content_model_form');
 	readPageControls();
 	readPolicyControls();
+	var used = {};
 	var capabilities = Object.keys(contentState.enabledCapabilities).filter(function(key) {
 		return contentState.enabledCapabilities[key];
 	}).map(function(key) {
-		return {key:key, enabled:true, config:contentState.capabilityConfig[key] || {}, mount:{}};
+		var packId = normalizeCapabilityKey(key);
+		if (used[packId]) return null;
+		used[packId] = true;
+		return {key:packId, enabled:true, config:contentState.capabilityConfig[packId] || contentState.capabilityConfig[key] || {}, mount:{}};
+	}).filter(function(item) {
+		return !!item;
 	});
 	return {
 		xid: data.xid,

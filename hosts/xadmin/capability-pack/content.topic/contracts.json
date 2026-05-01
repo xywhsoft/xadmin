@@ -1,0 +1,25 @@
+{
+  "permissions": [
+    "topic.view",
+    "topic.manage",
+    "topic.arrange"
+  ],
+  "adminPages": [
+    "topics",
+    "topic_contents"
+  ],
+  "publicApis": [
+    "topic.list",
+    "topic.detail",
+    "topic.contents"
+  ],
+  "tables": [
+    "topic",
+    "topic_content"
+  ],
+  "events": [
+    "content.afterDelete",
+    "topic.afterBind"
+  ],
+  "tasks": []
+}

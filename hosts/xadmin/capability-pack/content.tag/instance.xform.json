@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "key": "tag",
+      "title": "Tag System Model Options",
+      "fields": [
+        {
+          "name": "maxTags",
+          "type": "number",
+          "label": "Max tags",
+          "value": 8
+        },
+        {
+          "name": "allowCreateInline",
+          "type": "switch",
+          "label": "Allow inline tag creation",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

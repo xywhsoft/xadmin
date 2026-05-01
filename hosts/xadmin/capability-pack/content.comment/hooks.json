@@ -1,0 +1,17 @@
+{
+  "events": [
+    {
+      "event": "content.afterDelete",
+      "handler": "comment_content_afterDelete"
+    },
+    {
+      "event": "content.afterPublish",
+      "handler": "comment_content_afterPublish"
+    },
+    {
+      "event": "content.afterView",
+      "handler": "comment_content_afterView"
+    }
+  ],
+  "tasks": []
+}

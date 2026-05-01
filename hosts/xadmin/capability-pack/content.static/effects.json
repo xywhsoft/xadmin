@@ -1,0 +1,33 @@
+{
+  "tables": [
+    "static_rule",
+    "static_task",
+    "static_artifact"
+  ],
+  "fields": [],
+  "adminPages": [
+    "static_rules",
+    "static_tasks"
+  ],
+  "publicApis": [
+    "static.generate",
+    "static.preview"
+  ],
+  "permissions": [
+    "static.view",
+    "static.generate",
+    "static.manage"
+  ],
+  "events": [
+    "content.afterPublish",
+    "content.afterDelete"
+  ],
+  "tasks": [
+    "task.generate",
+    "task.clean"
+  ],
+  "files": [
+    "generated/pack_static.c",
+    "generated/admin_static.html"
+  ]
+}

@@ -59,14 +59,101 @@ void Request_View_Content_Editor(XS_ServerObject objServer, XS_HostObject objHos
 	LoadPage(objResp, 200, HTTP_CT_HTML, "content/editor.html");
 }
 
-void Request_Content_Capabilities(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Request_View_Content_Packs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+	LoadPage(objResp, 200, HTTP_CT_HTML, "content/packs.html");
+}
+
+void Request_View_Content_PackStore(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+	LoadPage(objResp, 200, HTTP_CT_HTML, "content/pack_store.html");
+}
+
+void Request_Content_Packs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	(void)objServer;
 	(void)objHost;
 	(void)objReq;
 	(void)objSession;
 
-	Content_ReplySuccess(objResp, ContentCapability_ListActive());
+	Content_ReplySuccess(objResp, ContentPack_ListAll());
+}
+
+void Request_Content_Pack(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sPackId[128] = {0};
+	xvalue tblPack;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+		Content_ReplyError(objResp, "method not allowed");
+		return;
+	}
+	xsReqQueryValue(objReq, "packId", sPackId, sizeof(sPackId));
+	if ( !Content_IsValidXid(sPackId) ) {
+		Content_ReplyError(objResp, "invalid pack id");
+		return;
+	}
+	tblPack = ContentPack_GetDetail(sPackId);
+	if ( tblPack ) {
+		Content_ReplySuccess(objResp, tblPack);
+		return;
+	}
+	Content_ReplyError(objResp, "pack not found");
+}
+
+void Request_Content_Pack_Options(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = NULL;
+	str sPackId = NULL;
+	str sOptionsJson = NULL;
+	xvalue tblOptions = NULL;
+	xvalue tblRet;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		Content_ReplyError(objResp, "method not allowed");
+		return;
+	}
+	tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+	if ( (tblBody == NULL) || (xvoType(tblBody) != XVO_DT_TABLE) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Content_ReplyError(objResp, "invalid json body");
+		return;
+	}
+	sPackId = xvoTableGetText(tblBody, "packId", 6);
+	tblOptions = xvoTableGetValue(tblBody, "options", 7);
+	if ( !Content_IsValidXid(sPackId) ) {
+		xvoUnref(tblBody);
+		Content_ReplyError(objResp, "invalid pack id");
+		return;
+	}
+	sOptionsJson = tblOptions ? xrtStringifyJSON(tblOptions, FALSE, NULL) : xrtCopyStr("{}", 0);
+	if ( !ContentPack_SaveOptions(sPackId, sOptionsJson) ) {
+		xvoUnref(tblBody);
+		if ( sOptionsJson ) xrtFree(sOptionsJson);
+		Content_ReplyError(objResp, "save pack options failed");
+		return;
+	}
+	tblRet = xvoCreateTable();
+	xvoTableSetText(tblRet, "packId", 6, sPackId, 0, FALSE);
+	Content_ReplySuccess(objResp, tblRet);
+	xvoUnref(tblBody);
+	if ( sOptionsJson ) xrtFree(sOptionsJson);
 }
 
 void Request_Content_Types(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)

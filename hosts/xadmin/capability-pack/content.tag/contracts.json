@@ -1,0 +1,23 @@
+{
+  "permissions": [
+    "tag.view",
+    "tag.manage"
+  ],
+  "adminPages": [
+    "tags"
+  ],
+  "publicApis": [
+    "tag.list",
+    "tag.detail",
+    "tag.contents"
+  ],
+  "tables": [
+    "tag",
+    "content_tag"
+  ],
+  "events": [
+    "content.afterDelete",
+    "tag.afterBind"
+  ],
+  "tasks": []
+}

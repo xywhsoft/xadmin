@@ -1,0 +1,24 @@
+{
+  "permissions": [
+    "like.view",
+    "like.manage"
+  ],
+  "adminPages": [
+    "likes"
+  ],
+  "publicApis": [
+    "like.create",
+    "like.cancel",
+    "like.status"
+  ],
+  "tables": [
+    "like_record",
+    "like_counter"
+  ],
+  "events": [
+    "content.afterDelete",
+    "like.afterCreate",
+    "like.afterCancel"
+  ],
+  "tasks": []
+}

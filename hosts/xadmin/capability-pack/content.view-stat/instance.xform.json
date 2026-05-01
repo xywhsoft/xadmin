@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "key": "view-stat",
+      "title": "View Statistics Model Options",
+      "fields": [
+        {
+          "name": "enableViewLog",
+          "type": "switch",
+          "label": "Enable view log",
+          "value": true
+        },
+        {
+          "name": "rankEnabled",
+          "type": "switch",
+          "label": "Enable rank API",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

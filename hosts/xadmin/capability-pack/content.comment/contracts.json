@@ -1,0 +1,28 @@
+{
+  "permissions": [
+    "comment.view",
+    "comment.audit",
+    "comment.delete"
+  ],
+  "adminPages": [
+    "comments",
+    "comment_audit"
+  ],
+  "publicApis": [
+    "comment.list",
+    "comment.create",
+    "comment.hide",
+    "comment.count"
+  ],
+  "tables": [
+    "comment_thread",
+    "comment_item",
+    "comment_audit_log"
+  ],
+  "events": [
+    "content.afterDelete",
+    "content.afterPublish",
+    "content.afterView"
+  ],
+  "tasks": []
+}

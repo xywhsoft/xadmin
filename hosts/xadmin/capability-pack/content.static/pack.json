@@ -1,0 +1,41 @@
+{
+  "formatVersion": 1,
+  "packId": "content.static",
+  "name": "static",
+  "title": "Static Generation",
+  "description": "Generate static output rules, generation tasks, incremental generation, and cleanup logic.",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 500,
+  "update": {
+    "channel": "official",
+    "packageId": "content.static",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": [
+      "task"
+    ]
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json"
+}

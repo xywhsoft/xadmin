@@ -1,0 +1,40 @@
+{
+  "groups": [
+    {
+      "key": "sensitive",
+      "title": "Sensitive Word Filter Global Options",
+      "fields": [
+        {
+          "name": "defaultStrategy",
+          "type": "select",
+          "label": "Default strategy",
+          "value": "mark",
+          "list": [
+            {
+              "value": "block",
+              "label": "Block"
+            },
+            {
+              "value": "replace",
+              "label": "Replace"
+            },
+            {
+              "value": "mark",
+              "label": "Mark for review"
+            },
+            {
+              "value": "log",
+              "label": "Log only"
+            }
+          ]
+        },
+        {
+          "name": "replacement",
+          "type": "input",
+          "label": "Replacement text",
+          "value": "***"
+        }
+      ]
+    }
+  ]
+}

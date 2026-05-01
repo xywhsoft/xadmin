@@ -13,8 +13,8 @@ var ContentApi = {
 			return {result:false, message:'网络请求失败', errorCode:'CONTENT_NETWORK_ERROR', data:null};
 		});
 	},
-	getCapabilities: function() {
-		return ContentApi.request('/admin/content/capabilities');
+	getPacks: function() {
+		return ContentApi.request('/admin/content/packs');
 	},
 	getModel: function(xid) {
 		return ContentApi.request('/admin/content/type?xid=' + encodeURIComponent(xid));

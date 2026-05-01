@@ -85,22 +85,28 @@ bool Content_SpecValidate(xvalue tblSpec, char** psError)
 			xvalue tblCap = xvoArrayGetValue(arrCapabilities, i);
 			xvalue tblConfig;
 			str sKey;
+			str sRawKey;
 			if ( (tblCap == NULL) || (xvoType(tblCap) != XVO_DT_TABLE) ) {
 				if ( psError ) *psError = xrtFormat("capabilities[%u]: invalid capability object", i);
 				return FALSE;
 			}
-			sKey = xvoTableGetText(tblCap, "key", 3);
+			sRawKey = xvoTableGetText(tblCap, "key", 3);
+			sKey = (str)ContentPack_NormalizeId(sRawKey);
+			if ( sKey && sRawKey && (strcmp(sKey, sRawKey) != 0) ) {
+				xvoTableSetText(tblCap, "key", 3, sKey, 0, FALSE);
+			}
 			if ( !Content_SpecIsValidIdent(sKey, TRUE) ) {
 				if ( psError ) *psError = xrtFormat("capabilities[%u].key: invalid capability key", i);
 				return FALSE;
 			}
-			if ( !ContentCapability_Exists(sKey) ) {
+			if ( !ContentPack_Exists(sKey) ) {
 				if ( psError ) *psError = xrtFormat("capabilities[%u].key: unknown capability '%s'", i, sKey);
 				return FALSE;
 			}
 			for ( uint32 j = i + 1; j < xvoArrayItemCount(arrCapabilities); j++ ) {
 				xvalue tblOther = xvoArrayGetValue(arrCapabilities, j);
 				str sOther = (tblOther && (xvoType(tblOther) == XVO_DT_TABLE)) ? xvoTableGetText(tblOther, "key", 3) : NULL;
+				sOther = (str)ContentPack_NormalizeId(sOther);
 				if ( sOther && (strcmp(sKey, sOther) == 0) ) {
 					if ( psError ) *psError = xrtFormat("capabilities[%u].key: duplicate capability '%s'", j, sKey);
 					return FALSE;

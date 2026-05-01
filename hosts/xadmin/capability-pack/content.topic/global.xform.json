@@ -1,0 +1,26 @@
+{
+  "groups": [
+    {
+      "key": "topic",
+      "title": "Topic System Global Options",
+      "fields": [
+        {
+          "name": "defaultMode",
+          "type": "select",
+          "label": "Default binding mode",
+          "value": "single",
+          "list": [
+            {
+              "value": "single",
+              "label": "Single topic"
+            },
+            {
+              "value": "multiple",
+              "label": "Multiple topics"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

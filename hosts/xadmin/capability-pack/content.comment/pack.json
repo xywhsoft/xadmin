@@ -1,0 +1,39 @@
+{
+  "formatVersion": 1,
+  "packId": "content.comment",
+  "name": "comment",
+  "title": "Comment System",
+  "description": "Generate comment moderation, public comment APIs, counters, and admin comment pages.",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 100,
+  "update": {
+    "channel": "official",
+    "packageId": "content.comment",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": []
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json"
+}

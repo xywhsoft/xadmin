@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "key": "view-stat",
+      "title": "View Statistics Global Options",
+      "fields": [
+        {
+          "name": "trackGuest",
+          "type": "switch",
+          "label": "Track guest views",
+          "value": true
+        },
+        {
+          "name": "dedupWindow",
+          "type": "number",
+          "label": "Dedup window seconds",
+          "value": 3600
+        }
+      ]
+    }
+  ]
+}

@@ -116,6 +116,10 @@ str Content_SanitizeSqlIdent(const char* sText, const char* sFallback)
 			if ( ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')) || ((c >= '0') && (c <= '9')) || (c == '_') ) {
 				xrtBufferAppend(&tBuf, &c, 1, XBUF_BINARY);
 				bHasChar = TRUE;
+			} else if ( c == '.' || c == '-' ) {
+				char chUnder = '_';
+				xrtBufferAppend(&tBuf, &chUnder, 1, XBUF_BINARY);
+				bHasChar = TRUE;
 			}
 		}
 	}
@@ -303,11 +307,326 @@ str Content_BuildPluginDomIdBase(const char* sPluginXid)
 	return sOut;
 }
 
-str Content_BuildManagedMainC(const char* sPluginXid, const char* sPluginTitle, const char* sMenuTitle)
+str Content_BuildAbilityPackRouteCode(const char* sPluginXid, xvalue tblSpec)
+{
+	xvalue arrPacks = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
+	str sCode = xrtCopyStr("", 0);
+
+	if ( (arrPacks == NULL) || (xvoType(arrPacks) != XVO_DT_ARRAY) ) {
+		return sCode;
+	}
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrPacks); i++ ) {
+		xvalue tblItem = xvoArrayGetValue(arrPacks, i);
+		str sKey = (tblItem && (xvoType(tblItem) == XVO_DT_TABLE)) ? xvoTableGetText(tblItem, "key", 3) : NULL;
+		str sSafeKey = NULL;
+		str sNext = NULL;
+		bool bEnabled = TRUE;
+
+		if ( (sKey == NULL) || (sKey[0] == '\0') ) continue;
+		if ( xvoTableExists(tblItem, "enabled", 7) ) bEnabled = xvoTableGetBool(tblItem, "enabled", 7);
+		if ( !bEnabled ) continue;
+
+		sSafeKey = Content_SanitizeSqlIdent((const char*)sKey, "pack");
+		sNext = xrtFormat(
+			"%s\t\tmemset(&route, 0, sizeof(route));\n"
+			"\t\troute.path = \"/admin/view/plugin/%s/pack/%s\";\n"
+			"\t\troute.proc = Managed_RequestAbilityPackView;\n"
+			"\t\troute.need_auth = TRUE;\n"
+			"\t\troute.admin_only = TRUE;\n"
+			"\t\troute.auth_id = auth_%s;\n"
+			"\t\tif ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {\n"
+			"\t\t\tprintf(\"        [ManagedPlugin] ability route register failed: xid=%s path=%%s\\n\", route.path);\n"
+			"\t\t\tgoto failed;\n"
+			"\t\t}\n\n",
+			Content_TextOr((const char*)sCode, ""),
+			Content_TextOr(sPluginXid, ""),
+			Content_TextOr((const char*)sSafeKey, "pack"),
+			Content_TextOr((const char*)sSafeKey, "pack"),
+			Content_TextOr(sPluginXid, "")
+		);
+		if ( sCode ) xrtFree(sCode);
+		if ( sSafeKey ) xrtFree(sSafeKey);
+		sCode = sNext;
+	}
+	return sCode;
+}
+
+const char* Content_DefaultAbilityPermission(const char* sPackId)
+{
+	if ( sPackId == NULL ) return "ability.manage";
+	if ( strcmp(sPackId, "content.comment") == 0 ) return "comment.view";
+	if ( strcmp(sPackId, "content.tag") == 0 ) return "tag.manage";
+	if ( strcmp(sPackId, "content.topic") == 0 ) return "topic.manage";
+	if ( strcmp(sPackId, "content.sensitive") == 0 ) return "sensitive.manage";
+	if ( strcmp(sPackId, "content.static") == 0 ) return "static.manage";
+	if ( strcmp(sPackId, "content.like") == 0 ) return "like.view";
+	if ( strcmp(sPackId, "content.view-stat") == 0 ) return "view_stat.view";
+	return "ability.manage";
+}
+
+bool Content_IsBuiltinAbilityPack(const char* sPackId)
+{
+	if ( sPackId == NULL ) return FALSE;
+	if ( strcmp(sPackId, "content.comment") == 0 ) return TRUE;
+	if ( strcmp(sPackId, "content.tag") == 0 ) return TRUE;
+	if ( strcmp(sPackId, "content.topic") == 0 ) return TRUE;
+	if ( strcmp(sPackId, "content.sensitive") == 0 ) return TRUE;
+	if ( strcmp(sPackId, "content.static") == 0 ) return TRUE;
+	if ( strcmp(sPackId, "content.like") == 0 ) return TRUE;
+	if ( strcmp(sPackId, "content.view-stat") == 0 ) return TRUE;
+	return FALSE;
+}
+
+str Content_BuildAbilityPackAuthCode(const char* sPluginXid, const char* sPluginTitle, xvalue tblSpec)
+{
+	xvalue arrPacks = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
+	str sCode = xrtCopyStr("", 0);
+	str sSafeGroupName = Content_EscapeCString(Content_TextOr(sPluginTitle, sPluginXid ? sPluginXid : "Generated Content Plugin"));
+	bool bHasPack = FALSE;
+
+	if ( (arrPacks == NULL) || (xvoType(arrPacks) != XVO_DT_ARRAY) ) {
+		if ( sSafeGroupName ) xrtFree(sSafeGroupName);
+		return sCode;
+	}
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrPacks); i++ ) {
+		xvalue tblItem = xvoArrayGetValue(arrPacks, i);
+		str sKey = (tblItem && (xvoType(tblItem) == XVO_DT_TABLE)) ? xvoTableGetText(tblItem, "key", 3) : NULL;
+		bool bEnabled = TRUE;
+		if ( (sKey == NULL) || (sKey[0] == '\0') ) continue;
+		if ( xvoTableExists(tblItem, "enabled", 7) ) bEnabled = xvoTableGetBool(tblItem, "enabled", 7);
+		if ( !bEnabled ) continue;
+		bHasPack = TRUE;
+		break;
+	}
+	if ( !bHasPack ) {
+		if ( sSafeGroupName ) xrtFree(sSafeGroupName);
+		return sCode;
+	}
+
+	if ( sCode ) xrtFree(sCode);
+	sCode = xrtFormat(
+		"\tmemset(&authGroup, 0, sizeof(authGroup));\n"
+		"\tauthGroup.scope = XADMIN_AUTH_SCOPE_ADMIN;\n"
+		"\tauthGroup.name = \"%s Ability Packs\";\n"
+		"\tauthGroup.description = \"Generated content ability pack permissions\";\n"
+		"\tauthGroup.sort = 700000;\n"
+		"\tif ( XAdmin_RegisterAuthGroup(handle, &authGroup, &iAbilityAuthGroupId, NULL) != 0 ) goto failed;\n\n",
+		Content_TextOr((const char*)sSafeGroupName, "")
+	);
+
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrPacks); i++ ) {
+		xvalue tblItem = xvoArrayGetValue(arrPacks, i);
+		str sKey = (tblItem && (xvoType(tblItem) == XVO_DT_TABLE)) ? xvoTableGetText(tblItem, "key", 3) : NULL;
+		str sSafeKey = NULL;
+		xvalue tblPack = NULL;
+		xvalue tblContracts = NULL;
+		xvalue arrPermissions = NULL;
+		str sContractsJson = NULL;
+		bool bEnabled = TRUE;
+		bool bDeclaredFirst = FALSE;
+		bool bBuiltinPack = FALSE;
+		const char* sFallbackPerm;
+
+		if ( (sKey == NULL) || (sKey[0] == '\0') ) continue;
+		if ( xvoTableExists(tblItem, "enabled", 7) ) bEnabled = xvoTableGetBool(tblItem, "enabled", 7);
+		if ( !bEnabled ) continue;
+
+		sSafeKey = Content_SanitizeSqlIdent((const char*)sKey, "pack");
+		bBuiltinPack = Content_IsBuiltinAbilityPack((const char*)sKey);
+		sFallbackPerm = Content_DefaultAbilityPermission((const char*)sKey);
+		tblPack = ContentPack_GetDetail((const char*)sKey);
+		sContractsJson = tblPack ? xvoTableGetText(tblPack, "contractsJson", 13) : NULL;
+		if ( sContractsJson && sContractsJson[0] ) {
+			tblContracts = xrtParseJSON(sContractsJson, strlen(sContractsJson));
+			arrPermissions = tblContracts ? xvoTableGetValue(tblContracts, "permissions", 11) : NULL;
+		}
+		if ( (arrPermissions == NULL) || (xvoType(arrPermissions) != XVO_DT_ARRAY) || (xvoArrayItemCount(arrPermissions) == 0) ) {
+			arrPermissions = NULL;
+		}
+		{
+			uint32 iPermCount = arrPermissions ? xvoArrayItemCount(arrPermissions) : 1;
+			for ( uint32 j = 0; j < iPermCount; j++ ) {
+				xvalue objPerm = arrPermissions ? xvoArrayGetValue(arrPermissions, j) : NULL;
+				const char* sPerm = arrPermissions ? xvoGetText(objPerm) : sFallbackPerm;
+				str sAuthName = NULL;
+				str sAuthDesc = NULL;
+				str sNext = NULL;
+				if ( (sPerm == NULL) || (sPerm[0] == '\0') ) continue;
+				sAuthName = xrtFormat("%s.%s", Content_TextOr(sPluginXid, ""), sPerm);
+				sAuthDesc = xrtFormat("Ability pack permission: %s", sPerm);
+				sNext = xrtFormat(
+					"%s\tint auth_%s_%u = 0;\n"
+					"\tmemset(&auth, 0, sizeof(auth));\n"
+					"\tauth.scope = XADMIN_AUTH_SCOPE_ADMIN;\n"
+					"\tauth.group_id = iAbilityAuthGroupId;\n"
+					"\tauth.name = \"%s\";\n"
+					"\tauth.description = \"%s\";\n"
+					"\tauth.sort = %d;\n"
+					"\tif ( XAdmin_RegisterAuth(handle, &auth, &auth_%s_%u, NULL) != 0 ) goto failed;\n",
+					Content_TextOr((const char*)sCode, ""),
+					Content_TextOr((const char*)sSafeKey, "pack"), j,
+					Content_TextOr((const char*)sAuthName, ""),
+					Content_TextOr((const char*)sAuthDesc, ""),
+					700100 + ((int)i * 100) + (int)j,
+					Content_TextOr((const char*)sSafeKey, "pack"), j
+				);
+				if ( sCode ) xrtFree(sCode);
+				sCode = sNext;
+				if ( !bDeclaredFirst ) {
+					sNext = xrtFormat(
+						bBuiltinPack ? "%s\tauth_%s = auth_%s_%u;\n" : "%s\tint auth_%s = auth_%s_%u;\n",
+						Content_TextOr((const char*)sCode, ""),
+						Content_TextOr((const char*)sSafeKey, "pack"),
+						Content_TextOr((const char*)sSafeKey, "pack"),
+						j
+					);
+					if ( sCode ) xrtFree(sCode);
+					sCode = sNext;
+					bDeclaredFirst = TRUE;
+				}
+				if ( sAuthName ) xrtFree(sAuthName);
+				if ( sAuthDesc ) xrtFree(sAuthDesc);
+			}
+		}
+		if ( !bDeclaredFirst ) {
+			str sNext = xrtFormat(
+				bBuiltinPack ? "%s\tauth_%s = 0;\n" : "%s\tint auth_%s = 0;\n",
+				Content_TextOr((const char*)sCode, ""),
+				Content_TextOr((const char*)sSafeKey, "pack")
+			);
+			if ( sCode ) xrtFree(sCode);
+			sCode = sNext;
+		}
+		{
+			str sNext = xrtFormat("%s\n", Content_TextOr((const char*)sCode, ""));
+			if ( sCode ) xrtFree(sCode);
+			sCode = sNext;
+		}
+		if ( tblContracts ) xvoUnref(tblContracts);
+		if ( tblPack ) xvoUnref(tblPack);
+		if ( sSafeKey ) xrtFree(sSafeKey);
+	}
+	if ( sSafeGroupName ) xrtFree(sSafeGroupName);
+	return sCode;
+}
+
+str Content_BuildAbilityPackSchemaSql(xvalue tblSpec)
+{
+	xvalue arrPacks = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
+	str sCode = xrtCopyStr("", 0);
+
+	if ( (arrPacks == NULL) || (xvoType(arrPacks) != XVO_DT_ARRAY) ) {
+		return sCode;
+	}
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrPacks); i++ ) {
+		xvalue tblItem = xvoArrayGetValue(arrPacks, i);
+		str sKey = (tblItem && (xvoType(tblItem) == XVO_DT_TABLE)) ? xvoTableGetText(tblItem, "key", 3) : NULL;
+		xvalue tblPack = NULL;
+		str sDir = NULL;
+		str sPath = NULL;
+		str sSql = NULL;
+		str sEscaped = NULL;
+		str sNext = NULL;
+		size_t iSize = 0;
+		bool bEnabled = TRUE;
+
+		if ( (sKey == NULL) || (sKey[0] == '\0') ) continue;
+		if ( xvoTableExists(tblItem, "enabled", 7) ) bEnabled = xvoTableGetBool(tblItem, "enabled", 7);
+		if ( !bEnabled ) continue;
+
+		tblPack = ContentPack_GetDetail((const char*)sKey);
+		sDir = tblPack ? xvoTableGetText(tblPack, "path", 4) : NULL;
+		if ( (sDir == NULL) || (sDir[0] == '\0') ) {
+			if ( tblPack ) xvoUnref(tblPack);
+			continue;
+		}
+		sPath = xrtPathJoin(2, sDir, "schema.sql");
+		if ( sPath && xrtFileExists(sPath) ) {
+			sSql = xrtFileGetAll(sPath, &iSize);
+		}
+		if ( sSql && sSql[0] ) {
+			sEscaped = Content_EscapeCString((const char*)sSql);
+			sNext = xrtFormat("%s\n\t\"%s\"", Content_TextOr((const char*)sCode, ""), Content_TextOr((const char*)sEscaped, ""));
+			if ( sCode ) xrtFree(sCode);
+			sCode = sNext;
+		}
+		if ( sPath ) xrtFree(sPath);
+		if ( sSql ) xrtFree(sSql);
+		if ( sEscaped ) xrtFree(sEscaped);
+		if ( tblPack ) xvoUnref(tblPack);
+	}
+	return sCode;
+}
+
+str Content_BuildAbilityPackMenuCode(const char* sPluginXid, xvalue tblSpec)
+{
+	xvalue arrPacks = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
+	str sCode = xrtCopyStr("", 0);
+
+	if ( (arrPacks == NULL) || (xvoType(arrPacks) != XVO_DT_ARRAY) ) {
+		return sCode;
+	}
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrPacks); i++ ) {
+		xvalue tblItem = xvoArrayGetValue(arrPacks, i);
+		str sKey = (tblItem && (xvoType(tblItem) == XVO_DT_TABLE)) ? xvoTableGetText(tblItem, "key", 3) : NULL;
+		str sSafeKey = NULL;
+		str sSafeTitle = NULL;
+		str sNext = NULL;
+		xvalue tblPack = NULL;
+		str sTitle = NULL;
+		bool bEnabled = TRUE;
+
+		if ( (sKey == NULL) || (sKey[0] == '\0') ) continue;
+		if ( xvoTableExists(tblItem, "enabled", 7) ) bEnabled = xvoTableGetBool(tblItem, "enabled", 7);
+		if ( !bEnabled ) continue;
+
+		tblPack = ContentPack_GetDetail((const char*)sKey);
+		sTitle = tblPack ? xvoTableGetText(tblPack, "title", 5) : sKey;
+		sSafeKey = Content_SanitizeSqlIdent((const char*)sKey, "pack");
+		sSafeTitle = Content_EscapeCString(Content_TextOr((const char*)sTitle, (const char*)sKey));
+		sNext = xrtFormat(
+			"%s\t\tmemset(&menu, 0, sizeof(menu));\n"
+			"\t\tmenu.key = \"%s.pack.%s\";\n"
+			"\t\tmenu.parent_id = iRootMenuId;\n"
+			"\t\tmenu.title = \"%s\";\n"
+			"\t\tmenu.icon = \"layui-icon layui-icon-component\";\n"
+			"\t\tmenu.type = 1;\n"
+			"\t\tmenu.open_type = \"_component\";\n"
+			"\t\tmenu.href = \"/admin/view/plugin/%s/pack/%s\";\n"
+			"\t\tmenu.sort = %d;\n"
+			"\t\tmenu.visible = TRUE;\n"
+			"\t\tmenu.remark = \"Generated ability pack admin page\";\n"
+			"\t\tif ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {\n"
+			"\t\t\tprintf(\"        [ManagedPlugin] ability menu register failed: xid=%s href=%%s\\n\", menu.href);\n"
+			"\t\t\tgoto failed;\n"
+			"\t\t}\n\n",
+			Content_TextOr((const char*)sCode, ""),
+			Content_TextOr(sPluginXid, ""),
+			Content_TextOr((const char*)sSafeKey, "pack"),
+			Content_TextOr((const char*)sSafeTitle, ""),
+			Content_TextOr(sPluginXid, ""),
+			Content_TextOr((const char*)sSafeKey, "pack"),
+			100 + ((int)i * 10),
+			Content_TextOr(sPluginXid, "")
+		);
+		if ( sCode ) xrtFree(sCode);
+		if ( sSafeKey ) xrtFree(sSafeKey);
+		if ( sSafeTitle ) xrtFree(sSafeTitle);
+		if ( tblPack ) xvoUnref(tblPack);
+		sCode = sNext;
+	}
+	return sCode;
+}
+
+str Content_BuildManagedMainC(const char* sPluginXid, const char* sPluginTitle, const char* sMenuTitle, xvalue tblSpec)
 {
 	str sTemplate = Content_LoadGeneratorTemplate("managed_main.c.tpl");
 	str sSafePluginTitle = Content_EscapeCString(Content_TextOr(sPluginTitle, sPluginXid ? sPluginXid : "Generated Content Plugin"));
 	str sSafeMenuTitle = Content_EscapeCString(Content_TextOr(sMenuTitle, sPluginTitle ? sPluginTitle : (sPluginXid ? sPluginXid : "Generated Content Plugin")));
+	str sPackRoutes = NULL;
+	str sPackMenus = NULL;
+	str sPackSchemaSql = NULL;
+	str sPackAuth = NULL;
 	if ( sTemplate == NULL ) {
 		if ( sSafePluginTitle ) xrtFree(sSafePluginTitle);
 		if ( sSafeMenuTitle ) xrtFree(sSafeMenuTitle);
@@ -316,6 +635,14 @@ str Content_BuildManagedMainC(const char* sPluginXid, const char* sPluginTitle, 
 	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_XID}}", sPluginXid ? sPluginXid : "");
 	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_TITLE_C}}", Content_TextOr((const char*)sSafePluginTitle, ""));
 	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_VERSION}}", "1.0.0");
+	sPackRoutes = Content_BuildAbilityPackRouteCode(sPluginXid, tblSpec);
+	sPackMenus = Content_BuildAbilityPackMenuCode(sPluginXid, tblSpec);
+	sPackSchemaSql = Content_BuildAbilityPackSchemaSql(tblSpec);
+	sPackAuth = Content_BuildAbilityPackAuthCode(sPluginXid, sPluginTitle, tblSpec);
+	sTemplate = Content_TemplateSet(sTemplate, "{{ABILITY_PACK_ROUTE_REGISTRATIONS}}", Content_TextOr((const char*)sPackRoutes, ""));
+	sTemplate = Content_TemplateSet(sTemplate, "{{ABILITY_PACK_MENU_REGISTRATIONS}}", Content_TextOr((const char*)sPackMenus, ""));
+	sTemplate = Content_TemplateSet(sTemplate, "{{ABILITY_PACK_SCHEMA_SQL}}", Content_TextOr((const char*)sPackSchemaSql, ""));
+	sTemplate = Content_TemplateSet(sTemplate, "{{ABILITY_PACK_AUTH_REGISTRATIONS}}", Content_TextOr((const char*)sPackAuth, ""));
 	if ( sSafeMenuTitle && sPluginTitle && sMenuTitle && strcmp((const char*)sPluginTitle, (const char*)sMenuTitle) != 0 ) {
 		str sNeedle = xrtFormat("menu.title = \"%s\";", Content_TextOr((const char*)sSafePluginTitle, ""));
 		str sValue = xrtFormat("menu.title = \"%s\";", Content_TextOr((const char*)sSafeMenuTitle, ""));
@@ -327,6 +654,10 @@ str Content_BuildManagedMainC(const char* sPluginXid, const char* sPluginTitle, 
 	}
 	if ( sSafePluginTitle ) xrtFree(sSafePluginTitle);
 	if ( sSafeMenuTitle ) xrtFree(sSafeMenuTitle);
+	if ( sPackRoutes ) xrtFree(sPackRoutes);
+	if ( sPackMenus ) xrtFree(sPackMenus);
+	if ( sPackSchemaSql ) xrtFree(sPackSchemaSql);
+	if ( sPackAuth ) xrtFree(sPackAuth);
 	return sTemplate;
 }
 
@@ -395,6 +726,16 @@ str Content_BuildManagedPublicHtml(const char* sPluginXid)
 	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin");
 	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_PAGE_KIND}}", "public");
 	if ( sDomIdBase ) xrtFree(sDomIdBase);
+	return sTemplate;
+}
+
+str Content_BuildManagedAbilityHtml(const char* sPluginXid)
+{
+	str sTemplate = Content_LoadGeneratorTemplate("managed_ability.html.tpl");
+	if ( sTemplate == NULL ) {
+		return xrtCopyStr("<div style=\"padding:16px;\">Ability pack page missing.</div>", 0);
+	}
+	sTemplate = Content_TemplateSet(sTemplate, "@@PLUGIN_XID@@", sPluginXid ? sPluginXid : "");
 	return sTemplate;
 }
 
@@ -503,19 +844,68 @@ str Content_BuildGeneratedFieldRows(xvalue tblSpec)
 str Content_BuildGeneratedContracts(const char* sModelXid, int iRevision, xvalue tblSpec)
 {
 	xvalue arrCapabilities = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
-	str sCapabilities = arrCapabilities ? xrtStringifyJSON(arrCapabilities, FALSE, NULL) : xrtCopyStr("[]", 0);
-	str sTemplate = Content_LoadGeneratorTemplate("plugin.contracts.json.tpl");
-	char sRevision[32];
+	xvalue tblRoot = xvoCreateTable();
+	xvalue arrPacks = xvoCreateArray();
+	str sJson;
 
-	snprintf(sRevision, sizeof(sRevision), "%d", iRevision);
-	if ( sTemplate == NULL ) {
-		sTemplate = xrtCopyStr("{\"model\":\"@@MODEL_XID@@\",\"revision\":@@REVISION@@,\"capabilities\":@@CAPABILITIES_JSON@@}\n", 0);
+	xvoTableSetText(tblRoot, "model", 5, (str)Content_TextOr(sModelXid, ""), 0, FALSE);
+	xvoTableSetInt(tblRoot, "revision", 8, iRevision);
+	xvoTableSetText(tblRoot, "permissionBinding", 17, "ability-admin-page-bound", 0, FALSE);
+	xvoTableSetText(tblRoot, "permissionBindingNote", 21, "Ability permissions are registered and each mounted ability admin page route is bound to the first permission declared by that ability pack.", 0, FALSE);
+	if ( arrCapabilities && xvoType(arrCapabilities) == XVO_DT_ARRAY ) {
+		xvoTableSetValue(tblRoot, "capabilities", 12, xvoCopy(arrCapabilities), TRUE);
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
+			xvalue tblItem = xvoArrayGetValue(arrCapabilities, i);
+			str sKey = (tblItem && xvoType(tblItem) == XVO_DT_TABLE) ? xvoTableGetText(tblItem, "key", 3) : NULL;
+			xvalue tblPack = NULL;
+			xvalue tblOut = NULL;
+			xvalue objJson = NULL;
+			str sJsonText = NULL;
+			bool bEnabled = TRUE;
+
+			if ( (sKey == NULL) || (sKey[0] == '\0') ) {
+				continue;
+			}
+			if ( xvoTableExists(tblItem, "enabled", 7) ) {
+				bEnabled = xvoTableGetBool(tblItem, "enabled", 7);
+			}
+			if ( !bEnabled ) {
+				continue;
+			}
+			tblPack = ContentPack_GetDetail((const char*)sKey);
+			tblOut = xvoCreateTable();
+			xvoTableSetText(tblOut, "packId", 6, sKey, 0, FALSE);
+			xvoTableSetText(tblOut, "permissionBinding", 17, "ability-admin-page-bound", 0, FALSE);
+			if ( tblPack && (xvoType(tblPack) == XVO_DT_TABLE) ) {
+				xvoTableSetText(tblOut, "title", 5, xvoTableGetText(tblPack, "title", 5), 0, FALSE);
+				xvoTableSetText(tblOut, "version", 7, xvoTableGetText(tblPack, "version", 7), 0, FALSE);
+				xvoTableSetText(tblOut, "description", 11, xvoTableGetText(tblPack, "description", 11), 0, FALSE);
+				sJsonText = xvoTableGetText(tblPack, "effectsJson", 11);
+				objJson = sJsonText ? xrtParseJSON(sJsonText, strlen(sJsonText)) : NULL;
+				if ( objJson ) xvoTableSetValue(tblOut, "effects", 7, objJson, TRUE);
+				sJsonText = xvoTableGetText(tblPack, "contractsJson", 13);
+				objJson = sJsonText ? xrtParseJSON(sJsonText, strlen(sJsonText)) : NULL;
+				if ( objJson ) xvoTableSetValue(tblOut, "contracts", 9, objJson, TRUE);
+				sJsonText = xvoTableGetText(tblPack, "hooksJson", 9);
+				objJson = sJsonText ? xrtParseJSON(sJsonText, strlen(sJsonText)) : NULL;
+				if ( objJson ) xvoTableSetValue(tblOut, "hooks", 5, objJson, TRUE);
+			}
+			if ( tblItem && (xvoType(tblItem) == XVO_DT_TABLE) ) {
+				xvalue tblConfig = xvoTableGetValue(tblItem, "config", 6);
+				xvalue tblMount = xvoTableGetValue(tblItem, "mount", 5);
+				if ( tblConfig ) xvoTableSetValue(tblOut, "instanceConfig", 14, xvoCopy(tblConfig), TRUE);
+				if ( tblMount ) xvoTableSetValue(tblOut, "mount", 5, xvoCopy(tblMount), TRUE);
+			}
+			xvoArrayAppendValue(arrPacks, tblOut, TRUE);
+			if ( tblPack ) xvoUnref(tblPack);
+		}
+	} else {
+		xvoTableSetValue(tblRoot, "capabilities", 12, xvoCreateArray(), TRUE);
 	}
-	sTemplate = Content_TemplateSet(sTemplate, "@@MODEL_XID@@", sModelXid ? sModelXid : "");
-	sTemplate = Content_TemplateSet(sTemplate, "@@REVISION@@", sRevision);
-	sTemplate = Content_TemplateSet(sTemplate, "@@CAPABILITIES_JSON@@", Content_TextOr((const char*)sCapabilities, "[]"));
-	if ( sCapabilities ) xrtFree(sCapabilities);
-	return sTemplate;
+	xvoTableSetValue(tblRoot, "abilityPacks", 12, arrPacks, TRUE);
+	sJson = xrtStringifyJSON(tblRoot, TRUE, NULL);
+	xvoUnref(tblRoot);
+	return sJson ? sJson : xrtCopyStr("{\"capabilities\":[],\"abilityPacks\":[]}\n", 0);
 }
 
 str Content_BuildGeneratedManaged(const char* sSpecJson)

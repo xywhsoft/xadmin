@@ -1,0 +1,23 @@
+{
+  "permissions": [
+    "sensitive.view",
+    "sensitive.manage"
+  ],
+  "adminPages": [
+    "sensitive_words",
+    "sensitive_logs"
+  ],
+  "publicApis": [
+    "sensitive.check"
+  ],
+  "tables": [
+    "sensitive_word",
+    "sensitive_hit_log"
+  ],
+  "events": [
+    "content.beforeSave",
+    "content.beforePublish",
+    "comment.beforeCreate"
+  ],
+  "tasks": []
+}

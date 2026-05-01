@@ -1,0 +1,17 @@
+{
+  "events": [
+    {
+      "event": "content.afterDelete",
+      "handler": "like_content_afterDelete"
+    },
+    {
+      "event": "like.afterCreate",
+      "handler": "like_like_afterCreate"
+    },
+    {
+      "event": "like.afterCancel",
+      "handler": "like_like_afterCancel"
+    }
+  ],
+  "tasks": []
+}

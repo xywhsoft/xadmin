@@ -1,0 +1,32 @@
+{
+  "groups": [
+    {
+      "key": "comment",
+      "title": "Comment System Model Options",
+      "fields": [
+        {
+          "name": "moderation",
+          "type": "select",
+          "label": "Moderation",
+          "value": "manual",
+          "list": [
+            {
+              "value": "manual",
+              "label": "Manual"
+            },
+            {
+              "value": "auto",
+              "label": "Auto approve"
+            }
+          ]
+        },
+        {
+          "name": "allowPublicPost",
+          "type": "switch",
+          "label": "Allow public post",
+          "value": true
+        }
+      ]
+    }
+  ]
+}

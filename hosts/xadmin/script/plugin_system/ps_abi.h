@@ -12,6 +12,7 @@ bool PluginSystem_Reload(str sName);
 bool PluginSystem_ReloadWithActor(str sName, PluginSystemGeneration* pActorGeneration);
 bool PluginSystem_Generate(const XAdminGeneratedPluginSpec* spec);
 void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc);
+int XAdmin_GrantDefaultAdminRoleAuth(int auth_id);
 
 typedef struct {
 	PluginSystemGeneration* pGeneration;
@@ -1241,6 +1242,9 @@ int PS_HostApplyAuthToken(PluginSystemAuthToken* pToken, bool bForce)
 	xrtFree(sSQL);
 
 	pToken->iAuthId = iAuthId;
+	if ( pToken->iScope == XADMIN_AUTH_SCOPE_ADMIN ) {
+		XAdmin_GrantDefaultAdminRoleAuth(iAuthId);
+	}
 	PS_HostFormatRefInt(iAuthId, sRef);
 	if ( pToken->base.iResourceId <= 0 ) {
 		pToken->base.iResourceId = PS_StorageTrackResource(pToken->base.pGeneration, "generation", PS_HostAuthResourceType(pToken->iScope), pToken->sKey ? pToken->sKey : pToken->sName, sRef, "soft_delete");
@@ -1727,6 +1731,94 @@ bool PS_HostRestoreGenerationEntryPoints(PluginSystemGeneration* pGeneration)
 	return PS_HostApplyGenerationEntryPoints(pGeneration, TRUE);
 }
 
+static bool PS_HostRoleAuthListContains(xvalue arrAuth, int64 iAuthId)
+{
+	if ( (arrAuth == NULL) || (xvoType(arrAuth) != XVO_DT_ARRAY) || (iAuthId <= 0) ) {
+		return FALSE;
+	}
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrAuth); i++ ) {
+		if ( xvoArrayGetInt(arrAuth, i) == iAuthId ) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
+int XAdmin_GrantDefaultAdminRoleAuth(int auth_id)
+{
+	sqlite3_stmt* stmt = NULL;
+	xvalue arrAuth = NULL;
+	str sAuthList = NULL;
+	str sNextAuthList = NULL;
+	int iRet = -1;
+
+	if ( (G_DB == NULL) || (auth_id <= 0) ) {
+		return -1;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "SELECT authList FROM role WHERE id = 1 AND isDelete = 0 LIMIT 1;", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		return -1;
+	}
+	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+		const unsigned char* sText = sqlite3_column_text(stmt, 0);
+		if ( sText && sText[0] ) {
+			sAuthList = xrtCopyStr((str)sText, 0);
+		}
+	}
+	sqlite3_finalize(stmt);
+	stmt = NULL;
+
+	if ( sAuthList && (strlen(sAuthList) > 0) ) {
+		arrAuth = xrtParseJSON(sAuthList, 0);
+	}
+	if ( (arrAuth == NULL) || (xvoType(arrAuth) != XVO_DT_ARRAY) ) {
+		if ( arrAuth ) {
+			xvoUnref(arrAuth);
+		}
+		arrAuth = xvoCreateArray();
+	}
+	if ( arrAuth == NULL ) {
+		if ( sAuthList ) {
+			xrtFree(sAuthList);
+		}
+		return -1;
+	}
+	if ( PS_HostRoleAuthListContains(arrAuth, auth_id) ) {
+		iRet = 0;
+		goto cleanup;
+	}
+
+	xvoArrayAppendInt(arrAuth, auth_id);
+	sNextAuthList = xrtStringifyJSON(arrAuth, FALSE, NULL);
+	if ( sNextAuthList == NULL ) {
+		goto cleanup;
+	}
+	if ( sqlite3_prepare_v3(G_DB, "UPDATE role SET authList = ?, updateTime = ? WHERE id = 1 AND isDelete = 0;", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		goto cleanup;
+	}
+	PS_StorageBindText(stmt, 1, sNextAuthList);
+	sqlite3_bind_int64(stmt, 2, xrtNow());
+	if ( sqlite3_step(stmt) == SQLITE_DONE ) {
+		iRet = 0;
+		Auth_ReloadCache();
+	}
+
+cleanup:
+	if ( stmt ) {
+		sqlite3_finalize(stmt);
+	}
+	if ( sNextAuthList ) {
+		xrtFree(sNextAuthList);
+	}
+	if ( sAuthList ) {
+		xrtFree(sAuthList);
+	}
+	if ( arrAuth ) {
+		xvoUnref(arrAuth);
+	}
+	return iRet;
+}
+
 int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl* decl, XAdminRouteToken* token)
 {
 	return PS_HostRegisterRoute(plugin_handle, decl, token);
@@ -1928,6 +2020,7 @@ void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc)
 	tcc_add_symbol(pTcc, "XAdmin_UnregisterAuthGroup", XAdmin_UnregisterAuthGroup);
 	tcc_add_symbol(pTcc, "XAdmin_RegisterAuth", XAdmin_RegisterAuth);
 	tcc_add_symbol(pTcc, "XAdmin_UnregisterAuth", XAdmin_UnregisterAuth);
+	tcc_add_symbol(pTcc, "XAdmin_GrantDefaultAdminRoleAuth", XAdmin_GrantDefaultAdminRoleAuth);
 	tcc_add_symbol(pTcc, "XAdmin_RegisterUriAuth", XAdmin_RegisterUriAuth);
 	tcc_add_symbol(pTcc, "XAdmin_UnregisterUriAuth", XAdmin_UnregisterUriAuth);
 	tcc_add_symbol(pTcc, "XAdmin_ListenEvent", XAdmin_ListenEvent);

@@ -1,0 +1,36 @@
+{
+  "groups": [
+    {
+      "key": "like",
+      "title": "Like System Global Options",
+      "fields": [
+        {
+          "name": "allowGuestDefault",
+          "type": "switch",
+          "label": "Allow guest likes by default",
+          "value": true
+        },
+        {
+          "name": "defaultDedup",
+          "type": "select",
+          "label": "Default dedup strategy",
+          "value": "ip",
+          "list": [
+            {
+              "value": "member",
+              "label": "Member"
+            },
+            {
+              "value": "ip",
+              "label": "IP"
+            },
+            {
+              "value": "cookie",
+              "label": "Cookie"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

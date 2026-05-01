@@ -243,6 +243,124 @@
     }
     .detail-card .richtext :first-child { margin-top: 0; }
     .detail-card .richtext :last-child { margin-bottom: 0; }
+    .native-abilities {
+      margin-top: 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .native-panel {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-strong);
+      padding: 14px;
+    }
+    .native-panel h3 {
+      margin: 0 0 10px;
+      font-size: 15px;
+    }
+    .native-metrics {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .native-metrics strong {
+      color: var(--text);
+      margin-right: 4px;
+    }
+    .native-action {
+      border: 0;
+      border-radius: 4px;
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+    .native-action.secondary {
+      background: #f2f4f7;
+      color: var(--text);
+    }
+    .native-form {
+      display: grid;
+      gap: 8px;
+    }
+    .native-form input,
+    .native-form textarea {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 9px 10px;
+      font: inherit;
+      background: #fff;
+      color: var(--text);
+    }
+    .native-form textarea {
+      min-height: 86px;
+      resize: vertical;
+    }
+    .comment-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .comment-item {
+      border-top: 1px solid var(--line);
+      padding-top: 8px;
+    }
+    .comment-item strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+    .comment-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .comment-item p {
+      margin: 0;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+    .rank-panel {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      display: none;
+    }
+    .rank-title {
+      margin: 0 0 10px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .rank-list {
+      display: grid;
+      gap: 8px;
+    }
+    .rank-item {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+    .rank-item strong {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .rank-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
     .detail-assets {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
@@ -416,8 +534,13 @@
           <button type="button" onclick="mpApplySearch()">搜索</button>
         </div>
         <div class="searchbar" id="mp_field_filters"></div>
+        <div class="searchbar" id="mp_taxonomy_filters"></div>
         <div class="status" id="mp_nav_status"></div>
         <div class="list" id="mp_list"><div class="empty">加载中...</div></div>
+        <section class="rank-panel" id="mp_rank_panel">
+          <h2 class="rank-title">访问排行</h2>
+          <div class="rank-list" id="mp_rank_list"><div class="empty">暂无排行。</div></div>
+        </section>
       </aside>
       <main class="panel">
         <div class="status" id="mp_detail_status"></div>
@@ -435,6 +558,12 @@
       query: "",
       sortBy: "",
       sortDir: "",
+      tagId: "",
+      topicId: "",
+      tags: [],
+      topics: [],
+      ranks: [],
+      abilityState: {},
       fieldFilters: {},
       workspaceSlotKey: "",
       workspaceHref: "",
@@ -659,12 +788,50 @@
       return next;
     }
 
+    function mpHasAbilityPack(packId) {
+      const packs = (((mp.meta || {}).contracts || {}).abilityPacks) || [];
+      return packs.some((item) => String((item || {}).packId || "") === String(packId));
+    }
+
+    function mpClientKey(name) {
+      const key = `managed_public_${name}_{{PLUGIN_XID}}`;
+      try {
+        let value = window.localStorage.getItem(key);
+        if (!value) {
+          value = `${name}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+          window.localStorage.setItem(key, value);
+        }
+        return value;
+      } catch (err) {
+        return `${name}_anonymous`;
+      }
+    }
+
+    function mpRenderTaxonomyFilters() {
+      const host = document.getElementById("mp_taxonomy_filters");
+      const parts = [];
+      if (!host) return;
+      if (mpHasAbilityPack("content.tag")) {
+        parts.push(`<select id="mp_tag_filter" onchange="mpApplySearch()"><option value="">全部标签</option>${(mp.tags || []).map((item) => `<option value="${mpEscape(item.id)}">${mpEscape(item.name || item.slug || item.id)}</option>`).join("")}</select>`);
+      }
+      if (mpHasAbilityPack("content.topic")) {
+        parts.push(`<select id="mp_topic_filter" onchange="mpApplySearch()"><option value="">全部专题</option>${(mp.topics || []).map((item) => `<option value="${mpEscape(item.id)}">${mpEscape(item.title || item.slug || item.id)}</option>`).join("")}</select>`);
+      }
+      host.innerHTML = parts.join("");
+      const tagEl = document.getElementById("mp_tag_filter");
+      const topicEl = document.getElementById("mp_topic_filter");
+      if (tagEl) tagEl.value = mp.tagId || "";
+      if (topicEl) topicEl.value = mp.topicId || "";
+    }
+
     function mpApplyUrlState() {
       const params = new URLSearchParams(window.location.search);
       const nextFieldFilters = {};
       mp.query = String(params.get("q") || "");
       mp.sortBy = String(params.get("sortBy") || "");
       mp.sortDir = String(params.get("sortDir") || "");
+      mp.tagId = String(params.get("tagId") || "");
+      mp.topicId = String(params.get("topicId") || "");
       for (const field of mpFilterableFields()) {
         const value = String(params.get(mpFieldQueryKey(field)) || "").trim();
         if (value !== "") {
@@ -681,6 +848,8 @@
       if (mp.query) params.set("q", mp.query);
       if (mp.sortBy) params.set("sortBy", mp.sortBy);
       if (mp.sortDir) params.set("sortDir", mp.sortDir);
+      if (mp.tagId) params.set("tagId", mp.tagId);
+      if (mp.topicId) params.set("topicId", mp.topicId);
       for (const field of mpFilterableFields()) {
         const value = String(((mp.fieldFilters || {})[field.name] || "")).trim();
         if (value !== "") {
@@ -731,12 +900,15 @@
       const dirEl = document.getElementById("mp_sort_dir");
       if (dirEl) dirEl.value = mp.sortDir || "";
       mpRenderFieldFilters();
+      mpRenderTaxonomyFilters();
     }
 
     function mpApplySearch() {
       mp.query = String((document.getElementById("mp_search") || {}).value || "").trim();
       mp.sortBy = String((document.getElementById("mp_sort_by") || {}).value || "").trim();
       mp.sortDir = String((document.getElementById("mp_sort_dir") || {}).value || "").trim();
+      mp.tagId = String((document.getElementById("mp_tag_filter") || {}).value || "").trim();
+      mp.topicId = String((document.getElementById("mp_topic_filter") || {}).value || "").trim();
       mp.fieldFilters = mpReadFieldFiltersFromDom();
       mpLoadList().then(async () => {
         if (mp.items.length) {
@@ -1151,6 +1323,11 @@
     function mpChips(item) {
       const data = (item && item.data) || {};
       const chips = [];
+      if (item && item.tagNamesText) chips.push(`标签: ${item.tagNamesText}`);
+      if (item && item.topicTitlesText) chips.push(`专题: ${item.topicTitlesText}`);
+      if (mpHasAbilityPack("content.comment")) chips.push(`评论: ${item && item.visibleCommentCount ? item.visibleCommentCount : 0}`);
+      if (mpHasAbilityPack("content.like")) chips.push(`点赞: ${item && item.likeCount ? item.likeCount : 0}`);
+      if (mpHasAbilityPack("content.view-stat")) chips.push(`访问: ${item && item.viewCount ? item.viewCount : 0}`);
       for (const field of mpListFields()) {
         if (!field || !field.name) continue;
         const role = String((((field || {}).semantic || {}).role) || "").toLowerCase();
@@ -1253,6 +1430,234 @@
       return `<div>${mpEscape(mpDisplayText(field, value))}</div>`;
     }
 
+    function mpNativeAbilityPanels(item) {
+      const panels = [];
+      if (mpHasAbilityPack("content.view-stat")) {
+        panels.push(`<section class="native-panel" id="mp_view_panel"><h3>访问统计</h3><div class="native-metrics"><span><strong id="mp_view_count">0</strong>浏览</span><span><strong id="mp_unique_view_count">0</strong>访客</span></div></section>`);
+      }
+      if (mpHasAbilityPack("content.static")) {
+        panels.push(`<section class="native-panel" id="mp_static_panel"><h3>静态化</h3><div class="native-metrics"><span id="mp_static_path">正在检查静态页面...</span><button class="native-action secondary" type="button" onclick="mpGenerateStatic()">生成静态页</button><a class="workspace-button" id="mp_static_link" href="javascript:void(0)" target="_blank" rel="noopener noreferrer" style="display:none;">打开静态页</a></div></section>`);
+      }
+      if (mpHasAbilityPack("content.like")) {
+        panels.push(`<section class="native-panel" id="mp_like_panel"><h3>点赞</h3><div class="native-metrics"><span><strong id="mp_like_count">0</strong>点赞</span><button class="native-action" type="button" id="mp_like_button" onclick="mpToggleLike()">点赞</button></div></section>`);
+      }
+      if (mpHasAbilityPack("content.comment")) {
+        panels.push(`<section class="native-panel" id="mp_comment_panel"><h3>评论</h3><form class="native-form" onsubmit="mpSubmitComment(event)"><input id="mp_comment_author" type="text" placeholder="昵称"><textarea id="mp_comment_body" placeholder="写下评论"></textarea><button class="native-action" type="submit">提交评论</button></form><div class="native-metrics" style="margin-top:10px;"><span><strong id="mp_comment_count">0</strong>评论</span><span id="mp_comment_status"></span></div><div class="comment-list" id="mp_comment_list"></div></section>`);
+      }
+      if (!panels.length) return "";
+      return `<section class="native-abilities" id="mp_native_abilities">${panels.join("")}</section>`;
+    }
+
+    async function mpFetchJson(url, options) {
+      const response = await fetch(url, options || { cache: "no-store" });
+      const result = await response.json();
+      if (!result || !result.result) {
+        throw new Error((result && result.message) || "请求失败");
+      }
+      return result;
+    }
+
+    function mpNativePayload(contentId) {
+      const key = mpClientKey("visitor");
+      return {
+        contentId: Number(contentId || 0),
+        actorKey: key,
+        cookieKey: key,
+        visitorKey: key,
+        referer: document.referrer || "",
+        userAgent: navigator.userAgent || ""
+      };
+    }
+
+    async function mpRecordView(item) {
+      if (!item || !item.id || !mpHasAbilityPack("content.view-stat")) return;
+      try {
+        await mpFetchJson("/api/plugin/{{PLUGIN_XID}}/view/record", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(mpNativePayload(item.id))
+        });
+        const status = await mpFetchJson(`/api/plugin/{{PLUGIN_XID}}/view/status?contentId=${encodeURIComponent(item.id)}`, { cache: "no-store" });
+        const viewEl = document.getElementById("mp_view_count");
+        const uniqueEl = document.getElementById("mp_unique_view_count");
+        if (viewEl) viewEl.innerText = String(status.viewCount || 0);
+        if (uniqueEl) uniqueEl.innerText = String(status.uniqueViewCount || 0);
+        await mpLoadViewRank();
+      } catch (err) {
+        const panel = document.getElementById("mp_view_panel");
+        if (panel) panel.style.display = "none";
+      }
+    }
+
+    function mpRankTitle(row) {
+      const id = Number((row || {}).contentId || 0);
+      const item = (mp.items || []).find((entry) => Number(entry.id || 0) === id);
+      return (item && item.title) || `内容 #${id}`;
+    }
+
+    function mpRenderViewRank() {
+      const panel = document.getElementById("mp_rank_panel");
+      const host = document.getElementById("mp_rank_list");
+      if (!panel || !host) return;
+      if (!mpHasAbilityPack("content.view-stat")) {
+        panel.style.display = "none";
+        return;
+      }
+      panel.style.display = "";
+      const rows = Array.isArray(mp.ranks) ? mp.ranks : [];
+      host.innerHTML = rows.length ? rows.map((row, index) => {
+        const id = Number(row.contentId || 0);
+        return `<button class="rank-item" type="button" onclick="mpLoadDetail(${id})"><strong>${index + 1}. ${mpEscape(mpRankTitle(row))}</strong><span>${mpEscape(row.viewCount || 0)} 浏览 / ${mpEscape(row.uniqueViewCount || 0)} 访客</span></button>`;
+      }).join("") : "<div class='empty'>暂无排行。</div>";
+    }
+
+    async function mpLoadViewRank() {
+      if (!mpHasAbilityPack("content.view-stat")) {
+        mp.ranks = [];
+        mpRenderViewRank();
+        return;
+      }
+      try {
+        const result = await mpFetchJson("/api/plugin/{{PLUGIN_XID}}/view/rank", { cache: "no-store" });
+        mp.ranks = result && result.result ? (result.data || []) : [];
+      } catch (err) {
+        mp.ranks = [];
+      }
+      mpRenderViewRank();
+    }
+
+    async function mpLoadLike(item) {
+      if (!item || !item.id || !mpHasAbilityPack("content.like")) return;
+      try {
+        const key = encodeURIComponent(mpClientKey("visitor"));
+        const result = await mpFetchJson(`/api/plugin/{{PLUGIN_XID}}/like/status?contentId=${encodeURIComponent(item.id)}&actorKey=${key}&cookieKey=${key}`, { cache: "no-store" });
+        const countEl = document.getElementById("mp_like_count");
+        const button = document.getElementById("mp_like_button");
+        mp.abilityState.like = { liked: !!result.liked };
+        if (countEl) countEl.innerText = String(result.likeCount || 0);
+        if (button) {
+          button.innerText = result.liked ? "取消点赞" : "点赞";
+          button.className = result.liked ? "native-action secondary" : "native-action";
+        }
+      } catch (err) {
+        const panel = document.getElementById("mp_like_panel");
+        if (panel) panel.style.display = "none";
+      }
+    }
+
+    function mpSetStaticArtifact(path) {
+      const pathEl = document.getElementById("mp_static_path");
+      const linkEl = document.getElementById("mp_static_link");
+      const text = String(path || "").trim();
+      if (pathEl) pathEl.innerText = text ? `静态路径：${text}` : "尚未生成静态页。";
+      if (linkEl) {
+        if (text) {
+          linkEl.href = text.charAt(0) === "/" ? text : `/${text}`;
+          linkEl.style.display = "";
+        } else {
+          linkEl.removeAttribute("href");
+          linkEl.style.display = "none";
+        }
+      }
+    }
+
+    async function mpLoadStatic(item) {
+      if (!item || !item.id || !mpHasAbilityPack("content.static")) return;
+      try {
+        const result = await mpFetchJson(`/api/plugin/{{PLUGIN_XID}}/static/preview?targetId=${encodeURIComponent(item.id)}`, { cache: "no-store" });
+        const artifact = result.data || {};
+        mpSetStaticArtifact(artifact.path || "");
+      } catch (err) {
+        const panel = document.getElementById("mp_static_panel");
+        if (panel) panel.style.display = "none";
+      }
+    }
+
+    async function mpGenerateStatic() {
+      const item = mp.currentItem;
+      if (!item || !item.id) return;
+      try {
+        const result = await mpFetchJson("/api/plugin/{{PLUGIN_XID}}/static/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ targetId: Number(item.id) })
+        });
+        mpSetStaticArtifact(result.path || "");
+        mpSetStatus("mp_detail_status", "静态页已生成。");
+      } catch (err) {
+        mpSetStatus("mp_detail_status", err && err.message ? err.message : String(err), "#f87171");
+      }
+    }
+
+    async function mpToggleLike() {
+      const item = mp.currentItem;
+      if (!item || !item.id) return;
+      const liked = !!(((mp.abilityState || {}).like || {}).liked);
+      const url = liked ? "/api/plugin/{{PLUGIN_XID}}/like/cancel" : "/api/plugin/{{PLUGIN_XID}}/like/create";
+      try {
+        await mpFetchJson(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(mpNativePayload(item.id))
+        });
+        await mpLoadLike(item);
+      } catch (err) {
+        mpSetStatus("mp_detail_status", err && err.message ? err.message : String(err), "#f87171");
+      }
+    }
+
+    async function mpLoadComments(item) {
+      if (!item || !item.id || !mpHasAbilityPack("content.comment")) return;
+      try {
+        const count = await mpFetchJson(`/api/plugin/{{PLUGIN_XID}}/comment/count?contentId=${encodeURIComponent(item.id)}`, { cache: "no-store" });
+        const list = await mpFetchJson(`/api/plugin/{{PLUGIN_XID}}/comment/list?contentId=${encodeURIComponent(item.id)}`, { cache: "no-store" });
+        const countEl = document.getElementById("mp_comment_count");
+        const host = document.getElementById("mp_comment_list");
+        if (countEl) countEl.innerText = String(count.visibleCount || 0);
+        if (host) {
+          const comments = list.data || [];
+          host.innerHTML = comments.length ? comments.map((comment) => `<article class="comment-item"><strong>${mpEscape(comment.authorName || "访客")}</strong><span>${mpEscape(comment.createTimeText || "")}</span><p>${mpEscape(comment.body || "")}</p></article>`).join("") : "<div class='empty'>暂无评论。</div>";
+        }
+      } catch (err) {
+        const panel = document.getElementById("mp_comment_panel");
+        if (panel) panel.style.display = "none";
+      }
+    }
+
+    async function mpSubmitComment(event) {
+      if (event) event.preventDefault();
+      const item = mp.currentItem;
+      const authorEl = document.getElementById("mp_comment_author");
+      const bodyEl = document.getElementById("mp_comment_body");
+      const statusEl = document.getElementById("mp_comment_status");
+      const body = String((bodyEl || {}).value || "").trim();
+      if (!item || !item.id || !body) {
+        if (statusEl) statusEl.innerText = "请输入评论内容。";
+        return;
+      }
+      try {
+        const result = await mpFetchJson("/api/plugin/{{PLUGIN_XID}}/comment/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contentId: Number(item.id),
+            authorName: String((authorEl || {}).value || "").trim() || "访客",
+            body: body
+          })
+        });
+        if (bodyEl) bodyEl.value = "";
+        if (statusEl) statusEl.innerText = Number(result.status || 0) === 1 ? "评论已发布。" : "评论已提交，等待审核。";
+        await mpLoadComments(item);
+      } catch (err) {
+        if (statusEl) statusEl.innerText = err && err.message ? err.message : String(err);
+      }
+    }
+
+    async function mpLoadNativeAbilities(item) {
+      mp.abilityState = {};
+      await Promise.all([mpRecordView(item), mpLoadStatic(item), mpLoadLike(item), mpLoadComments(item)]);
+    }
+
     function mpRenderDetail(item) {
       const host = document.getElementById("mp_detail");
       mp.currentItem = item || null;
@@ -1279,7 +1684,8 @@
         if (authorText) metaParts.push(`作者 ${authorText}`);
       }
       if (item.updateTimeText) metaParts.push(`更新于 ${item.updateTimeText}`);
-      host.innerHTML = `${cover}<h2 class="detail-title">${mpEscape(item.title || `#${item.id}`)}</h2><div class="detail-meta">${mpEscape(metaParts.join(" | ") || `更新于 ${item.updateTimeText || ""}`)}</div><div class="chip-row">${chips}</div><div class="detail-grid">${cards || "<div class='detail-card full'><span>内容</span><div>还没有配置详情字段。</div></div>"}</div><section class="workspace-shell"><div class="workspace-toolbar"><div><div class="workspace-title" id="mp_workspace_title">尚未打开能力面板</div><div class="detail-meta" id="mp_workspace_scope" style="margin:6px 0 0;">选择一个已挂载槽位后即可在这里打开前台能力。</div></div><div class="toolbar"><button class="workspace-button" type="button" onclick="mpRefreshWorkspace()">刷新工作区</button><button class="workspace-button" type="button" onclick="mpOpenWorkspaceNewTab()">新标签打开</button><button class="workspace-button danger" type="button" onclick="mpCloseWorkspace()">关闭工作区</button></div></div><div id="mp_workspace_host"><div class="workspace-empty">选择一个已挂载槽位后即可在这里打开前台能力。</div></div></section>`;
+      host.innerHTML = `${cover}<h2 class="detail-title">${mpEscape(item.title || `#${item.id}`)}</h2><div class="detail-meta">${mpEscape(metaParts.join(" | ") || `更新于 ${item.updateTimeText || ""}`)}</div><div class="chip-row">${chips}</div><div class="detail-grid">${cards || "<div class='detail-card full'><span>内容</span><div>还没有配置详情字段。</div></div>"}</div>${mpNativeAbilityPanels(item)}<section class="workspace-shell"><div class="workspace-toolbar"><div><div class="workspace-title" id="mp_workspace_title">尚未打开能力面板</div><div class="detail-meta" id="mp_workspace_scope" style="margin:6px 0 0;">选择一个已挂载槽位后即可在这里打开前台能力。</div></div><div class="toolbar"><button class="workspace-button" type="button" onclick="mpRefreshWorkspace()">刷新工作区</button><button class="workspace-button" type="button" onclick="mpOpenWorkspaceNewTab()">新标签打开</button><button class="workspace-button danger" type="button" onclick="mpCloseWorkspace()">关闭工作区</button></div></div><div id="mp_workspace_host"><div class="workspace-empty">选择一个已挂载槽位后即可在这里打开前台能力。</div></div></section>`;
+      mpLoadNativeAbilities(item).catch((err) => mpSetStatus("mp_detail_status", err && err.message ? err.message : String(err), "#f87171"));
       mpRenderWorkspace();
     }
 
@@ -1294,11 +1700,33 @@
       document.getElementById("mp_desc").innerText = identity.description || "由内容模型驱动的展示页面。";
       document.getElementById("mp_metric_plugin").innerText = (mp.meta && mp.meta.pluginXid) || "{{PLUGIN_XID}}";
       document.getElementById("mp_metric_fields").innerText = String(mpDetailFields().length);
+      await mpLoadTaxonomyOptions();
       mpRenderHeroMetadata();
       mpRenderListControls();
       mpRenderCapabilitySlots();
       mpRenderWorkspace();
       mpUpdateHead(null);
+    }
+
+    async function mpLoadTaxonomyOptions() {
+      const tasks = [];
+      if (mpHasAbilityPack("content.tag")) {
+        tasks.push(fetch("/api/plugin/{{PLUGIN_XID}}/tag/list", { cache: "no-store" })
+          .then((response) => response.json())
+          .then((result) => { mp.tags = result && result.result ? (result.data || []) : []; })
+          .catch(() => { mp.tags = []; }));
+      } else {
+        mp.tags = [];
+      }
+      if (mpHasAbilityPack("content.topic")) {
+        tasks.push(fetch("/api/plugin/{{PLUGIN_XID}}/topic/list", { cache: "no-store" })
+          .then((response) => response.json())
+          .then((result) => { mp.topics = result && result.result ? (result.data || []) : []; })
+          .catch(() => { mp.topics = []; }));
+      } else {
+        mp.topics = [];
+      }
+      await Promise.all(tasks);
     }
 
     async function mpLoadList() {
@@ -1308,6 +1736,8 @@
       if (mp.query) params.set("q", mp.query);
       if (mp.sortBy) params.set("sortBy", mp.sortBy);
       if (mp.sortDir) params.set("sortDir", mp.sortDir);
+      if (mp.tagId) params.set("tagId", mp.tagId);
+      if (mp.topicId) params.set("topicId", mp.topicId);
       for (const field of mpFilterableFields()) {
         const value = String(((mp.fieldFilters || {})[field.name] || "")).trim();
         if (value !== "") {
@@ -1319,6 +1749,7 @@
       if (!result || !result.result) throw new Error((result && result.message) || "列表加载失败");
       mp.items = result.data || [];
       mpRenderList();
+      mpRenderViewRank();
       mpSetStatus("mp_nav_status", `${mp.items.length} 条已发布记录已加载${mp.query ? `，关键词“${mp.query}”` : ""}。`);
     }
 
@@ -1354,6 +1785,7 @@
         const params = new URLSearchParams(window.location.search);
         mpRenderListControls();
         await mpLoadList();
+        await mpLoadViewRank();
         const requestedId = Number(params.get("id") || 0);
         const requestedSlug = String(params.get("slug") || "");
         const slugItem = requestedSlug
