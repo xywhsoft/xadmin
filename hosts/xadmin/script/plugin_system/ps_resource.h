@@ -95,6 +95,7 @@ const char* PS_ResourceMimeByPath(const char* sPath)
 	}
 
 	if ( PS_ResourceExtEquals(sExt, ".css") ) return "text/css; charset=utf-8";
+	if ( PS_ResourceExtEquals(sExt, ".html") || PS_ResourceExtEquals(sExt, ".htm") ) return "text/html; charset=utf-8";
 	if ( PS_ResourceExtEquals(sExt, ".js") ) return "application/javascript; charset=utf-8";
 	if ( PS_ResourceExtEquals(sExt, ".mjs") ) return "application/javascript; charset=utf-8";
 	if ( PS_ResourceExtEquals(sExt, ".svg") ) return "image/svg+xml";

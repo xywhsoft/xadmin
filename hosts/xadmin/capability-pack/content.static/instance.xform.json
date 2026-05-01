@@ -2,24 +2,24 @@
   "groups": [
     {
       "key": "static",
-      "title": "Static Generation Model Options",
+      "title": "静态化选项",
       "fields": [
         {
           "name": "outputDir",
           "type": "input",
-          "label": "Output directory",
-          "value": "static/content"
+          "label": "输出目录",
+          "value": "content"
         },
         {
           "name": "autoGenerate",
           "type": "switch",
-          "label": "Auto generate after publish",
+          "label": "发布后自动生成",
           "value": true
         },
         {
           "name": "autoClean",
           "type": "switch",
-          "label": "Auto clean after delete",
+          "label": "删除后自动清理",
           "value": true
         }
       ]

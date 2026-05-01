@@ -753,6 +753,15 @@ str Content_BuildManagedAbilityHtml(const char* sPluginXid)
 	return sTemplate;
 }
 
+str Content_BuildManagedStaticDetailHtml(void)
+{
+	str sTemplate = Content_LoadGeneratorTemplate("managed_static_detail.html.tpl");
+	if ( sTemplate == NULL ) {
+		return xrtCopyStr("<!doctype html><html><body><h1>{{title}}</h1><article>{{content_html}}</article></body></html>", 0);
+	}
+	return sTemplate;
+}
+
 str Content_BuildGeneratedModelH(const char* sModelXid, const char* sTitle, const char* sPluginTitle, const char* sMenuTitle)
 {
 	str sSafeXid = Content_EscapeCString(sModelXid);

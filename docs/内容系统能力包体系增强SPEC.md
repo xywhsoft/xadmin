@@ -615,6 +615,41 @@ hosts/xadmin/data/content/capabilities/seo.json
 - [!] 支持任务失败重试。（V2/非本期）
 - [x] 支持静态化和访问统计汇总场景。
 
+## 15. 静态化服务端渲染补充
+
+`content.static` 不是 xadmin 本体前台页面生成器，而是作用于生成出来的内容插件。xadmin 本体仍保持后台系统定位；静态化产物写入业务插件自己的 `static` 目录，并通过插件静态资源路由访问。
+
+当前规则：
+
+- [x] `outputDir` 表示插件 `static` 目录内的相对输出目录，默认 `content`。
+- [x] 兼容历史配置 `static/content`，写文件时会归一化为 `content`，避免生成 `static/static/content`。
+- [x] 产物访问 URL 使用 `/plugin-static/<pluginXid>/<relPath>`。
+- [x] 默认详情路径为 `/plugin-static/<pluginXid>/content/<id>.html`。
+- [x] 静态规则支持 `pathPattern`，已支持 `{id}`、`{slug}`、`{title}`、`{categoryId}` 占位符。
+- [x] 静态规则支持 `templateName`，`detail` 会映射到插件模板 `template/static/detail.html`。
+- [x] 自动生成时优先遍历启用的 `static_rule`；没有规则时使用默认详情规则。
+- [x] 手动生成时可以传入 `path` 覆盖规则路径。
+- [x] 生成成功后写入真实 HTML 文件，并记录 `static_task` 与 `static_artifact`。
+- [x] 清理产物时同时删除插件 `static` 目录下的物理文件。
+- [x] 插件静态资源 MIME 白名单支持 `.html` / `.htm`。
+
+字段渲染规则：
+
+- [x] 静态渲染前会构造服务端模板上下文。
+- [x] 普通字段保留原值，同时生成 `<field>_html`。
+- [x] `editor_md` / `markdown` 字段使用 `md4c` 渲染为 HTML 片段。
+- [x] Markdown 渲染使用 GitHub 风格扩展，并禁用 Markdown 中的原始 HTML。
+- [x] `editor_html` / `richtext` 字段按 HTML 片段传入模板。
+- [x] 普通文本字段会 HTML escape 后写入 `<field>_html`。
+- [x] 默认静态详情模板使用 `@@content_html@@`，避免输出 Markdown 原文，也避免与 xrt 模板语法冲突。
+
+后续增强：
+
+- [!] 列表页、栏目页、专题页、标签页、sitemap.xml 的批量静态化规则。
+- [!] 静态化任务队列异步执行和失败重试。
+- [!] HTML 净化策略独立配置，尤其是富文本字段。
+- [!] 模板管理页支持编辑 `template/static/*.html`。
+
 后台扩展：
 
 - [x] 支持能力包声明后台菜单。

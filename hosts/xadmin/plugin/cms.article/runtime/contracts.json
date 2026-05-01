@@ -72,7 +72,7 @@
 				"publicApis":	["comment.list", "comment.create", "comment.hide", "comment.count"]
 			},
 			"description":	"Generate comment moderation, public comment APIs, counters, and admin comment pages.",
-			"title":	"Comment System",
+			"title":	"评论管理",
 			"permissionBinding":	"ability-admin-page-bound",
 			"effects":	{
 				"permissions":	["comment.view", "comment.audit", "comment.delete"],
@@ -119,7 +119,7 @@
 				"publicApis":	["tag.list", "tag.detail", "tag.contents"]
 			},
 			"description":	"Generate tag management, tag bindings, tag query APIs, and admin tag pages.",
-			"title":	"Tag System",
+			"title":	"标签管理",
 			"permissionBinding":	"ability-admin-page-bound",
 			"effects":	{
 				"permissions":	["tag.view", "tag.manage"],
@@ -166,7 +166,7 @@
 				"publicApis":	["topic.list", "topic.detail", "topic.contents"]
 			},
 			"description":	"Generate topic management, topic-content arranging, topic pages, and public topic APIs.",
-			"title":	"Topic System",
+			"title":	"专题管理",
 			"permissionBinding":	"ability-admin-page-bound",
 			"effects":	{
 				"permissions":	["topic.view", "topic.manage", "topic.arrange"],
@@ -216,7 +216,7 @@
 				"publicApis":	["sensitive.check"]
 			},
 			"description":	"Generate sensitive word dictionaries, filter logs, and save/publish/comment filtering hooks.",
-			"title":	"Sensitive Word Filter",
+			"title":	"敏感词管理",
 			"permissionBinding":	"ability-admin-page-bound",
 			"effects":	{
 				"permissions":	["sensitive.view", "sensitive.manage"],
@@ -262,7 +262,7 @@
 				"publicApis":	["static.generate", "static.preview"]
 			},
 			"description":	"Generate static output rules, generation tasks, incremental generation, and cleanup logic.",
-			"title":	"Static Generation",
+			"title":	"静态化管理",
 			"permissionBinding":	"ability-admin-page-bound",
 			"effects":	{
 				"permissions":	["static.view", "static.generate", "static.manage"],
@@ -303,7 +303,7 @@
 				"publicApis":	["like.create", "like.cancel", "like.status"]
 			},
 			"description":	"Generate like/cancel APIs, duplicate prevention, counters, and admin like pages.",
-			"title":	"Like System",
+			"title":	"点赞管理",
 			"permissionBinding":	"ability-admin-page-bound",
 			"effects":	{
 				"permissions":	["like.view", "like.manage"],
@@ -358,7 +358,7 @@
 				"publicApis":	["view.count", "view.rank", "view.detail"]
 			},
 			"description":	"Generate view counters, view logs, rank APIs, and admin statistics reports.",
-			"title":	"View Statistics",
+			"title":	"访问统计",
 			"permissionBinding":	"ability-admin-page-bound",
 			"effects":	{
 				"permissions":	["view_stat.view", "view_stat.export"],

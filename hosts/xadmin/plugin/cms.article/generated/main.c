@@ -61,6 +61,8 @@ static const char* G_SchemaSql =
 static const char* G_PostMigrationIndexSql =
 	"CREATE INDEX IF NOT EXISTS idx_content_item_category_status ON content_item(category_id, status, is_draft, delete_time);";
 
+#define MANAGED_STATIC_URL_PREFIX "/plugin-static/cms.article/"
+
 XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr)
 {
 	if ( idx == XADMIN_GLOBAL_PLUGIN_ROOT_PATH ) {
@@ -2538,6 +2540,29 @@ void Managed_AppendRow(xvalue arrList, sqlite3_stmt* stmt, xvalue tblSpec)
 	xvoTableSetInt(tblItem, "categoryId", 10, sqlite3_column_int(stmt, 7));
 	Managed_AppendDerivedFields(tblItem, tblSpec);
 	xvoArrayAppendValue(arrList, tblItem, TRUE);
+}
+
+xvalue Managed_CreateItemFromStmt(sqlite3_stmt* stmt, xvalue tblSpec)
+{
+	xvalue tblItem = xvoCreateTable();
+	const char* sPayload = (const char*)sqlite3_column_text(stmt, 3);
+
+	if ( (stmt == NULL) || (tblItem == NULL) ) {
+		if ( tblItem ) xvoUnref(tblItem);
+		return NULL;
+	}
+	xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetText(tblItem, "title", 5, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+	xvoTableSetInt(tblItem, "status", 6, sqlite3_column_int(stmt, 2));
+	Managed_AppendPayload(tblItem, sPayload);
+	xvoTableSetBool(tblItem, "isDraft", 7, sqlite3_column_int(stmt, 4) ? TRUE : FALSE);
+	xvoTableSetInt(tblItem, "createTime", 10, sqlite3_column_int64(stmt, 5));
+	xvoTableSetInt(tblItem, "updateTime", 10, sqlite3_column_int64(stmt, 6));
+	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 5));
+	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 6));
+	xvoTableSetInt(tblItem, "categoryId", 10, sqlite3_column_int(stmt, 7));
+	Managed_AppendDerivedFields(tblItem, tblSpec);
+	return tblItem;
 }
 
 void Managed_AppendTaxonomyText(char* sBuffer, size_t iCap, const char* sText)
@@ -5051,71 +5076,546 @@ void Managed_AppendStaticArtifactRow(xvalue arrList, sqlite3_stmt* stmt)
 	xvoArrayAppendValue(arrList, tblRow, TRUE);
 }
 
-str Managed_StaticBuildPath(int64 iTargetId, const char* sPath)
+str Managed_EscapeHtmlText(const char* sText)
 {
-	str sOutputDir = NULL;
-	const char* sDir;
+	xbuffer_struct tBuf = {0};
+	char chZero = 0;
+
+	xrtBufferInit(&tBuf, 0);
+	if ( sText ) {
+		for ( const unsigned char* p = (const unsigned char*)sText; *p; p++ ) {
+			const char* sEsc = NULL;
+			if ( *p == '&' ) sEsc = "&amp;";
+			else if ( *p == '<' ) sEsc = "&lt;";
+			else if ( *p == '>' ) sEsc = "&gt;";
+			else if ( *p == '"' ) sEsc = "&quot;";
+			else if ( *p == '\'' ) sEsc = "&#39;";
+			if ( sEsc ) {
+				xrtBufferAppend(&tBuf, (ptr)sEsc, (uint32)strlen(sEsc), XBUF_BINARY);
+			} else {
+				xrtBufferAppend(&tBuf, (ptr)p, 1, XBUF_BINARY);
+			}
+		}
+	}
+	xrtBufferAppend(&tBuf, &chZero, 1, XBUF_BINARY);
+	return (str)tBuf.Buffer;
+}
+
+str Managed_StaticNormalizeRelPath(const char* sPath)
+{
+	const char* sRel = sPath;
 	str sRet;
-	if ( !Managed_IsBlank(sPath) ) {
-		return xrtCopyStr((str)sPath, 0);
+
+	if ( Managed_IsBlank(sPath) ) {
+		return NULL;
 	}
-	sOutputDir = Managed_AbilityPackConfigTextDup("content.static", "outputDir", "static/cms.article");
-	sDir = (const char*)sOutputDir;
-	if ( Managed_IsBlank(sDir) || strstr(sDir, "..") || strchr(sDir, ':') ) {
-		sDir = "static/cms.article";
+	if ( strncmp(sRel, MANAGED_STATIC_URL_PREFIX, strlen(MANAGED_STATIC_URL_PREFIX)) == 0 ) {
+		sRel += strlen(MANAGED_STATIC_URL_PREFIX);
 	}
-	while ( *sDir == '/' || *sDir == '\\' ) {
+	while ( (*sRel == '/') || (*sRel == '\\') ) {
+		sRel++;
+	}
+	if ( strncmp(sRel, "static/", 7) == 0 ) {
+		sRel += 7;
+	}
+	if ( Managed_IsBlank(sRel) || strstr(sRel, "..") || strchr(sRel, ':') || strchr(sRel, '\\') || strchr(sRel, '%') ) {
+		return NULL;
+	}
+	sRet = xrtCopyStr((str)sRel, 0);
+	return sRet;
+}
+
+str Managed_StaticNormalizeOutputDir(str sOutputDir)
+{
+	const char* sDir = (const char*)sOutputDir;
+	str sRet;
+
+	if ( Managed_IsBlank(sDir) || strstr(sDir, "..") || strchr(sDir, ':') || strchr(sDir, '%') ) {
+		sDir = "content";
+	}
+	while ( (*sDir == '/') || (*sDir == '\\') ) {
 		sDir++;
 	}
-	if ( iTargetId > 0 ) {
-		sRet = xrtFormat("/%s/%lld.html", sDir, (long long)iTargetId);
-		if ( sOutputDir ) xrtFree(sOutputDir);
-		return sRet;
+	if ( strncmp(sDir, "static/", 7) == 0 ) {
+		sDir += 7;
 	}
-	sRet = xrtFormat("/%s/index.html", sDir);
-	if ( sOutputDir ) xrtFree(sOutputDir);
+	if ( Managed_IsBlank(sDir) ) {
+		sDir = "content";
+	}
+	sRet = xrtCopyStr((str)sDir, 0);
 	return sRet;
+}
+
+bool Managed_StaticPathCharSafe(char ch)
+{
+	return ((ch >= 'a') && (ch <= 'z'))
+		|| ((ch >= 'A') && (ch <= 'Z'))
+		|| ((ch >= '0') && (ch <= '9'))
+		|| (ch == '-') || (ch == '_') || (ch == '.');
+}
+
+str Managed_StaticSanitizeSegment(const char* sText)
+{
+	xbuffer_struct tBuf = {0};
+	char chZero = 0;
+	bool bLastDash = FALSE;
+
+	xrtBufferInit(&tBuf, 0);
+	if ( sText ) {
+		for ( const unsigned char* p = (const unsigned char*)sText; *p; p++ ) {
+			char ch = (char)*p;
+			if ( Managed_StaticPathCharSafe(ch) ) {
+				xrtBufferAppend(&tBuf, &ch, 1, XBUF_BINARY);
+				bLastDash = FALSE;
+			} else if ( !bLastDash ) {
+				ch = '-';
+				xrtBufferAppend(&tBuf, &ch, 1, XBUF_BINARY);
+				bLastDash = TRUE;
+			}
+		}
+	}
+	if ( tBuf.Length == 0 ) {
+		xrtBufferAppend(&tBuf, "item", 4, XBUF_BINARY);
+	}
+	xrtBufferAppend(&tBuf, &chZero, 1, XBUF_BINARY);
+	return (str)tBuf.Buffer;
+}
+
+str Managed_StaticFieldTextDup(xvalue tblItem, const char* sField)
+{
+	xvalue tblData;
+	xvalue objValue;
+
+	if ( Managed_IsBlank(sField) || (tblItem == NULL) || (xvoType(tblItem) != XVO_DT_TABLE) ) {
+		return xrtCopyStr("", 0);
+	}
+	objValue = xvoTableGetValue(tblItem, sField, (int)strlen(sField));
+	if ( objValue == NULL ) {
+		tblData = xvoTableGetValue(tblItem, "data", 4);
+		objValue = (tblData && (xvoType(tblData) == XVO_DT_TABLE)) ? xvoTableGetValue(tblData, sField, (int)strlen(sField)) : NULL;
+	}
+	return Managed_ValueToTextDup(objValue);
+}
+
+str Managed_StaticReplaceToken(str sInput, const char* sToken, const char* sValue)
+{
+	str sSafe = Managed_StaticSanitizeSegment(sValue ? sValue : "");
+	str sNext = xrtReplace(sInput, 0, (str)sToken, 0, sSafe ? sSafe : (str)"", 0, NULL);
+	if ( sSafe ) xrtFree(sSafe);
+	if ( sInput ) xrtFree(sInput);
+	return sNext;
+}
+
+str Managed_StaticApplyPathPattern(const char* sPattern, int64 iTargetId, xvalue tblItem)
+{
+	str sPath = xrtCopyStr((str)(Managed_IsBlank(sPattern) ? "/content/{id}.html" : sPattern), 0);
+	char sId[32];
+	str sTitle = NULL;
+	str sSlug = NULL;
+	str sCategoryId = NULL;
+
+	snprintf(sId, sizeof(sId), "%lld", (long long)iTargetId);
+	sTitle = Managed_StaticFieldTextDup(tblItem, "title");
+	sSlug = Managed_StaticFieldTextDup(tblItem, "slug");
+	sCategoryId = Managed_StaticFieldTextDup(tblItem, "categoryId");
+	sPath = Managed_StaticReplaceToken(sPath, "{id}", sId);
+	sPath = Managed_StaticReplaceToken(sPath, "{title}", sTitle ? (const char*)sTitle : "");
+	sPath = Managed_StaticReplaceToken(sPath, "{slug}", !Managed_IsBlank((const char*)sSlug) ? (const char*)sSlug : sId);
+	sPath = Managed_StaticReplaceToken(sPath, "{categoryId}", sCategoryId ? (const char*)sCategoryId : "0");
+	if ( sTitle ) xrtFree(sTitle);
+	if ( sSlug ) xrtFree(sSlug);
+	if ( sCategoryId ) xrtFree(sCategoryId);
+	return sPath;
+}
+
+str Managed_StaticBuildRelPath(int64 iTargetId, const char* sPath, const char* sPathPattern, xvalue tblItem)
+{
+	str sExplicit = Managed_StaticNormalizeRelPath(sPath);
+	str sOutputDir = NULL;
+	str sDir = NULL;
+	str sRaw = NULL;
+	str sRel = NULL;
+
+	if ( sExplicit ) {
+		return sExplicit;
+	}
+	if ( !Managed_IsBlank(sPathPattern) ) {
+		sRaw = Managed_StaticApplyPathPattern(sPathPattern, iTargetId, tblItem);
+		sRel = Managed_StaticNormalizeRelPath(sRaw);
+		if ( sRaw ) xrtFree(sRaw);
+		if ( sRel ) return sRel;
+	}
+	sOutputDir = Managed_AbilityPackConfigTextDup("content.static", "outputDir", "content");
+	sDir = Managed_StaticNormalizeOutputDir(sOutputDir);
+	if ( iTargetId > 0 ) {
+		sRel = xrtFormat("%s/%lld.html", sDir ? (const char*)sDir : "content", (long long)iTargetId);
+	} else {
+		sRel = xrtFormat("%s/index.html", sDir ? (const char*)sDir : "content");
+	}
+	if ( sOutputDir ) xrtFree(sOutputDir);
+	if ( sDir ) xrtFree(sDir);
+	return sRel;
+}
+
+str Managed_StaticBuildArtifactUrl(const char* sRelPath)
+{
+	if ( Managed_IsBlank(sRelPath) ) {
+		return NULL;
+	}
+	return xrtFormat("%s%s", MANAGED_STATIC_URL_PREFIX, sRelPath);
+}
+
+str Managed_StaticNormalizeTemplateName(const char* sTemplateName)
+{
+	const char* sName = Managed_IsBlank(sTemplateName) ? "detail" : sTemplateName;
+
+	if ( strstr(sName, "..") || strchr(sName, ':') || strchr(sName, '\\') || strchr(sName, '%') ) {
+		sName = "detail";
+	}
+	if ( strchr(sName, '/') == NULL ) {
+		if ( strstr(sName, ".html") == NULL ) {
+			return xrtFormat("static/%s.html", sName);
+		}
+		return xrtFormat("static/%s", sName);
+	}
+	if ( strstr(sName, ".html") == NULL ) {
+		return xrtFormat("%s.html", sName);
+	}
+	return xrtCopyStr((str)sName, 0);
+}
+
+void Managed_StaticPrepareFieldHtml(xvalue tblRender, xvalue tblData, xvalue tblField)
+{
+	const char* sName;
+	const char* sType;
+	xvalue objValue;
+	str sRaw = NULL;
+	str sHtml = NULL;
+	str sHtmlName = NULL;
+
+	if ( (tblRender == NULL) || (tblData == NULL) || (tblField == NULL) || (xvoType(tblField) != XVO_DT_TABLE) ) {
+		return;
+	}
+	sName = xvoTableGetText(tblField, "name", 4);
+	if ( Managed_IsBlank(sName) ) {
+		return;
+	}
+	objValue = xvoTableGetValue(tblData, sName, (int)strlen(sName));
+	if ( objValue ) {
+		xvoTableSetValue(tblRender, sName, (int)strlen(sName), xvoCopy(objValue), TRUE);
+	}
+	sRaw = Managed_ValueToTextDup(objValue);
+	sType = Managed_MapFieldType(tblField);
+	if ( strcmp(sType, "editor_md") == 0 ) {
+		sHtml = xsMarkdownToHtmlEx(sRaw ? (const char*)sRaw : "", MD_DIALECT_GITHUB | MD_FLAG_NOHTML, MD_HTML_FLAG_SKIP_UTF8_BOM);
+		if ( sHtml == NULL ) {
+			sHtml = Managed_EscapeHtmlText(sRaw ? (const char*)sRaw : "");
+		}
+	} else if ( strcmp(sType, "editor_html") == 0 ) {
+		sHtml = xrtCopyStr(sRaw ? sRaw : (str)"", 0);
+	} else {
+		sHtml = Managed_EscapeHtmlText(sRaw ? (const char*)sRaw : "");
+	}
+	sHtmlName = xrtFormat("%s_html", sName);
+	if ( sHtmlName ) {
+		xvoTableSetText(tblRender, sHtmlName, (int)strlen(sHtmlName), sHtml ? sHtml : (str)"", 0, TRUE);
+	}
+	if ( sHtmlName ) xrtFree(sHtmlName);
+	if ( sRaw ) xrtFree(sRaw);
+}
+
+xvalue Managed_StaticPrepareRenderData(xvalue tblItem, xvalue tblSpec)
+{
+	xvalue tblRender = xvoCreateTable();
+	xvalue tblData = tblItem ? xvoTableGetValue(tblItem, "data", 4) : NULL;
+	xvalue arrFields = Managed_GetFields(tblSpec);
+
+	if ( tblRender == NULL ) {
+		return NULL;
+	}
+	if ( tblItem ) {
+		xvalue obj;
+		const char* sKeys[] = { "id", "title", "status", "slug", "summary", "cover", "categoryId", "createTime", "updateTime", "createTimeText", "updateTimeText", "publishedAt", "publishedAtText" };
+		for ( uint32 i = 0; i < sizeof(sKeys) / sizeof(sKeys[0]); i++ ) {
+			obj = xvoTableGetValue(tblItem, sKeys[i], (int)strlen(sKeys[i]));
+			if ( obj ) {
+				xvoTableSetValue(tblRender, sKeys[i], (int)strlen(sKeys[i]), xvoCopy(obj), TRUE);
+			}
+		}
+	}
+	if ( tblData && xvoType(tblData) == XVO_DT_TABLE ) {
+		xvoTableSetValue(tblRender, "data", 4, xvoCopy(tblData), TRUE);
+	}
+	xvoTableSetValue(tblRender, "item", 4, tblItem ? xvoCopy(tblItem) : xvoCreateTable(), TRUE);
+	xvoTableSetValue(tblRender, "spec", 4, tblSpec ? xvoCopy(tblSpec) : xvoCreateTable(), TRUE);
+	if ( arrFields && xvoType(arrFields) == XVO_DT_ARRAY && tblData && xvoType(tblData) == XVO_DT_TABLE ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrFields); i++ ) {
+			Managed_StaticPrepareFieldHtml(tblRender, tblData, xvoArrayGetValue(arrFields, i));
+		}
+	}
+	return tblRender;
+}
+
+bool Managed_StaticLoadRule(sqlite3* pDb, int64 iRuleId, str* psPathPattern, str* psTemplateName)
+{
+	sqlite3_stmt* stmt = NULL;
+	bool bFound = FALSE;
+
+	if ( psPathPattern ) *psPathPattern = NULL;
+	if ( psTemplateName ) *psTemplateName = NULL;
+	if ( (pDb == NULL) || (iRuleId <= 0) ) {
+		return FALSE;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT path_pattern,template_name FROM static_rule WHERE id=? AND status=1 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iRuleId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			if ( psPathPattern ) *psPathPattern = xrtCopyStr((str)sqlite3_column_text(stmt, 0), 0);
+			if ( psTemplateName ) *psTemplateName = xrtCopyStr((str)sqlite3_column_text(stmt, 1), 0);
+			bFound = TRUE;
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	return bFound;
+}
+
+xvalue Managed_StaticLoadContentItem(sqlite3* pDb, int64 iTargetId, xvalue tblSpec)
+{
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblItem = NULL;
+
+	if ( (pDb == NULL) || (iTargetId <= 0) ) {
+		return NULL;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id=? AND delete_time=0 AND is_draft=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTargetId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			tblItem = Managed_CreateItemFromStmt(stmt, tblSpec);
+			Managed_AttachAbilityListFields(pDb, tblItem,
+				Managed_AbilityPackMounted("content.tag"),
+				Managed_AbilityPackMounted("content.topic"),
+				Managed_AbilityPackMounted("content.comment"),
+				Managed_AbilityPackMounted("content.like"),
+				Managed_AbilityPackMounted("content.view-stat"));
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	return tblItem;
+}
+
+bool Managed_StaticWriteFile(const char* sRelPath, const char* sHtml, size_t iHtmlSize)
+{
+	str sFilePath;
+	str sDirPath;
+	bool bOK;
+
+	if ( Managed_IsBlank(sRelPath) || (sHtml == NULL) || (G_Handle == NULL) ) {
+		return FALSE;
+	}
+	sFilePath = XAdmin_PluginResourcePath(G_Handle, "static", sRelPath);
+	if ( sFilePath == NULL ) {
+		return FALSE;
+	}
+	sDirPath = xrtPathGetDir(sFilePath, 0);
+	if ( sDirPath ) {
+		xrtDirCreateAll(sDirPath);
+		xrtFree(sDirPath);
+	}
+	bOK = xrtFilePutAll(sFilePath, (ptr)sHtml, (uint32)iHtmlSize) >= 0;
+	xrtFree(sFilePath);
+	return bOK;
+}
+
+str Managed_StaticReplaceRenderValue(str sHtml, xvalue tblRender, const char* sToken, const char* sKey)
+{
+	xvalue objValue;
+	str sValue = NULL;
+	str sNext = NULL;
+
+	if ( sHtml == NULL || tblRender == NULL || Managed_IsBlank(sToken) || Managed_IsBlank(sKey) ) {
+		return sHtml;
+	}
+	objValue = xvoTableGetValue(tblRender, sKey, (int)strlen(sKey));
+	sValue = Managed_ValueToTextDup(objValue);
+	sNext = xrtReplace(sHtml, 0, (str)sToken, 0, sValue ? sValue : (str)"", 0, NULL);
+	if ( sValue ) xrtFree(sValue);
+	if ( sNext ) {
+		xrtFree(sHtml);
+		return sNext;
+	}
+	return sHtml;
+}
+
+str Managed_StaticApplyRenderTokens(str sHtml, xvalue tblRender, xvalue tblSpec)
+{
+	xvalue arrFields = Managed_GetFields(tblSpec);
+
+	sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, "@@title@@", "title");
+	sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, "@@summary@@", "summary");
+	sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, "@@summary_html@@", "summary_html");
+	sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, "@@content@@", "content");
+	sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, "@@content_html@@", "content_html");
+	sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, "@@updateTimeText@@", "updateTimeText");
+	sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, "@@createTimeText@@", "createTimeText");
+
+	if ( arrFields && xvoType(arrFields) == XVO_DT_ARRAY ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrFields); i++ ) {
+			xvalue tblField = xvoArrayGetValue(arrFields, i);
+			const char* sName = tblField ? xvoTableGetText(tblField, "name", 4) : NULL;
+			str sToken = NULL;
+			str sHtmlKey = NULL;
+			str sHtmlToken = NULL;
+			if ( Managed_IsBlank(sName) ) {
+				continue;
+			}
+			sToken = xrtFormat("@@%s@@", sName);
+			sHtmlKey = xrtFormat("%s_html", sName);
+			sHtmlToken = xrtFormat("@@%s_html@@", sName);
+			if ( sToken ) {
+				sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, (const char*)sToken, sName);
+				xrtFree(sToken);
+			}
+			if ( sHtmlKey && sHtmlToken ) {
+				sHtml = Managed_StaticReplaceRenderValue(sHtml, tblRender, (const char*)sHtmlToken, (const char*)sHtmlKey);
+			}
+			if ( sHtmlKey ) xrtFree(sHtmlKey);
+			if ( sHtmlToken ) xrtFree(sHtmlToken);
+		}
+	}
+	return sHtml;
+}
+
+bool Managed_StaticRenderToFile(sqlite3* pDb, int64 iTargetId, int64 iRuleId, const char* sPath, const char* sPathPattern, const char* sTemplateName, str* psRelPath, str* psArtifactUrl, str* psHash, str* psError)
+{
+	xvalue tblSpec = NULL;
+	xvalue tblItem = NULL;
+	xvalue tblRender = NULL;
+	str sTemplate = NULL;
+	char* sHtml = NULL;
+	char* sError = NULL;
+	size_t iHtmlSize = 0;
+	str sRelPath = NULL;
+	str sArtifactUrl = NULL;
+	bool bOK = FALSE;
+	(void)iRuleId;
+
+	if ( psRelPath ) *psRelPath = NULL;
+	if ( psArtifactUrl ) *psArtifactUrl = NULL;
+	if ( psHash ) *psHash = NULL;
+	if ( psError ) *psError = NULL;
+	if ( (pDb == NULL) || (iTargetId <= 0) ) {
+		if ( psError ) *psError = xrtCopyStr("target content is required", 0);
+		return FALSE;
+	}
+	tblSpec = Managed_LoadSpec();
+	if ( tblSpec == NULL ) {
+		if ( psError ) *psError = xrtCopyStr("spec.json is missing", 0);
+		return FALSE;
+	}
+	tblItem = Managed_StaticLoadContentItem(pDb, iTargetId, tblSpec);
+	if ( tblItem == NULL ) {
+		if ( psError ) *psError = xrtCopyStr("content item not found or not publishable", 0);
+		xvoUnref(tblSpec);
+		return FALSE;
+	}
+	sRelPath = Managed_StaticBuildRelPath(iTargetId, sPath, sPathPattern, tblItem);
+	if ( sRelPath == NULL ) {
+		if ( psError ) *psError = xrtCopyStr("invalid static output path", 0);
+		goto cleanup;
+	}
+	tblRender = Managed_StaticPrepareRenderData(tblItem, tblSpec);
+	sTemplate = Managed_StaticNormalizeTemplateName(sTemplateName);
+	sHtml = XAdmin_RenderPluginTemplate(G_Handle, sTemplate ? (const char*)sTemplate : "static/detail.html", tblRender, &iHtmlSize, &sError);
+	if ( sHtml == NULL ) {
+		if ( psError ) *psError = xrtFormat("template render failed: %s", sError ? sError : "unknown");
+		goto cleanup;
+	}
+	{
+		str sApplied = Managed_StaticApplyRenderTokens(xrtCopyStr((str)sHtml, (uint32)iHtmlSize), tblRender, tblSpec);
+		XAdmin_Free(sHtml);
+		sHtml = sApplied;
+		iHtmlSize = sHtml ? strlen(sHtml) : 0;
+	}
+	if ( !Managed_StaticWriteFile((const char*)sRelPath, sHtml, iHtmlSize) ) {
+		if ( psError ) *psError = xrtCopyStr("failed to write static html file", 0);
+		goto cleanup;
+	}
+	sArtifactUrl = Managed_StaticBuildArtifactUrl((const char*)sRelPath);
+	if ( psRelPath ) {
+		*psRelPath = sRelPath;
+		sRelPath = NULL;
+	}
+	if ( psArtifactUrl ) {
+		*psArtifactUrl = sArtifactUrl;
+		sArtifactUrl = NULL;
+	}
+	if ( psHash ) {
+		*psHash = xrtFormat("%016llx", (unsigned long long)xrtHash64(sHtml, iHtmlSize));
+	}
+	bOK = TRUE;
+
+cleanup:
+	if ( sRelPath ) xrtFree(sRelPath);
+	if ( sArtifactUrl ) xrtFree(sArtifactUrl);
+	if ( sTemplate ) xrtFree(sTemplate);
+	if ( sHtml ) xrtFree(sHtml);
+	if ( sError ) XAdmin_Free(sError);
+	if ( tblRender ) xvoUnref(tblRender);
+	if ( tblItem ) xvoUnref(tblItem);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	return bOK;
 }
 
 bool Managed_StaticCreateTask(sqlite3* pDb, int64 iRuleId, const char* sTargetType, int64 iTargetId, const char* sPath, int64* piTaskId, str* psArtifactPath)
 {
 	sqlite3_stmt* stmt = NULL;
-	str sArtifactPath = Managed_StaticBuildPath(iTargetId, sPath);
+	str sPathPattern = NULL;
+	str sTemplateName = NULL;
+	str sRelPath = NULL;
+	str sArtifactPath = NULL;
+	str sHash = NULL;
+	str sError = NULL;
 	int64 iNow = xrtNow();
 	bool bOK = FALSE;
+	bool bTaskOK = FALSE;
 
 	if ( piTaskId ) *piTaskId = 0;
 	if ( psArtifactPath ) *psArtifactPath = NULL;
-	if ( (pDb == NULL) || (sArtifactPath == NULL) ) {
-		if ( sArtifactPath ) xrtFree(sArtifactPath);
+	if ( pDb == NULL ) {
 		return FALSE;
 	}
-	if ( sqlite3_prepare_v2(pDb, "INSERT INTO static_task(rule_id,target_type,target_id,status,message,create_time,finish_time) VALUES(?,?,?,1,'generated',?,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( iRuleId > 0 ) {
+		Managed_StaticLoadRule(pDb, iRuleId, &sPathPattern, &sTemplateName);
+	}
+	bOK = Managed_StaticRenderToFile(pDb, iTargetId, iRuleId, sPath, sPathPattern, sTemplateName, &sRelPath, &sArtifactPath, &sHash, &sError);
+	if ( sqlite3_prepare_v2(pDb, "INSERT INTO static_task(rule_id,target_type,target_id,status,message,create_time,finish_time) VALUES(?,?,?,?,?,?,?)", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iRuleId);
 		sqlite3_bind_text(stmt, 2, sTargetType ? sTargetType : "content", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iTargetId);
-		sqlite3_bind_int64(stmt, 4, iNow);
-		sqlite3_bind_int64(stmt, 5, iNow);
-		bOK = (sqlite3_step(stmt) == SQLITE_DONE);
-		if ( bOK && piTaskId ) *piTaskId = sqlite3_last_insert_rowid(pDb);
+		sqlite3_bind_int(stmt, 4, bOK ? 1 : -1);
+		sqlite3_bind_text(stmt, 5, bOK ? "generated" : (sError ? (const char*)sError : "failed"), -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 6, iNow);
+		sqlite3_bind_int64(stmt, 7, iNow);
+		bTaskOK = (sqlite3_step(stmt) == SQLITE_DONE);
+		if ( bTaskOK && piTaskId ) *piTaskId = sqlite3_last_insert_rowid(pDb);
 	}
 	if ( stmt ) sqlite3_finalize(stmt);
 	stmt = NULL;
 	if ( bOK ) {
-		if ( sqlite3_prepare_v2(pDb, "DELETE FROM static_artifact WHERE rule_id=? AND target_type=? AND target_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "DELETE FROM static_artifact WHERE (rule_id=? AND target_type=? AND target_id=?) OR path=?", -1, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iRuleId);
 			sqlite3_bind_text(stmt, 2, sTargetType ? sTargetType : "content", -1, SQLITE_TRANSIENT);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iTargetId);
+			sqlite3_bind_text(stmt, 4, sArtifactPath ? (const char*)sArtifactPath : "", -1, SQLITE_TRANSIENT);
 			sqlite3_step(stmt);
 		}
 		if ( stmt ) sqlite3_finalize(stmt);
 		stmt = NULL;
-		if ( sqlite3_prepare_v2(pDb, "INSERT INTO static_artifact(rule_id,target_type,target_id,path,hash,create_time,update_time) VALUES(?,?,?,?,?,?,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "INSERT OR REPLACE INTO static_artifact(rule_id,target_type,target_id,path,hash,create_time,update_time) VALUES(?,?,?,?,?,?,?)", -1, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iRuleId);
 			sqlite3_bind_text(stmt, 2, sTargetType ? sTargetType : "content", -1, SQLITE_TRANSIENT);
 			sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iTargetId);
 			sqlite3_bind_text(stmt, 4, (const char*)sArtifactPath, -1, SQLITE_TRANSIENT);
-			sqlite3_bind_text(stmt, 5, "managed", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 5, sHash ? (const char*)sHash : "managed", -1, SQLITE_TRANSIENT);
 			sqlite3_bind_int64(stmt, 6, iNow);
 			sqlite3_bind_int64(stmt, 7, iNow);
 			bOK = (sqlite3_step(stmt) == SQLITE_DONE);
@@ -5124,10 +5624,15 @@ bool Managed_StaticCreateTask(sqlite3* pDb, int64 iRuleId, const char* sTargetTy
 	}
 	if ( bOK && psArtifactPath ) {
 		*psArtifactPath = sArtifactPath;
-	} else if ( sArtifactPath ) {
-		xrtFree(sArtifactPath);
+		sArtifactPath = NULL;
 	}
-	return bOK;
+	if ( sPathPattern ) xrtFree(sPathPattern);
+	if ( sTemplateName ) xrtFree(sTemplateName);
+	if ( sRelPath ) xrtFree(sRelPath);
+	if ( sArtifactPath ) xrtFree(sArtifactPath);
+	if ( sHash ) xrtFree(sHash);
+	if ( sError ) xrtFree(sError);
+	return bOK && bTaskOK;
 }
 
 void Managed_RequestStaticGeneratePublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -5208,7 +5713,9 @@ void Managed_RequestStaticPreviewPublic(XS_ServerObject objServer, XS_HostObject
 
 void Managed_StaticMaybeAutoGenerate(sqlite3* pDb, int64 iContentId, bool bDraft, int iStatus)
 {
+	sqlite3_stmt* stmt = NULL;
 	str sArtifactPath = NULL;
+	bool bGeneratedByRule = FALSE;
 	(void)iStatus;
 	if ( (pDb == NULL) || (iContentId <= 0) || bDraft ) {
 		return;
@@ -5219,7 +5726,21 @@ void Managed_StaticMaybeAutoGenerate(sqlite3* pDb, int64 iContentId, bool bDraft
 	if ( !Managed_AbilityPackConfigBool("content.static", "autoGenerate", TRUE) ) {
 		return;
 	}
-	Managed_StaticCreateTask(pDb, 0, "content", iContentId, NULL, NULL, &sArtifactPath);
+	if ( sqlite3_prepare_v2(pDb, "SELECT id FROM static_rule WHERE status=1 ORDER BY id ASC", -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			int64 iRuleId = sqlite3_column_int64(stmt, 0);
+			Managed_StaticCreateTask(pDb, iRuleId, "content", iContentId, NULL, NULL, &sArtifactPath);
+			if ( sArtifactPath ) {
+				xrtFree(sArtifactPath);
+				sArtifactPath = NULL;
+			}
+			bGeneratedByRule = TRUE;
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	if ( !bGeneratedByRule ) {
+		Managed_StaticCreateTask(pDb, 0, "content", iContentId, NULL, NULL, &sArtifactPath);
+	}
 	if ( sArtifactPath ) xrtFree(sArtifactPath);
 }
 
@@ -5235,6 +5756,22 @@ void Managed_StaticMaybeAutoClean(sqlite3* pDb, int64 iContentId)
 	if ( !Managed_AbilityPackConfigBool("content.static", "autoClean", TRUE) ) {
 		return;
 	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT path FROM static_artifact WHERE target_type='content' AND target_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			str sRelPath = Managed_StaticNormalizeRelPath((const char*)sqlite3_column_text(stmt, 0));
+			if ( sRelPath ) {
+				str sFilePath = XAdmin_PluginResourcePath(G_Handle, "static", sRelPath);
+				if ( sFilePath ) {
+					xrtFileDelete(sFilePath);
+					xrtFree(sFilePath);
+				}
+				xrtFree(sRelPath);
+			}
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
 	if ( sqlite3_prepare_v2(pDb, "DELETE FROM static_artifact WHERE target_type='content' AND target_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
 		sqlite3_step(stmt);
@@ -5493,6 +6030,25 @@ void Managed_RequestStaticCleanAdmin(XS_ServerObject objServer, XS_HostObject ob
 		if ( tblBody ) xvoUnref(tblBody);
 		Managed_SendError(objResp, "failed to open plugin database");
 		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT path FROM static_artifact WHERE (? <= 0 OR target_id = ?) AND (? <= 0 OR rule_id = ?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTargetId);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iTargetId);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iRuleId);
+		sqlite3_bind_int64(stmt, 4, (sqlite3_int64)iRuleId);
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			str sRelPath = Managed_StaticNormalizeRelPath((const char*)sqlite3_column_text(stmt, 0));
+			if ( sRelPath ) {
+				str sFilePath = XAdmin_PluginResourcePath(G_Handle, "static", sRelPath);
+				if ( sFilePath ) {
+					xrtFileDelete(sFilePath);
+					xrtFree(sFilePath);
+				}
+				xrtFree(sRelPath);
+			}
+		}
+		sqlite3_finalize(stmt);
+		stmt = NULL;
 	}
 	if ( sqlite3_prepare_v2(pDb, "DELETE FROM static_artifact WHERE (? <= 0 OR target_id = ?) AND (? <= 0 OR rule_id = ?)", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTargetId);

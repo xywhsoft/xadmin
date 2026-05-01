@@ -479,7 +479,7 @@ cms.article/
 
 完成标准：
 
-- [!] `/plugin-static/<xid>/css/admin.css` 可访问启用插件的静态资源。（实现已接入；当前本地插件均未启用，正向 HTTP 验收需启用任一测试插件后完成。）
+- [x] `/plugin-static/<xid>/...` 可访问启用插件的静态资源。（已用 `cms.article` 生成的 `/plugin-static/cms.article/content/1.html` 验证。）
 - [x] 禁用插件返回 404。
 - [x] 访问 `page/`、`option/`、`template/` 返回 404。
 - [x] 路径穿越返回 404。

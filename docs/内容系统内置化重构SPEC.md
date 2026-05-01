@@ -138,6 +138,8 @@ hosts/xadmin/data/template/content/
 - [x] 建立 `managed.json` 模板。
 - [x] 建立 `contracts.json` 模板。
 - [x] 生成器只从标准模板目录读取模板。
+- [x] 生成业务插件时输出 `template/static/detail.html`，供 `content.static` 服务端静态化渲染使用。
+- [x] 静态化详情模板默认消费 `<field>_html` 字段，例如 Markdown 正文字段输出为 `content_html`。
 
 ### 3.4 内置能力目录
 
