@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.form",
+  "name": "form",
+  "title": "内容表单",
+  "description": "提供内容附属表单和表单提交管理能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 300,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

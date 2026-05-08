@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.sitemap",
+  "name": "sitemap",
+  "title": "站点地图",
+  "description": "提供 sitemap、RSS、robots 和增量生成能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 280,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

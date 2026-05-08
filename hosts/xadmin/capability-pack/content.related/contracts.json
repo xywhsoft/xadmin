@@ -1,0 +1,8 @@
+{
+  "permissions": ["related.view", "related.manage"],
+  "adminPages": ["related"],
+  "publicApis": ["related.list"],
+  "tables": ["content_related"],
+  "events": ["content.afterSave", "related.afterBind"],
+  "tasks": []
+}

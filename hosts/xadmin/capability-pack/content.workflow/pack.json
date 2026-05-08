@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.workflow",
+  "name": "workflow",
+  "title": "审核流程",
+  "description": "提供提交、审核、驳回、发布、下线和定时发布能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 260,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

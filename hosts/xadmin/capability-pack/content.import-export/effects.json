@@ -1,0 +1,9 @@
+{
+  "tables": ["content_import_job", "content_export_job"],
+  "fields": [],
+  "adminPages": ["import_export"],
+  "publicApis": [],
+  "permissions": ["import_export.view", "import_export.import", "import_export.export"],
+  "events": ["import.afterFinish", "export.afterFinish"],
+  "tasks": ["import.process", "export.process"]
+}

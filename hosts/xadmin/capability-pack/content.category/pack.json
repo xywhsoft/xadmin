@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.category",
+  "name": "category",
+  "title": "栏目",
+  "description": "提供栏目树、栏目排序、栏目模板、栏目 SEO 和栏目权限能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 230,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

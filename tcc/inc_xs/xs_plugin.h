@@ -55,6 +55,18 @@ typedef struct {
 } XAdminRouteDecl;
 
 typedef struct {
+	const char* path;
+	const char* pattern;
+	void* proc;
+	int priority;
+	int method;
+	bool need_auth;
+	bool admin_only;
+	int auth_id;
+	int auth_level;
+} XAdminDynamicRouteDecl;
+
+typedef struct {
 	const char* key;
 	int parent_id;
 	const char* title;
@@ -154,6 +166,9 @@ int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat
 void LoadPage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
 
 int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl* decl, XAdminRouteToken* token);
+int XAdmin_RegisterDynamicRoute(XAdminPluginHandle plugin_handle, const XAdminDynamicRouteDecl* decl, XAdminRouteToken* token);
+int XAdmin_RouteParam(int index, char* out_value, size_t out_cap);
+int XAdmin_RouteParamCount(void);
 int XAdmin_UnregisterRoute(XAdminRouteToken token);
 
 int XAdmin_RegisterMenu(XAdminPluginHandle plugin_handle, const XAdminMenuDecl* decl, int* out_menu_id, XAdminMenuToken* token);

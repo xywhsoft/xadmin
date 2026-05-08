@@ -66,6 +66,13 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, XS
 	if ( G_StaticRouteTableHTTP != NULL ) {
 		xvoTableSetInt(tblRoute, "count", 5, xrtDictCount(G_StaticRouteTableHTTP));
 	}
+	xvoTableSetBool(tblRoute, "dynamicExists", 13, G_DynamicRouteTableHTTP.lstRoutes != NULL);
+	xvoTableSetInt(tblRoute, "dynamicCount", 12, G_DynamicRouteTableHTTP.lstRoutes ? xrtListCount(G_DynamicRouteTableHTTP.lstRoutes) : 0);
+	xvoTableSetInt(tblRoute, "dynamicCompiled", 15, G_DynamicRouteTableHTTP.iCompiledCount);
+	xvoTableSetInt(tblRoute, "dynamicGeneration", 17, G_DynamicRouteTableHTTP.iGeneration);
+	if ( G_DynamicRouteTableHTTP.sLastError ) {
+		xvoTableSetText(tblRoute, "dynamicLastError", 16, G_DynamicRouteTableHTTP.sLastError, 0, FALSE);
+	}
 	xvoTableSetValue(tblData, "route", 5, tblRoute, TRUE);
 	
 	// 数据库连接信�?
@@ -248,12 +255,37 @@ bool TraceRouteWalkProc(Dict_Key* pKey, RouteInfo* pInfo, xvalue arrRoutes)
 	if ( pInfo ) {
 		xvalue tblRoute = xvoCreateTable();
 		xvoTableSetText(tblRoute, "uri", 3, pKey->Key, pKey->KeyLen, FALSE);
+		xvoTableSetText(tblRoute, "type", 4, "static", 6, FALSE);
 		xvoTableSetBool(tblRoute, "log", 3, pInfo->bPutLog);
 		xvoTableSetBool(tblRoute, "auth", 4, pInfo->bAuth);
 		xvoTableSetInt(tblRoute, "authId", 6, pInfo->AuthID);
 		xvoArrayAppendValue(arrRoutes, tblRoute, TRUE);
 	}
 	return FALSE;
+}
+
+void TraceDynamicRoutes(xvalue arrRoutes)
+{
+	if ( (arrRoutes == NULL) || (G_DynamicRouteTableHTTP.lstRoutes == NULL) ) {
+		return;
+	}
+	for ( uint32 i = 0; i < xrtListCount(G_DynamicRouteTableHTTP.lstRoutes); i++ ) {
+		DynamicRouteInfo* pRoute = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+		if ( pRoute ) {
+			xvalue tblRoute = xvoCreateTable();
+			xvoTableSetText(tblRoute, "uri", 3, pRoute->sUri ? pRoute->sUri : "", 0, FALSE);
+			xvoTableSetText(tblRoute, "type", 4, "dynamic", 7, FALSE);
+			xvoTableSetText(tblRoute, "pattern", 7, pRoute->sPattern ? pRoute->sPattern : "", 0, FALSE);
+			xvoTableSetInt(tblRoute, "priority", 8, pRoute->iPriority);
+			xvoTableSetInt(tblRoute, "method", 6, pRoute->iMethod);
+			xvoTableSetInt(tblRoute, "patternIndex", 12, pRoute->iPatternIndex);
+			xvoTableSetInt(tblRoute, "captureCount", 12, pRoute->iCaptureCount);
+			xvoTableSetBool(tblRoute, "log", 3, pRoute->Info.bPutLog);
+			xvoTableSetBool(tblRoute, "auth", 4, pRoute->Info.bAuth);
+			xvoTableSetInt(tblRoute, "authId", 6, pRoute->Info.AuthID);
+			xvoArrayAppendValue(arrRoutes, tblRoute, TRUE);
+		}
+	}
 }
 
 // 获取路由表数�?
@@ -275,6 +307,7 @@ void Request_Trace_Route(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		// 遍历路由�?
 		xvalue arrRoutes = xvoCreateArray();
 		xrtDictWalk(G_StaticRouteTableHTTP, (Dict_EachProc)TraceRouteWalkProc, arrRoutes);
+		TraceDynamicRoutes(arrRoutes);
 		xvoTableSetValue(tblRet, "data", 4, arrRoutes, TRUE);
 	}
 	

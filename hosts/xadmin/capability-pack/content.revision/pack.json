@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.revision",
+  "name": "revision",
+  "title": "内容版本",
+  "description": "提供版本列表、字段级差异对比和版本恢复能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 250,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

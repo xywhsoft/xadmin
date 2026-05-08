@@ -1,0 +1,8 @@
+{
+  "permissions": ["revision.view", "revision.restore"],
+  "adminPages": ["revisions"],
+  "publicApis": [],
+  "tables": ["content_revision"],
+  "events": ["content.beforeSave", "revision.afterRestore"],
+  "tasks": []
+}

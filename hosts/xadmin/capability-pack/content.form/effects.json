@@ -1,0 +1,9 @@
+{
+  "tables": ["content_form", "content_form_submission"],
+  "fields": [],
+  "adminPages": ["forms", "form_submissions"],
+  "publicApis": ["form.submit"],
+  "permissions": ["form.view", "form.manage", "form.export"],
+  "events": ["form.afterSubmit"],
+  "tasks": []
+}

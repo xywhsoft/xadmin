@@ -1249,6 +1249,8 @@ void Request_View_Auth_URIs_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			xvoTableSetInt(tblInfo, "needLog", 7, sqlite3_column_int64(stmt_uris_get, 6));
 			xvoTableSetInt(tblInfo, "keepActive", 10, sqlite3_column_int64(stmt_uris_get, 7));
 			xvoTableSetInt(tblInfo, "sort", 4, sqlite3_column_int64(stmt_uris_get, 8));
+			xvoTableSetInt(tblInfo, "isPersistent", 12, sqlite3_column_int64(stmt_uris_get, 11));
+			xvoTableSetText(tblInfo, "namespace", 9, (str)sqlite3_column_text(stmt_uris_get, 12), 0, FALSE);
 			xvoTableSetValue(tblInfo, "authList", 8, G_CACHE_Auth, FALSE);
 			xvoTableSetValue(tblInfo, "memberAuthList", 14, G_CACHE_MemberAuth, FALSE);
 			bRow = TRUE;
@@ -1313,8 +1315,10 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 				xvoTableSetText(tblRow, "authName", 8, (str)sqlite3_column_text(stmt_uris_all, 11), 0, FALSE);
 				xvoTableSetText(tblRow, "memberAuthName", 14, (str)sqlite3_column_text(stmt_uris_all, 12), 0, FALSE);
+				xvoTableSetInt(tblRow, "isPersistent", 12, sqlite3_column_int64(stmt_uris_all, 13));
+				xvoTableSetText(tblRow, "namespace", 9, (str)sqlite3_column_text(stmt_uris_all, 14), 0, FALSE);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_all, 13);
+					iCount = sqlite3_column_int64(stmt_uris_all, 15);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -1323,8 +1327,9 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			// 筛�?
 			sqlite3_bind_text(stmt_uris_sel, 1, sParam, iSize, NULL);
 			sqlite3_bind_text(stmt_uris_sel, 2, sParam, iSize, NULL);
-			sqlite3_bind_int64(stmt_uris_sel, 3, iLimit);
-			sqlite3_bind_int64(stmt_uris_sel, 4, iOffset);
+			sqlite3_bind_text(stmt_uris_sel, 3, sParam, iSize, NULL);
+			sqlite3_bind_int64(stmt_uris_sel, 4, iLimit);
+			sqlite3_bind_int64(stmt_uris_sel, 5, iOffset);
 			while ( sqlite3_step(stmt_uris_sel) == SQLITE_ROW ) {
 				xvalue tblRow = xvoCreateTable();
 				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_uris_sel, 0));
@@ -1343,8 +1348,10 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				xvoTableSetText(tblRow, "updateTime", 10, xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
 				xvoTableSetText(tblRow, "authName", 8, (str)sqlite3_column_text(stmt_uris_sel, 11), 0, FALSE);
 				xvoTableSetText(tblRow, "memberAuthName", 14, (str)sqlite3_column_text(stmt_uris_sel, 12), 0, FALSE);
+				xvoTableSetInt(tblRow, "isPersistent", 12, sqlite3_column_int64(stmt_uris_sel, 13));
+				xvoTableSetText(tblRow, "namespace", 9, (str)sqlite3_column_text(stmt_uris_sel, 14), 0, FALSE);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_sel, 13);
+					iCount = sqlite3_column_int64(stmt_uris_sel, 15);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -1385,6 +1392,8 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		int64 needAuth = xvoTableGetInt(tblForm, "needAuth", 8);
 		int64 needLog = xvoTableGetInt(tblForm, "needLog", 7);
 		int64 keepActive = xvoTableGetInt(tblForm, "keepActive", 10);
+		int64 isPersistent = xvoTableGetInt(tblForm, "isPersistent", 12);
+		str sNamespace = xvoTableGetText(tblForm, "namespace", 9);
 		
 		// UPDATE uris SET authID=?, desc=?, sort=?, isBackend=?, needAuth=?, needLog=?, keepActive=?, updateTime=? WHERE id=?
 		sqlite3_bind_int64(stmt_uris_put, 1, authID);
@@ -1394,8 +1403,10 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_uris_put, 5, needAuth);
 		sqlite3_bind_int64(stmt_uris_put, 6, needLog);
 		sqlite3_bind_int64(stmt_uris_put, 7, keepActive);
-		sqlite3_bind_int64(stmt_uris_put, 8, xrtNow());
-		sqlite3_bind_int64(stmt_uris_put, 9, id);
+		sqlite3_bind_int64(stmt_uris_put, 8, isPersistent ? 1 : 0);
+		sqlite3_bind_text(stmt_uris_put, 9, sNamespace ? sNamespace : "auto", -1, SQLITE_STATIC);
+		sqlite3_bind_int64(stmt_uris_put, 10, xrtNow());
+		sqlite3_bind_int64(stmt_uris_put, 11, id);
 		sqlite3_step(stmt_uris_put);
 		sqlite3_reset(stmt_uris_put);
 		xvoUnref(tblForm);

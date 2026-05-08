@@ -1,0 +1,9 @@
+{
+  "tables": ["content_sitemap_entry"],
+  "fields": [],
+  "adminPages": ["sitemap"],
+  "publicApis": ["sitemap.xml", "rss.xml", "robots.txt"],
+  "permissions": ["sitemap.view", "sitemap.generate"],
+  "events": ["content.afterPublish", "content.afterDelete"],
+  "tasks": ["sitemap.generate"]
+}

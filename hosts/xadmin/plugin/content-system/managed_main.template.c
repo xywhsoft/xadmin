@@ -50,7 +50,74 @@ static const char* G_SchemaSql =
 	"CREATE UNIQUE INDEX IF NOT EXISTS idx_content_category_parent_slug ON content_category(parent_id, slug) WHERE delete_time = 0;";
 
 static const char* G_PostMigrationIndexSql =
-	"CREATE INDEX IF NOT EXISTS idx_content_item_category_status ON content_item(category_id, status, is_draft, delete_time);";
+	"CREATE INDEX IF NOT EXISTS idx_content_item_category_status ON content_item(category_id, status, is_draft, delete_time);"
+	"CREATE TABLE IF NOT EXISTS content_media ("
+	"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+	"attachment_xid TEXT NOT NULL DEFAULT '',"
+	"title TEXT NOT NULL DEFAULT '',"
+	"url TEXT NOT NULL DEFAULT '',"
+	"mime TEXT NOT NULL DEFAULT '',"
+	"ext TEXT NOT NULL DEFAULT '',"
+	"size INTEGER NOT NULL DEFAULT 0,"
+	"width INTEGER NOT NULL DEFAULT 0,"
+	"height INTEGER NOT NULL DEFAULT 0,"
+	"status INTEGER NOT NULL DEFAULT 1,"
+	"create_time INTEGER NOT NULL DEFAULT 0,"
+	"update_time INTEGER NOT NULL DEFAULT 0,"
+	"delete_time INTEGER NOT NULL DEFAULT 0"
+	");"
+	"CREATE INDEX IF NOT EXISTS idx_content_media_status ON content_media(status, delete_time, id);"
+	"CREATE TABLE IF NOT EXISTS content_media_ref ("
+	"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+	"media_id INTEGER NOT NULL DEFAULT 0,"
+	"content_id INTEGER NOT NULL DEFAULT 0,"
+	"ref_type TEXT NOT NULL DEFAULT '',"
+	"create_time INTEGER NOT NULL DEFAULT 0"
+	");"
+	"CREATE UNIQUE INDEX IF NOT EXISTS idx_content_media_ref_unique ON content_media_ref(media_id, content_id, ref_type);"
+	"CREATE INDEX IF NOT EXISTS idx_content_media_ref_media ON content_media_ref(media_id);"
+	"CREATE INDEX IF NOT EXISTS idx_content_media_ref_content ON content_media_ref(content_id);"
+	"CREATE TABLE IF NOT EXISTS content_revision ("
+	"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+	"content_id INTEGER NOT NULL DEFAULT 0,"
+	"revision_no INTEGER NOT NULL DEFAULT 0,"
+	"title TEXT NOT NULL DEFAULT '',"
+	"status INTEGER NOT NULL DEFAULT 0,"
+	"category_id INTEGER NOT NULL DEFAULT 0,"
+	"is_draft INTEGER NOT NULL DEFAULT 0,"
+	"payload_json TEXT NOT NULL DEFAULT '{}',"
+	"action TEXT NOT NULL DEFAULT '',"
+	"operator_id INTEGER NOT NULL DEFAULT 0,"
+	"create_time INTEGER NOT NULL DEFAULT 0"
+	");"
+	"CREATE UNIQUE INDEX IF NOT EXISTS idx_content_revision_unique ON content_revision(content_id, revision_no);"
+	"CREATE INDEX IF NOT EXISTS idx_content_revision_content ON content_revision(content_id, id DESC);"
+	"CREATE TABLE IF NOT EXISTS content_workflow_log ("
+	"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+	"content_id INTEGER NOT NULL DEFAULT 0,"
+	"action TEXT NOT NULL DEFAULT '',"
+	"from_status INTEGER NOT NULL DEFAULT 0,"
+	"to_status INTEGER NOT NULL DEFAULT 0,"
+	"from_draft INTEGER NOT NULL DEFAULT 0,"
+	"to_draft INTEGER NOT NULL DEFAULT 0,"
+	"reason TEXT NOT NULL DEFAULT '',"
+	"operator_id INTEGER NOT NULL DEFAULT 0,"
+	"create_time INTEGER NOT NULL DEFAULT 0"
+	");"
+	"CREATE INDEX IF NOT EXISTS idx_content_workflow_log_content ON content_workflow_log(content_id, id DESC);"
+	"CREATE INDEX IF NOT EXISTS idx_content_workflow_log_action ON content_workflow_log(action, create_time DESC);"
+	"CREATE TABLE IF NOT EXISTS content_search_index ("
+	"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+	"content_id INTEGER NOT NULL DEFAULT 0,"
+	"title TEXT NOT NULL DEFAULT '',"
+	"summary TEXT NOT NULL DEFAULT '',"
+	"body TEXT NOT NULL DEFAULT '',"
+	"keywords TEXT NOT NULL DEFAULT '',"
+	"status INTEGER NOT NULL DEFAULT 1,"
+	"update_time INTEGER NOT NULL DEFAULT 0"
+	");"
+	"CREATE UNIQUE INDEX IF NOT EXISTS idx_content_search_index_content ON content_search_index(content_id);"
+	"CREATE INDEX IF NOT EXISTS idx_content_search_index_status ON content_search_index(status, update_time DESC);";
 
 XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr)
 {
@@ -1049,6 +1116,40 @@ bool Managed_PublicApiEnabled(xvalue tblSpec)
 	xvalue tblCore = Managed_GetTableValue(tblSpec, "coreFeatures");
 	xvalue objValue = Managed_GetTableValue(tblCore, "publicApi");
 	return (objValue && (xvoType(objValue) == XVO_DT_BOOL)) ? xvoGetBool(objValue) : TRUE;
+}
+
+bool Managed_AbilityPackMounted(const char* sPackId)
+{
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue arrPacks = tblSpec ? xvoTableGetValue(tblSpec, "capabilitySlots", 15) : NULL;
+	bool bMounted = FALSE;
+
+	if ( (arrPacks == NULL) && tblSpec ) {
+		arrPacks = xvoTableGetValue(tblSpec, "capabilities", 12);
+	}
+	if ( sPackId && arrPacks && (xvoType(arrPacks) == XVO_DT_ARRAY) ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrPacks); i++ ) {
+			xvalue tblPack = xvoArrayGetValue(arrPacks, i);
+			const char* sKey;
+			xvalue objEnabled;
+			bool bEnabled = TRUE;
+
+			if ( (tblPack == NULL) || (xvoType(tblPack) != XVO_DT_TABLE) ) {
+				continue;
+			}
+			sKey = xvoTableGetText(tblPack, "key", 3);
+			objEnabled = xvoTableGetValue(tblPack, "enabled", 7);
+			if ( objEnabled && (xvoType(objEnabled) == XVO_DT_BOOL) ) {
+				bEnabled = xvoGetBool(objEnabled) ? TRUE : FALSE;
+			}
+			if ( bEnabled && sKey && (strcmp(sKey, sPackId) == 0) ) {
+				bMounted = TRUE;
+				break;
+			}
+		}
+	}
+	if ( tblSpec ) xvoUnref(tblSpec);
+	return bMounted;
 }
 
 const char* Managed_GetStatusFlow(xvalue tblSpec)
@@ -2467,7 +2568,38 @@ void Managed_AppendDerivedFields(xvalue tblItem, xvalue tblSpec)
 	}
 }
 
-void Managed_AppendRow(xvalue arrList, sqlite3_stmt* stmt, xvalue tblSpec)
+void Managed_AttachMediaFields(sqlite3* pDb, xvalue tblItem, bool bAttachMedia)
+{
+	sqlite3_stmt* stmt = NULL;
+	xvalue arrList = xvoCreateArray();
+	int64 iContentId = xvoTableGetInt(tblItem, "id", 2);
+
+	if ( (pDb == NULL) || (tblItem == NULL) || (iContentId <= 0) || !bAttachMedia ) {
+		xvoUnref(arrList);
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT m.id,m.title,m.url,m.mime,m.size,r.ref_type FROM content_media_ref r INNER JOIN content_media m ON m.id=r.media_id WHERE r.content_id=? AND m.delete_time=0 ORDER BY r.id ASC", -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblMedia = xvoCreateTable();
+			const char* sRefType = (const char*)sqlite3_column_text(stmt, 5);
+			xvoTableSetInt(tblMedia, "id", 2, sqlite3_column_int64(stmt, 0));
+			xvoTableSetText(tblMedia, "title", 5, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+			xvoTableSetText(tblMedia, "url", 3, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+			xvoTableSetText(tblMedia, "mime", 4, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+			xvoTableSetInt(tblMedia, "size", 4, sqlite3_column_int64(stmt, 4));
+			xvoTableSetText(tblMedia, "refType", 7, (str)sRefType, 0, FALSE);
+			xvoArrayAppendValue(arrList, tblMedia, TRUE);
+			if ( sRefType && (strcmp(sRefType, "cover") == 0) ) {
+				xvoTableSetInt(tblItem, "coverMediaId", 12, sqlite3_column_int64(stmt, 0));
+				xvoTableSetText(tblItem, "coverMediaUrl", 13, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+			}
+		}
+		sqlite3_finalize(stmt);
+	}
+	xvoTableSetValue(tblItem, "mediaList", 9, arrList, TRUE);
+}
+
+void Managed_AppendRow(xvalue arrList, sqlite3_stmt* stmt, xvalue tblSpec, sqlite3* pDb, bool bAttachMedia)
 {
 	xvalue tblItem = xvoCreateTable();
 	const char* sPayload = (const char*)sqlite3_column_text(stmt, 3);
@@ -2481,6 +2613,7 @@ void Managed_AppendRow(xvalue arrList, sqlite3_stmt* stmt, xvalue tblSpec)
 	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 6));
 	xvoTableSetInt(tblItem, "categoryId", 10, sqlite3_column_int(stmt, 7));
 	Managed_AppendDerivedFields(tblItem, tblSpec);
+	Managed_AttachMediaFields(pDb, tblItem, bAttachMedia);
 	xvoArrayAppendValue(arrList, tblItem, TRUE);
 }
 
@@ -3088,6 +3221,7 @@ void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objRe
 	const char* sRequestedSortField = NULL;
 	const char* sSqlSortField = NULL;
 	bool bSortAsc = FALSE;
+	bool bAttachMedia = Managed_AbilityPackMounted("content.media");
 	str sSql = NULL;
 
 	if ( iPage < 1 ) iPage = 1;
@@ -3129,7 +3263,7 @@ void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objRe
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			xvalue arrRow = xvoCreateArray();
 			xvalue tblItem;
-			Managed_AppendRow(arrRow, stmt, tblSpec);
+			Managed_AppendRow(arrRow, stmt, tblSpec, pDb, bAttachMedia);
 			tblItem = (xvoArrayItemCount(arrRow) > 0) ? xvoArrayGetValue(arrRow, 0) : NULL;
 			if ( Managed_RowMatchesFilters(tblItem, tblSpec, objReq, sQuery, bAdmin, iStatusFilter, iDraftFilter) ) {
 				xvoArrayAppendValue(arrMatched, xvoCopy(tblItem), TRUE);
@@ -3179,6 +3313,31 @@ void Managed_RequestDraftsAdmin(XS_ServerObject objServer, XS_HostObject objHost
 	Managed_RequestListCommon(objResp, objReq, TRUE, 1);
 }
 
+void Managed_RequestSearchCommon(XS_ResponseObject objResp, XS_RequestObject objReq, bool bAdmin)
+{
+	if ( !Managed_AbilityPackMounted("content.search") ) {
+		Managed_SendError(objResp, "search ability pack is not enabled");
+		return;
+	}
+	Managed_RequestListCommon(objResp, objReq, bAdmin, 0);
+}
+
+void Managed_RequestSearchPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	Managed_RequestSearchCommon(objResp, objReq, FALSE);
+}
+
+void Managed_RequestSearchAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	Managed_RequestSearchCommon(objResp, objReq, TRUE);
+}
+
 void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject objReq, bool bAdmin)
 {
 	char sId[32];
@@ -3226,7 +3385,7 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)atoll(sId));
 		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			xvalue arrData = xvoCreateArray();
-			Managed_AppendRow(arrData, stmt, tblSpec);
+			Managed_AppendRow(arrData, stmt, tblSpec, pDb, Managed_AbilityPackMounted("content.media"));
 			if ( xvoArrayItemCount(arrData) > 0 ) {
 				tblData = xvoCopy(xvoArrayGetValue(arrData, 0));
 			}
@@ -3235,7 +3394,7 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 	} else {
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			xvalue arrData = xvoCreateArray();
-			Managed_AppendRow(arrData, stmt, tblSpec);
+			Managed_AppendRow(arrData, stmt, tblSpec, pDb, Managed_AbilityPackMounted("content.media"));
 			if ( (xvoArrayItemCount(arrData) > 0) && Managed_ItemMatchesSlug(xvoArrayGetValue(arrData, 0), sSlug) ) {
 				tblData = xvoCopy(xvoArrayGetValue(arrData, 0));
 				xvoUnref(arrData);
@@ -3272,6 +3431,483 @@ void Managed_RequestGetAdmin(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objHost;
 	(void)objSession;
 	Managed_RequestDetailCommon(objResp, objReq, TRUE);
+}
+
+void Managed_AppendMediaRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblItem = xvoCreateTable();
+
+	if ( (arrList == NULL) || (stmt == NULL) || (tblItem == NULL) ) {
+		if ( tblItem ) xvoUnref(tblItem);
+		return;
+	}
+	xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetText(tblItem, "attachmentXid", 13, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+	xvoTableSetText(tblItem, "title", 5, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetText(tblItem, "url", 3, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+	xvoTableSetText(tblItem, "mime", 4, (str)sqlite3_column_text(stmt, 4), 0, FALSE);
+	xvoTableSetText(tblItem, "ext", 3, (str)sqlite3_column_text(stmt, 5), 0, FALSE);
+	xvoTableSetInt(tblItem, "size", 4, sqlite3_column_int64(stmt, 6));
+	xvoTableSetInt(tblItem, "width", 5, sqlite3_column_int(stmt, 7));
+	xvoTableSetInt(tblItem, "height", 6, sqlite3_column_int(stmt, 8));
+	xvoTableSetInt(tblItem, "status", 6, sqlite3_column_int(stmt, 9));
+	xvoTableSetInt(tblItem, "createTime", 10, sqlite3_column_int64(stmt, 10));
+	xvoTableSetInt(tblItem, "updateTime", 10, sqlite3_column_int64(stmt, 11));
+	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 10));
+	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 11));
+	xvoArrayAppendValue(arrList, tblItem, TRUE);
+}
+
+int64 Managed_MediaRefCount(sqlite3* pDb, int64 iMediaId)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 iCount = 0;
+
+	if ( (pDb == NULL) || (iMediaId <= 0) ) return 0;
+	if ( sqlite3_prepare_v2(pDb, "SELECT COUNT(*) FROM content_media_ref WHERE media_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iMediaId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt, 0);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	return iCount;
+}
+
+void Managed_MediaSyncRefOne(sqlite3* pDb, int64 iContentId, int64 iMediaId, const char* sRefType, int64 iNow)
+{
+	sqlite3_stmt* stmt = NULL;
+
+	if ( (pDb == NULL) || (iContentId <= 0) || (iMediaId <= 0) || Managed_IsBlank(sRefType) ) return;
+	if ( sqlite3_prepare_v2(pDb, "INSERT OR IGNORE INTO content_media_ref(media_id,content_id,ref_type,create_time) VALUES(?,?,?,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iMediaId);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iContentId);
+		sqlite3_bind_text(stmt, 3, sRefType, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 4, iNow);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+}
+
+void Managed_MediaSyncRefs(sqlite3* pDb, int64 iContentId, xvalue tblData, int64 iNow)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 iCoverId = 0;
+	xvalue objMediaIds = NULL;
+
+	if ( !Managed_AbilityPackMounted("content.media") || (pDb == NULL) || (iContentId <= 0) || (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) ) return;
+	if ( sqlite3_prepare_v2(pDb, "DELETE FROM content_media_ref WHERE content_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	iCoverId = xvoTableGetInt(tblData, "cover_media_id", 14);
+	if ( iCoverId <= 0 ) iCoverId = xvoTableGetInt(tblData, "coverMediaId", 12);
+	if ( iCoverId > 0 ) Managed_MediaSyncRefOne(pDb, iContentId, iCoverId, "cover", iNow);
+	objMediaIds = xvoTableGetValue(tblData, "media_ids", 9);
+	if ( objMediaIds == NULL ) objMediaIds = xvoTableGetValue(tblData, "mediaIds", 8);
+	if ( objMediaIds && (xvoType(objMediaIds) == XVO_DT_ARRAY) ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(objMediaIds); i++ ) {
+			Managed_MediaSyncRefOne(pDb, iContentId, Managed_ValueToInt64(xvoArrayGetValue(objMediaIds, i)), "body", iNow);
+		}
+	} else if ( objMediaIds ) {
+		char sBuf[1024];
+		char* p;
+		const char* sText = xvoTableGetText(tblData, "media_ids", 9);
+		if ( sText == NULL ) sText = xvoTableGetText(tblData, "mediaIds", 8);
+		snprintf(sBuf, sizeof(sBuf), "%s", sText ? sText : "");
+		p = strtok(sBuf, ",");
+		while ( p ) {
+			Managed_MediaSyncRefOne(pDb, iContentId, atoll(p), "body", iNow);
+			p = strtok(NULL, ",");
+		}
+	}
+}
+
+void Managed_RequestMediaListCommon(XS_ResponseObject objResp, bool bAdmin)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	const char* sSql = bAdmin
+		? "SELECT id,attachment_xid,title,url,mime,ext,size,width,height,status,create_time,update_time FROM content_media WHERE delete_time=0 ORDER BY id DESC"
+		: "SELECT id,attachment_xid,title,url,mime,ext,size,width,height,status,create_time,update_time FROM content_media WHERE status=1 AND delete_time=0 ORDER BY id DESC";
+
+	if ( !Managed_AbilityPackMounted("content.media") ) {
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "media ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) Managed_AppendMediaRow(arrList, stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestMediaListPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	Managed_RequestMediaListCommon(objResp, FALSE);
+}
+
+void Managed_RequestMediaListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	Managed_RequestMediaListCommon(objResp, TRUE);
+}
+
+void Managed_RequestMediaDetailPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sId[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue arrList = xvoCreateArray();
+	xvalue tblRet = NULL;
+	int64 iId = 0;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	Managed_ReadTextQuery(objReq, "id", sId, sizeof(sId));
+	iId = atoll(sId);
+	if ( iId <= 0 ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "missing media id");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.media") ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "media ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,attachment_xid,title,url,mime,ext,size,width,height,status,create_time,update_time FROM content_media WHERE id=? AND status=1 AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) Managed_AppendMediaRow(arrList, stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( xvoArrayItemCount(arrList) <= 0 ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "media not found");
+		return;
+	}
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, xvoArrayGetValue(arrList, 0), FALSE);
+	xvoUnref(arrList);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestMediaSaveAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	const char* sTitle = tblBody ? xvoTableGetText(tblBody, "title", 5) : NULL;
+	const char* sUrl = tblBody ? xvoTableGetText(tblBody, "url", 3) : NULL;
+	const char* sMime = tblBody ? xvoTableGetText(tblBody, "mime", 4) : NULL;
+	const char* sExt = tblBody ? xvoTableGetText(tblBody, "ext", 3) : NULL;
+	const char* sAttachmentXid = tblBody ? xvoTableGetText(tblBody, "attachmentXid", 13) : NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( tblBody == NULL ) {
+		Managed_SendError(objResp, "invalid json body");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.media") ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "media ability pack is not enabled");
+		return;
+	}
+	if ( Managed_IsBlank(sUrl) ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "url is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_media SET attachment_xid=?,title=?,url=?,mime=?,ext=?,size=?,width=?,height=?,status=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sAttachmentXid ? sAttachmentXid : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 2, sTitle ? sTitle : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 3, sUrl ? sUrl : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 4, sMime ? sMime : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 5, sExt ? sExt : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 6, xvoTableGetInt(tblBody, "size", 4));
+			sqlite3_bind_int(stmt, 7, (int)xvoTableGetInt(tblBody, "width", 5));
+			sqlite3_bind_int(stmt, 8, (int)xvoTableGetInt(tblBody, "height", 6));
+			sqlite3_bind_int(stmt, 9, xvoTableGetInt(tblBody, "status", 6) ? 1 : 0);
+			sqlite3_bind_int64(stmt, 10, iNow);
+			sqlite3_bind_int64(stmt, 11, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	} else {
+		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_media(attachment_xid,title,url,mime,ext,size,width,height,status,create_time,update_time,delete_time) VALUES(?,?,?,?,?,?,?,?,?,?,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sAttachmentXid ? sAttachmentXid : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 2, sTitle ? sTitle : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 3, sUrl ? sUrl : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 4, sMime ? sMime : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 5, sExt ? sExt : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 6, xvoTableGetInt(tblBody, "size", 4));
+			sqlite3_bind_int(stmt, 7, (int)xvoTableGetInt(tblBody, "width", 5));
+			sqlite3_bind_int(stmt, 8, (int)xvoTableGetInt(tblBody, "height", 6));
+			sqlite3_bind_int(stmt, 9, xvoTableGetInt(tblBody, "status", 6) ? 1 : 0);
+			sqlite3_bind_int64(stmt, 10, iNow);
+			sqlite3_bind_int64(stmt, 11, iNow);
+			sqlite3_step(stmt);
+			iId = sqlite3_last_insert_rowid(pDb);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(iId > 0, iId > 0 ? "ok" : "save failed"));
+}
+
+void Managed_RequestMediaDeleteAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.media") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "media ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "invalid media id");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( Managed_MediaRefCount(pDb, iId) > 0 ) {
+		Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "media is still referenced");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_media SET delete_time=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, iNow);
+		sqlite3_bind_int64(stmt, 2, iNow);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblBody ) xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "deleted"));
+}
+
+int64 Managed_RevisionNextNo(sqlite3* pDb, int64 iContentId)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 iNext = 1;
+
+	if ( (pDb == NULL) || (iContentId <= 0) ) return 1;
+	if ( sqlite3_prepare_v2(pDb, "SELECT COALESCE(MAX(revision_no),0)+1 FROM content_revision WHERE content_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) iNext = sqlite3_column_int64(stmt, 0);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	return iNext > 0 ? iNext : 1;
+}
+
+void Managed_RevisionSnapshot(sqlite3* pDb, int64 iContentId, const char* sTitle, int iStatus, int iCategoryId, bool bDraft, const char* sPayloadJson, const char* sAction, int64 iNow)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 iRevisionNo;
+
+	if ( !Managed_AbilityPackMounted("content.revision") || (pDb == NULL) || (iContentId <= 0) ) return;
+	iRevisionNo = Managed_RevisionNextNo(pDb, iContentId);
+	if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_revision(content_id,revision_no,title,status,category_id,is_draft,payload_json,action,operator_id,create_time) VALUES(?,?,?,?,?,?,?,?,0,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iRevisionNo);
+		sqlite3_bind_text(stmt, 3, sTitle ? sTitle : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 4, iStatus);
+		sqlite3_bind_int(stmt, 5, iCategoryId);
+		sqlite3_bind_int(stmt, 6, bDraft ? 1 : 0);
+		sqlite3_bind_text(stmt, 7, sPayloadJson ? sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 8, sAction ? sAction : "save", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 9, (sqlite3_int64)iNow);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+}
+
+void Managed_RequestRevisionListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sContentId[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	int64 iContentId = 0;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	Managed_ReadTextQuery(objReq, "contentId", sContentId, sizeof(sContentId));
+	iContentId = atoll(sContentId);
+	if ( !Managed_AbilityPackMounted("content.revision") ) {
+		xvoUnref(tblRet); xvoUnref(arrList);
+		Managed_SendError(objResp, "revision ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet); xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, iContentId > 0
+		? "SELECT id,content_id,revision_no,title,status,category_id,is_draft,action,operator_id,create_time FROM content_revision WHERE content_id=? ORDER BY revision_no DESC,id DESC"
+		: "SELECT id,content_id,revision_no,title,status,category_id,is_draft,action,operator_id,create_time FROM content_revision ORDER BY id DESC LIMIT 200", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( iContentId > 0 ) sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblItem = xvoCreateTable();
+			xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+			xvoTableSetInt(tblItem, "contentId", 9, sqlite3_column_int64(stmt, 1));
+			xvoTableSetInt(tblItem, "revisionNo", 10, sqlite3_column_int64(stmt, 2));
+			xvoTableSetText(tblItem, "title", 5, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+			xvoTableSetInt(tblItem, "status", 6, sqlite3_column_int(stmt, 4));
+			xvoTableSetInt(tblItem, "categoryId", 10, sqlite3_column_int(stmt, 5));
+			xvoTableSetBool(tblItem, "isDraft", 7, sqlite3_column_int(stmt, 6) ? TRUE : FALSE);
+			xvoTableSetText(tblItem, "action", 6, (str)sqlite3_column_text(stmt, 7), 0, FALSE);
+			xvoTableSetInt(tblItem, "operatorId", 10, sqlite3_column_int64(stmt, 8));
+			xvoTableSetInt(tblItem, "createTime", 10, sqlite3_column_int64(stmt, 9));
+			Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 9));
+			xvoArrayAppendValue(arrList, tblItem, TRUE);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_WorkflowAppendLog(sqlite3* pDb, int64 iContentId, const char* sAction, int iFromStatus, int iToStatus, bool bFromDraft, bool bToDraft, const char* sReason, int64 iNow)
+{
+	sqlite3_stmt* stmt = NULL;
+
+	if ( !Managed_AbilityPackMounted("content.workflow") || (pDb == NULL) || (iContentId <= 0) || Managed_IsBlank(sAction) ) return;
+	if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_workflow_log(content_id,action,from_status,to_status,from_draft,to_draft,reason,operator_id,create_time) VALUES(?,?,?,?,?,?,?,0,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		sqlite3_bind_text(stmt, 2, sAction, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 3, iFromStatus);
+		sqlite3_bind_int(stmt, 4, iToStatus);
+		sqlite3_bind_int(stmt, 5, bFromDraft ? 1 : 0);
+		sqlite3_bind_int(stmt, 6, bToDraft ? 1 : 0);
+		sqlite3_bind_text(stmt, 7, sReason ? sReason : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 8, (sqlite3_int64)iNow);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+}
+
+void Managed_RequestWorkflowActionAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	const char* sAction = tblBody ? xvoTableGetText(tblBody, "action", 6) : NULL;
+	const char* sReason = tblBody ? xvoTableGetText(tblBody, "reason", 6) : NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int iFromStatus = 0;
+	int iToStatus = 0;
+	bool bFromDraft = FALSE;
+	bool bToDraft = FALSE;
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue tblRet = NULL;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.workflow") || (iId <= 0) || Managed_IsBlank(sAction) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "invalid workflow request");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT status,is_draft FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			iFromStatus = sqlite3_column_int(stmt, 0);
+			bFromDraft = sqlite3_column_int(stmt, 1) ? TRUE : FALSE;
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	iToStatus = iFromStatus;
+	bToDraft = bFromDraft;
+	if ( strcmp(sAction, "submit") == 0 ) {
+		iToStatus = Managed_StatusFlowNeedsReview(tblSpec) ? 1 : Managed_PublicStatusThreshold(tblSpec);
+		bToDraft = FALSE;
+	} else if ( (strcmp(sAction, "approve") == 0) || (strcmp(sAction, "publish") == 0) ) {
+		iToStatus = Managed_PublicStatusThreshold(tblSpec);
+		bToDraft = FALSE;
+	} else if ( strcmp(sAction, "reject") == 0 ) {
+		iToStatus = 0;
+		bToDraft = TRUE;
+	} else if ( strcmp(sAction, "offline") == 0 ) {
+		iToStatus = 0;
+		bToDraft = FALSE;
+	} else {
+		Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "unsupported workflow action");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET status=?,is_draft=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int(stmt, 1, iToStatus);
+		sqlite3_bind_int(stmt, 2, bToDraft ? 1 : 0);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 4, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_WorkflowAppendLog(pDb, iId, sAction, iFromStatus, iToStatus, bFromDraft, bToDraft, sReason, iNow);
+	Managed_CloseDb(pDb);
+	tblRet = Managed_CreateResult(TRUE, "workflow action saved");
+	xvoTableSetInt(tblRet, "id", 2, iId);
+	xvoTableSetInt(tblRet, "status", 6, iToStatus);
+	xvoTableSetBool(tblRet, "isDraft", 7, bToDraft);
+	Managed_SendJsonValue(objResp, tblRet);
+	if ( tblBody ) xvoUnref(tblBody);
+	if ( tblSpec ) xvoUnref(tblSpec);
 }
 
 void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -3389,6 +4025,8 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	}
 
 	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_RevisionSnapshot(pDb, iId, sTitle, iStatus, iCategoryId > 0 ? iCategoryId : 0, bDraft, sPayloadJson, "save", iNow);
+	Managed_MediaSyncRefs(pDb, iId, tblData, iNow);
 	Managed_CloseDb(pDb);
 	xvoUnref(tblSpec);
 	xvoUnref(tblForm);
@@ -3630,6 +4268,14 @@ void Managed_RequestCategorySaveAdmin(XS_ServerObject objServer, XS_HostObject o
 		}
 	}
 	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	if ( Managed_AbilityPackMounted("content.media") ) {
+		if ( sqlite3_prepare_v2(pDb, "DELETE FROM content_media_ref WHERE content_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+		if ( stmt ) sqlite3_finalize(stmt);
+	}
 	Managed_CloseDb(pDb);
 	xvoUnref(tblForm);
 	if ( sPath ) xrtFree(sPath);
@@ -3812,6 +4458,11 @@ int Managed_OnStart(XAdminPluginHandle handle)
 	xvalue tblSpec = Managed_LoadSpec();
 	bool bAdminCrud = Managed_AdminCrudEnabled(tblSpec);
 	bool bPublicApi = Managed_PublicApiEnabled(tblSpec);
+	bool bCategoryPack = Managed_AbilityPackMounted("content.category");
+	bool bMediaPack = Managed_AbilityPackMounted("content.media");
+	bool bRevisionPack = Managed_AbilityPackMounted("content.revision");
+	bool bWorkflowPack = Managed_AbilityPackMounted("content.workflow");
+	bool bSearchPack = Managed_AbilityPackMounted("content.search");
 
 	if ( !Managed_EnsureSchema() ) {
 		printf("        [ManagedPlugin] start failed during schema ensure: xid={{PLUGIN_XID}}\n");
@@ -3852,6 +4503,34 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
+		if ( bMediaPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/media/list";
+			route.proc = Managed_RequestMediaListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/media/detail";
+			route.proc = Managed_RequestMediaDetailPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+		}
+
+		if ( bSearchPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/search";
+			route.proc = Managed_RequestSearchPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+		}
+
 		memset(&route, 0, sizeof(route));
 		route.path = "/plugin/{{PLUGIN_XID}}";
 		route.proc = Managed_RequestPublicView;
@@ -3882,54 +4561,124 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/list";
-		route.proc = Managed_RequestCategoryListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/list";
+			route.proc = Managed_RequestCategoryListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/get";
+			route.proc = Managed_RequestCategoryGetAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/save";
+			route.proc = Managed_RequestCategorySaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/delete";
+			route.proc = Managed_RequestCategoryDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/sort";
+			route.proc = Managed_RequestCategorySortAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/get";
-		route.proc = Managed_RequestCategoryGetAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bMediaPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/media/list";
+			route.proc = Managed_RequestMediaListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/media/save";
+			route.proc = Managed_RequestMediaSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/media/delete";
+			route.proc = Managed_RequestMediaDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/save";
-		route.proc = Managed_RequestCategorySaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bRevisionPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/revision/list";
+			route.proc = Managed_RequestRevisionListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/delete";
-		route.proc = Managed_RequestCategoryDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bWorkflowPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/workflow/action";
+			route.proc = Managed_RequestWorkflowActionAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/sort";
-		route.proc = Managed_RequestCategorySortAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSearchPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/search";
+			route.proc = Managed_RequestSearchAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
 		memset(&route, 0, sizeof(route));
@@ -4012,14 +4761,16 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/{{PLUGIN_XID}}/categories";
-		route.proc = Managed_RequestCategoriesView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/{{PLUGIN_XID}}/categories";
+			route.proc = Managed_RequestCategoriesView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
 		memset(&menu, 0, sizeof(menu));
@@ -4037,20 +4788,22 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&menu, 0, sizeof(menu));
-		menu.key = "{{PLUGIN_XID}}.categories";
-		menu.parent_id = iRootMenuId;
-		menu.title = "栏目管理";
-		menu.icon = "layui-icon layui-icon-tabs";
-		menu.type = 1;
-		menu.open_type = "_component";
-		menu.href = "/admin/view/plugin/{{PLUGIN_XID}}/categories";
-		menu.sort = 10;
-		menu.visible = TRUE;
-		menu.remark = "Managed content categories";
-		if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
-			printf("        [ManagedPlugin] menu register failed: xid={{PLUGIN_XID}} href=%s\n", menu.href);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&menu, 0, sizeof(menu));
+			menu.key = "{{PLUGIN_XID}}.categories";
+			menu.parent_id = iRootMenuId;
+			menu.title = "栏目管理";
+			menu.icon = "layui-icon layui-icon-tabs";
+			menu.type = 1;
+			menu.open_type = "_component";
+			menu.href = "/admin/view/plugin/{{PLUGIN_XID}}/categories";
+			menu.sort = 10;
+			menu.visible = TRUE;
+			menu.remark = "Managed content categories";
+			if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
+				printf("        [ManagedPlugin] menu register failed: xid={{PLUGIN_XID}} href=%s\n", menu.href);
+				goto failed;
+			}
 		}
 
 		memset(&menu, 0, sizeof(menu));

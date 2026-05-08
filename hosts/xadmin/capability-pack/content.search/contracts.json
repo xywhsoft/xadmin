@@ -1,0 +1,8 @@
+{
+  "permissions": ["search.view", "search.manage"],
+  "adminPages": ["search"],
+  "publicApis": ["search.query"],
+  "tables": ["content_search_index"],
+  "events": ["content.afterSave", "content.afterDelete"],
+  "tasks": ["search.rebuildIndex"]
+}

@@ -1,0 +1,8 @@
+{
+  "permissions": ["category.view", "category.manage"],
+  "adminPages": ["categories"],
+  "publicApis": ["category.list", "category.detail", "category.contents"],
+  "tables": ["content_category"],
+  "events": ["category.afterSave", "category.afterDelete"],
+  "tasks": []
+}

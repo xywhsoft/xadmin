@@ -24,11 +24,15 @@ typedef struct {
 typedef struct {
 	PluginSystemTokenBase base;
 	str sPath;
+	str sPattern;
 	void* pProc;
+	bool bDynamic;
 	bool bNeedAuth;
 	bool bAdminOnly;
 	int iAuthId;
 	int iAuthLevel;
+	int iPriority;
+	int iMethod;
 } PluginSystemRouteToken;
 
 typedef struct {
@@ -234,6 +238,7 @@ void PS_HostFreeRouteToken(PluginSystemRouteToken* pToken)
 		return;
 	}
 	PS_FreeString(&pToken->sPath);
+	PS_FreeString(&pToken->sPattern);
 	xrtFree(pToken);
 }
 
@@ -421,7 +426,9 @@ void PS_HostInvokeRoute(RouteInfo* pInfo, XS_ServerObject objServer, XS_HostObje
 		pGeneration->iRefCount++;
 	}
 	if ( pInfo && pInfo->Proc ) {
+		DynamicRoute_BeginInvoke(pInfo, xsReqPath(objReq));
 		pInfo->Proc(objServer, objHost, objReq, objResp, objSession);
+		DynamicRoute_EndInvoke();
 	}
 	if ( pGeneration && (pGeneration->iRefCount > 0) ) {
 		pGeneration->iRefCount--;
@@ -451,8 +458,15 @@ int PS_HostApplyRouteToken(PluginSystemRouteToken* pToken, bool bForce)
 		}
 	}
 
-	AddStaticRouteHTTP(pToken->sPath, pToken->pProc);
-	pInfo = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
+	if ( pToken->bDynamic ) {
+		if ( !AddDynamicRouteHTTPEx(pToken->sPath, pToken->sPattern, pToken->pProc, pToken->iPriority, pToken->iMethod) ) {
+			return -1;
+		}
+		pInfo = FindDynamicRouteHTTP(pToken->sPath);
+	} else {
+		AddStaticRouteHTTP(pToken->sPath, pToken->pProc);
+		pInfo = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
+	}
 	if ( pInfo == NULL ) {
 		return -1;
 	}
@@ -509,6 +523,43 @@ int PS_HostRegisterRoute(void* plugin_handle, const XAdminRouteDecl* decl, XAdmi
 	return 0;
 }
 
+int PS_HostRegisterDynamicRoute(void* plugin_handle, const XAdminDynamicRouteDecl* decl, XAdminRouteToken* token)
+{
+	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
+	PluginSystemRouteToken* pToken;
+
+	if ( (decl == NULL) || (decl->path == NULL) || (decl->pattern == NULL) || (decl->proc == NULL) || (pGeneration == NULL) ) {
+		return -1;
+	}
+
+	pToken = xrtMalloc(sizeof(PluginSystemRouteToken));
+	if ( pToken == NULL ) {
+		return -1;
+	}
+	memset(pToken, 0, sizeof(PluginSystemRouteToken));
+	pToken->base.pGeneration = pGeneration;
+	pToken->sPath = xrtCopyStr((str)decl->path, 0);
+	pToken->sPattern = xrtCopyStr((str)decl->pattern, 0);
+	pToken->pProc = decl->proc;
+	pToken->bDynamic = TRUE;
+	pToken->bNeedAuth = decl->need_auth;
+	pToken->bAdminOnly = decl->admin_only;
+	pToken->iAuthId = decl->auth_id;
+	pToken->iAuthLevel = decl->auth_level;
+	pToken->iPriority = decl->priority;
+	pToken->iMethod = decl->method;
+	if ( (pToken->sPath == NULL) || (pToken->sPattern == NULL) ) {
+		PS_HostFreeRouteToken(pToken);
+		return -1;
+	}
+
+	if ( token ) {
+		*token = (XAdminRouteToken)(uintptr_t)pToken;
+	}
+	PS_HostAppendToken(pGeneration->lstRouteTokens, pToken);
+	return 0;
+}
+
 int PS_HostUnregisterRoute(XAdminRouteToken token)
 {
 	PluginSystemRouteToken* pToken = (PluginSystemRouteToken*)(uintptr_t)token;
@@ -524,10 +575,18 @@ int PS_HostUnregisterRoute(XAdminRouteToken token)
 	pToken->base.bReleased = TRUE;
 
 	if ( pToken->base.bPublished && pToken->sPath ) {
-		pCurrent = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
-		if ( pCurrent && (pCurrent->Proc == pToken->pProc) ) {
-			pCurrent->pPluginRouteToken = NULL;
-			xrtDictRemove(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
+		if ( pToken->bDynamic ) {
+			pCurrent = FindDynamicRouteHTTP(pToken->sPath);
+			if ( pCurrent && (pCurrent->Proc == pToken->pProc) ) {
+				pCurrent->pPluginRouteToken = NULL;
+				RemoveDynamicRouteHTTP(pToken->sPath);
+			}
+		} else {
+			pCurrent = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
+			if ( pCurrent && (pCurrent->Proc == pToken->pProc) ) {
+				pCurrent->pPluginRouteToken = NULL;
+				xrtDictRemove(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
+			}
 		}
 	}
 
@@ -1400,6 +1459,9 @@ int PS_HostApplyUriAuthToken(PluginSystemUriAuthToken* pToken, bool bForce)
 
 	pInfo = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sUri, strlen(pToken->sUri));
 	if ( pInfo == NULL ) {
+		pInfo = FindDynamicRouteHTTP(pToken->sUri);
+	}
+	if ( pInfo == NULL ) {
 		return -1;
 	}
 
@@ -1418,7 +1480,7 @@ int PS_HostApplyUriAuthToken(PluginSystemUriAuthToken* pToken, bool bForce)
 
 	iNow = xrtNow();
 	if ( iUriId > 0 ) {
-		if ( sqlite3_prepare_v3(G_DB, "UPDATE uris SET authID = ?, uri = ?, desc = ?, isBackend = ?, needAuth = ?, needLog = ?, keepActive = ?, sort = ?, updateTime = ?, plugin_xid = ?, plugin_generation = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE uris SET authID = ?, uri = ?, desc = ?, isBackend = ?, needAuth = ?, needLog = ?, keepActive = ?, sort = ?, updateTime = ?, plugin_xid = ?, plugin_generation = ?, isPersistent = 1, namespace = 'plugin' WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return -1;
 		}
 		sqlite3_bind_int(stmt, 1, iAuthId);
@@ -1434,7 +1496,7 @@ int PS_HostApplyUriAuthToken(PluginSystemUriAuthToken* pToken, bool bForce)
 		sqlite3_bind_int(stmt, 11, (int)pToken->base.pGeneration->iGeneration);
 		sqlite3_bind_int(stmt, 12, iUriId);
 	} else {
-		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO uris (authID, uri, desc, isBackend, needAuth, needLog, keepActive, sort, createTime, updateTime, plugin_xid, plugin_generation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO uris (authID, uri, desc, isBackend, needAuth, needLog, keepActive, sort, createTime, updateTime, plugin_xid, plugin_generation, isPersistent, namespace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'plugin')", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return -1;
 		}
 		sqlite3_bind_int(stmt, 1, iAuthId);
@@ -1557,6 +1619,9 @@ int PS_HostUnregisterUriAuth(XAdminUriAuthToken token)
 
 		if ( pToken->sUri ) {
 			pInfo = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sUri, strlen(pToken->sUri));
+			if ( pInfo == NULL ) {
+				pInfo = FindDynamicRouteHTTP(pToken->sUri);
+			}
 			if ( pInfo && pInfo->pPluginRouteToken ) {
 				pRouteToken = (PluginSystemRouteToken*)pInfo->pPluginRouteToken;
 			}
@@ -1824,6 +1889,21 @@ int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl
 	return PS_HostRegisterRoute(plugin_handle, decl, token);
 }
 
+int XAdmin_RegisterDynamicRoute(XAdminPluginHandle plugin_handle, const XAdminDynamicRouteDecl* decl, XAdminRouteToken* token)
+{
+	return PS_HostRegisterDynamicRoute(plugin_handle, decl, token);
+}
+
+int XAdmin_RouteParam(int index, char* out_value, size_t out_cap)
+{
+	return DynamicRoute_GetParam(index, out_value, out_cap);
+}
+
+int XAdmin_RouteParamCount()
+{
+	return DynamicRoute_GetParamCount();
+}
+
 int XAdmin_UnregisterRoute(XAdminRouteToken token)
 {
 	return PS_HostUnregisterRoute(token);
@@ -2011,6 +2091,9 @@ void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc)
 	}
 
 	tcc_add_symbol(pTcc, "XAdmin_RegisterRoute", XAdmin_RegisterRoute);
+	tcc_add_symbol(pTcc, "XAdmin_RegisterDynamicRoute", XAdmin_RegisterDynamicRoute);
+	tcc_add_symbol(pTcc, "XAdmin_RouteParam", XAdmin_RouteParam);
+	tcc_add_symbol(pTcc, "XAdmin_RouteParamCount", XAdmin_RouteParamCount);
 	tcc_add_symbol(pTcc, "XAdmin_UnregisterRoute", XAdmin_UnregisterRoute);
 	tcc_add_symbol(pTcc, "xsHttpReplyFormat", xsHttpReplyFormat);
 	tcc_add_symbol(pTcc, "LoadPage", LoadPage);

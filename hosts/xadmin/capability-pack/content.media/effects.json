@@ -1,0 +1,11 @@
+{
+  "tables": ["content_media", "content_media_ref"],
+  "fields": [
+    {"name": "cover_media_id", "title": "封面资源", "storage": {"type": "integer"}, "showInList": false}
+  ],
+  "adminPages": ["media"],
+  "publicApis": ["media.list", "media.detail"],
+  "permissions": ["media.view", "media.manage"],
+  "events": ["media.afterUpload", "content.afterDelete"],
+  "tasks": []
+}

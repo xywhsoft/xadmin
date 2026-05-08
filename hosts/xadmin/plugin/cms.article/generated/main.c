@@ -2565,6 +2565,71 @@ xvalue Managed_CreateItemFromStmt(sqlite3_stmt* stmt, xvalue tblSpec)
 	return tblItem;
 }
 
+const char* Managed_TableTextOrEmpty(xvalue tblData, const char* sKey)
+{
+	const char* sValue;
+
+	if ( (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) || Managed_IsBlank(sKey) ) {
+		return "";
+	}
+	sValue = xvoTableGetText(tblData, sKey, (int)strlen(sKey));
+	return sValue ? sValue : "";
+}
+
+const char* Managed_ItemTextOrEmpty(xvalue tblItem, const char* sKey)
+{
+	const char* sValue;
+
+	if ( (tblItem == NULL) || (xvoType(tblItem) != XVO_DT_TABLE) || Managed_IsBlank(sKey) ) {
+		return "";
+	}
+	sValue = xvoTableGetText(tblItem, sKey, (int)strlen(sKey));
+	return sValue ? sValue : "";
+}
+
+xvalue Managed_BuildSeoMeta(xvalue tblItem)
+{
+	xvalue tblMeta = xvoCreateTable();
+	xvalue tblData = tblItem ? xvoTableGetValue(tblItem, "data", 4) : NULL;
+	const char* sTitle = Managed_TableTextOrEmpty(tblData, "seo_title");
+	const char* sKeywords = Managed_TableTextOrEmpty(tblData, "seo_keywords");
+	const char* sDescription = Managed_TableTextOrEmpty(tblData, "seo_description");
+	const char* sSlug = Managed_ItemTextOrEmpty(tblItem, "slug");
+
+	if ( Managed_IsBlank(sTitle) ) {
+		sTitle = Managed_ItemTextOrEmpty(tblItem, "title");
+	}
+	if ( Managed_IsBlank(sDescription) ) {
+		sDescription = Managed_ItemTextOrEmpty(tblItem, "summary");
+	}
+	xvoTableSetText(tblMeta, "title", 5, (str)(sTitle ? sTitle : ""), 0, FALSE);
+	xvoTableSetText(tblMeta, "keywords", 8, (str)(sKeywords ? sKeywords : ""), 0, FALSE);
+	xvoTableSetText(tblMeta, "description", 11, (str)(sDescription ? sDescription : ""), 0, FALSE);
+	xvoTableSetText(tblMeta, "slug", 4, (str)(sSlug ? sSlug : ""), 0, FALSE);
+	if ( !Managed_IsBlank(sSlug) ) {
+		str sCanonical = xrtFormat("/plugin/cms.article?slug=%s", sSlug);
+		xvoTableSetText(tblMeta, "canonical", 9, sCanonical ? sCanonical : (str)"", 0, TRUE);
+	}
+	return tblMeta;
+}
+
+bool Managed_NormalizeRedirectPath(const char* sInput, char* sBuf, int iBufSize)
+{
+	if ( (sBuf == NULL) || (iBufSize <= 0) ) {
+		return FALSE;
+	}
+	memset(sBuf, 0, (size_t)iBufSize);
+	if ( Managed_IsBlank(sInput) ) {
+		return FALSE;
+	}
+	if ( sInput[0] == '/' ) {
+		snprintf(sBuf, (size_t)iBufSize, "%s", sInput);
+	} else {
+		snprintf(sBuf, (size_t)iBufSize, "/%s", sInput);
+	}
+	return sBuf[0] != '\0';
+}
+
 void Managed_AppendTaxonomyText(char* sBuffer, size_t iCap, const char* sText)
 {
 	size_t iLen;
@@ -7415,6 +7480,13 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
 	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
 	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
+	if ( (sSlug[0] != '\0') && !Managed_AbilityPackMounted("content.slug") ) {
+		if ( sSqlById ) xrtFree(sSqlById);
+		if ( sSqlScan ) xrtFree(sSqlScan);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "slug capability is not enabled");
+		return;
+	}
 	if ( (sId[0] == '\0') && (sSlug[0] == '\0') ) {
 		if ( sSqlById ) xrtFree(sSqlById);
 		if ( sSqlScan ) xrtFree(sSqlScan);
@@ -7488,6 +7560,383 @@ void Managed_RequestDetailPublic(XS_ServerObject objServer, XS_HostObject objHos
 	(void)objHost;
 	(void)objSession;
 	Managed_RequestDetailCommon(objResp, objReq, FALSE);
+}
+
+void Managed_RequestSlugResolvePublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sSlug[160];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue tblItem = NULL;
+	xvalue tblRet = NULL;
+	xvalue tblData = NULL;
+	str sSql = NULL;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	memset(sSlug, 0, sizeof(sSlug));
+	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
+	if ( Managed_IsBlank(sSlug) ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "slug is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	sSql = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
+	if ( sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblCandidate = Managed_CreateItemFromStmt(stmt, tblSpec);
+			if ( Managed_ItemMatchesSlug(tblCandidate, sSlug) ) {
+				tblItem = tblCandidate;
+				break;
+			}
+			if ( tblCandidate ) xvoUnref(tblCandidate);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( sSql ) xrtFree(sSql);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	if ( tblItem == NULL ) {
+		Managed_SendError(objResp, "slug not found");
+		return;
+	}
+	tblData = xvoCreateTable();
+	xvoTableSetInt(tblData, "id", 2, xvoTableGetInt(tblItem, "id", 2));
+	xvoTableSetText(tblData, "title", 5, (str)Managed_ItemTextOrEmpty(tblItem, "title"), 0, FALSE);
+	xvoTableSetText(tblData, "slug", 4, (str)Managed_ItemTextOrEmpty(tblItem, "slug"), 0, FALSE);
+	xvoTableSetText(tblData, "url", 3, xrtFormat("/plugin/cms.article?slug=%s", Managed_ItemTextOrEmpty(tblItem, "slug")), 0, TRUE);
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
+	xvoUnref(tblItem);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestRedirectResolvePublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sPath[512];
+	char sUrl[512];
+	char sSource[768];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblData = NULL;
+	xvalue tblRet = NULL;
+	int64 iId = 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	memset(sPath, 0, sizeof(sPath));
+	memset(sUrl, 0, sizeof(sUrl));
+	Managed_ReadTextQuery(objReq, "path", sPath, sizeof(sPath));
+	Managed_ReadTextQuery(objReq, "url", sUrl, sizeof(sUrl));
+	if ( !Managed_NormalizeRedirectPath(!Managed_IsBlank(sPath) ? sPath : sUrl, sSource, sizeof(sSource)) ) {
+		Managed_SendError(objResp, "path is required");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.redirect") ) {
+		Managed_SendError(objResp, "redirect ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,source_path,target_url,status_code,hit_count,last_hit_time FROM content_redirect WHERE source_path=? AND status=1 AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_text(stmt, 1, sSource, -1, SQLITE_TRANSIENT);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			iId = sqlite3_column_int64(stmt, 0);
+			tblData = xvoCreateTable();
+			xvoTableSetInt(tblData, "id", 2, iId);
+			xvoTableSetText(tblData, "sourcePath", 10, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+			xvoTableSetText(tblData, "targetUrl", 9, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+			xvoTableSetInt(tblData, "statusCode", 10, sqlite3_column_int(stmt, 3));
+			xvoTableSetInt(tblData, "hitCount", 8, sqlite3_column_int64(stmt, 4) + 1);
+			xvoTableSetInt(tblData, "lastHitTime", 11, iNow);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_redirect SET hit_count=hit_count+1,last_hit_time=?,update_time=? WHERE id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, iNow);
+			sqlite3_bind_int64(stmt, 2, iNow);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblData == NULL ) {
+		Managed_SendError(objResp, "redirect rule not found");
+		return;
+	}
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_AppendRedirectRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblItem = xvoCreateTable();
+
+	if ( (arrList == NULL) || (stmt == NULL) || (tblItem == NULL) ) {
+		if ( tblItem ) xvoUnref(tblItem);
+		return;
+	}
+	xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetText(tblItem, "sourcePath", 10, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+	xvoTableSetText(tblItem, "targetUrl", 9, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetInt(tblItem, "statusCode", 10, sqlite3_column_int(stmt, 3));
+	xvoTableSetInt(tblItem, "hitCount", 8, sqlite3_column_int64(stmt, 4));
+	xvoTableSetInt(tblItem, "lastHitTime", 11, sqlite3_column_int64(stmt, 5));
+	xvoTableSetInt(tblItem, "status", 6, sqlite3_column_int(stmt, 6));
+	xvoTableSetInt(tblItem, "createTime", 10, sqlite3_column_int64(stmt, 7));
+	xvoTableSetInt(tblItem, "updateTime", 10, sqlite3_column_int64(stmt, 8));
+	Managed_SetTimeText(tblItem, "lastHitTimeText", 15, sqlite3_column_int64(stmt, 5));
+	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 7));
+	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 8));
+	xvoArrayAppendValue(arrList, tblItem, TRUE);
+}
+
+void Managed_RequestRedirectListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sPage[32];
+	char sLimit[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	int iPage = 1;
+	int iLimit = 20;
+	int iOffset = 0;
+	int iCount = 0;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	Managed_ReadTextQuery(objReq, "page", sPage, sizeof(sPage));
+	Managed_ReadTextQuery(objReq, "limit", sLimit, sizeof(sLimit));
+	if ( atoi(sPage) > 0 ) iPage = atoi(sPage);
+	if ( atoi(sLimit) > 0 ) iLimit = atoi(sLimit);
+	if ( iLimit > 200 ) iLimit = 200;
+	iOffset = (iPage - 1) * iLimit;
+	if ( !Managed_AbilityPackMounted("content.redirect") ) {
+		if ( tblRet ) xvoUnref(tblRet);
+		if ( arrList ) xvoUnref(arrList);
+		Managed_SendError(objResp, "redirect ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblRet ) xvoUnref(tblRet);
+		if ( arrList ) xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT COUNT(*) FROM content_redirect WHERE delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) iCount = sqlite3_column_int(stmt, 0);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,source_path,target_url,status_code,hit_count,last_hit_time,status,create_time,update_time FROM content_redirect WHERE delete_time=0 ORDER BY id DESC LIMIT ? OFFSET ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int(stmt, 1, iLimit);
+		sqlite3_bind_int(stmt, 2, iOffset);
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendRedirectRow(arrList, stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetInt(tblRet, "count", 5, iCount);
+	xvoTableSetInt(tblRet, "page", 4, iPage);
+	xvoTableSetInt(tblRet, "pageSize", 8, iLimit);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestRedirectSaveAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	char sSource[768];
+	const char* sSourceIn = tblBody ? xvoTableGetText(tblBody, "sourcePath", 10) : NULL;
+	const char* sTargetUrl = tblBody ? xvoTableGetText(tblBody, "targetUrl", 9) : NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int iStatusCode = tblBody ? xvoTableGetInt(tblBody, "statusCode", 10) : 301;
+	int iStatus = tblBody ? xvoTableGetInt(tblBody, "status", 6) : 1;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( tblBody == NULL ) {
+		Managed_SendError(objResp, "invalid json body");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.redirect") ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "redirect ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_NormalizeRedirectPath(sSourceIn, sSource, sizeof(sSource)) ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "sourcePath is required");
+		return;
+	}
+	if ( Managed_IsBlank(sTargetUrl) ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "targetUrl is required");
+		return;
+	}
+	if ( (iStatusCode != 301) && (iStatusCode != 302) ) iStatusCode = 301;
+	iStatus = iStatus ? 1 : 0;
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_redirect SET source_path=?,target_url=?,status_code=?,status=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sSource, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 2, sTargetUrl, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 3, iStatusCode);
+			sqlite3_bind_int(stmt, 4, iStatus);
+			sqlite3_bind_int64(stmt, 5, iNow);
+			sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	} else {
+		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_redirect(source_path,target_url,status_code,status,create_time,update_time,delete_time) VALUES(?,?,?,?,?,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sSource, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 2, sTargetUrl, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 3, iStatusCode);
+			sqlite3_bind_int(stmt, 4, iStatus);
+			sqlite3_bind_int64(stmt, 5, iNow);
+			sqlite3_bind_int64(stmt, 6, iNow);
+			sqlite3_step(stmt);
+			iId = sqlite3_last_insert_rowid(pDb);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(iId > 0, iId > 0 ? "ok" : "save failed"));
+}
+
+void Managed_RequestRedirectDeleteAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.redirect") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "redirect ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "invalid redirect id");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_redirect SET delete_time=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, iNow);
+		sqlite3_bind_int64(stmt, 2, iNow);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblBody ) xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "deleted"));
+}
+
+void Managed_RequestSeoMetaPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sId[32];
+	char sSlug[160];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue tblData = NULL;
+	xvalue tblRet = NULL;
+	str sSqlById = NULL;
+	str sSqlScan = NULL;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	memset(sId, 0, sizeof(sId));
+	memset(sSlug, 0, sizeof(sSlug));
+	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
+	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
+	if ( (sSlug[0] != '\0') && !Managed_AbilityPackMounted("content.slug") ) {
+		if ( sSqlById ) xrtFree(sSqlById);
+		if ( sSqlScan ) xrtFree(sSqlScan);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "slug capability is not enabled");
+		return;
+	}
+	if ( (sId[0] == '\0') && (sSlug[0] == '\0') ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "id or slug is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	sSqlById = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d", Managed_PublicStatusThreshold(tblSpec));
+	sSqlScan = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
+	if ( sqlite3_prepare_v2(pDb, (sId[0] != '\0') ? sSqlById : sSqlScan, -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sId[0] != '\0' ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)atoll(sId));
+			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+				tblData = Managed_CreateItemFromStmt(stmt, tblSpec);
+			}
+		} else {
+			while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+				xvalue tblCandidate = Managed_CreateItemFromStmt(stmt, tblSpec);
+				if ( Managed_ItemMatchesSlug(tblCandidate, sSlug) ) {
+					tblData = tblCandidate;
+					break;
+				}
+				if ( tblCandidate ) xvoUnref(tblCandidate);
+			}
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( sSqlById ) xrtFree(sSqlById);
+	if ( sSqlScan ) xrtFree(sSqlScan);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	if ( tblData == NULL ) {
+		Managed_SendError(objResp, "content item not found");
+		return;
+	}
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, Managed_BuildSeoMeta(tblData), TRUE);
+	xvoUnref(tblData);
+	Managed_SendJsonValue(objResp, tblRet);
 }
 
 void Managed_RequestGetAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -8087,6 +8536,17 @@ int Managed_OnStart(XAdminPluginHandle handle)
 	xvalue tblSpec = Managed_LoadSpec();
 	bool bAdminCrud = Managed_AdminCrudEnabled(tblSpec);
 	bool bPublicApi = Managed_PublicApiEnabled(tblSpec);
+	bool bCategoryPack = Managed_AbilityPackMounted("content.category");
+	bool bSlugPack = Managed_AbilityPackMounted("content.slug");
+	bool bSeoPack = Managed_AbilityPackMounted("content.seo");
+	bool bRedirectPack = Managed_AbilityPackMounted("content.redirect");
+	bool bCommentPack = Managed_AbilityPackMounted("content.comment");
+	bool bTagPack = Managed_AbilityPackMounted("content.tag");
+	bool bTopicPack = Managed_AbilityPackMounted("content.topic");
+	bool bSensitivePack = Managed_AbilityPackMounted("content.sensitive");
+	bool bStaticPack = Managed_AbilityPackMounted("content.static");
+	bool bLikePack = Managed_AbilityPackMounted("content.like");
+	bool bViewPack = Managed_AbilityPackMounted("content.view-stat");
 
 	if ( !Managed_EnsureSchema() ) {
 		printf("        [ManagedPlugin] start failed during schema ensure: xid=cms.article\n");
@@ -8286,238 +8746,349 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/comment/list";
-		route.proc = Managed_RequestCommentListPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bSlugPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/slug/resolve";
+			route.proc = Managed_RequestSlugResolvePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/comment/create";
-		route.proc = Managed_RequestCommentCreatePublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bSeoPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/seo/meta";
+			route.proc = Managed_RequestSeoMetaPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/comment/count";
-		route.proc = Managed_RequestCommentCountPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bRedirectPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/redirect/resolve";
+			route.proc = Managed_RequestRedirectResolvePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/comment/hide";
-		route.proc = Managed_RequestCommentHidePublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/comment/list";
+			route.proc = Managed_RequestCommentListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/tag/list";
-		route.proc = Managed_RequestTagListPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/comment/create";
+			route.proc = Managed_RequestCommentCreatePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/tag/contents";
-		route.proc = Managed_RequestTagContentsPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/comment/count";
+			route.proc = Managed_RequestCommentCountPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/tag/detail";
-		route.proc = Managed_RequestTagDetailPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/comment/hide";
+			route.proc = Managed_RequestCommentHidePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/topic/list";
-		route.proc = Managed_RequestTopicListPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/tag/list";
+			route.proc = Managed_RequestTagListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/topic/contents";
-		route.proc = Managed_RequestTopicContentsPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/tag/contents";
+			route.proc = Managed_RequestTagContentsPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/topic/detail";
-		route.proc = Managed_RequestTopicDetailPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/tag/detail";
+			route.proc = Managed_RequestTagDetailPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/sensitive/check";
-		route.proc = Managed_RequestSensitiveCheckPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/topic/list";
+			route.proc = Managed_RequestTopicListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/static/generate";
-		route.proc = Managed_RequestStaticGeneratePublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/topic/contents";
+			route.proc = Managed_RequestTopicContentsPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/static/preview";
-		route.proc = Managed_RequestStaticPreviewPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/topic/detail";
+			route.proc = Managed_RequestTopicDetailPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/like/status";
-		route.proc = Managed_RequestLikeStatusPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bSensitivePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/sensitive/check";
+			route.proc = Managed_RequestSensitiveCheckPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/like/create";
-		route.proc = Managed_RequestLikeCreatePublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/static/generate";
+			route.proc = Managed_RequestStaticGeneratePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/like/cancel";
-		route.proc = Managed_RequestLikeCancelPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/static/preview";
+			route.proc = Managed_RequestStaticPreviewPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/like/list";
-		route.proc = Managed_RequestLikeListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_like;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/like/status";
+			route.proc = Managed_RequestLikeStatusPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/like/counter/list";
-		route.proc = Managed_RequestLikeCounterListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_like;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/like/create";
+			route.proc = Managed_RequestLikeCreatePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/like/status";
-		route.proc = Managed_RequestLikeSetStatusAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_like;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/like/cancel";
+			route.proc = Managed_RequestLikeCancelPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/view/record";
-		route.proc = Managed_RequestViewRecordPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/like/list";
+			route.proc = Managed_RequestLikeListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_like;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/view/status";
-		route.proc = Managed_RequestViewStatusPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/like/counter/list";
+			route.proc = Managed_RequestLikeCounterListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_like;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/view/count";
-		route.proc = Managed_RequestViewStatusPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/like/status";
+			route.proc = Managed_RequestLikeSetStatusAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_like;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/view/detail";
-		route.proc = Managed_RequestViewStatusPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/view/record";
+			route.proc = Managed_RequestViewRecordPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/cms.article/view/rank";
-		route.proc = Managed_RequestViewRankPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/view/status";
+			route.proc = Managed_RequestViewStatusPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/view/counter/list";
-		route.proc = Managed_RequestViewCounterListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_view_stat;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/view/count";
+			route.proc = Managed_RequestViewStatusPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/view/log/list";
-		route.proc = Managed_RequestViewLogListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_view_stat;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/view/detail";
+			route.proc = Managed_RequestViewStatusPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/view/daily/list";
-		route.proc = Managed_RequestViewDailyListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_view_stat;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/cms.article/view/rank";
+			route.proc = Managed_RequestViewRankPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/view/counter/list";
+			route.proc = Managed_RequestViewCounterListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_view_stat;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/view/log/list";
+			route.proc = Managed_RequestViewLogListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_view_stat;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/view/daily/list";
+			route.proc = Managed_RequestViewDailyListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_view_stat;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
 		memset(&route, 0, sizeof(route));
@@ -8550,54 +9121,88 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/category/list";
-		route.proc = Managed_RequestCategoryListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/category/list";
+			route.proc = Managed_RequestCategoryListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/category/get";
+			route.proc = Managed_RequestCategoryGetAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/category/save";
+			route.proc = Managed_RequestCategorySaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/category/delete";
+			route.proc = Managed_RequestCategoryDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/category/sort";
+			route.proc = Managed_RequestCategorySortAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/category/get";
-		route.proc = Managed_RequestCategoryGetAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
-		}
+		if ( bRedirectPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/redirect/list";
+			route.proc = Managed_RequestRedirectListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/category/save";
-		route.proc = Managed_RequestCategorySaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
-		}
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/redirect/save";
+			route.proc = Managed_RequestRedirectSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/category/delete";
-		route.proc = Managed_RequestCategoryDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
-		}
-
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/category/sort";
-		route.proc = Managed_RequestCategorySortAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/redirect/delete";
+			route.proc = Managed_RequestRedirectDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
 		memset(&route, 0, sizeof(route));
@@ -8610,268 +9215,340 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/comment/status";
-		route.proc = Managed_RequestCommentStatusAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_comment;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/comment/status";
+			route.proc = Managed_RequestCommentStatusAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_comment;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/comment/delete";
-		route.proc = Managed_RequestCommentDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_comment;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/comment/delete";
+			route.proc = Managed_RequestCommentDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_comment;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/tag/save";
-		route.proc = Managed_RequestTagSaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/tag/save";
+			route.proc = Managed_RequestTagSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/tag/delete";
-		route.proc = Managed_RequestTagDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/tag/delete";
+			route.proc = Managed_RequestTagDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/tag/bind";
-		route.proc = Managed_RequestTagBindAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/tag/bind";
+			route.proc = Managed_RequestTagBindAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/tag/content/list";
-		route.proc = Managed_RequestTagContentListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/tag/content/list";
+			route.proc = Managed_RequestTagContentListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/tag/unbind";
-		route.proc = Managed_RequestTagUnbindAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/tag/unbind";
+			route.proc = Managed_RequestTagUnbindAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/topic/save";
-		route.proc = Managed_RequestTopicSaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/topic/save";
+			route.proc = Managed_RequestTopicSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/topic/delete";
-		route.proc = Managed_RequestTopicDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/topic/delete";
+			route.proc = Managed_RequestTopicDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/topic/bind";
-		route.proc = Managed_RequestTopicBindAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/topic/bind";
+			route.proc = Managed_RequestTopicBindAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/topic/bind-content";
-		route.proc = Managed_RequestTopicBindContentAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/topic/bind-content";
+			route.proc = Managed_RequestTopicBindContentAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/topic/content/list";
-		route.proc = Managed_RequestTopicContentListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/topic/content/list";
+			route.proc = Managed_RequestTopicContentListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/topic/unbind";
-		route.proc = Managed_RequestTopicUnbindAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/topic/unbind";
+			route.proc = Managed_RequestTopicUnbindAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/sensitive/word/save";
-		route.proc = Managed_RequestSensitiveWordSaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_sensitive;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bSensitivePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/sensitive/word/save";
+			route.proc = Managed_RequestSensitiveWordSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_sensitive;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/sensitive/word/delete";
-		route.proc = Managed_RequestSensitiveWordDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_sensitive;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bSensitivePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/sensitive/word/delete";
+			route.proc = Managed_RequestSensitiveWordDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_sensitive;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/sensitive/log/list";
-		route.proc = Managed_RequestSensitiveLogListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_sensitive;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bSensitivePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/sensitive/log/list";
+			route.proc = Managed_RequestSensitiveLogListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_sensitive;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/static/rule/save";
-		route.proc = Managed_RequestStaticRuleSaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/static/rule/save";
+			route.proc = Managed_RequestStaticRuleSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/static/rule/list";
-		route.proc = Managed_RequestStaticRuleListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/static/rule/list";
+			route.proc = Managed_RequestStaticRuleListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/static/rule/delete";
-		route.proc = Managed_RequestStaticRuleDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/static/rule/delete";
+			route.proc = Managed_RequestStaticRuleDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/static/generate";
-		route.proc = Managed_RequestStaticGeneratePublic;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/static/generate";
+			route.proc = Managed_RequestStaticGeneratePublic;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/static/task/list";
-		route.proc = Managed_RequestStaticTaskListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/static/task/list";
+			route.proc = Managed_RequestStaticTaskListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/static/task/status";
-		route.proc = Managed_RequestStaticTaskStatusAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/static/task/status";
+			route.proc = Managed_RequestStaticTaskStatusAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/static/artifact/list";
-		route.proc = Managed_RequestStaticArtifactListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/static/artifact/list";
+			route.proc = Managed_RequestStaticArtifactListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/cms.article/static/clean";
-		route.proc = Managed_RequestStaticCleanAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/cms.article/static/clean";
+			route.proc = Managed_RequestStaticCleanAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
 		memset(&route, 0, sizeof(route));
@@ -8934,54 +9611,68 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/cms.article";
-		route.proc = Managed_RequestAdminView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/cms.article";
+			route.proc = Managed_RequestAdminView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/cms.article/articles";
-		route.proc = Managed_RequestAdminView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/cms.article/articles";
+			route.proc = Managed_RequestAdminView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/cms.article/drafts";
-		route.proc = Managed_RequestDraftsView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/cms.article/drafts";
+			route.proc = Managed_RequestDraftsView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/cms.article/editor";
-		route.proc = Managed_RequestEditorView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/cms.article/editor";
+			route.proc = Managed_RequestEditorView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/cms.article/categories";
-		route.proc = Managed_RequestCategoriesView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/cms.article/categories";
+			route.proc = Managed_RequestCategoriesView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid=cms.article path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
 		memset(&route, 0, sizeof(route));
@@ -9078,20 +9769,22 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&menu, 0, sizeof(menu));
-		menu.key = "cms.article.categories";
-		menu.parent_id = iRootMenuId;
-		menu.title = "\xE6\xA0\x8F\xE7\x9B\xAE\xE7\xAE\xA1\xE7\x90\x86";
-		menu.icon = "layui-icon layui-icon-tabs";
-		menu.type = 1;
-		menu.open_type = "_component";
-		menu.href = "/admin/view/plugin/cms.article/categories";
-		menu.sort = 10;
-		menu.visible = TRUE;
-		menu.remark = "Managed content categories";
-		if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
-			printf("        [ManagedPlugin] menu register failed: xid=cms.article href=%s\n", menu.href);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&menu, 0, sizeof(menu));
+			menu.key = "cms.article.categories";
+			menu.parent_id = iRootMenuId;
+			menu.title = "\xE6\xA0\x8F\xE7\x9B\xAE\xE7\xAE\xA1\xE7\x90\x86";
+			menu.icon = "layui-icon layui-icon-tabs";
+			menu.type = 1;
+			menu.open_type = "_component";
+			menu.href = "/admin/view/plugin/cms.article/categories";
+			menu.sort = 10;
+			menu.visible = TRUE;
+			menu.remark = "Managed content categories";
+			if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
+				printf("        [ManagedPlugin] menu register failed: xid=cms.article href=%s\n", menu.href);
+				goto failed;
+			}
 		}
 
 		memset(&menu, 0, sizeof(menu));

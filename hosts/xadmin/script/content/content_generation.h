@@ -100,6 +100,34 @@ void Content_SetGeneratedFile(XAdminGeneratedFile* pFile, const char* sRelativeP
 	pFile->size = strlen(sSafeData);
 }
 
+bool Content_SpecHasCapability(xvalue tblSpec, const char* sKey)
+{
+	xvalue arrCapabilities = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
+
+	if ( (sKey == NULL) || (arrCapabilities == NULL) || (xvoType(arrCapabilities) != XVO_DT_ARRAY) ) {
+		return FALSE;
+	}
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
+		xvalue tblCap = xvoArrayGetValue(arrCapabilities, i);
+		const char* sCapKey;
+		xvalue objEnabled;
+		bool bEnabled = TRUE;
+
+		if ( (tblCap == NULL) || (xvoType(tblCap) != XVO_DT_TABLE) ) {
+			continue;
+		}
+		sCapKey = xvoTableGetText(tblCap, "key", 3);
+		objEnabled = xvoTableGetValue(tblCap, "enabled", 7);
+		if ( objEnabled && (xvoType(objEnabled) == XVO_DT_BOOL) ) {
+			bEnabled = xvoGetBool(objEnabled) ? TRUE : FALSE;
+		}
+		if ( bEnabled && sCapKey && (strcmp(sCapKey, sKey) == 0) ) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 bool Content_TableBoolDefault(xvalue tbl, const char* sKey, int iKeyLen, bool bDefault)
 {
 	xvalue objValue = tbl ? xvoTableGetValue(tbl, sKey, iKeyLen) : NULL;
@@ -393,7 +421,9 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	char* sValidateError = NULL;
 	xvalue tblRet = NULL;
 	int64 iNow = xrtNow();
+	bool bCategoryPack = FALSE;
 	bool bOK;
+	int iFileCount = 0;
 
 	if ( psError ) *psError = NULL;
 
@@ -426,6 +456,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sPluginTitle = xvoTableGetText(tblSpecJson, "pluginTitle", 11);
 	sMenuTitle = xvoTableGetText(tblSpecJson, "menuTitle", 9);
 	sPluginDescription = xvoTableGetText(tblSpecJson, "description", 11);
+	bCategoryPack = Content_SpecHasCapability(tblSpecJson, "content.category");
 	sManagedSpecJson = Content_BuildManagedSpecJson(tblSpecJson, sXid, sTitle, sPluginDescription);
 
 	sPluginJson = Content_BuildGeneratedPluginJson(sGeneratedPluginXid, Content_TextOr((const char*)sPluginTitle, (const char*)sTitle), sPluginDescription);
@@ -433,7 +464,9 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sAdminHtml = Content_BuildManagedAdminPageHtml(sGeneratedPluginXid, "articles");
 	sDraftHtml = Content_BuildManagedAdminPageHtml(sGeneratedPluginXid, "drafts");
 	sEditorHtml = Content_BuildManagedEditorHtml(sGeneratedPluginXid);
-	sCategoryHtml = Content_BuildManagedCategoryHtml(sGeneratedPluginXid);
+	if ( bCategoryPack ) {
+		sCategoryHtml = Content_BuildManagedCategoryHtml(sGeneratedPluginXid);
+	}
 	sPublicHtml = Content_BuildManagedPublicHtml(sGeneratedPluginXid);
 	sAbilityHtml = Content_BuildManagedAbilityHtml(sGeneratedPluginXid);
 	sStaticDetailHtml = Content_BuildManagedStaticDetailHtml();
@@ -447,31 +480,35 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sMigrationSql = xrtCopyStr("-- Managed content migration is handled by generated plugin startup.\n", 0);
 	sCustomReadme = xrtCopyStr("This directory is reserved for user-owned extensions.\n", 0);
 	sOutputJson = xrtFormat(
-		"{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}",
+		bCategoryPack
+			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
+			: "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}",
 		sGeneratedPluginXid ? (const char*)sGeneratedPluginXid : "",
 		iRevision
 	);
 
 	memset(files, 0, sizeof(files));
-	Content_SetGeneratedFile(&files[0], "plugin.json", sPluginJson);
-	Content_SetGeneratedFile(&files[1], "generated/main.c", sMainC);
-	Content_SetGeneratedFile(&files[2], "generated/admin.html", sAdminHtml);
-	Content_SetGeneratedFile(&files[3], "generated/drafts.html", sDraftHtml);
-	Content_SetGeneratedFile(&files[4], "generated/editor.html", sEditorHtml);
-	Content_SetGeneratedFile(&files[5], "generated/categories.html", sCategoryHtml);
-	Content_SetGeneratedFile(&files[6], "generated/public.html", sPublicHtml);
-	Content_SetGeneratedFile(&files[7], "generated/ability.html", sAbilityHtml);
-	Content_SetGeneratedFile(&files[8], "generated/spec.json", sManagedSpecJson);
-	Content_SetGeneratedFile(&files[9], "template/static/detail.html", sStaticDetailHtml);
-	Content_SetGeneratedFile(&files[10], "config.defaults.json", sDefaults);
-	Content_SetGeneratedFile(&files[11], "config.schema.json", sSchema);
-	Content_SetGeneratedFile(&files[12], "runtime/managed.json", sManaged);
-	Content_SetGeneratedFile(&files[13], "runtime/contracts.json", sContracts);
-	Content_SetGeneratedFile(&files[14], "runtime/capability.mounts.example.json", sMountExample);
-	Content_SetGeneratedFile(&files[15], "runtime/capability.mounts.schema.json", sMountSchema);
-	Content_SetGeneratedFile(&files[16], "runtime/migration.plan.json", sMigrationPlan);
-	Content_SetGeneratedFile(&files[17], "generated/migration.sql", sMigrationSql);
-	Content_SetGeneratedFile(&files[18], "custom/README.txt", sCustomReadme);
+	Content_SetGeneratedFile(&files[iFileCount++], "plugin.json", sPluginJson);
+	Content_SetGeneratedFile(&files[iFileCount++], "generated/main.c", sMainC);
+	Content_SetGeneratedFile(&files[iFileCount++], "generated/admin.html", sAdminHtml);
+	Content_SetGeneratedFile(&files[iFileCount++], "generated/drafts.html", sDraftHtml);
+	Content_SetGeneratedFile(&files[iFileCount++], "generated/editor.html", sEditorHtml);
+	if ( bCategoryPack ) {
+		Content_SetGeneratedFile(&files[iFileCount++], "generated/categories.html", sCategoryHtml);
+	}
+	Content_SetGeneratedFile(&files[iFileCount++], "generated/public.html", sPublicHtml);
+	Content_SetGeneratedFile(&files[iFileCount++], "generated/ability.html", sAbilityHtml);
+	Content_SetGeneratedFile(&files[iFileCount++], "generated/spec.json", sManagedSpecJson);
+	Content_SetGeneratedFile(&files[iFileCount++], "template/static/detail.html", sStaticDetailHtml);
+	Content_SetGeneratedFile(&files[iFileCount++], "config.defaults.json", sDefaults);
+	Content_SetGeneratedFile(&files[iFileCount++], "config.schema.json", sSchema);
+	Content_SetGeneratedFile(&files[iFileCount++], "runtime/managed.json", sManaged);
+	Content_SetGeneratedFile(&files[iFileCount++], "runtime/contracts.json", sContracts);
+	Content_SetGeneratedFile(&files[iFileCount++], "runtime/capability.mounts.example.json", sMountExample);
+	Content_SetGeneratedFile(&files[iFileCount++], "runtime/capability.mounts.schema.json", sMountSchema);
+	Content_SetGeneratedFile(&files[iFileCount++], "runtime/migration.plan.json", sMigrationPlan);
+	Content_SetGeneratedFile(&files[iFileCount++], "generated/migration.sql", sMigrationSql);
+	Content_SetGeneratedFile(&files[iFileCount++], "custom/README.txt", sCustomReadme);
 
 	memset(&spec, 0, sizeof(spec));
 	spec.xid = sGeneratedPluginXid;
@@ -479,7 +516,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	spec.version = "1.0.0";
 	spec.entry = "generated/main.c";
 	spec.auto_enable = 0;
-	spec.file_count = 19;
+	spec.file_count = iFileCount;
 	spec.files = files;
 	bOK = PluginSystem_Generate(&spec);
 

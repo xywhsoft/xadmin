@@ -7,6 +7,11 @@ void RouteHTTP_Init()
 	printf("        RouteHTTP_Init \n");
 	// 创建 HTTP 全局静态路由表
 	G_StaticRouteTableHTTP = xrtDictCreate(sizeof(RouteInfo), XRT_OBJMODE_SHARED);
+	G_DynamicRouteInvokeContext = xrtDictCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	if ( G_DynamicRouteInvokeContext ) {
+		xrtOwnerActivateShared(&G_DynamicRouteInvokeContext->Owner);
+		xrtOwnerActivateShared(&G_DynamicRouteInvokeContext->AVLT.Owner);
+	}
 
 #define XADMIN_PUBLIC_ROUTE(path_literal) \
 	do { \
@@ -215,6 +220,11 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/view/attachment/stats",				Request_View_Attachment_Stats);
 
 	// Content generator
+	AddStaticRouteHTTP("/admin/view/content/page",				Request_View_Content_Page);
+	AddStaticRouteHTTP("/admin/content/pages",					Request_Content_Pages);
+	AddStaticRouteHTTP("/admin/content/page",					Request_Content_Page);
+	AddStaticRouteHTTP("/admin/content/page/save",				Request_Content_Page_Save);
+	AddStaticRouteHTTP("/admin/content/page/delete",			Request_Content_Page_Delete);
 	AddStaticRouteHTTP("/admin/view/content",					Request_View_Content_Index);
 	AddStaticRouteHTTP("/admin/view/content/editor",				Request_View_Content_Editor);
 	AddStaticRouteHTTP("/admin/view/content/packs",				Request_View_Content_Packs);
@@ -295,6 +305,27 @@ void RouteHTTP_Init()
 void RouteHTTP_Unit()
 {
 	printf("        RouteHTTP_Unit \n");
+	if ( G_DynamicRouteTableHTTP.lstRoutes ) {
+		for ( uint32 i = 0; i < xrtListCount(G_DynamicRouteTableHTTP.lstRoutes); i++ ) {
+			DynamicRouteInfo* pRoute = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+			DynamicRoute_Free(pRoute);
+			xrtListSetPtr(G_DynamicRouteTableHTTP.lstRoutes, i, NULL, NULL);
+		}
+		xrtListDestroy(G_DynamicRouteTableHTTP.lstRoutes);
+		G_DynamicRouteTableHTTP.lstRoutes = NULL;
+	}
+	if ( G_DynamicRouteTableHTTP.pRegexSet ) {
+		xrtRegexSetDestroy(G_DynamicRouteTableHTTP.pRegexSet);
+		G_DynamicRouteTableHTTP.pRegexSet = NULL;
+	}
+	if ( G_DynamicRouteTableHTTP.sLastError ) {
+		xrtFree(G_DynamicRouteTableHTTP.sLastError);
+		G_DynamicRouteTableHTTP.sLastError = NULL;
+	}
+	if ( G_DynamicRouteInvokeContext ) {
+		xrtDictDestroy(G_DynamicRouteInvokeContext);
+		G_DynamicRouteInvokeContext = NULL;
+	}
 	if ( G_StaticRouteTableHTTP ) {
 		xrtDictDestroy(G_StaticRouteTableHTTP);
 		G_StaticRouteTableHTTP = NULL;

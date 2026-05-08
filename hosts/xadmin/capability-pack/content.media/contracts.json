@@ -1,0 +1,8 @@
+{
+  "permissions": ["media.view", "media.manage"],
+  "adminPages": ["media"],
+  "publicApis": ["media.list", "media.detail"],
+  "tables": ["content_media", "content_media_ref"],
+  "events": ["media.afterUpload", "content.afterDelete"],
+  "tasks": []
+}

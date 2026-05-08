@@ -100,6 +100,10 @@ layui.use(['form'], function(){
     tags: null,
     topics: null,
     form: null,
+    hasCategory: false,
+    hasSeo: false,
+    hasSlug: false,
+    hasMedia: false,
     currentId: 0
   };
 
@@ -183,6 +187,10 @@ layui.use(['form'], function(){
     var result = await response.json();
     if (!result || !result.result) throw new Error((result && result.message) || t('metaLoadFailed'));
     state.meta = result.data || {};
+    state.hasCategory = hasMountedPack(state.meta, 'content.category');
+    state.hasSeo = hasMountedPack(state.meta, 'content.seo');
+    state.hasSlug = hasMountedPack(state.meta, 'content.slug');
+    state.hasMedia = hasMountedPack(state.meta, 'content.media');
     return state.meta;
   }
 
@@ -194,6 +202,7 @@ layui.use(['form'], function(){
   }
 
   async function loadCategories() {
+    if (!state.hasCategory) return [];
     if (state.categories) return state.categories;
     var response = await fetch('/admin/api/plugin/' + pluginXid + '/category/list', { cache: 'no-store' });
     var result = await response.json();
@@ -276,7 +285,7 @@ layui.use(['form'], function(){
     var next = JSON.parse(JSON.stringify(schema || { title: 'Content', groups: [] }));
     next.groups = Array.isArray(next.groups) ? next.groups : [];
     var publishGroup = next.groups[0];
-    if (!hasSchemaField(next, 'categoryId')) {
+    if (state.hasCategory && !hasSchemaField(next, 'categoryId')) {
       next.groups.unshift({
         key: 'category',
         title: '\u53d1\u5e03\u8bbe\u7f6e',
@@ -290,7 +299,7 @@ layui.use(['form'], function(){
         }]
       });
     }
-    if (!hasSchemaField(next, 'slug')) {
+    if (state.hasSlug && !hasSchemaField(next, 'slug')) {
       publishGroup = next.groups[0];
       if (!publishGroup || publishGroup.key !== 'category') {
         publishGroup = { key: 'category', title: '\u53d1\u5e03\u8bbe\u7f6e', desc: '', fields: [] };
@@ -303,6 +312,28 @@ layui.use(['form'], function(){
         label: 'URL\u6807\u8bc6',
         required: false,
         placeholder: 'my-first-post'
+      });
+    }
+    if (state.hasMedia && !hasSchemaField(next, 'cover_media_id')) {
+      publishGroup = next.groups[0];
+      if (!publishGroup || publishGroup.key !== 'category') {
+        publishGroup = { key: 'category', title: '\u53d1\u5e03\u8bbe\u7f6e', desc: '', fields: [] };
+        next.groups.unshift(publishGroup);
+      }
+      publishGroup.fields = Array.isArray(publishGroup.fields) ? publishGroup.fields : [];
+      publishGroup.fields.push({
+        name: 'cover_media_id',
+        type: 'text',
+        label: '\u5c01\u9762\u8d44\u6e90ID',
+        required: false,
+        placeholder: '1'
+      });
+      publishGroup.fields.push({
+        name: 'media_ids',
+        type: 'text',
+        label: '\u6b63\u6587\u8d44\u6e90ID',
+        required: false,
+        placeholder: '1,2,3'
       });
     }
     publishGroup = next.groups[0];
@@ -334,13 +365,25 @@ layui.use(['form'], function(){
         });
       }
     }
+    if (state.hasSeo && !hasSchemaField(next, 'seo_title')) {
+      next.groups.push({
+        key: 'seo',
+        title: 'SEO\u4f18\u5316',
+        desc: '',
+        fields: [
+          { name: 'seo_title', type: 'text', label: 'SEO\u6807\u9898', required: false },
+          { name: 'seo_keywords', type: 'text', label: 'SEO\u5173\u952e\u8bcd', required: false },
+          { name: 'seo_description', type: 'textarea', label: 'SEO\u63cf\u8ff0', required: false }
+        ]
+      });
+    }
     return next;
   }
 
   function formValuesFromRecord(record, relationValues) {
     var data = record && record.data && typeof record.data === 'object' ? record.data : {};
     var values = JSON.parse(JSON.stringify(data));
-    values.categoryId = Number((record && record.categoryId) || values.categoryId || 0);
+    if (state.hasCategory) values.categoryId = Number((record && record.categoryId) || values.categoryId || 0);
     if (relationValues) {
       if (relationValues.tagIds) values.tagIds = relationValues.tagIds;
       if (relationValues.topicIds) values.topicIds = relationValues.topicIds;
@@ -359,7 +402,7 @@ layui.use(['form'], function(){
   async function renderEditor() {
     await ensureAssets();
     var meta = await loadMeta();
-    var categories = await loadCategories();
+    var categories = state.hasCategory ? await loadCategories() : [];
     var tags = await loadTags(meta);
     var topics = await loadTopics(meta);
     var record = await loadRecord(state.currentId);
@@ -383,7 +426,7 @@ layui.use(['form'], function(){
     var check = state.form.validate ? state.form.validate() : { result: true };
     if (!check.result) { setStatus(check.message || t('validateFailed'), '#b91c1c'); return; }
     var values = state.form.collect ? state.form.collect() : {};
-    var categoryId = Number(values.categoryId || 0);
+    var categoryId = state.hasCategory ? Number(values.categoryId || 0) : 0;
     var tagIds = Array.isArray(values.tagIds) ? values.tagIds.map(Number).filter(Boolean) : [];
     var topicIds = Array.isArray(values.topicIds) ? values.topicIds.map(Number).filter(Boolean) : [];
     var tagNames = textOf(values.tagNames).split(',').map(function(item){ return item.trim(); }).filter(Boolean);

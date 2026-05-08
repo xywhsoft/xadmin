@@ -1,0 +1,8 @@
+{
+  "permissions": ["sitemap.view", "sitemap.generate"],
+  "adminPages": ["sitemap"],
+  "publicApis": ["sitemap.xml", "rss.xml", "robots.txt"],
+  "tables": ["content_sitemap_entry"],
+  "events": ["content.afterPublish", "content.afterDelete"],
+  "tasks": ["sitemap.generate"]
+}

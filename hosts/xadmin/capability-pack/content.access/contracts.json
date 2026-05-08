@@ -1,0 +1,8 @@
+{
+  "permissions": ["access.view", "access.manage"],
+  "adminPages": ["access"],
+  "publicApis": ["access.check"],
+  "tables": ["content_access_rule"],
+  "events": ["content.beforeRead"],
+  "tasks": []
+}

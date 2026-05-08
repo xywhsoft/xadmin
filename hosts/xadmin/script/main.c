@@ -29,6 +29,7 @@
 
 // 权限管理模块
 #include "module/auth.h"
+#include "module/standalone_page.h"
 
 // 日志记录模块
 #include "module/logs.h"
@@ -90,6 +91,7 @@
 #include "route_http/attachment.h"
 #include "route_http/attachment_api.h"
 #include "route_http/content.h"
+#include "route_http/standalone_page.h"
 #include "route_http/plugin.h"
 
 
@@ -169,6 +171,12 @@ void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
 	printf("[xadmin:init] Auth_Init done\n");
 	fflush(stdout);
 
+	printf("[xadmin:init] StandalonePage_Init begin\n");
+	fflush(stdout);
+	StandalonePage_Init();
+	printf("[xadmin:init] StandalonePage_Init done\n");
+	fflush(stdout);
+
 	printf("[xadmin:init] Logs_Init begin\n");
 	fflush(stdout);
 	Logs_Init();
@@ -245,6 +253,7 @@ void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
 
 	// 卸载插件系统
 	PluginSystem_Unit();
+	StandalonePage_Unit();
 	
 	// 卸载附件管理模块
 	Attachment_Unit();

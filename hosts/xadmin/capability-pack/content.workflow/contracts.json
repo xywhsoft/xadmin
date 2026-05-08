@@ -1,0 +1,8 @@
+{
+  "permissions": ["workflow.view", "workflow.submit", "workflow.review", "workflow.publish"],
+  "adminPages": ["workflow"],
+  "publicApis": [],
+  "tables": ["content_workflow_log"],
+  "events": ["workflow.afterSubmit", "workflow.afterReview", "workflow.afterPublish"],
+  "tasks": ["workflow.scheduledPublish"]
+}

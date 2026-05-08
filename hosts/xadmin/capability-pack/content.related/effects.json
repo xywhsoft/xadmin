@@ -1,0 +1,9 @@
+{
+  "tables": ["content_related"],
+  "fields": [],
+  "adminPages": ["related"],
+  "publicApis": ["related.list"],
+  "permissions": ["related.view", "related.manage"],
+  "events": ["content.afterSave", "related.afterBind"],
+  "tasks": []
+}

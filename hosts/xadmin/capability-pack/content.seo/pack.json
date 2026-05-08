@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.seo",
+  "name": "seo",
+  "title": "SEO 优化",
+  "description": "为内容、列表、栏目和详情页提供 SEO 元信息能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 200,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

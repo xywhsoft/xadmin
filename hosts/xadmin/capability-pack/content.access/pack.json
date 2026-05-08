@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.access",
+  "name": "access",
+  "title": "阅读权限",
+  "description": "提供阅读等级、会员组、付费、密码和私有内容访问控制能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 310,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

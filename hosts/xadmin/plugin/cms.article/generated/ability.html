@@ -16,6 +16,10 @@
 	.managed-ability-page .x-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
 	.managed-ability-page .x-stat{border:1px solid #e6e6e6;background:#fff;padding:12px}
 	.managed-ability-page .x-stat b{display:block;font-size:22px;margin-top:6px}
+	.managed-ability-dialog{padding:16px 18px 0 18px}
+	.managed-ability-dialog .layui-form-label{width:92px}
+	.managed-ability-dialog .layui-input-block{margin-left:122px}
+	.managed-ability-dialog .x-dialog-actions{border-top:1px solid #e6e6e6;margin:18px -18px 0 -18px;padding:12px 18px;text-align:right;background:#fff}
 	@media(max-width:900px){.managed-ability-page .x-grid{grid-template-columns:repeat(2,1fr)}.managed-ability-page .x-toolbar{display:block}.managed-ability-page .x-toolbar .layui-btn-container{margin-top:10px}}
 </style>
 <div class="managed-ability-page">
@@ -45,6 +49,9 @@
 		{{# if(d.__ops && d.__ops.indexOf('hide') >= 0){ }}
 		<a class="layui-btn layui-btn-warm layui-btn-xs" lay-event="hide">隐藏</a>
 		{{# } }}
+		{{# if(d.__ops && d.__ops.indexOf('edit') >= 0){ }}
+		<a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
+		{{# } }}
 		{{# if(d.__ops && d.__ops.indexOf('delete') >= 0){ }}
 		<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">删除</a>
 		{{# } }}
@@ -67,7 +74,8 @@
 			content_sensitive:'content.sensitive',
 			content_static:'content.static',
 			content_like:'content.like',
-			content_view_stat:'content.view-stat'
+			content_view_stat:'content.view-stat',
+			content_redirect:'content.redirect'
 		};
 		var pageKey = '@@ABILITY_PAGE_KEY@@' || location.pathname.split('/').pop() || 'overview';
 		var packId = safeToPack[pageKey] || '';
@@ -89,7 +97,8 @@
 			'content.sensitive':'敏感词管理',
 			'content.static':'静态化管理',
 			'content.like':'点赞统计',
-			'content.view-stat':'访问统计'
+			'content.view-stat':'访问统计',
+			'content.redirect':'跳转规则'
 		};
 		var tableIns = null;
 		var activeViews = {};
@@ -227,6 +236,38 @@
 				return '<button type="button" class="layui-btn layui-btn-sm '+(active ? '' : 'layui-btn-primary')+'" data-view="'+b.key+'">'+b.text+'</button>';
 			}).join('') + '</div>';
 		}
+		function openRedirectDialog(row){
+			row = row || {};
+			var html = '<div class="managed-ability-dialog"><form class="layui-form" id="redirectForm_'+instanceKey+'">'
+				+ '<input type="hidden" name="id" value="'+esc(row.id || 0)+'">'
+				+ '<div class="layui-form-item"><label class="layui-form-label">来源路径</label><div class="layui-input-block"><input name="sourcePath" class="layui-input" value="'+esc(row.sourcePath || '')+'" placeholder="/old-url"></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">目标地址</label><div class="layui-input-block"><input name="targetUrl" class="layui-input" value="'+esc(row.targetUrl || '')+'" placeholder="/new-url 或 https://example.com"></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">状态码</label><div class="layui-input-block"><select name="statusCode"><option value="301" '+((row.statusCode || 301) == 301 ? 'selected' : '')+'>301 永久跳转</option><option value="302" '+(row.statusCode == 302 ? 'selected' : '')+'>302 临时跳转</option></select></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">启用</label><div class="layui-input-block"><input type="checkbox" name="statusEnabled" lay-skin="switch" lay-text="ON|OFF" '+(row.status === 0 ? '' : 'checked')+'></div></div>'
+				+ '<div class="x-dialog-actions"><button type="button" class="layui-btn layui-btn-primary" id="btnRedirectCancel_'+instanceKey+'">取消</button><button type="button" class="layui-btn" id="btnRedirectSave_'+instanceKey+'">保存</button></div>'
+				+ '</form></div>';
+			var index = layer.open({type:1,title:row.id ? '编辑跳转规则' : '新增跳转规则',area:['560px','420px'],content:html,success:function(dom){
+				layui.form.render();
+				dom.find('#btnRedirectCancel_'+instanceKey).on('click', function(){ layer.close(index); });
+				dom.find('#btnRedirectSave_'+instanceKey).on('click', function(){
+					var form = dom.find('#redirectForm_'+instanceKey)[0];
+					var data = formDataFromElement(form);
+					data.status = form.elements.statusEnabled && form.elements.statusEnabled.checked ? 1 : 0;
+					delete data.statusEnabled;
+					post(api('/redirect/save'), data).then(function(ret){ message(ret); if(ret && ret.result !== false){ layer.close(index); reload(); } });
+				});
+			}});
+		}
+		function formDataFromElement(form){
+			var data = {};
+			Array.prototype.forEach.call(form ? form.elements : [], function(el){
+				if(!el.name) return;
+				if(el.type === 'number' || el.name === 'id' || el.name === 'statusCode') data[el.name] = Number(el.value || 0);
+				else if(el.type === 'checkbox') data[el.name] = el.checked ? 1 : 0;
+				else data[el.name] = el.value;
+			});
+			return data;
+		}
 		var configs = {
 			overview:{cols:[{field:'packId',title:'能力包'}]},
 			'content.comment':{
@@ -268,6 +309,12 @@
 				},
 				form:function(){return viewSwitch([{key:'main',text:'词库'},{key:'logs',text:'命中日志'}]) + simpleForm([{name:'word',label:'敏感词',placeholder:'请输入敏感词'},{name:'level',label:'级别',type:'number',value:'1'},{name:'scope',label:'作用域',value:'content'},{name:'replacement',label:'替换词',value:'***'},{name:'status',label:'状态',type:'number',value:'1'}]);}
 			},
+			'content.redirect':{
+				ops:'edit,delete',
+				listApi:'/redirect/list',
+				cols:[{field:'id',title:'ID',width:80},{field:'sourcePath',title:'来源路径',minWidth:220},{field:'targetUrl',title:'目标地址',minWidth:260},{field:'statusCode',title:'状态码',width:90},{field:'hitCount',title:'命中',width:90},{field:'lastHitTimeText',title:'最后命中',width:160},{field:'status',title:'启用',width:80},{title:'操作',toolbar:'#rowActions',width:140}],
+				form:function(){return '<div class="x-toolbar"><div class="x-muted">跳转规则只在启用 content.redirect 后加载，不接管全局路由。</div><div class="layui-btn-container"><button type="button" class="layui-btn layui-btn-sm" id="btnAddRedirect"><i class="layui-icon layui-icon-add-1"></i> 新增规则</button></div></div>';}
+			},
 			'content.static':{
 				ops:'delete',
 				saveApi:'/static/rule/save',
@@ -306,9 +353,12 @@
 					if(obj.event === 'approve') post(api('/comment/status'), {id:obj.data.id,status:1}).then(function(ret){message(ret);reload();});
 					if(obj.event === 'reject') post(api('/comment/status'), {id:obj.data.id,status:2}).then(function(ret){message(ret);reload();});
 					if(obj.event === 'hide') post(pub('/comment/hide'), {id:obj.data.id}).then(function(ret){message(ret);reload();});
+					if(obj.event === 'edit'){
+						if(packId === 'content.redirect') openRedirectDialog(obj.data);
+					}
 					if(obj.event === 'delete'){
 						var cfg = currentConfig();
-						var delApi = packId === 'content.comment' ? '/comment/delete' : packId === 'content.tag' ? '/tag/delete' : packId === 'content.topic' ? '/topic/delete' : packId === 'content.sensitive' ? '/sensitive/word/delete' : packId === 'content.static' ? '/static/rule/delete' : '';
+						var delApi = packId === 'content.comment' ? '/comment/delete' : packId === 'content.tag' ? '/tag/delete' : packId === 'content.topic' ? '/topic/delete' : packId === 'content.sensitive' ? '/sensitive/word/delete' : packId === 'content.static' ? '/static/rule/delete' : packId === 'content.redirect' ? '/redirect/delete' : '';
 						if(delApi) post(api(delApi), {id:obj.data.id}).then(function(ret){message(ret);reload();});
 					}
 					if(obj.event === 'unbind'){
@@ -318,6 +368,11 @@
 				});
 				byId('btnReload').onclick = reload;
 				reload();
+				document.addEventListener('click', function(ev){
+					if(!root || !root.contains(ev.target)) return;
+					var btn = ev.target && ev.target.closest ? ev.target.closest('#btnAddRedirect') : null;
+					if(btn) openRedirectDialog();
+				});
 			});
 		}
 		if(window.layui){

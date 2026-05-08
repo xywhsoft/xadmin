@@ -361,6 +361,20 @@ const char* Content_DefaultAbilityPermission(const char* sPackId)
 	if ( strcmp(sPackId, "content.static") == 0 ) return "static.manage";
 	if ( strcmp(sPackId, "content.like") == 0 ) return "like.view";
 	if ( strcmp(sPackId, "content.view-stat") == 0 ) return "view_stat.view";
+	if ( strcmp(sPackId, "content.seo") == 0 ) return "seo.manage";
+	if ( strcmp(sPackId, "content.slug") == 0 ) return "slug.manage";
+	if ( strcmp(sPackId, "content.redirect") == 0 ) return "redirect.manage";
+	if ( strcmp(sPackId, "content.category") == 0 ) return "category.manage";
+	if ( strcmp(sPackId, "content.media") == 0 ) return "media.manage";
+	if ( strcmp(sPackId, "content.revision") == 0 ) return "revision.manage";
+	if ( strcmp(sPackId, "content.workflow") == 0 ) return "workflow.manage";
+	if ( strcmp(sPackId, "content.search") == 0 ) return "search.manage";
+	if ( strcmp(sPackId, "content.sitemap") == 0 ) return "sitemap.manage";
+	if ( strcmp(sPackId, "content.related") == 0 ) return "related.manage";
+	if ( strcmp(sPackId, "content.form") == 0 ) return "form.manage";
+	if ( strcmp(sPackId, "content.access") == 0 ) return "access.manage";
+	if ( strcmp(sPackId, "content.audit-log") == 0 ) return "audit_log.view";
+	if ( strcmp(sPackId, "content.import-export") == 0 ) return "import_export.manage";
 	return "ability.manage";
 }
 
@@ -387,6 +401,20 @@ const char* Content_DefaultAbilityMenuTitle(const char* sPackId, const char* sFa
 	if ( strcmp(sPackId, "content.static") == 0 ) return "静态化管理";
 	if ( strcmp(sPackId, "content.like") == 0 ) return "点赞管理";
 	if ( strcmp(sPackId, "content.view-stat") == 0 ) return "访问统计";
+	if ( strcmp(sPackId, "content.seo") == 0 ) return "SEO 优化";
+	if ( strcmp(sPackId, "content.slug") == 0 ) return "固定链接";
+	if ( strcmp(sPackId, "content.redirect") == 0 ) return "跳转规则";
+	if ( strcmp(sPackId, "content.category") == 0 ) return "栏目";
+	if ( strcmp(sPackId, "content.media") == 0 ) return "媒体资源";
+	if ( strcmp(sPackId, "content.revision") == 0 ) return "内容版本";
+	if ( strcmp(sPackId, "content.workflow") == 0 ) return "审核流程";
+	if ( strcmp(sPackId, "content.search") == 0 ) return "内容搜索";
+	if ( strcmp(sPackId, "content.sitemap") == 0 ) return "站点地图";
+	if ( strcmp(sPackId, "content.related") == 0 ) return "相关推荐";
+	if ( strcmp(sPackId, "content.form") == 0 ) return "内容表单";
+	if ( strcmp(sPackId, "content.access") == 0 ) return "阅读权限";
+	if ( strcmp(sPackId, "content.audit-log") == 0 ) return "操作审计";
+	if ( strcmp(sPackId, "content.import-export") == 0 ) return "导入导出";
 	return sFallback;
 }
 

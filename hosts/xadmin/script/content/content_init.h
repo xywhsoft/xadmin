@@ -55,8 +55,9 @@ bool Content_EnsureMenu()
 	int iMenuId = 0;
 	int iNow = (int)xrtNow();
 
-	if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM menu WHERE isDelete = 0 AND (href = '/admin/view/content' OR title = ? OR title = 'Content Model') ORDER BY id ASC LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
-		sqlite3_bind_text(stmt, 1, "内容模型", -1, SQLITE_TRANSIENT);
+	if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM menu WHERE isDelete = 0 AND (href = '/admin/view/content' OR title = ? OR title = ? OR title = 'Content Model') ORDER BY id ASC LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_text(stmt, 1, "内容管理", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 2, "内容模型", -1, SQLITE_TRANSIENT);
 		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			iMenuId = sqlite3_column_int(stmt, 0);
 		}
@@ -67,16 +68,16 @@ bool Content_EnsureMenu()
 		if ( sqlite3_prepare_v3(G_DB, "UPDATE menu SET parent=0,title=?,icon='layui-icon layui-icon-template-1',type=0,openType='',href='',sort=540100,visible=1,remark=?,updateTime=? WHERE id=?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return FALSE;
 		}
-		sqlite3_bind_text(stmt, 1, "内容模型", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_text(stmt, 2, "内容模型与能力包系统", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 1, "内容管理", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 2, "内容管理与能力包系统", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 3, iNow);
 		sqlite3_bind_int(stmt, 4, iMenuId);
 	} else {
 		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO menu (parent,title,icon,type,openType,href,sort,visible,remark,createTime,updateTime,isDelete) VALUES (0,?,'layui-icon layui-icon-template-1',0,'','',540100,1,?,?,?,0)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
 			return FALSE;
 		}
-		sqlite3_bind_text(stmt, 1, "内容模型", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_text(stmt, 2, "内容模型与能力包系统", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 1, "内容管理", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 2, "内容管理与能力包系统", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 3, iNow);
 		sqlite3_bind_int(stmt, 4, iNow);
 	}
@@ -88,7 +89,7 @@ bool Content_EnsureMenu()
 
 	if ( iMenuId <= 0 ) {
 		if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM menu WHERE isDelete = 0 AND title = ? ORDER BY id ASC LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
-			sqlite3_bind_text(stmt, 1, "内容模型", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 1, "内容管理", -1, SQLITE_TRANSIENT);
 			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 				iMenuId = sqlite3_column_int(stmt, 0);
 			}
@@ -105,7 +106,8 @@ bool Content_EnsureMenu()
 		}
 	}
 
-	return Content_EnsureMenuItem(iMenuId, "模型管理", "/admin/view/content", "layui-icon layui-icon-list", 540110, "内容模型管理")
+	return Content_EnsureMenuItem(iMenuId, "独立页面", "/admin/view/content/page", "layui-icon layui-icon-template", 540105, "独立页面管理")
+		&& Content_EnsureMenuItem(iMenuId, "模型管理", "/admin/view/content", "layui-icon layui-icon-list", 540110, "内容模型管理")
 		&& Content_EnsureMenuItem(iMenuId, "能力包商店", "/admin/view/content/pack-store", "layui-icon layui-icon-cart", 540120, "能力包商店")
 		&& Content_EnsureMenuItem(iMenuId, "能力包管理", "/admin/view/content/packs", "layui-icon layui-icon-component", 540130, "本机能力包管理");
 }

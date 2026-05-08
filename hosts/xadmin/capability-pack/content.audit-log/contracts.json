@@ -1,0 +1,8 @@
+{
+  "permissions": ["audit_log.view"],
+  "adminPages": ["audit_logs"],
+  "publicApis": [],
+  "tables": ["content_audit_log"],
+  "events": ["content.afterSave", "content.afterDelete", "content.afterPublish"],
+  "tasks": []
+}

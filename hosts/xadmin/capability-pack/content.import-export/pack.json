@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.import-export",
+  "name": "import-export",
+  "title": "导入导出",
+  "description": "提供导入预检、失败行报告、字段选择和内容导出能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 330,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

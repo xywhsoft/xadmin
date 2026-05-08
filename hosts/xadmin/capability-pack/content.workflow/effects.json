@@ -1,0 +1,11 @@
+{
+  "tables": ["content_workflow_log"],
+  "fields": [
+    {"name": "workflow_status", "title": "审核状态", "storage": {"type": "integer"}, "showInList": true}
+  ],
+  "adminPages": ["workflow"],
+  "publicApis": [],
+  "permissions": ["workflow.view", "workflow.submit", "workflow.review", "workflow.publish"],
+  "events": ["workflow.afterSubmit", "workflow.afterReview", "workflow.afterPublish"],
+  "tasks": ["workflow.scheduledPublish"]
+}

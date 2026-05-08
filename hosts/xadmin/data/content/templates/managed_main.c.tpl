@@ -2558,6 +2558,71 @@ xvalue Managed_CreateItemFromStmt(sqlite3_stmt* stmt, xvalue tblSpec)
 	return tblItem;
 }
 
+const char* Managed_TableTextOrEmpty(xvalue tblData, const char* sKey)
+{
+	const char* sValue;
+
+	if ( (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) || Managed_IsBlank(sKey) ) {
+		return "";
+	}
+	sValue = xvoTableGetText(tblData, sKey, (int)strlen(sKey));
+	return sValue ? sValue : "";
+}
+
+const char* Managed_ItemTextOrEmpty(xvalue tblItem, const char* sKey)
+{
+	const char* sValue;
+
+	if ( (tblItem == NULL) || (xvoType(tblItem) != XVO_DT_TABLE) || Managed_IsBlank(sKey) ) {
+		return "";
+	}
+	sValue = xvoTableGetText(tblItem, sKey, (int)strlen(sKey));
+	return sValue ? sValue : "";
+}
+
+xvalue Managed_BuildSeoMeta(xvalue tblItem)
+{
+	xvalue tblMeta = xvoCreateTable();
+	xvalue tblData = tblItem ? xvoTableGetValue(tblItem, "data", 4) : NULL;
+	const char* sTitle = Managed_TableTextOrEmpty(tblData, "seo_title");
+	const char* sKeywords = Managed_TableTextOrEmpty(tblData, "seo_keywords");
+	const char* sDescription = Managed_TableTextOrEmpty(tblData, "seo_description");
+	const char* sSlug = Managed_ItemTextOrEmpty(tblItem, "slug");
+
+	if ( Managed_IsBlank(sTitle) ) {
+		sTitle = Managed_ItemTextOrEmpty(tblItem, "title");
+	}
+	if ( Managed_IsBlank(sDescription) ) {
+		sDescription = Managed_ItemTextOrEmpty(tblItem, "summary");
+	}
+	xvoTableSetText(tblMeta, "title", 5, (str)(sTitle ? sTitle : ""), 0, FALSE);
+	xvoTableSetText(tblMeta, "keywords", 8, (str)(sKeywords ? sKeywords : ""), 0, FALSE);
+	xvoTableSetText(tblMeta, "description", 11, (str)(sDescription ? sDescription : ""), 0, FALSE);
+	xvoTableSetText(tblMeta, "slug", 4, (str)(sSlug ? sSlug : ""), 0, FALSE);
+	if ( !Managed_IsBlank(sSlug) ) {
+		str sCanonical = xrtFormat("/plugin/{{PLUGIN_XID}}?slug=%s", sSlug);
+		xvoTableSetText(tblMeta, "canonical", 9, sCanonical ? sCanonical : (str)"", 0, TRUE);
+	}
+	return tblMeta;
+}
+
+bool Managed_NormalizeRedirectPath(const char* sInput, char* sBuf, int iBufSize)
+{
+	if ( (sBuf == NULL) || (iBufSize <= 0) ) {
+		return FALSE;
+	}
+	memset(sBuf, 0, (size_t)iBufSize);
+	if ( Managed_IsBlank(sInput) ) {
+		return FALSE;
+	}
+	if ( sInput[0] == '/' ) {
+		snprintf(sBuf, (size_t)iBufSize, "%s", sInput);
+	} else {
+		snprintf(sBuf, (size_t)iBufSize, "/%s", sInput);
+	}
+	return sBuf[0] != '\0';
+}
+
 void Managed_AppendTaxonomyText(char* sBuffer, size_t iCap, const char* sText)
 {
 	size_t iLen;
@@ -2674,7 +2739,62 @@ void Managed_AttachMetricFields(sqlite3* pDb, xvalue tblItem, bool bAttachCommen
 	}
 }
 
-void Managed_AttachAbilityListFields(sqlite3* pDb, xvalue tblItem, bool bAttachTag, bool bAttachTopic, bool bAttachComment, bool bAttachLike, bool bAttachView)
+void Managed_AttachMediaFields(sqlite3* pDb, xvalue tblItem, bool bAttachMedia)
+{
+	sqlite3_stmt* stmt = NULL;
+	xvalue arrList = xvoCreateArray();
+	int64 iContentId = xvoTableGetInt(tblItem, "id", 2);
+
+	if ( (pDb == NULL) || (tblItem == NULL) || (iContentId <= 0) || !bAttachMedia ) {
+		xvoUnref(arrList);
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT m.id,m.title,m.url,m.mime,m.size,r.ref_type FROM content_media_ref r INNER JOIN content_media m ON m.id=r.media_id WHERE r.content_id=? AND m.delete_time=0 ORDER BY r.id ASC", -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblMedia = xvoCreateTable();
+			xvoTableSetInt(tblMedia, "id", 2, sqlite3_column_int64(stmt, 0));
+			xvoTableSetText(tblMedia, "title", 5, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+			xvoTableSetText(tblMedia, "url", 3, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+			xvoTableSetText(tblMedia, "mime", 4, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+			xvoTableSetInt(tblMedia, "size", 4, sqlite3_column_int64(stmt, 4));
+			xvoTableSetText(tblMedia, "refType", 7, (str)sqlite3_column_text(stmt, 5), 0, FALSE);
+			xvoArrayAppendValue(arrList, tblMedia, TRUE);
+			if ( strcmp((const char*)sqlite3_column_text(stmt, 5), "cover") == 0 ) {
+				xvoTableSetInt(tblItem, "coverMediaId", 12, sqlite3_column_int64(stmt, 0));
+				xvoTableSetText(tblItem, "coverMediaUrl", 13, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+			}
+		}
+		sqlite3_finalize(stmt);
+	}
+	xvoTableSetValue(tblItem, "mediaList", 9, arrList, TRUE);
+}
+
+void Managed_AttachRelatedFields(sqlite3* pDb, xvalue tblItem, xvalue tblSpec, bool bAttachRelated)
+{
+	sqlite3_stmt* stmt = NULL;
+	xvalue arrList = xvoCreateArray();
+	int64 iContentId = tblItem ? xvoTableGetInt(tblItem, "id", 2) : 0;
+
+	if ( (pDb == NULL) || (tblItem == NULL) || (iContentId <= 0) || !bAttachRelated ) {
+		xvoUnref(arrList);
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT i.id,i.title,i.status,i.payload_json,i.is_draft,i.create_time,i.update_time,i.category_id,r.relation_type,r.weight FROM content_related r INNER JOIN content_item i ON i.id=r.related_content_id WHERE r.source_content_id=? AND r.status=1 AND r.delete_time=0 AND i.delete_time=0 AND i.is_draft=0 AND i.status>=? ORDER BY r.weight DESC,r.update_time DESC,r.id DESC LIMIT 20", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		sqlite3_bind_int(stmt, 2, Managed_PublicStatusThreshold(tblSpec));
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblRelated = Managed_CreateItemFromStmt(stmt, tblSpec);
+			xvoTableSetText(tblRelated, "relationType", 12, (str)sqlite3_column_text(stmt, 8), 0, FALSE);
+			xvoTableSetInt(tblRelated, "weight", 6, sqlite3_column_int(stmt, 9));
+			xvoArrayAppendValue(arrList, tblRelated, TRUE);
+			xvoUnref(tblRelated);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	xvoTableSetValue(tblItem, "relatedList", 11, arrList, TRUE);
+}
+
+void Managed_AttachAbilityListFields(sqlite3* pDb, xvalue tblItem, bool bAttachTag, bool bAttachTopic, bool bAttachComment, bool bAttachLike, bool bAttachView, bool bAttachMedia)
 {
 	if ( bAttachTag ) {
 		Managed_AttachTagFields(pDb, tblItem, TRUE);
@@ -2684,6 +2804,9 @@ void Managed_AttachAbilityListFields(sqlite3* pDb, xvalue tblItem, bool bAttachT
 	}
 	if ( bAttachComment || bAttachLike || bAttachView ) {
 		Managed_AttachMetricFields(pDb, tblItem, bAttachComment, bAttachLike, bAttachView);
+	}
+	if ( bAttachMedia ) {
+		Managed_AttachMediaFields(pDb, tblItem, TRUE);
 	}
 }
 
@@ -3120,6 +3243,91 @@ bool Managed_RowMatchesFilters(xvalue tblItem, xvalue tblSpec, XS_RequestObject 
 		return FALSE;
 	}
 	return Managed_RowMatchesQuery(tblItem, tblSpec, sQuery);
+}
+
+bool Managed_AbilityPackMounted(const char* sPackId);
+void Managed_AuditLog(sqlite3* pDb, const char* sTargetType, int64 iTargetId, const char* sAction, const char* sSummary, const char* sDetailJson, xvalue objSession);
+
+int64 Managed_RequestReadLevel(XS_RequestObject objReq, xvalue objSession)
+{
+	char sReadLevel[32];
+	int64 iLevel = 0;
+
+	memset(sReadLevel, 0, sizeof(sReadLevel));
+	if ( objSession && (xvoType(objSession) == XVO_DT_TABLE) ) {
+		iLevel = xvoTableGetInt(objSession, "authLevel", 9);
+		if ( iLevel <= 0 ) iLevel = xvoTableGetInt(objSession, "__authLevel__", 13);
+	}
+	if ( objReq ) {
+		xsReqQueryValue(objReq, "readLevel", sReadLevel, sizeof(sReadLevel));
+		if ( sReadLevel[0] != '\0' ) iLevel = atoll(sReadLevel);
+	}
+	return iLevel;
+}
+
+bool Managed_RequestHasMemberSession(xvalue objSession)
+{
+	if ( (objSession == NULL) || (xvoType(objSession) != XVO_DT_TABLE) ) {
+		return FALSE;
+	}
+	return (xvoTableGetInt(objSession, "memberID", 8) > 0)
+		|| (xvoTableGetInt(objSession, "memberId", 8) > 0)
+		|| (xvoTableGetInt(objSession, "id", 2) > 0);
+}
+
+bool Managed_AccessCheckRule(sqlite3* pDb, int64 iContentId, XS_RequestObject objReq, xvalue objSession, bool bAdmin, xvalue tblAccessOut)
+{
+	sqlite3_stmt* stmt = NULL;
+	const char* sMode = "public";
+	const char* sRequiredPassword = "";
+	int64 iRequiredLevel = 0;
+	bool bAllowed = TRUE;
+
+	if ( bAdmin || !Managed_AbilityPackMounted("content.access") || (pDb == NULL) || (iContentId <= 0) ) {
+		return TRUE;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT access_mode,required_read_level,password_hash FROM content_access_rule WHERE content_id=? AND status=1 AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			sMode = (const char*)sqlite3_column_text(stmt, 0);
+			iRequiredLevel = sqlite3_column_int64(stmt, 1);
+			sRequiredPassword = (const char*)sqlite3_column_text(stmt, 2);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	if ( Managed_IsBlank(sMode) || (strcmp(sMode, "public") == 0) ) {
+		bAllowed = TRUE;
+	} else if ( strcmp(sMode, "login") == 0 ) {
+		bAllowed = Managed_RequestHasMemberSession(objSession);
+	} else if ( strcmp(sMode, "level") == 0 ) {
+		bAllowed = Managed_RequestReadLevel(objReq, objSession) >= iRequiredLevel;
+	} else if ( strcmp(sMode, "password") == 0 ) {
+		char sPassword[160];
+		memset(sPassword, 0, sizeof(sPassword));
+		if ( objReq ) xsReqQueryValue(objReq, "accessPassword", sPassword, sizeof(sPassword));
+		bAllowed = !Managed_IsBlank(sRequiredPassword) && (strcmp(sRequiredPassword, sPassword) == 0);
+	} else {
+		bAllowed = FALSE;
+	}
+	if ( tblAccessOut && (xvoType(tblAccessOut) == XVO_DT_TABLE) ) {
+		xvoTableSetBool(tblAccessOut, "allowed", 7, bAllowed);
+		xvoTableSetText(tblAccessOut, "mode", 4, (str)(sMode ? sMode : "public"), 0, FALSE);
+		xvoTableSetInt(tblAccessOut, "requiredReadLevel", 17, iRequiredLevel);
+	}
+	return bAllowed;
+}
+
+void Managed_AttachAccessInfo(sqlite3* pDb, xvalue tblItem, XS_RequestObject objReq, xvalue objSession, bool bAdmin)
+{
+	xvalue tblAccess = xvoCreateTable();
+	int64 iContentId = tblItem ? xvoTableGetInt(tblItem, "id", 2) : 0;
+
+	if ( tblItem == NULL ) {
+		xvoUnref(tblAccess);
+		return;
+	}
+	Managed_AccessCheckRule(pDb, iContentId, objReq, objSession, bAdmin, tblAccess);
+	xvoTableSetValue(tblItem, "access", 6, tblAccess, TRUE);
 }
 
 int Managed_QueryCount(sqlite3* pDb, xvalue tblSpec, bool bAdmin)
@@ -5388,7 +5596,8 @@ xvalue Managed_StaticLoadContentItem(sqlite3* pDb, int64 iTargetId, xvalue tblSp
 				Managed_AbilityPackMounted("content.topic"),
 				Managed_AbilityPackMounted("content.comment"),
 				Managed_AbilityPackMounted("content.like"),
-				Managed_AbilityPackMounted("content.view-stat"));
+				Managed_AbilityPackMounted("content.view-stat"),
+				Managed_AbilityPackMounted("content.media"));
 		}
 	}
 	if ( stmt ) sqlite3_finalize(stmt);
@@ -7257,7 +7466,7 @@ void Managed_RequestFormMetaAdmin(XS_ServerObject objServer, XS_HostObject objHo
 	Managed_SendJsonValue(objResp, tblRet);
 }
 
-void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objReq, bool bAdmin, int iForcedDraftFilter)
+void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objReq, xvalue objSession, bool bAdmin, int iForcedDraftFilter)
 {
 	sqlite3* pDb = NULL;
 	sqlite3_stmt* stmt = NULL;
@@ -7284,6 +7493,8 @@ void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objRe
 	bool bAttachComment = FALSE;
 	bool bAttachLike = FALSE;
 	bool bAttachView = FALSE;
+	bool bAttachMedia = FALSE;
+	bool bAccessPack = FALSE;
 	str sSql = NULL;
 
 	if ( iPage < 1 ) iPage = 1;
@@ -7313,6 +7524,8 @@ void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objRe
 	bAttachComment = Managed_AbilityPackMounted("content.comment");
 	bAttachLike = Managed_AbilityPackMounted("content.like");
 	bAttachView = Managed_AbilityPackMounted("content.view-stat");
+	bAttachMedia = Managed_AbilityPackMounted("content.media");
+	bAccessPack = Managed_AbilityPackMounted("content.access");
 	sSql = Managed_SelectListSql(tblSpec, bAdmin, sSqlSortField, bSortAsc);
 
 	if ( (sSql == NULL) || !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
@@ -7332,8 +7545,9 @@ void Managed_RequestListCommon(XS_ResponseObject objResp, XS_RequestObject objRe
 			xvalue tblItem;
 			Managed_AppendRow(arrRow, stmt, tblSpec);
 			tblItem = (xvoArrayItemCount(arrRow) > 0) ? xvoArrayGetValue(arrRow, 0) : NULL;
-			Managed_AttachAbilityListFields(pDb, tblItem, bAttachTag, bAttachTopic, bAttachComment, bAttachLike, bAttachView);
-			if ( Managed_RowMatchesFilters(tblItem, tblSpec, objReq, sQuery, bAdmin, iStatusFilter, iDraftFilter) ) {
+			Managed_AttachAbilityListFields(pDb, tblItem, bAttachTag, bAttachTopic, bAttachComment, bAttachLike, bAttachView, bAttachMedia);
+			if ( (!bAccessPack || bAdmin || Managed_AccessCheckRule(pDb, xvoTableGetInt(tblItem, "id", 2), objReq, objSession, bAdmin, NULL))
+				&& Managed_RowMatchesFilters(tblItem, tblSpec, objReq, sQuery, bAdmin, iStatusFilter, iDraftFilter) ) {
 				xvoArrayAppendValue(arrMatched, xvoCopy(tblItem), TRUE);
 			}
 			xvoUnref(arrRow);
@@ -7362,7 +7576,7 @@ void Managed_RequestListPublic(XS_ServerObject objServer, XS_HostObject objHost,
 	(void)objServer;
 	(void)objHost;
 	(void)objSession;
-	Managed_RequestListCommon(objResp, objReq, FALSE, 0);
+	Managed_RequestListCommon(objResp, objReq, objSession, FALSE, 0);
 }
 
 void Managed_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -7370,7 +7584,7 @@ void Managed_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost, 
 	(void)objServer;
 	(void)objHost;
 	(void)objSession;
-	Managed_RequestListCommon(objResp, objReq, TRUE, 0);
+	Managed_RequestListCommon(objResp, objReq, objSession, TRUE, 0);
 }
 
 void Managed_RequestDraftsAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -7378,10 +7592,961 @@ void Managed_RequestDraftsAdmin(XS_ServerObject objServer, XS_HostObject objHost
 	(void)objServer;
 	(void)objHost;
 	(void)objSession;
-	Managed_RequestListCommon(objResp, objReq, TRUE, 1);
+	Managed_RequestListCommon(objResp, objReq, objSession, TRUE, 1);
 }
 
-void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject objReq, bool bAdmin)
+void Managed_RequestSearchCommon(XS_ResponseObject objResp, XS_RequestObject objReq, xvalue objSession, bool bAdmin)
+{
+	if ( !Managed_AbilityPackMounted("content.search") ) {
+		Managed_SendError(objResp, "search ability pack is not enabled");
+		return;
+	}
+	Managed_RequestListCommon(objResp, objReq, objSession, bAdmin, 0);
+}
+
+void Managed_RequestSearchPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	Managed_RequestSearchCommon(objResp, objReq, objSession, FALSE);
+}
+
+void Managed_RequestSearchAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	Managed_RequestSearchCommon(objResp, objReq, objSession, TRUE);
+}
+
+str Managed_AppendOwnedText(str sBase, const char* sAdd)
+{
+	str sNext = xrtFormat("%s%s", sBase ? (const char*)sBase : "", sAdd ? sAdd : "");
+	if ( sBase ) xrtFree(sBase);
+	return sNext;
+}
+
+str Managed_XmlEscape(const char* sText)
+{
+	str sOut = xrtCopyStr("", 0);
+	const char* p;
+	char sBuf[2];
+
+	if ( sText == NULL ) return sOut;
+	sBuf[1] = '\0';
+	for ( p = sText; *p; p++ ) {
+		switch ( *p ) {
+		case '&': sOut = Managed_AppendOwnedText(sOut, "&amp;"); break;
+		case '<': sOut = Managed_AppendOwnedText(sOut, "&lt;"); break;
+		case '>': sOut = Managed_AppendOwnedText(sOut, "&gt;"); break;
+		case '"': sOut = Managed_AppendOwnedText(sOut, "&quot;"); break;
+		case '\'': sOut = Managed_AppendOwnedText(sOut, "&apos;"); break;
+		default:
+			sBuf[0] = *p;
+			sOut = Managed_AppendOwnedText(sOut, sBuf);
+			break;
+		}
+	}
+	return sOut;
+}
+
+str Managed_SitemapItemUrl(xvalue tblItem)
+{
+	int64 iId = tblItem ? xvoTableGetInt(tblItem, "id", 2) : 0;
+	const char* sSlug = tblItem ? xvoTableGetText(tblItem, "slug", 4) : NULL;
+
+	if ( !Managed_IsBlank(sSlug) && Managed_AbilityPackMounted("content.slug") ) {
+		return xrtFormat("/plugin/{{PLUGIN_XID}}?slug=%s", sSlug);
+	}
+	return xrtFormat("/plugin/{{PLUGIN_XID}}?id=%lld", (long long)iId);
+}
+
+void Managed_RequestSitemapEntryListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	str sSql = NULL;
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.sitemap") ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		if ( tblRet ) xvoUnref(tblRet);
+		if ( arrList ) xvoUnref(arrList);
+		Managed_SendError(objResp, "sitemap ability pack is not enabled");
+		return;
+	}
+	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT 500", Managed_PublicStatusThreshold(tblSpec));
+	if ( (sSql == NULL) || !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( sSql ) xrtFree(sSql);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		if ( tblRet ) xvoUnref(tblRet);
+		if ( arrList ) xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblItem = Managed_CreateItemFromStmt(stmt, tblSpec);
+			str sLoc = Managed_SitemapItemUrl(tblItem);
+			if ( tblItem ) {
+				xvoTableSetInt(tblItem, "contentId", 9, xvoTableGetInt(tblItem, "id", 2));
+				xvoTableSetText(tblItem, "loc", 3, sLoc ? sLoc : (str)"", 0, FALSE);
+				xvoTableSetText(tblItem, "changefreq", 10, "weekly", 0, FALSE);
+				xvoTableSetFloat(tblItem, "priority", 8, 0.8);
+				xvoArrayAppendValue(arrList, tblItem, TRUE);
+			}
+			if ( sLoc ) xrtFree(sLoc);
+			if ( tblItem ) xvoUnref(tblItem);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( sSql ) xrtFree(sSql);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestSitemapXmlPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblSpec = Managed_LoadSpec();
+	str sSql = NULL;
+	str sXml = xrtCopyStr("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">\n", 0);
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.sitemap") ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		if ( sXml ) xrtFree(sXml);
+		xsHttpReplyAuto(objResp, 404, "Content-Type: text/plain; charset=utf-8\r\n", "sitemap ability pack is not enabled", 0);
+		return;
+	}
+	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT 5000", Managed_PublicStatusThreshold(tblSpec));
+	if ( (sSql != NULL) && Managed_EnsureSchema() && Managed_OpenDb(&pDb) && (sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK) ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblItem = Managed_CreateItemFromStmt(stmt, tblSpec);
+			str sLoc = Managed_SitemapItemUrl(tblItem);
+			str sEscLoc = Managed_XmlEscape(sLoc ? (const char*)sLoc : "");
+			str sNode = xrtFormat("  <url><loc>%s</loc><changefreq>weekly</changefreq><priority>0.8</priority></url>\n", sEscLoc ? (const char*)sEscLoc : "");
+			sXml = Managed_AppendOwnedText(sXml, sNode);
+			if ( sNode ) xrtFree(sNode);
+			if ( sEscLoc ) xrtFree(sEscLoc);
+			if ( sLoc ) xrtFree(sLoc);
+			if ( tblItem ) xvoUnref(tblItem);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	if ( pDb ) Managed_CloseDb(pDb);
+	if ( sSql ) xrtFree(sSql);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	sXml = Managed_AppendOwnedText(sXml, "</urlset>\n");
+	xsHttpReplyAuto(objResp, 200, "Content-Type: application/xml; charset=utf-8\r\n", sXml ? (const char*)sXml : "", sXml ? strlen((const char*)sXml) : 0);
+	if ( sXml ) xrtFree(sXml);
+}
+
+void Managed_RequestRssXmlPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblSpec = Managed_LoadSpec();
+	str sSql = NULL;
+	str sXml = xrtCopyStr("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<rss version=\"2.0\"><channel><title>{{PLUGIN_XID}}</title><link>/plugin/{{PLUGIN_XID}}</link><description>{{PLUGIN_XID}} feed</description>\n", 0);
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.sitemap") ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		if ( sXml ) xrtFree(sXml);
+		xsHttpReplyAuto(objResp, 404, "Content-Type: text/plain; charset=utf-8\r\n", "sitemap ability pack is not enabled", 0);
+		return;
+	}
+	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT 100", Managed_PublicStatusThreshold(tblSpec));
+	if ( (sSql != NULL) && Managed_EnsureSchema() && Managed_OpenDb(&pDb) && (sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK) ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblItem = Managed_CreateItemFromStmt(stmt, tblSpec);
+			str sLoc = Managed_SitemapItemUrl(tblItem);
+			str sEscLoc = Managed_XmlEscape(sLoc ? (const char*)sLoc : "");
+			str sEscTitle = Managed_XmlEscape(tblItem ? xvoTableGetText(tblItem, "title", 5) : (str)"");
+			str sEscSummary = Managed_XmlEscape(tblItem ? xvoTableGetText(tblItem, "summary", 7) : (str)"");
+			str sNode = xrtFormat("<item><title>%s</title><link>%s</link><description>%s</description></item>\n", sEscTitle ? (const char*)sEscTitle : "", sEscLoc ? (const char*)sEscLoc : "", sEscSummary ? (const char*)sEscSummary : "");
+			sXml = Managed_AppendOwnedText(sXml, sNode);
+			if ( sNode ) xrtFree(sNode);
+			if ( sEscSummary ) xrtFree(sEscSummary);
+			if ( sEscTitle ) xrtFree(sEscTitle);
+			if ( sEscLoc ) xrtFree(sEscLoc);
+			if ( sLoc ) xrtFree(sLoc);
+			if ( tblItem ) xvoUnref(tblItem);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	if ( pDb ) Managed_CloseDb(pDb);
+	if ( sSql ) xrtFree(sSql);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	sXml = Managed_AppendOwnedText(sXml, "</channel></rss>\n");
+	xsHttpReplyAuto(objResp, 200, "Content-Type: application/rss+xml; charset=utf-8\r\n", sXml ? (const char*)sXml : "", sXml ? strlen((const char*)sXml) : 0);
+	if ( sXml ) xrtFree(sXml);
+}
+
+void Managed_RequestRobotsTxtPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	str sText = xrtCopyStr("User-agent: *\nAllow: /\nSitemap: /api/plugin/{{PLUGIN_XID}}/sitemap.xml\n", 0);
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.sitemap") ) {
+		if ( sText ) xrtFree(sText);
+		xsHttpReplyAuto(objResp, 404, "Content-Type: text/plain; charset=utf-8\r\n", "sitemap ability pack is not enabled", 0);
+		return;
+	}
+	xsHttpReplyAuto(objResp, 200, "Content-Type: text/plain; charset=utf-8\r\n", sText ? (const char*)sText : "", sText ? strlen((const char*)sText) : 0);
+	if ( sText ) xrtFree(sText);
+}
+
+void Managed_AppendRelatedAdminRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblRow = xvoCreateTable();
+
+	xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetInt(tblRow, "sourceContentId", 15, sqlite3_column_int64(stmt, 1));
+	xvoTableSetText(tblRow, "sourceTitle", 11, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetInt(tblRow, "relatedContentId", 16, sqlite3_column_int64(stmt, 3));
+	xvoTableSetText(tblRow, "relatedTitle", 12, (str)sqlite3_column_text(stmt, 4), 0, FALSE);
+	xvoTableSetText(tblRow, "relationType", 12, (str)sqlite3_column_text(stmt, 5), 0, FALSE);
+	xvoTableSetInt(tblRow, "weight", 6, sqlite3_column_int(stmt, 6));
+	xvoTableSetInt(tblRow, "status", 6, sqlite3_column_int(stmt, 7));
+	Managed_SetTimeText(tblRow, "updateTimeText", 14, sqlite3_column_int64(stmt, 8));
+	xvoArrayAppendValue(arrList, tblRow, TRUE);
+}
+
+void Managed_RequestRelatedListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.related") ) {
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "related ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT r.id,r.source_content_id,src.title,r.related_content_id,dst.title,r.relation_type,r.weight,r.status,r.update_time FROM content_related r LEFT JOIN content_item src ON src.id=r.source_content_id LEFT JOIN content_item dst ON dst.id=r.related_content_id WHERE r.delete_time=0 ORDER BY r.update_time DESC,r.id DESC LIMIT 500", -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendRelatedAdminRow(arrList, stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestRelatedSaveAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iSourceId = tblBody ? xvoTableGetInt(tblBody, "sourceContentId", 15) : 0;
+	int64 iRelatedId = tblBody ? xvoTableGetInt(tblBody, "relatedContentId", 16) : 0;
+	const char* sType = tblBody ? xvoTableGetText(tblBody, "relationType", 12) : NULL;
+	int iWeight = tblBody ? (int)xvoTableGetInt(tblBody, "weight", 6) : 0;
+	int iStatus = tblBody ? (int)xvoTableGetInt(tblBody, "status", 6) : 1;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.related") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "related ability pack is not enabled");
+		return;
+	}
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || (tblBody == NULL) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "invalid request body");
+		return;
+	}
+	if ( (iSourceId <= 0) || (iRelatedId <= 0) || (iSourceId == iRelatedId) ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "sourceContentId and relatedContentId are required");
+		return;
+	}
+	if ( Managed_IsBlank(sType) ) sType = "manual";
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_related SET source_content_id=?,related_content_id=?,relation_type=?,weight=?,status=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iSourceId);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iRelatedId);
+			sqlite3_bind_text(stmt, 3, sType, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 4, iWeight);
+			sqlite3_bind_int(stmt, 5, iStatus);
+			sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iNow);
+			sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	} else {
+		if ( sqlite3_prepare_v2(pDb, "INSERT OR REPLACE INTO content_related(source_content_id,related_content_id,relation_type,weight,status,create_time,update_time,delete_time) VALUES(?,?,?,?,?,?,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iSourceId);
+			sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iRelatedId);
+			sqlite3_bind_text(stmt, 3, sType, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 4, iWeight);
+			sqlite3_bind_int(stmt, 5, iStatus);
+			sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iNow);
+			sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iNow);
+			sqlite3_step(stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "saved"));
+}
+
+void Managed_RequestRelatedDeleteAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.related") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "related ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "id is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_related SET delete_time=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblBody ) xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "deleted"));
+}
+
+void Managed_RequestRelatedListPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sContentId[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	int64 iContentId;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	memset(sContentId, 0, sizeof(sContentId));
+	xsReqQueryValue(objReq, "contentId", sContentId, sizeof(sContentId));
+	if ( sContentId[0] == '\0' ) xsReqQueryValue(objReq, "id", sContentId, sizeof(sContentId));
+	iContentId = atoll(sContentId);
+	if ( !Managed_AbilityPackMounted("content.related") ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "related ability pack is not enabled");
+		return;
+	}
+	if ( iContentId <= 0 ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "contentId is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT i.id,i.title,i.status,i.payload_json,i.is_draft,i.create_time,i.update_time,i.category_id,r.relation_type,r.weight FROM content_related r INNER JOIN content_item i ON i.id=r.related_content_id WHERE r.source_content_id=? AND r.status=1 AND r.delete_time=0 AND i.delete_time=0 AND i.is_draft=0 AND i.status>=? ORDER BY r.weight DESC,r.update_time DESC,r.id DESC LIMIT 20", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		sqlite3_bind_int(stmt, 2, Managed_PublicStatusThreshold(tblSpec));
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblItem = Managed_CreateItemFromStmt(stmt, tblSpec);
+			xvoTableSetText(tblItem, "relationType", 12, (str)sqlite3_column_text(stmt, 8), 0, FALSE);
+			xvoTableSetInt(tblItem, "weight", 6, sqlite3_column_int(stmt, 9));
+			xvoArrayAppendValue(arrList, tblItem, TRUE);
+			xvoUnref(tblItem);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_AppendFormRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblRow = xvoCreateTable();
+
+	xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetInt(tblRow, "contentId", 9, sqlite3_column_int64(stmt, 1));
+	xvoTableSetText(tblRow, "formKey", 7, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetText(tblRow, "title", 5, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+	xvoTableSetText(tblRow, "schemaJson", 10, (str)sqlite3_column_text(stmt, 4), 0, FALSE);
+	xvoTableSetInt(tblRow, "status", 6, sqlite3_column_int(stmt, 5));
+	Managed_SetTimeText(tblRow, "updateTimeText", 14, sqlite3_column_int64(stmt, 6));
+	xvoArrayAppendValue(arrList, tblRow, TRUE);
+}
+
+void Managed_AppendFormSubmissionRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblRow = xvoCreateTable();
+
+	xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetInt(tblRow, "formId", 6, sqlite3_column_int64(stmt, 1));
+	xvoTableSetText(tblRow, "formKey", 7, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetText(tblRow, "formTitle", 9, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+	xvoTableSetInt(tblRow, "contentId", 9, sqlite3_column_int64(stmt, 4));
+	xvoTableSetText(tblRow, "dataJson", 8, (str)sqlite3_column_text(stmt, 5), 0, FALSE);
+	xvoTableSetText(tblRow, "ip", 2, (str)sqlite3_column_text(stmt, 6), 0, FALSE);
+	xvoTableSetInt(tblRow, "status", 6, sqlite3_column_int(stmt, 7));
+	Managed_SetTimeText(tblRow, "createTimeText", 14, sqlite3_column_int64(stmt, 8));
+	xvoArrayAppendValue(arrList, tblRow, TRUE);
+}
+
+void Managed_RequestFormListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.form") ) {
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "form ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,content_id,form_key,title,schema_json,status,update_time FROM content_form WHERE delete_time=0 ORDER BY update_time DESC,id DESC LIMIT 500", -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendFormRow(arrList, stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestFormSaveAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iContentId = tblBody ? xvoTableGetInt(tblBody, "contentId", 9) : 0;
+	const char* sFormKey = tblBody ? xvoTableGetText(tblBody, "formKey", 7) : NULL;
+	const char* sTitle = tblBody ? xvoTableGetText(tblBody, "title", 5) : NULL;
+	const char* sSchemaJson = tblBody ? xvoTableGetText(tblBody, "schemaJson", 10) : NULL;
+	int iStatus = tblBody ? (int)xvoTableGetInt(tblBody, "status", 6) : 1;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.form") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "form ability pack is not enabled");
+		return;
+	}
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || (tblBody == NULL) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "invalid request body");
+		return;
+	}
+	if ( Managed_IsBlank(sFormKey) || Managed_IsBlank(sTitle) ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "formKey and title are required");
+		return;
+	}
+	if ( Managed_IsBlank(sSchemaJson) ) sSchemaJson = "{}";
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_form SET content_id=?,form_key=?,title=?,schema_json=?,status=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+			sqlite3_bind_text(stmt, 2, sFormKey, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 3, sTitle, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 4, sSchemaJson, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 5, iStatus);
+			sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iNow);
+			sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	} else {
+		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_form(content_id,form_key,title,schema_json,status,create_time,update_time,delete_time) VALUES(?,?,?,?,?,?,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+			sqlite3_bind_text(stmt, 2, sFormKey, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 3, sTitle, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 4, sSchemaJson, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 5, iStatus);
+			sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iNow);
+			sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iNow);
+			sqlite3_step(stmt);
+			iId = sqlite3_last_insert_rowid(pDb);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(iId > 0, iId > 0 ? "saved" : "save failed"));
+}
+
+void Managed_RequestFormDeleteAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.form") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "form ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "id is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_form SET delete_time=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblBody ) xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "deleted"));
+}
+
+void Managed_RequestFormSubmissionListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.form") ) {
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "form ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT s.id,s.form_id,f.form_key,f.title,s.content_id,s.data_json,s.ip,s.status,s.create_time FROM content_form_submission s LEFT JOIN content_form f ON f.id=s.form_id WHERE s.delete_time=0 ORDER BY s.create_time DESC,s.id DESC LIMIT 500", -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendFormSubmissionRow(arrList, stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestFormSubmitPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	xvalue tblData = tblBody ? xvoTableGetValue(tblBody, "data", 4) : NULL;
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	const char* sFormKey = tblBody ? xvoTableGetText(tblBody, "formKey", 7) : NULL;
+	int64 iFormId = tblBody ? xvoTableGetInt(tblBody, "formId", 6) : 0;
+	int64 iContentId = tblBody ? xvoTableGetInt(tblBody, "contentId", 9) : 0;
+	int64 iNow = xrtNow();
+	size_t iJsonSize = 0;
+	str sDataJson = NULL;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.form") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "form ability pack is not enabled");
+		return;
+	}
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || (tblBody == NULL) || (tblData == NULL) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "invalid request body");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iFormId <= 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "SELECT id,content_id FROM content_form WHERE form_key=? AND status=1 AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sFormKey ? sFormKey : "", -1, SQLITE_TRANSIENT);
+			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+				iFormId = sqlite3_column_int64(stmt, 0);
+				if ( iContentId <= 0 ) iContentId = sqlite3_column_int64(stmt, 1);
+			}
+		}
+		if ( stmt ) sqlite3_finalize(stmt);
+		stmt = NULL;
+	}
+	if ( iFormId <= 0 ) {
+		Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "form not found");
+		return;
+	}
+	sDataJson = xrtStringifyJSON(tblData, FALSE, &iJsonSize);
+	if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_form_submission(form_id,content_id,data_json,ip,status,create_time,delete_time) VALUES(?,?,?,?,1,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iFormId);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iContentId);
+		sqlite3_bind_text(stmt, 3, sDataJson ? (const char*)sDataJson : "{}", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 4, "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 5, (sqlite3_int64)iNow);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( sDataJson ) xrtFree(sDataJson);
+	xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "submitted"));
+}
+
+void Managed_AppendAccessRuleRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblRow = xvoCreateTable();
+
+	xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetInt(tblRow, "contentId", 9, sqlite3_column_int64(stmt, 1));
+	xvoTableSetText(tblRow, "contentTitle", 12, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetText(tblRow, "accessMode", 10, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+	xvoTableSetInt(tblRow, "requiredReadLevel", 17, sqlite3_column_int64(stmt, 4));
+	xvoTableSetText(tblRow, "memberGroupIds", 14, (str)sqlite3_column_text(stmt, 5), 0, FALSE);
+	xvoTableSetInt(tblRow, "price", 5, sqlite3_column_int64(stmt, 6));
+	xvoTableSetInt(tblRow, "status", 6, sqlite3_column_int(stmt, 7));
+	Managed_SetTimeText(tblRow, "updateTimeText", 14, sqlite3_column_int64(stmt, 8));
+	xvoArrayAppendValue(arrList, tblRow, TRUE);
+}
+
+void Managed_RequestAccessRuleListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.access") ) {
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "access ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT r.id,r.content_id,i.title,r.access_mode,r.required_read_level,r.member_group_ids,r.price,r.status,r.update_time FROM content_access_rule r LEFT JOIN content_item i ON i.id=r.content_id WHERE r.delete_time=0 ORDER BY r.update_time DESC,r.id DESC LIMIT 500", -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendAccessRuleRow(arrList, stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestAccessRuleSaveAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iContentId = tblBody ? xvoTableGetInt(tblBody, "contentId", 9) : 0;
+	const char* sMode = tblBody ? xvoTableGetText(tblBody, "accessMode", 10) : NULL;
+	const char* sGroupIds = tblBody ? xvoTableGetText(tblBody, "memberGroupIds", 14) : NULL;
+	const char* sPassword = tblBody ? xvoTableGetText(tblBody, "password", 8) : NULL;
+	int64 iRequiredLevel = tblBody ? xvoTableGetInt(tblBody, "requiredReadLevel", 17) : 0;
+	int64 iPrice = tblBody ? xvoTableGetInt(tblBody, "price", 5) : 0;
+	int iStatus = tblBody ? (int)xvoTableGetInt(tblBody, "status", 6) : 1;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.access") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "access ability pack is not enabled");
+		return;
+	}
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || (tblBody == NULL) || (iContentId <= 0) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "contentId is required");
+		return;
+	}
+	if ( Managed_IsBlank(sMode) ) sMode = "public";
+	if ( Managed_IsBlank(sGroupIds) ) sGroupIds = "";
+	if ( Managed_IsBlank(sPassword) ) sPassword = "";
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_access_rule SET content_id=?,access_mode=?,required_read_level=?,member_group_ids=?,password_hash=?,price=?,status=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+			sqlite3_bind_text(stmt, 2, sMode, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iRequiredLevel);
+			sqlite3_bind_text(stmt, 4, sGroupIds, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 5, sPassword, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iPrice);
+			sqlite3_bind_int(stmt, 7, iStatus);
+			sqlite3_bind_int64(stmt, 8, (sqlite3_int64)iNow);
+			sqlite3_bind_int64(stmt, 9, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	} else {
+		if ( sqlite3_prepare_v2(pDb, "INSERT OR REPLACE INTO content_access_rule(content_id,access_mode,required_read_level,member_group_ids,password_hash,price,status,create_time,update_time,delete_time) VALUES(?,?,?,?,?,?,?,?,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+			sqlite3_bind_text(stmt, 2, sMode, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iRequiredLevel);
+			sqlite3_bind_text(stmt, 4, sGroupIds, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 5, sPassword, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iPrice);
+			sqlite3_bind_int(stmt, 7, iStatus);
+			sqlite3_bind_int64(stmt, 8, (sqlite3_int64)iNow);
+			sqlite3_bind_int64(stmt, 9, (sqlite3_int64)iNow);
+			sqlite3_step(stmt);
+			iId = sqlite3_last_insert_rowid(pDb);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_AuditLog(pDb, "access_rule", iId, "access_rule.save", sMode ? sMode : "", NULL, objSession);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(iId > 0, iId > 0 ? "saved" : "save failed"));
+}
+
+void Managed_RequestAccessRuleDeleteAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.access") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "access ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "id is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_access_rule SET delete_time=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_AuditLog(pDb, "access_rule", iId, "access_rule.delete", "delete access rule", NULL, objSession);
+	Managed_CloseDb(pDb);
+	if ( tblBody ) xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "deleted"));
+}
+
+void Managed_RequestAccessCheckPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sContentId[32];
+	sqlite3* pDb = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue tblAccess = xvoCreateTable();
+	int64 iContentId;
+	bool bAllowed = FALSE;
+
+	(void)objServer; (void)objHost;
+	memset(sContentId, 0, sizeof(sContentId));
+	xsReqQueryValue(objReq, "contentId", sContentId, sizeof(sContentId));
+	if ( sContentId[0] == '\0' ) xsReqQueryValue(objReq, "id", sContentId, sizeof(sContentId));
+	iContentId = atoll(sContentId);
+	if ( !Managed_AbilityPackMounted("content.access") ) {
+		xvoUnref(tblRet);
+		xvoUnref(tblAccess);
+		Managed_SendError(objResp, "access ability pack is not enabled");
+		return;
+	}
+	if ( (iContentId <= 0) || !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet);
+		xvoUnref(tblAccess);
+		Managed_SendError(objResp, "contentId is required");
+		return;
+	}
+	bAllowed = Managed_AccessCheckRule(pDb, iContentId, objReq, objSession, FALSE, tblAccess);
+	Managed_CloseDb(pDb);
+	xvoTableSetBool(tblRet, "allowed", 7, bAllowed);
+	xvoTableSetValue(tblRet, "data", 4, tblAccess, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_AuditLog(sqlite3* pDb, const char* sTargetType, int64 iTargetId, const char* sAction, const char* sSummary, const char* sDetailJson, xvalue objSession)
+{
+	sqlite3_stmt* stmt = NULL;
+	const char* sOperatorType = "";
+	int64 iOperatorId = 0;
+
+	/* Audit writes are optional capability-pack effects. Disabled packs do not touch the audit table. */
+	if ( !Managed_AbilityPackMounted("content.audit-log") || (pDb == NULL) || Managed_IsBlank(sAction) ) return;
+	if ( objSession && (xvoType(objSession) == XVO_DT_TABLE) ) {
+		iOperatorId = xvoTableGetInt(objSession, "id", 2);
+		if ( xvoTableGetInt(objSession, "memberId", 8) > 0 ) {
+			iOperatorId = xvoTableGetInt(objSession, "memberId", 8);
+			sOperatorType = "member";
+		} else if ( xvoTableGetInt(objSession, "memberID", 8) > 0 ) {
+			iOperatorId = xvoTableGetInt(objSession, "memberID", 8);
+			sOperatorType = "member";
+		} else if ( iOperatorId > 0 ) {
+			sOperatorType = "admin";
+		}
+	}
+	if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_audit_log(target_type,target_id,action,summary,detail_json,operator_type,operator_id,ip,create_time) VALUES(?,?,?,?,?,?,?,?,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_text(stmt, 1, Managed_IsBlank(sTargetType) ? "content" : sTargetType, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iTargetId);
+		sqlite3_bind_text(stmt, 3, sAction, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 4, sSummary ? sSummary : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 5, sDetailJson ? sDetailJson : "{}", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 6, sOperatorType, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iOperatorId);
+		sqlite3_bind_text(stmt, 8, "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 9, (sqlite3_int64)xrtNow());
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+}
+
+void Managed_AppendAuditLogRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblRow = xvoCreateTable();
+
+	xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetText(tblRow, "targetType", 10, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+	xvoTableSetInt(tblRow, "targetId", 8, sqlite3_column_int64(stmt, 2));
+	xvoTableSetText(tblRow, "action", 6, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+	xvoTableSetText(tblRow, "summary", 7, (str)sqlite3_column_text(stmt, 4), 0, FALSE);
+	xvoTableSetText(tblRow, "detailJson", 10, (str)sqlite3_column_text(stmt, 5), 0, FALSE);
+	xvoTableSetText(tblRow, "operatorType", 12, (str)sqlite3_column_text(stmt, 6), 0, FALSE);
+	xvoTableSetInt(tblRow, "operatorId", 10, sqlite3_column_int64(stmt, 7));
+	xvoTableSetText(tblRow, "ip", 2, (str)sqlite3_column_text(stmt, 8), 0, FALSE);
+	xvoTableSetInt(tblRow, "createTime", 10, sqlite3_column_int64(stmt, 9));
+	Managed_SetTimeText(tblRow, "createTimeText", 14, sqlite3_column_int64(stmt, 9));
+	xvoArrayAppendValue(arrList, tblRow, TRUE);
+}
+
+void Managed_RequestAuditLogListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.audit-log") ) {
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "audit-log ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,target_type,target_id,action,summary,detail_json,operator_type,operator_id,ip,create_time FROM content_audit_log ORDER BY create_time DESC,id DESC LIMIT 500", -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendAuditLogRow(arrList, stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject objReq, xvalue objSession, bool bAdmin)
 {
 	char sId[32];
 	char sSlug[160];
@@ -7397,6 +8562,9 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 	bool bAttachComment = FALSE;
 	bool bAttachLike = FALSE;
 	bool bAttachView = FALSE;
+	bool bAttachMedia = FALSE;
+	bool bAttachRelated = FALSE;
+	bool bAttachAccess = FALSE;
 
 	memset(sId, 0, sizeof(sId));
 	memset(sSlug, 0, sizeof(sSlug));
@@ -7408,6 +8576,13 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
 	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
 	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
+	if ( (sSlug[0] != '\0') && !Managed_AbilityPackMounted("content.slug") ) {
+		if ( sSqlById ) xrtFree(sSqlById);
+		if ( sSqlScan ) xrtFree(sSqlScan);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "slug capability is not enabled");
+		return;
+	}
 	if ( (sId[0] == '\0') && (sSlug[0] == '\0') ) {
 		if ( sSqlById ) xrtFree(sSqlById);
 		if ( sSqlScan ) xrtFree(sSqlScan);
@@ -7460,7 +8635,23 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 		bAttachComment = Managed_AbilityPackMounted("content.comment");
 		bAttachLike = Managed_AbilityPackMounted("content.like");
 		bAttachView = Managed_AbilityPackMounted("content.view-stat");
-		Managed_AttachAbilityListFields(pDb, tblData, bAttachTag, bAttachTopic, bAttachComment, bAttachLike, bAttachView);
+		bAttachMedia = Managed_AbilityPackMounted("content.media");
+		bAttachRelated = Managed_AbilityPackMounted("content.related");
+		bAttachAccess = Managed_AbilityPackMounted("content.access");
+		Managed_AttachAbilityListFields(pDb, tblData, bAttachTag, bAttachTopic, bAttachComment, bAttachLike, bAttachView, bAttachMedia);
+		if ( bAttachAccess ) {
+			Managed_AttachAccessInfo(pDb, tblData, objReq, objSession, bAdmin);
+			if ( !Managed_AccessCheckRule(pDb, xvoTableGetInt(tblData, "id", 2), objReq, objSession, bAdmin, NULL) ) {
+				Managed_CloseDb(pDb);
+				if ( sSqlById ) xrtFree(sSqlById);
+				if ( sSqlScan ) xrtFree(sSqlScan);
+				if ( tblSpec ) xvoUnref(tblSpec);
+				if ( tblData ) xvoUnref(tblData);
+				Managed_SendError(objResp, "content access denied");
+				return;
+			}
+		}
+		Managed_AttachRelatedFields(pDb, tblData, tblSpec, bAttachRelated);
 	}
 	Managed_CloseDb(pDb);
 	if ( sSqlById ) xrtFree(sSqlById);
@@ -7480,7 +8671,1064 @@ void Managed_RequestDetailPublic(XS_ServerObject objServer, XS_HostObject objHos
 	(void)objServer;
 	(void)objHost;
 	(void)objSession;
-	Managed_RequestDetailCommon(objResp, objReq, FALSE);
+	Managed_RequestDetailCommon(objResp, objReq, objSession, FALSE);
+}
+
+void Managed_RequestSlugResolvePublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sSlug[160];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue tblItem = NULL;
+	xvalue tblRet = NULL;
+	xvalue tblData = NULL;
+	str sSql = NULL;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	memset(sSlug, 0, sizeof(sSlug));
+	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
+	if ( Managed_IsBlank(sSlug) ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "slug is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	sSql = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
+	if ( sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblCandidate = Managed_CreateItemFromStmt(stmt, tblSpec);
+			if ( Managed_ItemMatchesSlug(tblCandidate, sSlug) ) {
+				tblItem = tblCandidate;
+				break;
+			}
+			if ( tblCandidate ) xvoUnref(tblCandidate);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( sSql ) xrtFree(sSql);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	if ( tblItem == NULL ) {
+		Managed_SendError(objResp, "slug not found");
+		return;
+	}
+	tblData = xvoCreateTable();
+	xvoTableSetInt(tblData, "id", 2, xvoTableGetInt(tblItem, "id", 2));
+	xvoTableSetText(tblData, "title", 5, (str)Managed_ItemTextOrEmpty(tblItem, "title"), 0, FALSE);
+	xvoTableSetText(tblData, "slug", 4, (str)Managed_ItemTextOrEmpty(tblItem, "slug"), 0, FALSE);
+	xvoTableSetText(tblData, "url", 3, xrtFormat("/plugin/{{PLUGIN_XID}}?slug=%s", Managed_ItemTextOrEmpty(tblItem, "slug")), 0, TRUE);
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
+	xvoUnref(tblItem);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestRedirectResolvePublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sPath[512];
+	char sUrl[512];
+	char sSource[768];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblData = NULL;
+	xvalue tblRet = NULL;
+	int64 iId = 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	memset(sPath, 0, sizeof(sPath));
+	memset(sUrl, 0, sizeof(sUrl));
+	Managed_ReadTextQuery(objReq, "path", sPath, sizeof(sPath));
+	Managed_ReadTextQuery(objReq, "url", sUrl, sizeof(sUrl));
+	if ( !Managed_NormalizeRedirectPath(!Managed_IsBlank(sPath) ? sPath : sUrl, sSource, sizeof(sSource)) ) {
+		Managed_SendError(objResp, "path is required");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.redirect") ) {
+		Managed_SendError(objResp, "redirect ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,source_path,target_url,status_code,hit_count,last_hit_time FROM content_redirect WHERE source_path=? AND status=1 AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_text(stmt, 1, sSource, -1, SQLITE_TRANSIENT);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			iId = sqlite3_column_int64(stmt, 0);
+			tblData = xvoCreateTable();
+			xvoTableSetInt(tblData, "id", 2, iId);
+			xvoTableSetText(tblData, "sourcePath", 10, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+			xvoTableSetText(tblData, "targetUrl", 9, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+			xvoTableSetInt(tblData, "statusCode", 10, sqlite3_column_int(stmt, 3));
+			xvoTableSetInt(tblData, "hitCount", 8, sqlite3_column_int64(stmt, 4) + 1);
+			xvoTableSetInt(tblData, "lastHitTime", 11, iNow);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_redirect SET hit_count=hit_count+1,last_hit_time=?,update_time=? WHERE id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_int64(stmt, 1, iNow);
+			sqlite3_bind_int64(stmt, 2, iNow);
+			sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblData == NULL ) {
+		Managed_SendError(objResp, "redirect rule not found");
+		return;
+	}
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_AppendRedirectRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblItem = xvoCreateTable();
+
+	if ( (arrList == NULL) || (stmt == NULL) || (tblItem == NULL) ) {
+		if ( tblItem ) xvoUnref(tblItem);
+		return;
+	}
+	xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetText(tblItem, "sourcePath", 10, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+	xvoTableSetText(tblItem, "targetUrl", 9, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetInt(tblItem, "statusCode", 10, sqlite3_column_int(stmt, 3));
+	xvoTableSetInt(tblItem, "hitCount", 8, sqlite3_column_int64(stmt, 4));
+	xvoTableSetInt(tblItem, "lastHitTime", 11, sqlite3_column_int64(stmt, 5));
+	xvoTableSetInt(tblItem, "status", 6, sqlite3_column_int(stmt, 6));
+	xvoTableSetInt(tblItem, "createTime", 10, sqlite3_column_int64(stmt, 7));
+	xvoTableSetInt(tblItem, "updateTime", 10, sqlite3_column_int64(stmt, 8));
+	Managed_SetTimeText(tblItem, "lastHitTimeText", 15, sqlite3_column_int64(stmt, 5));
+	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 7));
+	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 8));
+	xvoArrayAppendValue(arrList, tblItem, TRUE);
+}
+
+void Managed_RequestRedirectListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sPage[32];
+	char sLimit[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	int iPage = 1;
+	int iLimit = 20;
+	int iOffset = 0;
+	int iCount = 0;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	Managed_ReadTextQuery(objReq, "page", sPage, sizeof(sPage));
+	Managed_ReadTextQuery(objReq, "limit", sLimit, sizeof(sLimit));
+	if ( atoi(sPage) > 0 ) iPage = atoi(sPage);
+	if ( atoi(sLimit) > 0 ) iLimit = atoi(sLimit);
+	if ( iLimit > 200 ) iLimit = 200;
+	iOffset = (iPage - 1) * iLimit;
+	if ( !Managed_AbilityPackMounted("content.redirect") ) {
+		if ( tblRet ) xvoUnref(tblRet);
+		if ( arrList ) xvoUnref(arrList);
+		Managed_SendError(objResp, "redirect ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblRet ) xvoUnref(tblRet);
+		if ( arrList ) xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT COUNT(*) FROM content_redirect WHERE delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) iCount = sqlite3_column_int(stmt, 0);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,source_path,target_url,status_code,hit_count,last_hit_time,status,create_time,update_time FROM content_redirect WHERE delete_time=0 ORDER BY id DESC LIMIT ? OFFSET ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int(stmt, 1, iLimit);
+		sqlite3_bind_int(stmt, 2, iOffset);
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			Managed_AppendRedirectRow(arrList, stmt);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetInt(tblRet, "count", 5, iCount);
+	xvoTableSetInt(tblRet, "page", 4, iPage);
+	xvoTableSetInt(tblRet, "pageSize", 8, iLimit);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestRedirectSaveAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	char sSource[768];
+	const char* sSourceIn = tblBody ? xvoTableGetText(tblBody, "sourcePath", 10) : NULL;
+	const char* sTargetUrl = tblBody ? xvoTableGetText(tblBody, "targetUrl", 9) : NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int iStatusCode = tblBody ? xvoTableGetInt(tblBody, "statusCode", 10) : 301;
+	int iStatus = tblBody ? xvoTableGetInt(tblBody, "status", 6) : 1;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( tblBody == NULL ) {
+		Managed_SendError(objResp, "invalid json body");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.redirect") ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "redirect ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_NormalizeRedirectPath(sSourceIn, sSource, sizeof(sSource)) ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "sourcePath is required");
+		return;
+	}
+	if ( Managed_IsBlank(sTargetUrl) ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "targetUrl is required");
+		return;
+	}
+	if ( (iStatusCode != 301) && (iStatusCode != 302) ) iStatusCode = 301;
+	iStatus = iStatus ? 1 : 0;
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_redirect SET source_path=?,target_url=?,status_code=?,status=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sSource, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 2, sTargetUrl, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 3, iStatusCode);
+			sqlite3_bind_int(stmt, 4, iStatus);
+			sqlite3_bind_int64(stmt, 5, iNow);
+			sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	} else {
+		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_redirect(source_path,target_url,status_code,status,create_time,update_time,delete_time) VALUES(?,?,?,?,?,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sSource, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 2, sTargetUrl, -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int(stmt, 3, iStatusCode);
+			sqlite3_bind_int(stmt, 4, iStatus);
+			sqlite3_bind_int64(stmt, 5, iNow);
+			sqlite3_bind_int64(stmt, 6, iNow);
+			sqlite3_step(stmt);
+			iId = sqlite3_last_insert_rowid(pDb);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(iId > 0, iId > 0 ? "ok" : "save failed"));
+}
+
+void Managed_RequestRedirectDeleteAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.redirect") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "redirect ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "invalid redirect id");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_redirect SET delete_time=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, iNow);
+		sqlite3_bind_int64(stmt, 2, iNow);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblBody ) xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "deleted"));
+}
+
+void Managed_AppendMediaRow(xvalue arrList, sqlite3_stmt* stmt)
+{
+	xvalue tblItem = xvoCreateTable();
+
+	if ( (arrList == NULL) || (stmt == NULL) || (tblItem == NULL) ) {
+		if ( tblItem ) xvoUnref(tblItem);
+		return;
+	}
+	xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetText(tblItem, "attachmentXid", 13, (str)sqlite3_column_text(stmt, 1), 0, FALSE);
+	xvoTableSetText(tblItem, "title", 5, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+	xvoTableSetText(tblItem, "url", 3, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+	xvoTableSetText(tblItem, "mime", 4, (str)sqlite3_column_text(stmt, 4), 0, FALSE);
+	xvoTableSetText(tblItem, "ext", 3, (str)sqlite3_column_text(stmt, 5), 0, FALSE);
+	xvoTableSetInt(tblItem, "size", 4, sqlite3_column_int64(stmt, 6));
+	xvoTableSetInt(tblItem, "width", 5, sqlite3_column_int(stmt, 7));
+	xvoTableSetInt(tblItem, "height", 6, sqlite3_column_int(stmt, 8));
+	xvoTableSetInt(tblItem, "status", 6, sqlite3_column_int(stmt, 9));
+	xvoTableSetInt(tblItem, "createTime", 10, sqlite3_column_int64(stmt, 10));
+	xvoTableSetInt(tblItem, "updateTime", 10, sqlite3_column_int64(stmt, 11));
+	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 10));
+	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 11));
+	xvoArrayAppendValue(arrList, tblItem, TRUE);
+}
+
+int64 Managed_MediaRefCount(sqlite3* pDb, int64 iMediaId)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 iCount = 0;
+
+	if ( (pDb == NULL) || (iMediaId <= 0) ) return 0;
+	if ( sqlite3_prepare_v2(pDb, "SELECT COUNT(*) FROM content_media_ref WHERE media_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iMediaId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt, 0);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	return iCount;
+}
+
+void Managed_MediaSyncRefOne(sqlite3* pDb, int64 iContentId, int64 iMediaId, const char* sRefType, int64 iNow)
+{
+	sqlite3_stmt* stmt = NULL;
+
+	if ( (pDb == NULL) || (iContentId <= 0) || (iMediaId <= 0) || Managed_IsBlank(sRefType) ) return;
+	if ( sqlite3_prepare_v2(pDb, "INSERT OR IGNORE INTO content_media_ref(media_id,content_id,ref_type,create_time) VALUES(?,?,?,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iMediaId);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iContentId);
+		sqlite3_bind_text(stmt, 3, sRefType, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 4, iNow);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+}
+
+void Managed_MediaSyncRefs(sqlite3* pDb, int64 iContentId, xvalue tblData, int64 iNow)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 iCoverId = 0;
+	xvalue objMediaIds = NULL;
+
+	if ( !Managed_AbilityPackMounted("content.media") || (pDb == NULL) || (iContentId <= 0) || (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) ) return;
+	if ( sqlite3_prepare_v2(pDb, "DELETE FROM content_media_ref WHERE content_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	iCoverId = xvoTableGetInt(tblData, "cover_media_id", 14);
+	if ( iCoverId <= 0 ) iCoverId = xvoTableGetInt(tblData, "coverMediaId", 12);
+	if ( iCoverId > 0 ) Managed_MediaSyncRefOne(pDb, iContentId, iCoverId, "cover", iNow);
+	objMediaIds = xvoTableGetValue(tblData, "media_ids", 9);
+	if ( objMediaIds == NULL ) objMediaIds = xvoTableGetValue(tblData, "mediaIds", 8);
+	if ( objMediaIds && (xvoType(objMediaIds) == XVO_DT_ARRAY) ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(objMediaIds); i++ ) {
+			Managed_MediaSyncRefOne(pDb, iContentId, Managed_ValueToInt64(xvoArrayGetValue(objMediaIds, i)), "body", iNow);
+		}
+	} else if ( objMediaIds ) {
+		char sBuf[1024];
+		char* p;
+		const char* sText = xvoTableGetText(tblData, "media_ids", 9);
+		if ( sText == NULL ) sText = xvoTableGetText(tblData, "mediaIds", 8);
+		snprintf(sBuf, sizeof(sBuf), "%s", sText ? sText : "");
+		p = strtok(sBuf, ",");
+		while ( p ) {
+			Managed_MediaSyncRefOne(pDb, iContentId, atoll(p), "body", iNow);
+			p = strtok(NULL, ",");
+		}
+	}
+}
+
+void Managed_RequestMediaListCommon(XS_ResponseObject objResp, bool bAdmin)
+{
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	const char* sSql = bAdmin
+		? "SELECT id,attachment_xid,title,url,mime,ext,size,width,height,status,create_time,update_time FROM content_media WHERE delete_time=0 ORDER BY id DESC"
+		: "SELECT id,attachment_xid,title,url,mime,ext,size,width,height,status,create_time,update_time FROM content_media WHERE status=1 AND delete_time=0 ORDER BY id DESC";
+
+	if ( !Managed_AbilityPackMounted("content.media") ) {
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "media ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) Managed_AppendMediaRow(arrList, stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestMediaListPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	Managed_RequestMediaListCommon(objResp, FALSE);
+}
+
+void Managed_RequestMediaListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
+	Managed_RequestMediaListCommon(objResp, TRUE);
+}
+
+void Managed_RequestMediaDetailPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sId[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue arrList = xvoCreateArray();
+	xvalue tblRet = NULL;
+	int64 iId = 0;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	Managed_ReadTextQuery(objReq, "id", sId, sizeof(sId));
+	iId = atoll(sId);
+	if ( iId <= 0 ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "missing media id");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.media") ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "media ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,attachment_xid,title,url,mime,ext,size,width,height,status,create_time,update_time FROM content_media WHERE id=? AND status=1 AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) Managed_AppendMediaRow(arrList, stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( xvoArrayItemCount(arrList) <= 0 ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "media not found");
+		return;
+	}
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, xvoArrayGetValue(arrList, 0), FALSE);
+	xvoUnref(arrList);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestMediaSaveAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	const char* sTitle = tblBody ? xvoTableGetText(tblBody, "title", 5) : NULL;
+	const char* sUrl = tblBody ? xvoTableGetText(tblBody, "url", 3) : NULL;
+	const char* sMime = tblBody ? xvoTableGetText(tblBody, "mime", 4) : NULL;
+	const char* sExt = tblBody ? xvoTableGetText(tblBody, "ext", 3) : NULL;
+	const char* sAttachmentXid = tblBody ? xvoTableGetText(tblBody, "attachmentXid", 13) : NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( tblBody == NULL ) {
+		Managed_SendError(objResp, "invalid json body");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.media") ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "media ability pack is not enabled");
+		return;
+	}
+	if ( Managed_IsBlank(sUrl) ) {
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "url is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( iId > 0 ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_media SET attachment_xid=?,title=?,url=?,mime=?,ext=?,size=?,width=?,height=?,status=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sAttachmentXid ? sAttachmentXid : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 2, sTitle ? sTitle : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 3, sUrl ? sUrl : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 4, sMime ? sMime : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 5, sExt ? sExt : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 6, xvoTableGetInt(tblBody, "size", 4));
+			sqlite3_bind_int(stmt, 7, (int)xvoTableGetInt(tblBody, "width", 5));
+			sqlite3_bind_int(stmt, 8, (int)xvoTableGetInt(tblBody, "height", 6));
+			sqlite3_bind_int(stmt, 9, xvoTableGetInt(tblBody, "status", 6) ? 1 : 0);
+			sqlite3_bind_int64(stmt, 10, iNow);
+			sqlite3_bind_int64(stmt, 11, (sqlite3_int64)iId);
+			sqlite3_step(stmt);
+		}
+	} else {
+		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_media(attachment_xid,title,url,mime,ext,size,width,height,status,create_time,update_time,delete_time) VALUES(?,?,?,?,?,?,?,?,?,?,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+			sqlite3_bind_text(stmt, 1, sAttachmentXid ? sAttachmentXid : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 2, sTitle ? sTitle : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 3, sUrl ? sUrl : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 4, sMime ? sMime : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_text(stmt, 5, sExt ? sExt : "", -1, SQLITE_TRANSIENT);
+			sqlite3_bind_int64(stmt, 6, xvoTableGetInt(tblBody, "size", 4));
+			sqlite3_bind_int(stmt, 7, (int)xvoTableGetInt(tblBody, "width", 5));
+			sqlite3_bind_int(stmt, 8, (int)xvoTableGetInt(tblBody, "height", 6));
+			sqlite3_bind_int(stmt, 9, xvoTableGetInt(tblBody, "status", 6) ? 1 : 0);
+			sqlite3_bind_int64(stmt, 10, iNow);
+			sqlite3_bind_int64(stmt, 11, iNow);
+			sqlite3_step(stmt);
+			iId = sqlite3_last_insert_rowid(pDb);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(iId > 0, iId > 0 ? "ok" : "save failed"));
+}
+
+void Managed_RequestMediaDeleteAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.media") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "media ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "invalid media id");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( Managed_MediaRefCount(pDb, iId) > 0 ) {
+		Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "media is still referenced");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_media SET delete_time=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, iNow);
+		sqlite3_bind_int64(stmt, 2, iNow);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( tblBody ) xvoUnref(tblBody);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "deleted"));
+}
+
+int64 Managed_RevisionNextNo(sqlite3* pDb, int64 iContentId)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 iNext = 1;
+
+	if ( (pDb == NULL) || (iContentId <= 0) ) return 1;
+	if ( sqlite3_prepare_v2(pDb, "SELECT COALESCE(MAX(revision_no),0)+1 FROM content_revision WHERE content_id=?", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) iNext = sqlite3_column_int64(stmt, 0);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	return iNext > 0 ? iNext : 1;
+}
+
+void Managed_RevisionSnapshot(sqlite3* pDb, int64 iContentId, const char* sTitle, int iStatus, int iCategoryId, bool bDraft, const char* sPayloadJson, const char* sAction, int64 iNow)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 iRevisionNo;
+
+	if ( !Managed_AbilityPackMounted("content.revision") || (pDb == NULL) || (iContentId <= 0) ) return;
+	iRevisionNo = Managed_RevisionNextNo(pDb, iContentId);
+	if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_revision(content_id,revision_no,title,status,category_id,is_draft,payload_json,action,operator_id,create_time) VALUES(?,?,?,?,?,?,?,?,0,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		sqlite3_bind_int64(stmt, 2, (sqlite3_int64)iRevisionNo);
+		sqlite3_bind_text(stmt, 3, sTitle ? sTitle : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 4, iStatus);
+		sqlite3_bind_int(stmt, 5, iCategoryId);
+		sqlite3_bind_int(stmt, 6, bDraft ? 1 : 0);
+		sqlite3_bind_text(stmt, 7, sPayloadJson ? sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 8, sAction ? sAction : "save", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 9, (sqlite3_int64)iNow);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+}
+
+void Managed_AppendRevisionRow(xvalue arrList, sqlite3_stmt* stmt, bool bWithPayload)
+{
+	xvalue tblItem = xvoCreateTable();
+
+	xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+	xvoTableSetInt(tblItem, "contentId", 9, sqlite3_column_int64(stmt, 1));
+	xvoTableSetInt(tblItem, "revisionNo", 10, sqlite3_column_int64(stmt, 2));
+	xvoTableSetText(tblItem, "title", 5, (str)sqlite3_column_text(stmt, 3), 0, FALSE);
+	xvoTableSetInt(tblItem, "status", 6, sqlite3_column_int(stmt, 4));
+	xvoTableSetInt(tblItem, "categoryId", 10, sqlite3_column_int(stmt, 5));
+	xvoTableSetBool(tblItem, "isDraft", 7, sqlite3_column_int(stmt, 6) ? TRUE : FALSE);
+	if ( bWithPayload ) {
+		const char* sPayload = (const char*)sqlite3_column_text(stmt, 7);
+		xvalue tblData = sPayload ? xrtParseJSON((str)sPayload, strlen(sPayload)) : NULL;
+		xvoTableSetText(tblItem, "payloadJson", 11, (str)(sPayload ? sPayload : "{}"), 0, FALSE);
+		if ( tblData ) {
+			xvoTableSetValue(tblItem, "data", 4, tblData, TRUE);
+		}
+	}
+	xvoTableSetText(tblItem, "action", 6, (str)sqlite3_column_text(stmt, 8), 0, FALSE);
+	xvoTableSetInt(tblItem, "operatorId", 10, sqlite3_column_int64(stmt, 9));
+	xvoTableSetInt(tblItem, "createTime", 10, sqlite3_column_int64(stmt, 10));
+	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 10));
+	xvoArrayAppendValue(arrList, tblItem, TRUE);
+}
+
+void Managed_RequestRevisionListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sContentId[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	int64 iContentId = 0;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	Managed_ReadTextQuery(objReq, "contentId", sContentId, sizeof(sContentId));
+	iContentId = atoll(sContentId);
+	if ( !Managed_AbilityPackMounted("content.revision") ) {
+		xvoUnref(tblRet); xvoUnref(arrList);
+		Managed_SendError(objResp, "revision ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet); xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, iContentId > 0
+		? "SELECT id,content_id,revision_no,title,status,category_id,is_draft,payload_json,action,operator_id,create_time FROM content_revision WHERE content_id=? ORDER BY revision_no DESC,id DESC"
+		: "SELECT id,content_id,revision_no,title,status,category_id,is_draft,payload_json,action,operator_id,create_time FROM content_revision ORDER BY id DESC LIMIT 200", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( iContentId > 0 ) sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) Managed_AppendRevisionRow(arrList, stmt, FALSE);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestRevisionDetailAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sId[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue arrList = xvoCreateArray();
+	xvalue tblRet = NULL;
+	int64 iId = 0;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	Managed_ReadTextQuery(objReq, "id", sId, sizeof(sId));
+	iId = atoll(sId);
+	if ( !Managed_AbilityPackMounted("content.revision") ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "revision ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "revision id is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,content_id,revision_no,title,status,category_id,is_draft,payload_json,action,operator_id,create_time FROM content_revision WHERE id=? LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) Managed_AppendRevisionRow(arrList, stmt, TRUE);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( xvoArrayItemCount(arrList) <= 0 ) {
+		xvoUnref(arrList);
+		Managed_SendError(objResp, "revision not found");
+		return;
+	}
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, xvoArrayGetValue(arrList, 0), FALSE);
+	xvoUnref(arrList);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestRevisionRestoreAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int64 iContentId = 0;
+	int iStatus = 0;
+	int iCategoryId = 0;
+	bool bDraft = FALSE;
+	str sTitle = NULL;
+	str sPayloadJson = NULL;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !Managed_AbilityPackMounted("content.revision") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "revision ability pack is not enabled");
+		return;
+	}
+	if ( iId <= 0 ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "revision id is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT content_id,title,status,category_id,is_draft,payload_json FROM content_revision WHERE id=? LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			iContentId = sqlite3_column_int64(stmt, 0);
+			sTitle = xrtCopyStr((str)sqlite3_column_text(stmt, 1), 0);
+			iStatus = sqlite3_column_int(stmt, 2);
+			iCategoryId = sqlite3_column_int(stmt, 3);
+			bDraft = sqlite3_column_int(stmt, 4) ? TRUE : FALSE;
+			sPayloadJson = xrtCopyStr((str)sqlite3_column_text(stmt, 5), 0);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	stmt = NULL;
+	if ( iContentId <= 0 ) {
+		Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( sTitle ) xrtFree(sTitle);
+		if ( sPayloadJson ) xrtFree(sPayloadJson);
+		Managed_SendError(objResp, "revision not found");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title=?,status=?,payload_json=?,category_id=?,is_draft=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_text(stmt, 1, sTitle ? (const char*)sTitle : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 2, iStatus);
+		sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 4, iCategoryId);
+		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
+		sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iContentId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_RevisionSnapshot(pDb, iContentId, sTitle, iStatus, iCategoryId, bDraft, sPayloadJson, "restore", iNow);
+	Managed_AuditLog(pDb, "content", iContentId, "content.restore", sTitle ? (const char*)sTitle : "", sPayloadJson ? (const char*)sPayloadJson : "{}", objSession);
+	Managed_CloseDb(pDb);
+	if ( tblBody ) xvoUnref(tblBody);
+	if ( sTitle ) xrtFree(sTitle);
+	if ( sPayloadJson ) xrtFree(sPayloadJson);
+	Managed_SendJsonValue(objResp, Managed_CreateResult(TRUE, "restored"));
+}
+
+void Managed_WorkflowAppendLog(sqlite3* pDb, int64 iContentId, const char* sAction, int iFromStatus, int iToStatus, bool bFromDraft, bool bToDraft, const char* sReason, int64 iNow)
+{
+	sqlite3_stmt* stmt = NULL;
+
+	if ( !Managed_AbilityPackMounted("content.workflow") || (pDb == NULL) || (iContentId <= 0) || Managed_IsBlank(sAction) ) return;
+	if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_workflow_log(content_id,action,from_status,to_status,from_draft,to_draft,reason,operator_id,create_time) VALUES(?,?,?,?,?,?,?,0,?)", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		sqlite3_bind_text(stmt, 2, sAction, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int(stmt, 3, iFromStatus);
+		sqlite3_bind_int(stmt, 4, iToStatus);
+		sqlite3_bind_int(stmt, 5, bFromDraft ? 1 : 0);
+		sqlite3_bind_int(stmt, 6, bToDraft ? 1 : 0);
+		sqlite3_bind_text(stmt, 7, sReason ? sReason : "", -1, SQLITE_TRANSIENT);
+		sqlite3_bind_int64(stmt, 8, (sqlite3_int64)iNow);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+}
+
+void Managed_RequestWorkflowActionAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	xvalue tblBody = Managed_ParseJsonBody(objReq);
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	const char* sAction = tblBody ? xvoTableGetText(tblBody, "action", 6) : NULL;
+	const char* sReason = tblBody ? xvoTableGetText(tblBody, "reason", 6) : NULL;
+	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
+	int iFromStatus = 0;
+	int iToStatus = 0;
+	bool bFromDraft = FALSE;
+	bool bToDraft = FALSE;
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue tblRet = NULL;
+	int64 iNow = xrtNow();
+
+	(void)objServer; (void)objHost; (void)objSession;
+	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "method not allowed");
+		return;
+	}
+	if ( !Managed_AbilityPackMounted("content.workflow") ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "workflow ability pack is not enabled");
+		return;
+	}
+	if ( (iId <= 0) || Managed_IsBlank(sAction) ) {
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "id and action are required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "SELECT status,is_draft FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
+		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			iFromStatus = sqlite3_column_int(stmt, 0);
+			bFromDraft = sqlite3_column_int(stmt, 1) ? TRUE : FALSE;
+		} else {
+			sqlite3_finalize(stmt);
+			Managed_CloseDb(pDb);
+			if ( tblBody ) xvoUnref(tblBody);
+			if ( tblSpec ) xvoUnref(tblSpec);
+			Managed_SendError(objResp, "content not found");
+			return;
+		}
+		sqlite3_finalize(stmt);
+	}
+	stmt = NULL;
+	iToStatus = iFromStatus;
+	bToDraft = bFromDraft;
+	if ( strcmp(sAction, "submit") == 0 ) {
+		iToStatus = Managed_StatusFlowNeedsReview(tblSpec) ? 1 : Managed_PublicStatusThreshold(tblSpec);
+		bToDraft = FALSE;
+	} else if ( (strcmp(sAction, "approve") == 0) || (strcmp(sAction, "publish") == 0) ) {
+		iToStatus = Managed_PublicStatusThreshold(tblSpec);
+		bToDraft = FALSE;
+	} else if ( strcmp(sAction, "reject") == 0 ) {
+		iToStatus = 0;
+		bToDraft = TRUE;
+	} else if ( strcmp(sAction, "offline") == 0 ) {
+		iToStatus = 0;
+		bToDraft = FALSE;
+	} else {
+		Managed_CloseDb(pDb);
+		if ( tblBody ) xvoUnref(tblBody);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "unsupported workflow action");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET status=?,is_draft=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int(stmt, 1, iToStatus);
+		sqlite3_bind_int(stmt, 2, bToDraft ? 1 : 0);
+		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 4, (sqlite3_int64)iId);
+		sqlite3_step(stmt);
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_WorkflowAppendLog(pDb, iId, sAction, iFromStatus, iToStatus, bFromDraft, bToDraft, sReason, iNow);
+	{
+		str sAuditAction = xrtFormat("workflow.%s", sAction);
+		Managed_AuditLog(pDb, "content", iId, sAuditAction ? (const char*)sAuditAction : "workflow.action", sReason ? sReason : "", NULL, objSession);
+		if ( sAuditAction ) xrtFree(sAuditAction);
+	}
+	Managed_CloseDb(pDb);
+	tblRet = Managed_CreateResult(TRUE, "workflow action saved");
+	xvoTableSetInt(tblRet, "id", 2, iId);
+	xvoTableSetText(tblRet, "action", 6, (str)sAction, 0, FALSE);
+	xvoTableSetInt(tblRet, "status", 6, iToStatus);
+	xvoTableSetBool(tblRet, "isDraft", 7, bToDraft);
+	Managed_SendJsonValue(objResp, tblRet);
+	if ( tblBody ) xvoUnref(tblBody);
+	if ( tblSpec ) xvoUnref(tblSpec);
+}
+
+void Managed_RequestWorkflowLogListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sContentId[32];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblRet = Managed_CreateResult(TRUE, NULL);
+	xvalue arrList = xvoCreateArray();
+	int64 iContentId = 0;
+
+	(void)objServer; (void)objHost; (void)objSession;
+	Managed_ReadTextQuery(objReq, "contentId", sContentId, sizeof(sContentId));
+	iContentId = atoll(sContentId);
+	if ( !Managed_AbilityPackMounted("content.workflow") ) {
+		xvoUnref(tblRet); xvoUnref(arrList);
+		Managed_SendError(objResp, "workflow ability pack is not enabled");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		xvoUnref(tblRet); xvoUnref(arrList);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	if ( sqlite3_prepare_v2(pDb, iContentId > 0
+		? "SELECT id,content_id,action,from_status,to_status,from_draft,to_draft,reason,operator_id,create_time FROM content_workflow_log WHERE content_id=? ORDER BY id DESC"
+		: "SELECT id,content_id,action,from_status,to_status,from_draft,to_draft,reason,operator_id,create_time FROM content_workflow_log ORDER BY id DESC LIMIT 200", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( iContentId > 0 ) sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
+		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+			xvalue tblItem = xvoCreateTable();
+			xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
+			xvoTableSetInt(tblItem, "contentId", 9, sqlite3_column_int64(stmt, 1));
+			xvoTableSetText(tblItem, "action", 6, (str)sqlite3_column_text(stmt, 2), 0, FALSE);
+			xvoTableSetInt(tblItem, "fromStatus", 10, sqlite3_column_int(stmt, 3));
+			xvoTableSetInt(tblItem, "toStatus", 8, sqlite3_column_int(stmt, 4));
+			xvoTableSetBool(tblItem, "fromDraft", 9, sqlite3_column_int(stmt, 5) ? TRUE : FALSE);
+			xvoTableSetBool(tblItem, "toDraft", 7, sqlite3_column_int(stmt, 6) ? TRUE : FALSE);
+			xvoTableSetText(tblItem, "reason", 6, (str)sqlite3_column_text(stmt, 7), 0, FALSE);
+			xvoTableSetInt(tblItem, "operatorId", 10, sqlite3_column_int64(stmt, 8));
+			xvoTableSetInt(tblItem, "createTime", 10, sqlite3_column_int64(stmt, 9));
+			Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 9));
+			xvoArrayAppendValue(arrList, tblItem, TRUE);
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
+	Managed_SendJsonValue(objResp, tblRet);
+}
+
+void Managed_RequestSeoMetaPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	char sId[32];
+	char sSlug[160];
+	sqlite3* pDb = NULL;
+	sqlite3_stmt* stmt = NULL;
+	xvalue tblSpec = Managed_LoadSpec();
+	xvalue tblData = NULL;
+	xvalue tblRet = NULL;
+	str sSqlById = NULL;
+	str sSqlScan = NULL;
+
+	(void)objServer;
+	(void)objHost;
+	(void)objSession;
+	memset(sId, 0, sizeof(sId));
+	memset(sSlug, 0, sizeof(sSlug));
+	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
+	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
+	if ( (sSlug[0] != '\0') && !Managed_AbilityPackMounted("content.slug") ) {
+		if ( sSqlById ) xrtFree(sSqlById);
+		if ( sSqlScan ) xrtFree(sSqlScan);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "slug capability is not enabled");
+		return;
+	}
+	if ( (sId[0] == '\0') && (sSlug[0] == '\0') ) {
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "id or slug is required");
+		return;
+	}
+	if ( !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
+		if ( pDb ) Managed_CloseDb(pDb);
+		if ( tblSpec ) xvoUnref(tblSpec);
+		Managed_SendError(objResp, "failed to open plugin database");
+		return;
+	}
+	sSqlById = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d", Managed_PublicStatusThreshold(tblSpec));
+	sSqlScan = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC", Managed_PublicStatusThreshold(tblSpec));
+	if ( sqlite3_prepare_v2(pDb, (sId[0] != '\0') ? sSqlById : sSqlScan, -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sId[0] != '\0' ) {
+			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)atoll(sId));
+			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+				tblData = Managed_CreateItemFromStmt(stmt, tblSpec);
+			}
+		} else {
+			while ( sqlite3_step(stmt) == SQLITE_ROW ) {
+				xvalue tblCandidate = Managed_CreateItemFromStmt(stmt, tblSpec);
+				if ( Managed_ItemMatchesSlug(tblCandidate, sSlug) ) {
+					tblData = tblCandidate;
+					break;
+				}
+				if ( tblCandidate ) xvoUnref(tblCandidate);
+			}
+		}
+	}
+	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_CloseDb(pDb);
+	if ( sSqlById ) xrtFree(sSqlById);
+	if ( sSqlScan ) xrtFree(sSqlScan);
+	if ( tblSpec ) xvoUnref(tblSpec);
+	if ( tblData == NULL ) {
+		Managed_SendError(objResp, "content item not found");
+		return;
+	}
+	tblRet = Managed_CreateResult(TRUE, NULL);
+	xvoTableSetValue(tblRet, "data", 4, Managed_BuildSeoMeta(tblData), TRUE);
+	xvoUnref(tblData);
+	Managed_SendJsonValue(objResp, tblRet);
 }
 
 void Managed_RequestGetAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -7488,7 +9736,7 @@ void Managed_RequestGetAdmin(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objServer;
 	(void)objHost;
 	(void)objSession;
-	Managed_RequestDetailCommon(objResp, objReq, TRUE);
+	Managed_RequestDetailCommon(objResp, objReq, objSession, TRUE);
 }
 
 void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
@@ -7620,9 +9868,12 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	}
 
 	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_RevisionSnapshot(pDb, iId, sTitle, iStatus, iCategoryId > 0 ? iCategoryId : 0, bDraft, sPayloadJson, "save", iNow);
+	Managed_AuditLog(pDb, "content", iId, bInsert ? "content.create" : "content.update", sTitle ? (const char*)sTitle : "", sPayloadJson ? (const char*)sPayloadJson : "{}", objSession);
 	if ( bInsert ) {
 		Managed_SensitivePromotePendingLogs(pDb, iId, iNow);
 	}
+	Managed_MediaSyncRefs(pDb, iId, tblData, iNow);
 	Managed_StaticMaybeAutoGenerate(pDb, iId, bDraft, iStatus);
 	Managed_CloseDb(pDb);
 	xvoUnref(tblSpec);
@@ -7679,6 +9930,7 @@ void Managed_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		sqlite3_step(stmt);
 	}
 	if ( stmt ) sqlite3_finalize(stmt);
+	Managed_AuditLog(pDb, "content", iId, "content.delete", "delete content", NULL, objSession);
 	Managed_StaticMaybeAutoClean(pDb, iId);
 	Managed_CloseDb(pDb);
 	xvoUnref(tblForm);
@@ -8080,6 +10332,26 @@ int Managed_OnStart(XAdminPluginHandle handle)
 	xvalue tblSpec = Managed_LoadSpec();
 	bool bAdminCrud = Managed_AdminCrudEnabled(tblSpec);
 	bool bPublicApi = Managed_PublicApiEnabled(tblSpec);
+	bool bCategoryPack = Managed_AbilityPackMounted("content.category");
+	bool bSlugPack = Managed_AbilityPackMounted("content.slug");
+	bool bSeoPack = Managed_AbilityPackMounted("content.seo");
+	bool bRedirectPack = Managed_AbilityPackMounted("content.redirect");
+	bool bMediaPack = Managed_AbilityPackMounted("content.media");
+	bool bRevisionPack = Managed_AbilityPackMounted("content.revision");
+	bool bWorkflowPack = Managed_AbilityPackMounted("content.workflow");
+	bool bSearchPack = Managed_AbilityPackMounted("content.search");
+	bool bSitemapPack = Managed_AbilityPackMounted("content.sitemap");
+	bool bRelatedPack = Managed_AbilityPackMounted("content.related");
+	bool bFormPack = Managed_AbilityPackMounted("content.form");
+	bool bAccessPack = Managed_AbilityPackMounted("content.access");
+	bool bAuditLogPack = Managed_AbilityPackMounted("content.audit-log");
+	bool bCommentPack = Managed_AbilityPackMounted("content.comment");
+	bool bTagPack = Managed_AbilityPackMounted("content.tag");
+	bool bTopicPack = Managed_AbilityPackMounted("content.topic");
+	bool bSensitivePack = Managed_AbilityPackMounted("content.sensitive");
+	bool bStaticPack = Managed_AbilityPackMounted("content.static");
+	bool bLikePack = Managed_AbilityPackMounted("content.like");
+	bool bViewPack = Managed_AbilityPackMounted("content.view-stat");
 
 	if ( !Managed_EnsureSchema() ) {
 		printf("        [ManagedPlugin] start failed during schema ensure: xid={{PLUGIN_XID}}\n");
@@ -8122,238 +10394,433 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/comment/list";
-		route.proc = Managed_RequestCommentListPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSlugPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/slug/resolve";
+			route.proc = Managed_RequestSlugResolvePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/comment/create";
-		route.proc = Managed_RequestCommentCreatePublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSeoPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/seo/meta";
+			route.proc = Managed_RequestSeoMetaPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/comment/count";
-		route.proc = Managed_RequestCommentCountPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bRedirectPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/redirect/resolve";
+			route.proc = Managed_RequestRedirectResolvePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/comment/hide";
-		route.proc = Managed_RequestCommentHidePublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bMediaPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/media/list";
+			route.proc = Managed_RequestMediaListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/media/detail";
+			route.proc = Managed_RequestMediaDetailPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/tag/list";
-		route.proc = Managed_RequestTagListPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSearchPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/search";
+			route.proc = Managed_RequestSearchPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/tag/contents";
-		route.proc = Managed_RequestTagContentsPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSitemapPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/sitemap.xml";
+			route.proc = Managed_RequestSitemapXmlPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/rss.xml";
+			route.proc = Managed_RequestRssXmlPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/robots.txt";
+			route.proc = Managed_RequestRobotsTxtPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/tag/detail";
-		route.proc = Managed_RequestTagDetailPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bRelatedPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/related/list";
+			route.proc = Managed_RequestRelatedListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/topic/list";
-		route.proc = Managed_RequestTopicListPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bFormPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/form/submit";
+			route.proc = Managed_RequestFormSubmitPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/topic/contents";
-		route.proc = Managed_RequestTopicContentsPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bAccessPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/access/check";
+			route.proc = Managed_RequestAccessCheckPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/topic/detail";
-		route.proc = Managed_RequestTopicDetailPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/comment/list";
+			route.proc = Managed_RequestCommentListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/sensitive/check";
-		route.proc = Managed_RequestSensitiveCheckPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/comment/create";
+			route.proc = Managed_RequestCommentCreatePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/static/generate";
-		route.proc = Managed_RequestStaticGeneratePublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/comment/count";
+			route.proc = Managed_RequestCommentCountPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/static/preview";
-		route.proc = Managed_RequestStaticPreviewPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/comment/hide";
+			route.proc = Managed_RequestCommentHidePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/like/status";
-		route.proc = Managed_RequestLikeStatusPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/tag/list";
+			route.proc = Managed_RequestTagListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/like/create";
-		route.proc = Managed_RequestLikeCreatePublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/tag/contents";
+			route.proc = Managed_RequestTagContentsPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/like/cancel";
-		route.proc = Managed_RequestLikeCancelPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/tag/detail";
+			route.proc = Managed_RequestTagDetailPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/like/list";
-		route.proc = Managed_RequestLikeListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_like;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/topic/list";
+			route.proc = Managed_RequestTopicListPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/like/counter/list";
-		route.proc = Managed_RequestLikeCounterListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_like;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/topic/contents";
+			route.proc = Managed_RequestTopicContentsPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/like/status";
-		route.proc = Managed_RequestLikeSetStatusAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_like;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/topic/detail";
+			route.proc = Managed_RequestTopicDetailPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/view/record";
-		route.proc = Managed_RequestViewRecordPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSensitivePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/sensitive/check";
+			route.proc = Managed_RequestSensitiveCheckPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/view/status";
-		route.proc = Managed_RequestViewStatusPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/static/generate";
+			route.proc = Managed_RequestStaticGeneratePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/view/count";
-		route.proc = Managed_RequestViewStatusPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/static/preview";
+			route.proc = Managed_RequestStaticPreviewPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/view/detail";
-		route.proc = Managed_RequestViewStatusPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/like/status";
+			route.proc = Managed_RequestLikeStatusPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/api/plugin/{{PLUGIN_XID}}/view/rank";
-		route.proc = Managed_RequestViewRankPublic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/like/create";
+			route.proc = Managed_RequestLikeCreatePublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/view/counter/list";
-		route.proc = Managed_RequestViewCounterListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_view_stat;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/like/cancel";
+			route.proc = Managed_RequestLikeCancelPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/view/log/list";
-		route.proc = Managed_RequestViewLogListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_view_stat;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/like/list";
+			route.proc = Managed_RequestLikeListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_like;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/view/daily/list";
-		route.proc = Managed_RequestViewDailyListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_view_stat;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/like/counter/list";
+			route.proc = Managed_RequestLikeCounterListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_like;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bLikePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/like/status";
+			route.proc = Managed_RequestLikeSetStatusAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_like;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/view/record";
+			route.proc = Managed_RequestViewRecordPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/view/status";
+			route.proc = Managed_RequestViewStatusPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/view/count";
+			route.proc = Managed_RequestViewStatusPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/view/detail";
+			route.proc = Managed_RequestViewStatusPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/api/plugin/{{PLUGIN_XID}}/view/rank";
+			route.proc = Managed_RequestViewRankPublic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/view/counter/list";
+			route.proc = Managed_RequestViewCounterListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_view_stat;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/view/log/list";
+			route.proc = Managed_RequestViewLogListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_view_stat;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+		}
+
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/view/daily/list";
+			route.proc = Managed_RequestViewDailyListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_view_stat;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
 		memset(&route, 0, sizeof(route));
@@ -8386,54 +10853,316 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/list";
-		route.proc = Managed_RequestCategoryListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/list";
+			route.proc = Managed_RequestCategoryListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/get";
+			route.proc = Managed_RequestCategoryGetAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/save";
+			route.proc = Managed_RequestCategorySaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/delete";
+			route.proc = Managed_RequestCategoryDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/sort";
+			route.proc = Managed_RequestCategorySortAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/get";
-		route.proc = Managed_RequestCategoryGetAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bRedirectPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/redirect/list";
+			route.proc = Managed_RequestRedirectListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/redirect/save";
+			route.proc = Managed_RequestRedirectSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/redirect/delete";
+			route.proc = Managed_RequestRedirectDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/save";
-		route.proc = Managed_RequestCategorySaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bMediaPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/media/list";
+			route.proc = Managed_RequestMediaListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/media/save";
+			route.proc = Managed_RequestMediaSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/media/delete";
+			route.proc = Managed_RequestMediaDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/delete";
-		route.proc = Managed_RequestCategoryDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bRevisionPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/revision/list";
+			route.proc = Managed_RequestRevisionListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/revision/detail";
+			route.proc = Managed_RequestRevisionDetailAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/revision/restore";
+			route.proc = Managed_RequestRevisionRestoreAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/category/sort";
-		route.proc = Managed_RequestCategorySortAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bWorkflowPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/workflow/action";
+			route.proc = Managed_RequestWorkflowActionAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/workflow/log/list";
+			route.proc = Managed_RequestWorkflowLogListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+		}
+
+		if ( bSearchPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/search";
+			route.proc = Managed_RequestSearchAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+		}
+
+		if ( bSitemapPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/sitemap/entry/list";
+			route.proc = Managed_RequestSitemapEntryListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+		}
+
+		if ( bRelatedPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/related/list";
+			route.proc = Managed_RequestRelatedListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/related/save";
+			route.proc = Managed_RequestRelatedSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/related/delete";
+			route.proc = Managed_RequestRelatedDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+		}
+
+		if ( bFormPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/form/list";
+			route.proc = Managed_RequestFormListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/form/save";
+			route.proc = Managed_RequestFormSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/form/delete";
+			route.proc = Managed_RequestFormDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/form/submission/list";
+			route.proc = Managed_RequestFormSubmissionListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+		}
+
+		if ( bAccessPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/access/rule/list";
+			route.proc = Managed_RequestAccessRuleListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/access/rule/save";
+			route.proc = Managed_RequestAccessRuleSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/access/rule/delete";
+			route.proc = Managed_RequestAccessRuleDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+		}
+
+		if ( bAuditLogPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/audit-log/list";
+			route.proc = Managed_RequestAuditLogListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
 		memset(&route, 0, sizeof(route));
@@ -8446,268 +11175,340 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/comment/status";
-		route.proc = Managed_RequestCommentStatusAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_comment;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/comment/status";
+			route.proc = Managed_RequestCommentStatusAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_comment;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/comment/delete";
-		route.proc = Managed_RequestCommentDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_comment;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCommentPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/comment/delete";
+			route.proc = Managed_RequestCommentDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_comment;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/save";
-		route.proc = Managed_RequestTagSaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/save";
+			route.proc = Managed_RequestTagSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/delete";
-		route.proc = Managed_RequestTagDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/delete";
+			route.proc = Managed_RequestTagDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/bind";
-		route.proc = Managed_RequestTagBindAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/bind";
+			route.proc = Managed_RequestTagBindAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/content/list";
-		route.proc = Managed_RequestTagContentListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/content/list";
+			route.proc = Managed_RequestTagContentListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/unbind";
-		route.proc = Managed_RequestTagUnbindAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_tag;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTagPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/tag/unbind";
+			route.proc = Managed_RequestTagUnbindAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_tag;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/save";
-		route.proc = Managed_RequestTopicSaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/save";
+			route.proc = Managed_RequestTopicSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/delete";
-		route.proc = Managed_RequestTopicDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/delete";
+			route.proc = Managed_RequestTopicDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/bind";
-		route.proc = Managed_RequestTopicBindAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/bind";
+			route.proc = Managed_RequestTopicBindAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/bind-content";
-		route.proc = Managed_RequestTopicBindContentAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/bind-content";
+			route.proc = Managed_RequestTopicBindContentAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/content/list";
-		route.proc = Managed_RequestTopicContentListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/content/list";
+			route.proc = Managed_RequestTopicContentListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/unbind";
-		route.proc = Managed_RequestTopicUnbindAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_topic;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bTopicPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/topic/unbind";
+			route.proc = Managed_RequestTopicUnbindAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_topic;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/sensitive/word/save";
-		route.proc = Managed_RequestSensitiveWordSaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_sensitive;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSensitivePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/sensitive/word/save";
+			route.proc = Managed_RequestSensitiveWordSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_sensitive;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/sensitive/word/delete";
-		route.proc = Managed_RequestSensitiveWordDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_sensitive;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSensitivePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/sensitive/word/delete";
+			route.proc = Managed_RequestSensitiveWordDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_sensitive;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/sensitive/log/list";
-		route.proc = Managed_RequestSensitiveLogListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_sensitive;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bSensitivePack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/sensitive/log/list";
+			route.proc = Managed_RequestSensitiveLogListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_sensitive;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/rule/save";
-		route.proc = Managed_RequestStaticRuleSaveAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/rule/save";
+			route.proc = Managed_RequestStaticRuleSaveAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/rule/list";
-		route.proc = Managed_RequestStaticRuleListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/rule/list";
+			route.proc = Managed_RequestStaticRuleListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/rule/delete";
-		route.proc = Managed_RequestStaticRuleDeleteAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/rule/delete";
+			route.proc = Managed_RequestStaticRuleDeleteAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/generate";
-		route.proc = Managed_RequestStaticGeneratePublic;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/generate";
+			route.proc = Managed_RequestStaticGeneratePublic;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/task/list";
-		route.proc = Managed_RequestStaticTaskListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/task/list";
+			route.proc = Managed_RequestStaticTaskListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/task/status";
-		route.proc = Managed_RequestStaticTaskStatusAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/task/status";
+			route.proc = Managed_RequestStaticTaskStatusAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/artifact/list";
-		route.proc = Managed_RequestStaticArtifactListAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/artifact/list";
+			route.proc = Managed_RequestStaticArtifactListAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/clean";
-		route.proc = Managed_RequestStaticCleanAdmin;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		route.auth_id = auth_content_static;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bStaticPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/api/plugin/{{PLUGIN_XID}}/static/clean";
+			route.proc = Managed_RequestStaticCleanAdmin;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			route.auth_id = auth_content_static;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
 		memset(&route, 0, sizeof(route));
@@ -8770,54 +11571,68 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/{{PLUGIN_XID}}";
-		route.proc = Managed_RequestAdminView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/{{PLUGIN_XID}}";
+			route.proc = Managed_RequestAdminView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/{{PLUGIN_XID}}/articles";
-		route.proc = Managed_RequestAdminView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/{{PLUGIN_XID}}/articles";
+			route.proc = Managed_RequestAdminView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/{{PLUGIN_XID}}/drafts";
-		route.proc = Managed_RequestDraftsView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/{{PLUGIN_XID}}/drafts";
+			route.proc = Managed_RequestDraftsView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/{{PLUGIN_XID}}/editor";
-		route.proc = Managed_RequestEditorView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bViewPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/{{PLUGIN_XID}}/editor";
+			route.proc = Managed_RequestEditorView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
+
 		}
 
-		memset(&route, 0, sizeof(route));
-		route.path = "/admin/view/plugin/{{PLUGIN_XID}}/categories";
-		route.proc = Managed_RequestCategoriesView;
-		route.need_auth = TRUE;
-		route.admin_only = TRUE;
-		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-			printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&route, 0, sizeof(route));
+			route.path = "/admin/view/plugin/{{PLUGIN_XID}}/categories";
+			route.proc = Managed_RequestCategoriesView;
+			route.need_auth = TRUE;
+			route.admin_only = TRUE;
+			if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
+				printf("        [ManagedPlugin] route register failed: xid={{PLUGIN_XID}} path=%s\n", route.path);
+				goto failed;
+			}
 		}
 
 {{ABILITY_PACK_ROUTE_REGISTRATIONS}}
@@ -8837,20 +11652,22 @@ int Managed_OnStart(XAdminPluginHandle handle)
 			goto failed;
 		}
 
-		memset(&menu, 0, sizeof(menu));
-		menu.key = "{{PLUGIN_XID}}.categories";
-		menu.parent_id = iRootMenuId;
-		menu.title = "\xE6\xA0\x8F\xE7\x9B\xAE\xE7\xAE\xA1\xE7\x90\x86";
-		menu.icon = "layui-icon layui-icon-tabs";
-		menu.type = 1;
-		menu.open_type = "_component";
-		menu.href = "/admin/view/plugin/{{PLUGIN_XID}}/categories";
-		menu.sort = 10;
-		menu.visible = TRUE;
-		menu.remark = "Managed content categories";
-		if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
-			printf("        [ManagedPlugin] menu register failed: xid={{PLUGIN_XID}} href=%s\n", menu.href);
-			goto failed;
+		if ( bCategoryPack ) {
+			memset(&menu, 0, sizeof(menu));
+			menu.key = "{{PLUGIN_XID}}.categories";
+			menu.parent_id = iRootMenuId;
+			menu.title = "\xE6\xA0\x8F\xE7\x9B\xAE\xE7\xAE\xA1\xE7\x90\x86";
+			menu.icon = "layui-icon layui-icon-tabs";
+			menu.type = 1;
+			menu.open_type = "_component";
+			menu.href = "/admin/view/plugin/{{PLUGIN_XID}}/categories";
+			menu.sort = 10;
+			menu.visible = TRUE;
+			menu.remark = "Managed content categories";
+			if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
+				printf("        [ManagedPlugin] menu register failed: xid={{PLUGIN_XID}} href=%s\n", menu.href);
+				goto failed;
+			}
 		}
 
 		memset(&menu, 0, sizeof(menu));

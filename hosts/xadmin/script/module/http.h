@@ -79,14 +79,20 @@ bool RequestProc(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 	}
 
 	if ( (strcmp(sPath, "/") == 0) && (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
-		LoadSitePage(objResp, 200, HTTP_CT_HTML, "index.html");
-		return TRUE;
+		RouteInfo* pHomeRoute = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, (str)sPath, 1);
+		if ( (pHomeRoute == NULL) || (pHomeRoute->pPageRouteToken == NULL) ) {
+			LoadSitePage(objResp, 200, HTTP_CT_HTML, "index.html");
+			return TRUE;
+		}
 	}
-	
+
 	// 查询路由表
 	bool bAdminEntryAlias = Option_AdminEntryIsMatch(sPath);
 	const char* sLookupPath = bAdminEntryAlias ? "/admin/login" : sPath;
 	const RouteInfo* pRoute = (const RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, (str)sLookupPath, strlen(sLookupPath));
+	if ( pRoute == NULL ) {
+		pRoute = (const RouteInfo*)MatchDynamicRouteHTTP(sPath, xsReqMethodID(objReq));
+	}
 	if ( pRoute == NULL ) {
 		if ( PS_TryServePluginStatic(objReq, objResp, sPath) ) {
 			return TRUE;

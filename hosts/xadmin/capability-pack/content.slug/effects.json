@@ -1,0 +1,11 @@
+{
+  "storage": "payload",
+  "fields": [
+    {"name": "slug", "title": "固定链接", "storage": {"type": "text"}, "showInList": true}
+  ],
+  "adminPages": ["slugs"],
+  "publicApis": ["slug.resolve"],
+  "permissions": ["slug.view", "slug.manage"],
+  "events": ["content.beforeSave", "content.afterPublish"],
+  "tasks": []
+}

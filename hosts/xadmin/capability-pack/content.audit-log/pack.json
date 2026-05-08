@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.audit-log",
+  "name": "audit-log",
+  "title": "操作审计",
+  "description": "提供敏感内容操作审计、追踪和查询能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 320,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

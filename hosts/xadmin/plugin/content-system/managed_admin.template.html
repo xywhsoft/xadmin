@@ -8,7 +8,7 @@
   <div class="layui-inline">
     <input type="text" id="Search_{{PLUGIN_DOM_ID_BASE}}" placeholder="&#25628;&#32034;&#26631;&#39064;&#12289;&#25688;&#35201;&#12289;Slug..." class="layui-input" style="width: 260px; height: 32px; margin-right: 10px;">
   </div>
-  <div class="layui-inline">
+  <div class="layui-inline" id="CategoryWrap_{{PLUGIN_DOM_ID_BASE}}" style="display:none;">
     <select id="Category_{{PLUGIN_DOM_ID_BASE}}" class="layui-select" style="height:32px; min-width:150px; margin-right:10px;">
       <option value="">&#20840;&#37096;&#26639;&#30446;</option>
     </select>
@@ -127,6 +127,7 @@ layui.use(['table', 'form'], function(){
     tool: 'Tool_' + domBase,
     search: 'Search_' + domBase,
     category: 'Category_' + domBase,
+    categoryWrap: 'CategoryWrap_' + domBase,
     editor: 'Editor_' + domBase,
     form: 'Form_' + domBase,
     save: 'Save_' + domBase,
@@ -139,6 +140,8 @@ layui.use(['table', 'form'], function(){
     categories: null,
     categoryMap: {},
     form: null,
+    hasCategory: false,
+    hasMedia: false,
     currentId: 0,
     layerIndex: 0
   };
@@ -244,6 +247,7 @@ layui.use(['table', 'form'], function(){
   }
 
   function categoryValue() {
+    if (!state.hasCategory) return '';
     var el = byId(ids.category);
     return el ? el.value : '';
   }
@@ -267,7 +271,15 @@ layui.use(['table', 'form'], function(){
     var result = await response.json();
     if (!result || !result.result) throw new Error((result && result.message) || t('metaLoadFailed'));
     state.meta = result.data || {};
+    state.hasCategory = hasMountedPack(state.meta, 'content.category');
+    state.hasMedia = hasMountedPack(state.meta, 'content.media');
     return state.meta;
+  }
+
+  function hasMountedPack(meta, packId) {
+    var packs = meta && meta.contracts && meta.contracts.abilityPacks;
+    if (!Array.isArray(packs)) return false;
+    return packs.some(function(pack){ return pack && pack.packId === packId; });
   }
 
   function categoryLabel(row) {
@@ -278,6 +290,7 @@ layui.use(['table', 'form'], function(){
   }
 
   async function loadCategories() {
+    if (!state.hasCategory) return [];
     if (state.categories) return state.categories;
     var response = await fetch('/admin/api/plugin/' + pluginXid + '/category/list', { cache: 'no-store' });
     var result = await response.json();
@@ -332,7 +345,7 @@ layui.use(['table', 'form'], function(){
         }]
       });
     }
-    if (!hasSchemaField(next, 'categoryId')) {
+    if (state.hasCategory && !hasSchemaField(next, 'categoryId')) {
       next.groups.push({
         key: 'category',
         title: '\u53d1\u5e03\u8bbe\u7f6e',
@@ -346,12 +359,37 @@ layui.use(['table', 'form'], function(){
         }]
       });
     }
+    if (state.hasMedia && !hasSchemaField(next, 'cover_media_id')) {
+      next.groups.push({
+        key: 'media',
+        title: '\u5a92\u4f53\u8d44\u6e90',
+        desc: '\u5173\u8054\u5c01\u9762\u548c\u6b63\u6587\u8d44\u6e90\u3002',
+        fields: [{
+          name: 'cover_media_id',
+          type: 'text',
+          label: '\u5c01\u9762\u8d44\u6e90ID',
+          required: false,
+          placeholder: '1'
+        }, {
+          name: 'media_ids',
+          type: 'text',
+          label: '\u6b63\u6587\u8d44\u6e90ID',
+          required: false,
+          placeholder: '1,2,3'
+        }]
+      });
+    }
     return next;
   }
 
   async function renderCategoryFilter() {
     var el = byId(ids.category);
     if (!el) return;
+    if (!state.hasCategory) {
+      var wrap = byId(ids.categoryWrap);
+      if (wrap) wrap.style.display = 'none';
+      return;
+    }
     var categories = await loadCategories();
     state.categoryMap = {};
     (categories || []).forEach(function(row){
@@ -360,21 +398,22 @@ layui.use(['table', 'form'], function(){
     el.innerHTML = '<option value="">\u5168\u90e8\u680f\u76ee</option>' + categoryOptions(categories, false).map(function(item){
       return '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.label) + '</option>';
     }).join('');
+    var wrap = byId(ids.categoryWrap);
+    if (wrap) wrap.style.display = 'inline-block';
     form.render('select');
-    reloadTable(false);
   }
 
   function formValuesFromRecord(record) {
     var data = record && record.data && typeof record.data === 'object' ? record.data : {};
     var values = JSON.parse(JSON.stringify(data));
-    values.categoryId = Number((record && record.categoryId) || values.categoryId || 0);
+    if (state.hasCategory) values.categoryId = Number((record && record.categoryId) || values.categoryId || 0);
     return values;
   }
 
   async function renderEditor(record) {
     await ensureAssets();
     var meta = await loadMeta();
-    var categories = await loadCategories();
+    var categories = state.hasCategory ? await loadCategories() : [];
     var host = byId(ids.form);
     host.innerHTML = '<div class="managed-content-empty">' + t('loadingForm') + '</div>';
     state.form = await window.XForm.render(host, withManagedSystemFields(meta.schema || { title: 'Content', groups: [] }, categories), formValuesFromRecord(record), meta.fieldTypes || {}, {});
@@ -410,7 +449,7 @@ layui.use(['table', 'form'], function(){
     var check = state.form.validate ? state.form.validate() : { result: true };
     if (!check.result) { setStatus(check.message || t('validateFailed'), '#b91c1c'); return; }
     var values = state.form.collect ? state.form.collect() : {};
-    var categoryId = Number(values.categoryId || 0);
+    var categoryId = state.hasCategory ? Number(values.categoryId || 0) : 0;
     setStatus(t('saving'));
     var response = await fetch('/admin/api/plugin/' + pluginXid + '/save', {
       method: 'POST',
@@ -447,41 +486,50 @@ layui.use(['table', 'form'], function(){
     setStatus(message, '#b91c1c');
   }
 
-  table.render({
-    elem: '#' + ids.table,
-    toolbar: '#' + ids.toolbar,
-    url: '/admin/api/plugin/' + pluginXid + (pageKind === 'drafts' ? '/drafts' : '/list'),
-    method: 'get',
-    where: { q: '', categoryId: '' },
-    request: { pageName: 'page', limitName: 'limit' },
-    parseData: function(result){
-      return {
-        code: result && result.result ? 0 : 1,
-        msg: (result && result.message) || '',
-        count: (result && result.count) || 0,
-        data: (result && result.data) || []
-      };
-    },
-    defaultToolbar: ['filter', 'exports', 'print'],
-    height: 'full-135',
-    cellMinWidth: 80,
-    skin: 'line',
-    page: {
-      limit: 20,
-      groups: 11,
-      layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
-    },
-    cols: [[
+  function tableColumns() {
+    var cols = [
       { field: 'id', width: 80, title: 'ID' },
       { title: t('title'), minWidth: 220, templet: function(d){ return '<code>' + escapeHtml(rowTitle(d)) + '</code>'; } },
       { title: t('status'), width: 100, templet: statusTemplate },
-      { field: 'categoryId', width: 150, title: '\u680f\u76ee', templet: function(d){ return escapeHtml(categoryTitle(d.categoryId)); } },
       { field: 'summary', minWidth: 220, title: t('summary'), templet: function(d){ return escapeHtml(d.summary || '-'); } },
+    ];
+    if (state.hasCategory) cols.push({ field: 'categoryId', width: 150, title: '\u680f\u76ee', templet: function(d){ return escapeHtml(categoryTitle(d.categoryId)); } });
+    cols = cols.concat([
       { field: 'createTimeText', width: 170, title: t('createTime') },
       { field: 'updateTimeText', width: 170, title: t('updateTime') },
       { width: 140, title: t('operation'), fixed: 'right', templet: '#' + ids.tool }
-    ]]
-  });
+    ]);
+    return [cols];
+  }
+
+  function renderTable() {
+    table.render({
+      elem: '#' + ids.table,
+      toolbar: '#' + ids.toolbar,
+      url: '/admin/api/plugin/' + pluginXid + (pageKind === 'drafts' ? '/drafts' : '/list'),
+      method: 'get',
+      where: { q: '', categoryId: '' },
+      request: { pageName: 'page', limitName: 'limit' },
+      parseData: function(result){
+        return {
+          code: result && result.result ? 0 : 1,
+          msg: (result && result.message) || '',
+          count: (result && result.count) || 0,
+          data: (result && result.data) || []
+        };
+      },
+      defaultToolbar: ['filter', 'exports', 'print'],
+      height: 'full-135',
+      cellMinWidth: 80,
+      skin: 'line',
+      page: {
+        limit: 20,
+        groups: 11,
+        layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+      },
+      cols: tableColumns()
+    });
+  }
 
   table.on('toolbar(' + ids.table + ')', function(obj){
     switch (obj.event) {
@@ -511,7 +559,14 @@ layui.use(['table', 'form'], function(){
   byId(ids.search).addEventListener('keydown', function(event){
     if (event.key === 'Enter') reloadTable(true);
   });
-  byId(ids.category).addEventListener('change', function(){ reloadTable(true); });
-  renderCategoryFilter().catch(handleError);
+  async function initPage() {
+    await loadMeta();
+    renderTable();
+    await renderCategoryFilter();
+    if (state.hasCategory && byId(ids.category)) byId(ids.category).addEventListener('change', function(){ reloadTable(true); });
+    reloadTable(false);
+  }
+
+  initPage().catch(handleError);
 });
 </script>

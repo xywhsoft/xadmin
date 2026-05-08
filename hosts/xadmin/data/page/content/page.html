@@ -1,0 +1,306 @@
+<style>
+	.page-admin {
+		padding: 16px;
+	}
+	.page-admin .page-uri-list {
+		max-height: 58px;
+		overflow: hidden;
+		line-height: 1.6;
+		white-space: pre-line;
+	}
+	.page-admin .page-editor {
+		display: none;
+		padding: 16px 18px 4px 0;
+	}
+	.page-admin textarea.layui-textarea {
+		min-height: 72px;
+	}
+	.page-admin .page-content-input {
+		min-height: 260px;
+		font-family: Consolas, Monaco, monospace;
+	}
+</style>
+
+<div class="page-admin">
+	<table class="layui-hide" id="Table_Standalone_Page" lay-filter="Table_Standalone_Page"></table>
+</div>
+
+<div class="page-editor" id="Standalone_Page_Editor">
+	<form class="layui-form" lay-filter="Standalone_Page_Form" id="Standalone_Page_Form">
+		<input type="hidden" name="id" value="0">
+		<div class="layui-form-item">
+			<label class="layui-form-label">页面标题</label>
+			<div class="layui-input-block">
+				<input type="text" name="title" required lay-verify="required" placeholder="例如：网站首页" autocomplete="off" class="layui-input">
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">状态</label>
+			<div class="layui-input-inline">
+				<select name="status">
+					<option value="enabled">启用</option>
+					<option value="draft">草稿</option>
+				</select>
+			</div>
+			<label class="layui-form-label">模板渲染</label>
+			<div class="layui-input-inline">
+				<input type="checkbox" name="useTemplate" lay-skin="switch" lay-text="开启|关闭" value="1">
+			</div>
+			<label class="layui-form-label">缓存秒数</label>
+			<div class="layui-input-inline">
+				<input type="number" min="0" name="cacheSeconds" placeholder="0" autocomplete="off" class="layui-input">
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">绑定 URI</label>
+			<div class="layui-input-block">
+				<textarea name="uris" required lay-verify="required" placeholder="/&#10;/index.html" class="layui-textarea"></textarea>
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">响应 Header</label>
+			<div class="layui-input-block">
+				<textarea name="header" placeholder="Content-Type: text/html; charset=utf-8" class="layui-textarea"></textarea>
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<label class="layui-form-label">页面内容</label>
+			<div class="layui-input-block">
+				<textarea name="content" class="layui-textarea page-content-input"></textarea>
+			</div>
+		</div>
+		<div class="layui-form-item">
+			<div class="layui-input-block">
+				<button class="layui-btn" lay-submit lay-filter="Standalone_Page_Save">保存</button>
+				<button type="button" class="layui-btn layui-btn-primary" id="Standalone_Page_Cancel">取消</button>
+			</div>
+		</div>
+	</form>
+</div>
+
+<script type="text/html" id="Toolbar_Standalone_Page">
+	<div class="layui-inline">
+		<input type="text" id="Standalone_Page_Search" placeholder="搜索标题或 URI" class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="add"><i class="layui-icon layui-icon-addition"></i> 新建页面</button>
+	</div>
+</script>
+
+<script type="text/html" id="Tpl_Standalone_Page_Status">
+	{{# if((d.status || '') === 'enabled'){ }}
+		<span class="layui-badge layui-bg-green">启用</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-gray">草稿</span>
+	{{# } }}
+</script>
+
+<script type="text/html" id="Tpl_Standalone_Page_Uris">
+	<div class="page-uri-list">{{= d.uris || '' }}</div>
+</script>
+
+<script type="text/html" id="Tpl_Standalone_Page_Mode">
+	{{# if(Number(d.useTemplate || 0)){ }}
+		<span class="layui-badge layui-bg-blue">模板</span>
+	{{# } else { }}
+		<span class="layui-badge-rim">静态</span>
+	{{# } }}
+	{{# if(Number(d.cacheSeconds || 0) > 0){ }}
+		<span class="layui-badge layui-bg-orange">{{= Number(d.cacheSeconds || 0) }}s</span>
+	{{# } }}
+</script>
+
+<script type="text/html" id="Tool_Standalone_Page">
+	<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+	<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+</script>
+
+<script>
+	layui.use(["table", "form", "layer"], function(){
+		var table = layui.table;
+		var form = layui.form;
+		var layer = layui.layer;
+		var allRows = [];
+		var editorIndex = 0;
+
+		function textOf(value) {
+			return value == null ? "" : String(value);
+		}
+
+		function keyword() {
+			var input = document.getElementById("Standalone_Page_Search");
+			return input ? input.value.trim().toLowerCase() : "";
+		}
+
+		function filterRows() {
+			var q = keyword();
+			if ( !q ) return allRows.slice();
+			return allRows.filter(function(row){
+				return (textOf(row.title) + "\n" + textOf(row.uris) + "\n" + textOf(row.status)).toLowerCase().indexOf(q) >= 0;
+			});
+		}
+
+		function reloadRows() {
+			table.reloadData("Table_Standalone_Page", {
+				data: filterRows(),
+				page: { curr: 1 }
+			});
+		}
+
+		function loadRows() {
+			fetch("/admin/content/pages", {
+				credentials: "same-origin",
+				headers: { "Accept": "application/json" }
+			})
+			.then(function(response){ return response.json(); })
+			.then(function(result){
+				if ( !result || result.result !== true ) {
+					throw new Error((result && result.message) || "加载独立页面失败");
+				}
+				allRows = Array.isArray(result.data) ? result.data : [];
+				reloadRows();
+			})
+			.catch(function(error){
+				layer.msg(error.message || "加载独立页面失败", { icon: 2 });
+				allRows = [];
+				reloadRows();
+			});
+		}
+
+		function openEditor(row) {
+			var data = row || {
+				id: 0,
+				title: "",
+				status: "enabled",
+				uris: "",
+				header: "",
+				useTemplate: 0,
+				content: "",
+				cacheSeconds: 0
+			};
+			form.val("Standalone_Page_Form", {
+				id: data.id || 0,
+				title: data.title || "",
+				status: data.status || "enabled",
+				uris: data.uris || "",
+				header: data.header || "",
+				useTemplate: Number(data.useTemplate || 0) ? "1" : "",
+				content: data.content || "",
+				cacheSeconds: Number(data.cacheSeconds || 0)
+			});
+			editorIndex = layer.open({
+				title: data.id ? "编辑独立页面" : "新建独立页面",
+				type: 1,
+				area: ["920px", "88%"],
+				shadeClose: false,
+				content: document.getElementById("Standalone_Page_Editor"),
+				end: function(){
+					editorIndex = 0;
+					document.body.appendChild(document.getElementById("Standalone_Page_Editor"));
+				}
+			});
+			form.render();
+		}
+
+		function savePage(data) {
+			var payload = {
+				id: Number(data.field.id || 0),
+				title: data.field.title || "",
+				status: data.field.status || "draft",
+				uris: data.field.uris || "",
+				header: data.field.header || "",
+				useTemplate: data.field.useTemplate ? 1 : 0,
+				content: data.field.content || "",
+				cacheSeconds: Number(data.field.cacheSeconds || 0)
+			};
+			fetch("/admin/content/page/save", {
+				method: "POST",
+				credentials: "same-origin",
+				headers: { "Content-Type": "application/json", "Accept": "application/json" },
+				body: JSON.stringify(payload)
+			})
+			.then(function(response){ return response.json(); })
+			.then(function(result){
+				if ( !result || result.result !== true ) {
+					throw new Error((result && result.message) || "保存独立页面失败");
+				}
+				layer.msg("保存成功", { icon: 1 });
+				if ( editorIndex ) layer.close(editorIndex);
+				loadRows();
+			})
+			.catch(function(error){
+				layer.msg(error.message || "保存独立页面失败", { icon: 2 });
+			});
+			return false;
+		}
+
+		function deletePage(row) {
+			if ( !row || !row.id ) return;
+			layer.confirm("确定删除独立页面 \"" + (row.title || row.id) + "\" 吗？", { icon: 3, title: "删除确认" }, function(index){
+				fetch("/admin/content/page/delete", {
+					method: "POST",
+					credentials: "same-origin",
+					headers: { "Content-Type": "application/json", "Accept": "application/json" },
+					body: JSON.stringify({ id: row.id })
+				})
+				.then(function(response){ return response.json(); })
+				.then(function(result){
+					if ( !result || result.result !== true ) {
+						throw new Error((result && result.message) || "删除独立页面失败");
+					}
+					layer.msg("删除成功", { icon: 1 });
+					loadRows();
+				})
+				.catch(function(error){
+					layer.msg(error.message || "删除独立页面失败", { icon: 2 });
+				});
+				layer.close(index);
+			});
+		}
+
+		table.render({
+			elem: "#Table_Standalone_Page",
+			toolbar: "#Toolbar_Standalone_Page",
+			data: [],
+			defaultToolbar: ["filter", "exports", "print"],
+			height: "full-135",
+			cellMinWidth: 80,
+			skin: "line",
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ["count", "prev", "page", "next", "limit", "refresh", "skip"]
+			},
+			cols: [[
+				{field: "id", width: 80, title: "ID", sort: true},
+				{field: "title", minWidth: 180, title: "页面标题"},
+				{title: "URI", minWidth: 260, templet: "#Tpl_Standalone_Page_Uris"},
+				{title: "状态", width: 90, templet: "#Tpl_Standalone_Page_Status"},
+				{title: "渲染", width: 130, templet: "#Tpl_Standalone_Page_Mode"},
+				{field: "updateTime", width: 150, title: "更新时间", sort: true},
+				{width: 130, title: "操作", fixed: "right", templet: "#Tool_Standalone_Page"}
+			]]
+		});
+
+		table.on("toolbar(Table_Standalone_Page)", function(obj){
+			if ( obj.event === "add" ) openEditor(null);
+			if ( obj.event === "refresh" ) loadRows();
+			if ( obj.event === "search" ) reloadRows();
+		});
+
+		table.on("tool(Table_Standalone_Page)", function(obj){
+			if ( obj.event === "edit" ) openEditor(obj.data);
+			if ( obj.event === "delete" ) deletePage(obj.data);
+		});
+
+		form.on("submit(Standalone_Page_Save)", savePage);
+		document.getElementById("Standalone_Page_Cancel").onclick = function(){
+			if ( editorIndex ) layer.close(editorIndex);
+		};
+		loadRows();
+	});
+</script>

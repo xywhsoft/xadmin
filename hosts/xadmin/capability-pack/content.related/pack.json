@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.related",
+  "name": "related",
+  "title": "相关推荐",
+  "description": "提供手工关联、规则关联和相关内容推荐能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 290,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

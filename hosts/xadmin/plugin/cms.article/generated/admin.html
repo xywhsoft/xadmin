@@ -8,7 +8,7 @@
   <div class="layui-inline">
     <input type="text" id="Search_Content_MakePlugin_cms_article_Articles" placeholder="&#25628;&#32034;&#26631;&#39064;&#12289;&#25688;&#35201;&#12289;Slug..." class="layui-input" style="width: 260px; height: 32px; margin-right: 10px;">
   </div>
-  <div class="layui-inline">
+  <div class="layui-inline" id="CategoryWrap_Content_MakePlugin_cms_article_Articles" style="display:none;">
     <select id="Category_Content_MakePlugin_cms_article_Articles" class="layui-select" style="height:32px; min-width:150px; margin-right:10px;">
       <option value="">&#20840;&#37096;&#26639;&#30446;</option>
     </select>
@@ -56,6 +56,7 @@ layui.use(['table', 'form'], function(){
     tool: 'Tool_' + domBase,
     search: 'Search_' + domBase,
     category: 'Category_' + domBase,
+    categoryWrap: 'CategoryWrap_' + domBase,
     tag: 'Tag_' + domBase,
     tagWrap: 'TagWrap_' + domBase,
     topic: 'Topic_' + domBase,
@@ -67,6 +68,7 @@ layui.use(['table', 'form'], function(){
     tags: null,
     topics: null,
     categoryMap: {},
+    hasCategory: false,
     hasTag: false,
     hasTopic: false,
     hasComment: false,
@@ -128,6 +130,7 @@ layui.use(['table', 'form'], function(){
   }
 
   function categoryValue() {
+    if (!state.hasCategory) return '';
     var el = byId(ids.category);
     return el ? el.value : '';
   }
@@ -172,6 +175,7 @@ layui.use(['table', 'form'], function(){
     var response = await fetch('/admin/api/plugin/' + pluginXid + '/form-meta', { cache: 'no-store' });
     var result = await response.json();
     state.meta = result && result.result ? (result.data || {}) : {};
+    state.hasCategory = hasMountedPack(state.meta, 'content.category');
     state.hasTag = hasMountedPack(state.meta, 'content.tag');
     state.hasTopic = hasMountedPack(state.meta, 'content.topic');
     state.hasComment = hasMountedPack(state.meta, 'content.comment');
@@ -222,6 +226,11 @@ layui.use(['table', 'form'], function(){
   async function renderCategoryFilter() {
     var el = byId(ids.category);
     if (!el) return;
+    if (!state.hasCategory) {
+      var wrap = byId(ids.categoryWrap);
+      if (wrap) wrap.style.display = 'none';
+      return;
+    }
     var categories = await loadCategories();
     state.categoryMap = {};
     (categories || []).forEach(function(row){
@@ -230,6 +239,8 @@ layui.use(['table', 'form'], function(){
     el.innerHTML = '<option value="">\u5168\u90e8\u680f\u76ee</option>' + categoryOptions(categories, false).map(function(item){
       return '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.label) + '</option>';
     }).join('');
+    var wrap = byId(ids.categoryWrap);
+    if (wrap) wrap.style.display = 'inline-block';
     form.render('select');
   }
 
@@ -294,9 +305,9 @@ layui.use(['table', 'form'], function(){
       { field: 'id', width: 80, title: 'ID' },
       { title: t('title'), minWidth: 220, templet: function(d){ return '<code>' + escapeHtml(rowTitle(d)) + '</code>'; } },
       { title: t('status'), width: 100, templet: statusTemplate },
-      { field: 'categoryId', width: 150, title: '\u680f\u76ee', templet: function(d){ return escapeHtml(categoryTitle(d.categoryId)); } },
       { field: 'summary', minWidth: 180, title: t('summary'), templet: function(d){ return escapeHtml(d.summary || '-'); } },
     ];
+    if (state.hasCategory) cols.push({ field: 'categoryId', width: 150, title: '\u680f\u76ee', templet: function(d){ return escapeHtml(categoryTitle(d.categoryId)); } });
     if (state.hasTag) cols.push({ field: 'tagNamesText', minWidth: 140, title: '\u6807\u7b7e', templet: function(d){ return escapeHtml(d.tagNamesText || '-'); } });
     if (state.hasTopic) cols.push({ field: 'topicTitlesText', minWidth: 140, title: '\u4e13\u9898', templet: function(d){ return escapeHtml(d.topicTitlesText || '-'); } });
     if (state.hasComment) cols.push({ field: 'visibleCommentCount', width: 100, title: '\u8bc4\u8bba', templet: function(d){ return escapeHtml(d.visibleCommentCount || 0); } });
@@ -369,7 +380,7 @@ layui.use(['table', 'form'], function(){
     byId(ids.search).addEventListener('keydown', function(event){
       if (event.key === 'Enter') reloadTable(true);
     });
-    byId(ids.category).addEventListener('change', function(){ reloadTable(true); });
+    if (state.hasCategory && byId(ids.category)) byId(ids.category).addEventListener('change', function(){ reloadTable(true); });
     if (byId(ids.tag)) byId(ids.tag).addEventListener('change', function(){ reloadTable(true); });
     if (byId(ids.topic)) byId(ids.topic).addEventListener('change', function(){ reloadTable(true); });
     reloadTable(false);

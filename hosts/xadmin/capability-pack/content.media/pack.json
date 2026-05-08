@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.media",
+  "name": "media",
+  "title": "媒体资源",
+  "description": "提供封面图、正文资源、资源反查和删除保护能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 240,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

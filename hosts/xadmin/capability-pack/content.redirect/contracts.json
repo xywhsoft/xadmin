@@ -1,0 +1,8 @@
+{
+  "permissions": ["redirect.view", "redirect.manage"],
+  "adminPages": ["redirects"],
+  "publicApis": ["redirect.resolve"],
+  "tables": ["content_redirect"],
+  "events": ["slug.afterChange", "redirect.afterHit"],
+  "tasks": []
+}

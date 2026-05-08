@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "packId": "content.redirect",
+  "name": "redirect",
+  "title": "跳转规则",
+  "description": "提供 301/302 跳转、历史 URL 兼容和跳转命中统计能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 220,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

@@ -553,6 +553,34 @@ xvalue CS_GetSpecCapabilitySlots(xvalue tblSpec)
 	return CS_GetTableValue(tblSpec, "capabilitySlots");
 }
 
+bool CS_SpecHasCapabilitySlot(xvalue tblSpec, const char* sKey)
+{
+	xvalue arrSlots = CS_GetSpecCapabilitySlots(tblSpec);
+
+	if ( (sKey == NULL) || (arrSlots == NULL) || (xvoType(arrSlots) != XVO_DT_ARRAY) ) {
+		return FALSE;
+	}
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrSlots); i++ ) {
+		xvalue tblSlot = xvoArrayGetValue(arrSlots, i);
+		const char* sSlotKey;
+		xvalue objEnabled;
+		bool bEnabled = TRUE;
+
+		if ( (tblSlot == NULL) || (xvoType(tblSlot) != XVO_DT_TABLE) ) {
+			continue;
+		}
+		sSlotKey = xvoTableGetText(tblSlot, "key", 3);
+		objEnabled = xvoTableGetValue(tblSlot, "enabled", 7);
+		if ( objEnabled && (xvoType(objEnabled) == XVO_DT_BOOL) ) {
+			bEnabled = xvoGetBool(objEnabled) ? TRUE : FALSE;
+		}
+		if ( bEnabled && sSlotKey && (strcmp(sSlotKey, sKey) == 0) ) {
+			return TRUE;
+		}
+	}
+	return FALSE;
+}
+
 static xvalue CS_GetTableValue(xvalue tblData, const char* sKey)
 {
 	if ( (tblData == NULL) || (xvoType(tblData) != XVO_DT_TABLE) || (sKey == NULL) ) {
@@ -3454,7 +3482,9 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	xvalue tblRet = NULL;
 	sqlite3_stmt* stmt = NULL;
 	bool bHasGenerated = FALSE;
+	bool bCategoryPack = FALSE;
 	int iFieldCount = 0;
+	int iFileCount = 0;
 	int iGenerateRet = -1;
 	xtime iNow = xrtNow();
 
@@ -3499,6 +3529,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	if ( tblAdvisor ) {
 		sPlanJson = CS_StringifyJson(tblAdvisor);
 	}
+	bCategoryPack = CS_SpecHasCapabilitySlot(tblSpec, "content.category");
 	sMigrationPlanJson = CS_BuildMigrationPlanJson(sXid, snapshot.iTypeId, snapshot.iAppliedRevision, snapshot.iCurrentRevision, sSpecHash, tblAdvisor);
 	sMigrationSql = CS_BuildMigrationSql(sXid, snapshot.iTypeId, snapshot.iAppliedRevision, snapshot.iCurrentRevision, tblAdvisor);
 	sManagedJson = CS_BuildManagedJson(sXid, snapshot.iTypeId, snapshot.iCurrentRevision, sSpecHash, tblSpec, iNow);
@@ -3509,61 +3540,65 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	sMainSource = CS_BuildManagedMainSource(sXid, sTitle ? (const char*)sTitle : (const char*)sName);
 	sAdminHtml = CS_BuildManagedAdminPageHtml(sXid, "articles");
 	sDraftHtml = CS_BuildManagedAdminPageHtml(sXid, "drafts");
-	sCategoryHtml = CS_BuildManagedCategoryHtml(sXid);
+	if ( bCategoryPack ) {
+		sCategoryHtml = CS_BuildManagedCategoryHtml(sXid);
+	}
 	sPublicHtml = CS_BuildManagedHtml(sXid, sTitle ? (const char*)sTitle : "Managed Content Plugin", FALSE);
 	sConfigDefaults = xrtCopyStr("{\n  \"pageSize\": 20\n}\n", 0);
 	sConfigSchema = xrtCopyStr("{\n  \"type\": \"object\",\n  \"properties\": {\n    \"pageSize\": {\n      \"type\": \"integer\",\n      \"title\": \"Page Size\"\n    }\n  },\n  \"additionalProperties\": false\n}\n", 0);
 	sCustomReadme = xrtCopyStr("This directory is reserved for user-owned extensions.\nPhase 1 generation does not overwrite files placed here.\n", 0);
 
 	memset(files, 0, sizeof(files));
-	files[0].relative_path = "plugin.json";
-	files[0].data = sPluginJson;
-	files[0].size = sPluginJson ? strlen(sPluginJson) : 0;
-	files[1].relative_path = "generated/main.c";
-	files[1].data = sMainSource;
-	files[1].size = sMainSource ? strlen(sMainSource) : 0;
-	files[2].relative_path = "generated/admin.html";
-	files[2].data = sAdminHtml;
-	files[2].size = sAdminHtml ? strlen(sAdminHtml) : 0;
-	files[3].relative_path = "generated/public.html";
-	files[3].data = sPublicHtml;
-	files[3].size = sPublicHtml ? strlen(sPublicHtml) : 0;
-	files[4].relative_path = "config.defaults.json";
-	files[4].data = sConfigDefaults;
-	files[4].size = sConfigDefaults ? strlen(sConfigDefaults) : 0;
-	files[5].relative_path = "config.schema.json";
-	files[5].data = sConfigSchema;
-	files[5].size = sConfigSchema ? strlen(sConfigSchema) : 0;
-	files[6].relative_path = "generated/spec.json";
-	files[6].data = sSpecJsonNorm;
-	files[6].size = sSpecJsonNorm ? strlen(sSpecJsonNorm) : 0;
-	files[7].relative_path = "runtime/managed.json";
-	files[7].data = sManagedJson;
-	files[7].size = sManagedJson ? strlen(sManagedJson) : 0;
-	files[8].relative_path = "custom/README.txt";
-	files[8].data = sCustomReadme;
-	files[8].size = sCustomReadme ? strlen(sCustomReadme) : 0;
-	files[9].relative_path = "runtime/contracts.json";
-	files[9].data = sContractsJson;
-	files[9].size = sContractsJson ? strlen(sContractsJson) : 0;
-	files[10].relative_path = "runtime/capability.mounts.example.json";
-	files[10].data = sMountSampleJson;
-	files[10].size = sMountSampleJson ? strlen(sMountSampleJson) : 0;
-	files[11].relative_path = "runtime/capability.mounts.schema.json";
-	files[11].data = sMountSchemaJson;
-	files[11].size = sMountSchemaJson ? strlen(sMountSchemaJson) : 0;
-	files[12].relative_path = "runtime/migration.plan.json";
-	files[12].data = sMigrationPlanJson;
-	files[12].size = sMigrationPlanJson ? strlen(sMigrationPlanJson) : 0;
-	files[13].relative_path = "generated/migration.sql";
-	files[13].data = sMigrationSql;
-	files[13].size = sMigrationSql ? strlen(sMigrationSql) : 0;
-	files[14].relative_path = "generated/drafts.html";
-	files[14].data = sDraftHtml;
-	files[14].size = sDraftHtml ? strlen(sDraftHtml) : 0;
-	files[15].relative_path = "generated/categories.html";
-	files[15].data = sCategoryHtml;
-	files[15].size = sCategoryHtml ? strlen(sCategoryHtml) : 0;
+	files[iFileCount].relative_path = "plugin.json";
+	files[iFileCount].data = sPluginJson;
+	files[iFileCount++].size = sPluginJson ? strlen(sPluginJson) : 0;
+	files[iFileCount].relative_path = "generated/main.c";
+	files[iFileCount].data = sMainSource;
+	files[iFileCount++].size = sMainSource ? strlen(sMainSource) : 0;
+	files[iFileCount].relative_path = "generated/admin.html";
+	files[iFileCount].data = sAdminHtml;
+	files[iFileCount++].size = sAdminHtml ? strlen(sAdminHtml) : 0;
+	files[iFileCount].relative_path = "generated/public.html";
+	files[iFileCount].data = sPublicHtml;
+	files[iFileCount++].size = sPublicHtml ? strlen(sPublicHtml) : 0;
+	files[iFileCount].relative_path = "config.defaults.json";
+	files[iFileCount].data = sConfigDefaults;
+	files[iFileCount++].size = sConfigDefaults ? strlen(sConfigDefaults) : 0;
+	files[iFileCount].relative_path = "config.schema.json";
+	files[iFileCount].data = sConfigSchema;
+	files[iFileCount++].size = sConfigSchema ? strlen(sConfigSchema) : 0;
+	files[iFileCount].relative_path = "generated/spec.json";
+	files[iFileCount].data = sSpecJsonNorm;
+	files[iFileCount++].size = sSpecJsonNorm ? strlen(sSpecJsonNorm) : 0;
+	files[iFileCount].relative_path = "runtime/managed.json";
+	files[iFileCount].data = sManagedJson;
+	files[iFileCount++].size = sManagedJson ? strlen(sManagedJson) : 0;
+	files[iFileCount].relative_path = "custom/README.txt";
+	files[iFileCount].data = sCustomReadme;
+	files[iFileCount++].size = sCustomReadme ? strlen(sCustomReadme) : 0;
+	files[iFileCount].relative_path = "runtime/contracts.json";
+	files[iFileCount].data = sContractsJson;
+	files[iFileCount++].size = sContractsJson ? strlen(sContractsJson) : 0;
+	files[iFileCount].relative_path = "runtime/capability.mounts.example.json";
+	files[iFileCount].data = sMountSampleJson;
+	files[iFileCount++].size = sMountSampleJson ? strlen(sMountSampleJson) : 0;
+	files[iFileCount].relative_path = "runtime/capability.mounts.schema.json";
+	files[iFileCount].data = sMountSchemaJson;
+	files[iFileCount++].size = sMountSchemaJson ? strlen(sMountSchemaJson) : 0;
+	files[iFileCount].relative_path = "runtime/migration.plan.json";
+	files[iFileCount].data = sMigrationPlanJson;
+	files[iFileCount++].size = sMigrationPlanJson ? strlen(sMigrationPlanJson) : 0;
+	files[iFileCount].relative_path = "generated/migration.sql";
+	files[iFileCount].data = sMigrationSql;
+	files[iFileCount++].size = sMigrationSql ? strlen(sMigrationSql) : 0;
+	files[iFileCount].relative_path = "generated/drafts.html";
+	files[iFileCount].data = sDraftHtml;
+	files[iFileCount++].size = sDraftHtml ? strlen(sDraftHtml) : 0;
+	if ( bCategoryPack ) {
+		files[iFileCount].relative_path = "generated/categories.html";
+		files[iFileCount].data = sCategoryHtml;
+		files[iFileCount++].size = sCategoryHtml ? strlen(sCategoryHtml) : 0;
+	}
 
 	memset(&spec, 0, sizeof(spec));
 	spec.xid = sXid;
@@ -3571,7 +3606,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	spec.version = CS_GENERATOR_VERSION;
 	spec.entry = "generated/main.c";
 	spec.auto_enable = 1;
-	spec.file_count = 16;
+	spec.file_count = iFileCount;
 	spec.files = files;
 
 	iGenerateRet = XAdmin_GeneratePlugin(G_CSHandle, &spec);

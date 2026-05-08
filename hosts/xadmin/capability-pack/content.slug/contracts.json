@@ -1,0 +1,9 @@
+{
+  "permissions": ["slug.view", "slug.manage"],
+  "adminPages": ["slugs"],
+  "publicApis": ["slug.resolve"],
+  "storage": "payload",
+  "fields": ["slug"],
+  "events": ["content.beforeSave", "content.afterPublish"],
+  "tasks": []
+}
