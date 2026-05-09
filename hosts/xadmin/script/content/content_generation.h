@@ -100,6 +100,156 @@ void Content_SetGeneratedFile(XAdminGeneratedFile* pFile, const char* sRelativeP
 	pFile->size = strlen(sSafeData);
 }
 
+void Content_SetGeneratedFileBinary(XAdminGeneratedFile* pFile, const char* sRelativePath, const void* pData, size_t iSize)
+{
+	if ( pFile == NULL ) {
+		return;
+	}
+	pFile->relative_path = sRelativePath ? sRelativePath : "";
+	pFile->data = pData;
+	pFile->size = iSize;
+}
+
+bool Content_GeneratedRelativePathSafe(const char* sPath)
+{
+	if ( (sPath == NULL) || (sPath[0] == '\0') ) return FALSE;
+	if ( sPath[0] == '/' || sPath[0] == '\\' ) return FALSE;
+	if ( strstr(sPath, "..") != NULL ) return FALSE;
+	if ( strchr(sPath, ':') != NULL ) return FALSE;
+	return TRUE;
+}
+
+void Content_AppendDeclaredPackFiles(XAdminGeneratedFile* files, int* piFileCount, int iFileCap, str* arrOwnedPath, str* arrOwnedData, int* piOwnedCount, int iOwnedCap, xvalue tblPackDetail)
+{
+	const char* arrKeys[] = {"sourceFiles", "includeFiles", "templateFiles", "assetFiles"};
+	const char* sPackPath = tblPackDetail ? xvoTableGetText(tblPackDetail, "path", 4) : NULL;
+	const char* sManifestJson = tblPackDetail ? xvoTableGetText(tblPackDetail, "manifestJson", 12) : NULL;
+	xvalue tblManifest = NULL;
+
+	if ( (files == NULL) || (piFileCount == NULL) || (arrOwnedPath == NULL) || (arrOwnedData == NULL) || (piOwnedCount == NULL) ) return;
+	if ( (sPackPath == NULL) || (sPackPath[0] == '\0') || (sManifestJson == NULL) || (sManifestJson[0] == '\0') ) return;
+	tblManifest = xrtParseJSON((str)sManifestJson, strlen(sManifestJson));
+	if ( (tblManifest == NULL) || (xvoType(tblManifest) != XVO_DT_TABLE) ) {
+		if ( tblManifest ) xvoUnref(tblManifest);
+		return;
+	}
+	for ( uint32 k = 0; k < sizeof(arrKeys) / sizeof(arrKeys[0]); k++ ) {
+		xvalue arrFiles = xvoTableGetValue(tblManifest, arrKeys[k], (uint32)strlen(arrKeys[k]));
+		if ( (arrFiles == NULL) || (xvoType(arrFiles) != XVO_DT_ARRAY) ) continue;
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrFiles); i++ ) {
+			const char* sRel = xvoGetText(xvoArrayGetValue(arrFiles, i));
+			str sFullPath = NULL;
+			str sData = NULL;
+			size_t iSize = 0;
+			if ( !Content_GeneratedRelativePathSafe(sRel) ) continue;
+			if ( (*piFileCount >= iFileCap) || (*piOwnedCount >= iOwnedCap) ) continue;
+			sFullPath = xrtPathJoin(2, sPackPath, sRel);
+			if ( sFullPath == NULL ) continue;
+			sData = xrtFileGetAll(sFullPath, &iSize);
+			xrtFree(sFullPath);
+			if ( sData == NULL ) continue;
+			arrOwnedPath[*piOwnedCount] = xrtCopyStr((str)sRel, 0);
+			arrOwnedData[*piOwnedCount] = sData;
+			Content_SetGeneratedFileBinary(&files[*piFileCount], (const char*)arrOwnedPath[*piOwnedCount], arrOwnedData[*piOwnedCount], iSize);
+			(*piFileCount)++;
+			(*piOwnedCount)++;
+		}
+	}
+	xvoUnref(tblManifest);
+}
+
+str Content_JsonListAppendPath(str sList, const char* sPath, bool bLeadingComma)
+{
+	str sSafePath = NULL;
+	str sNext = NULL;
+
+	if ( !Content_GeneratedRelativePathSafe(sPath) ) return sList;
+	sSafePath = Content_EscapeJsonString(sPath);
+	sNext = xrtFormat("%s%s\"%s\"",
+		sList ? (const char*)sList : "",
+		(bLeadingComma || (sList && sList[0])) ? "," : "",
+		sSafePath ? (const char*)sSafePath : ""
+	);
+	if ( sSafePath ) xrtFree(sSafePath);
+	if ( sList ) xrtFree(sList);
+	return sNext;
+}
+
+str Content_CopyGeneratedPathDir(const char* sPath)
+{
+	const char* pSlash1 = NULL;
+	const char* pSlash2 = NULL;
+	const char* pSlash = NULL;
+	size_t iLen = 0;
+
+	if ( !Content_GeneratedRelativePathSafe(sPath) ) return NULL;
+	pSlash1 = strrchr(sPath, '/');
+	pSlash2 = strrchr(sPath, '\\');
+	if ( pSlash1 && pSlash2 ) {
+		pSlash = (pSlash1 > pSlash2) ? pSlash1 : pSlash2;
+	} else {
+		pSlash = pSlash1 ? pSlash1 : pSlash2;
+	}
+	if ( pSlash == NULL ) return NULL;
+	iLen = (size_t)(pSlash - sPath);
+	if ( iLen == 0 ) return NULL;
+	return xrtCopyStr((str)sPath, iLen);
+}
+
+bool Content_JsonPathListContains(const char* sList, const char* sPath)
+{
+	str sSafePath = NULL;
+	str sNeedle = NULL;
+	bool bFound = FALSE;
+
+	if ( (sList == NULL) || (sPath == NULL) ) return FALSE;
+	sSafePath = Content_EscapeJsonString(sPath);
+	sNeedle = xrtFormat("\"%s\"", sSafePath ? (const char*)sSafePath : "");
+	bFound = (sNeedle && strstr(sList, sNeedle)) ? TRUE : FALSE;
+	if ( sSafePath ) xrtFree(sSafePath);
+	if ( sNeedle ) xrtFree(sNeedle);
+	return bFound;
+}
+
+void Content_AppendDeclaredPackBuildPaths(xvalue tblPackDetail, str* psExtraSourcesJson, str* psIncludeDirsJson)
+{
+	const char* sManifestJson = tblPackDetail ? xvoTableGetText(tblPackDetail, "manifestJson", 12) : NULL;
+	xvalue tblManifest = NULL;
+	xvalue arrSourceFiles = NULL;
+	xvalue arrIncludeFiles = NULL;
+
+	if ( (sManifestJson == NULL) || (sManifestJson[0] == '\0') ) return;
+	tblManifest = xrtParseJSON((str)sManifestJson, strlen(sManifestJson));
+	if ( (tblManifest == NULL) || (xvoType(tblManifest) != XVO_DT_TABLE) ) {
+		if ( tblManifest ) xvoUnref(tblManifest);
+		return;
+	}
+
+	arrSourceFiles = xvoTableGetValue(tblManifest, "sourceFiles", 11);
+	if ( arrSourceFiles && (xvoType(arrSourceFiles) == XVO_DT_ARRAY) ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrSourceFiles); i++ ) {
+			const char* sRel = xvoGetText(xvoArrayGetValue(arrSourceFiles, i));
+			if ( !Content_GeneratedRelativePathSafe(sRel) ) continue;
+			if ( psExtraSourcesJson && !Content_JsonPathListContains(*psExtraSourcesJson, sRel) ) {
+				*psExtraSourcesJson = Content_JsonListAppendPath(*psExtraSourcesJson, sRel, TRUE);
+			}
+		}
+	}
+
+	arrIncludeFiles = xvoTableGetValue(tblManifest, "includeFiles", 12);
+	if ( arrIncludeFiles && (xvoType(arrIncludeFiles) == XVO_DT_ARRAY) ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrIncludeFiles); i++ ) {
+			const char* sRel = xvoGetText(xvoArrayGetValue(arrIncludeFiles, i));
+			str sDir = Content_CopyGeneratedPathDir(sRel);
+			if ( sDir && psIncludeDirsJson && !Content_JsonPathListContains(*psIncludeDirsJson, sDir) ) {
+				*psIncludeDirsJson = Content_JsonListAppendPath(*psIncludeDirsJson, sDir, FALSE);
+			}
+			if ( sDir ) xrtFree(sDir);
+		}
+	}
+	xvoUnref(tblManifest);
+}
+
 bool Content_SpecHasCapability(xvalue tblSpec, const char* sKey)
 {
 	xvalue arrCapabilities = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
@@ -395,19 +545,26 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	str sSpecJson = NULL;
 	str sManagedSpecJson = NULL;
 	xvalue tblSpecJson = NULL;
+	xvalue arrCapabilities = NULL;
 	xvalue tblAdvisor = NULL;
-	XAdminGeneratedFile files[19];
+	XAdminGeneratedFile files[128];
 	XAdminGeneratedPluginSpec spec;
+	str arrOwnedPath[96];
+	str arrOwnedData[96];
 	str sPluginJson = NULL;
+	str sExtraBuildSourcesJson = NULL;
+	str sBuildIncludeDirsJson = NULL;
 	str sMainC = NULL;
 	str sAdminHtml = NULL;
 	str sDraftHtml = NULL;
 	str sEditorHtml = NULL;
 	str sCategoryHtml = NULL;
+	str sDashboardHtml = NULL;
 	str sDefaults = NULL;
 	str sSchema = NULL;
 	str sManaged = NULL;
 	str sContracts = NULL;
+	str sCapabilityManifest = NULL;
 	str sPublicHtml = NULL;
 	str sAbilityHtml = NULL;
 	str sStaticDetailHtml = NULL;
@@ -422,8 +579,10 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	xvalue tblRet = NULL;
 	int64 iNow = xrtNow();
 	bool bCategoryPack = FALSE;
+	bool bMetricPack = FALSE;
 	bool bOK;
 	int iFileCount = 0;
+	int iOwnedCount = 0;
 
 	if ( psError ) *psError = NULL;
 
@@ -456,16 +615,35 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sPluginTitle = xvoTableGetText(tblSpecJson, "pluginTitle", 11);
 	sMenuTitle = xvoTableGetText(tblSpecJson, "menuTitle", 9);
 	sPluginDescription = xvoTableGetText(tblSpecJson, "description", 11);
+	arrCapabilities = xvoTableGetValue(tblSpecJson, "capabilities", 12);
 	bCategoryPack = Content_SpecHasCapability(tblSpecJson, "content.category");
+	bMetricPack = Content_SpecHasCapability(tblSpecJson, "content.like") || Content_SpecHasCapability(tblSpecJson, "content.view-stat");
 	sManagedSpecJson = Content_BuildManagedSpecJson(tblSpecJson, sXid, sTitle, sPluginDescription);
+	if ( arrCapabilities && (xvoType(arrCapabilities) == XVO_DT_ARRAY) ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
+			xvalue tblCap = xvoArrayGetValue(arrCapabilities, i);
+			const char* sCapKey = (tblCap && (xvoType(tblCap) == XVO_DT_TABLE)) ? xvoTableGetText(tblCap, "key", 3) : NULL;
+			bool bEnabled = TRUE;
+			xvalue tblPackDetail = NULL;
+			if ( (sCapKey == NULL) || (sCapKey[0] == '\0') ) continue;
+			if ( xvoTableExists(tblCap, "enabled", 7) ) bEnabled = xvoTableGetBool(tblCap, "enabled", 7);
+			if ( !bEnabled ) continue;
+			tblPackDetail = ContentPack_GetDetail(sCapKey);
+			Content_AppendDeclaredPackBuildPaths(tblPackDetail, &sExtraBuildSourcesJson, &sBuildIncludeDirsJson);
+			if ( tblPackDetail ) xvoUnref(tblPackDetail);
+		}
+	}
 
-	sPluginJson = Content_BuildGeneratedPluginJson(sGeneratedPluginXid, Content_TextOr((const char*)sPluginTitle, (const char*)sTitle), sPluginDescription);
+	sPluginJson = Content_BuildGeneratedPluginJson(sGeneratedPluginXid, Content_TextOr((const char*)sPluginTitle, (const char*)sTitle), sPluginDescription, arrCapabilities, sExtraBuildSourcesJson, sBuildIncludeDirsJson);
 	sMainC = Content_BuildManagedMainC(sGeneratedPluginXid, Content_TextOr((const char*)sPluginTitle, (const char*)sTitle), Content_TextOr((const char*)sMenuTitle, Content_TextOr((const char*)sPluginTitle, (const char*)sTitle)), tblSpecJson);
 	sAdminHtml = Content_BuildManagedAdminPageHtml(sGeneratedPluginXid, "articles");
 	sDraftHtml = Content_BuildManagedAdminPageHtml(sGeneratedPluginXid, "drafts");
 	sEditorHtml = Content_BuildManagedEditorHtml(sGeneratedPluginXid);
 	if ( bCategoryPack ) {
 		sCategoryHtml = Content_BuildManagedCategoryHtml(sGeneratedPluginXid);
+	}
+	if ( bMetricPack ) {
+		sDashboardHtml = Content_BuildManagedDashboardHtml(sGeneratedPluginXid);
 	}
 	sPublicHtml = Content_BuildManagedPublicHtml(sGeneratedPluginXid);
 	sAbilityHtml = Content_BuildManagedAbilityHtml(sGeneratedPluginXid);
@@ -474,20 +652,27 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sSchema = xrtCopyStr("{\"type\":\"object\",\"properties\":{\"pageSize\":{\"type\":\"integer\",\"title\":\"Page Size\"}},\"additionalProperties\":false}\n", 0);
 	sManaged = xrtFormat("{\"managed\":true,\"managedBy\":\"content\",\"managedType\":\"generated-plugin\",\"pluginXid\":\"%s\",\"contentTypeRevision\":%d,\"generatedRoot\":\"generated\",\"runtimeRoot\":\"runtime\",\"customRoot\":\"custom\",\"generatedAt\":%lld}\n", sGeneratedPluginXid ? (const char*)sGeneratedPluginXid : "", iRevision, (long long)iNow);
 	sContracts = Content_BuildGeneratedContracts(sXid, iRevision, tblSpecJson);
+	sCapabilityManifest = Content_BuildGeneratedCapabilityManifest(sXid, iRevision, tblSpecJson);
 	sMountExample = xrtCopyStr("{\"mounts\":[]}\n", 0);
 	sMountSchema = xrtCopyStr("{\"type\":\"object\",\"properties\":{\"mounts\":{\"type\":\"array\"}},\"required\":[\"mounts\"]}\n", 0);
 	sMigrationPlan = xrtFormat("{\"pluginXid\":\"%s\",\"revision\":%d,\"items\":[],\"sql\":[]}\n", sGeneratedPluginXid ? (const char*)sGeneratedPluginXid : "", iRevision);
 	sMigrationSql = xrtCopyStr("-- Managed content migration is handled by generated plugin startup.\n", 0);
 	sCustomReadme = xrtCopyStr("This directory is reserved for user-owned extensions.\n", 0);
 	sOutputJson = xrtFormat(
-		bCategoryPack
-			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
-			: "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}",
+		(bCategoryPack && bMetricPack)
+			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/dashboard.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
+			: bCategoryPack
+			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
+			: bMetricPack
+			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/dashboard.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
+			: "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}",
 		sGeneratedPluginXid ? (const char*)sGeneratedPluginXid : "",
 		iRevision
 	);
 
 	memset(files, 0, sizeof(files));
+	memset(arrOwnedPath, 0, sizeof(arrOwnedPath));
+	memset(arrOwnedData, 0, sizeof(arrOwnedData));
 	Content_SetGeneratedFile(&files[iFileCount++], "plugin.json", sPluginJson);
 	Content_SetGeneratedFile(&files[iFileCount++], "generated/main.c", sMainC);
 	Content_SetGeneratedFile(&files[iFileCount++], "generated/admin.html", sAdminHtml);
@@ -495,6 +680,9 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	Content_SetGeneratedFile(&files[iFileCount++], "generated/editor.html", sEditorHtml);
 	if ( bCategoryPack ) {
 		Content_SetGeneratedFile(&files[iFileCount++], "generated/categories.html", sCategoryHtml);
+	}
+	if ( bMetricPack ) {
+		Content_SetGeneratedFile(&files[iFileCount++], "generated/dashboard.html", sDashboardHtml);
 	}
 	Content_SetGeneratedFile(&files[iFileCount++], "generated/public.html", sPublicHtml);
 	Content_SetGeneratedFile(&files[iFileCount++], "generated/ability.html", sAbilityHtml);
@@ -504,11 +692,26 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	Content_SetGeneratedFile(&files[iFileCount++], "config.schema.json", sSchema);
 	Content_SetGeneratedFile(&files[iFileCount++], "runtime/managed.json", sManaged);
 	Content_SetGeneratedFile(&files[iFileCount++], "runtime/contracts.json", sContracts);
+	Content_SetGeneratedFile(&files[iFileCount++], "runtime/capability.manifest.json", sCapabilityManifest);
 	Content_SetGeneratedFile(&files[iFileCount++], "runtime/capability.mounts.example.json", sMountExample);
 	Content_SetGeneratedFile(&files[iFileCount++], "runtime/capability.mounts.schema.json", sMountSchema);
 	Content_SetGeneratedFile(&files[iFileCount++], "runtime/migration.plan.json", sMigrationPlan);
 	Content_SetGeneratedFile(&files[iFileCount++], "generated/migration.sql", sMigrationSql);
 	Content_SetGeneratedFile(&files[iFileCount++], "custom/README.txt", sCustomReadme);
+	if ( arrCapabilities && (xvoType(arrCapabilities) == XVO_DT_ARRAY) ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
+			xvalue tblCap = xvoArrayGetValue(arrCapabilities, i);
+			const char* sCapKey = (tblCap && (xvoType(tblCap) == XVO_DT_TABLE)) ? xvoTableGetText(tblCap, "key", 3) : NULL;
+			bool bEnabled = TRUE;
+			xvalue tblPackDetail = NULL;
+			if ( (sCapKey == NULL) || (sCapKey[0] == '\0') ) continue;
+			if ( xvoTableExists(tblCap, "enabled", 7) ) bEnabled = xvoTableGetBool(tblCap, "enabled", 7);
+			if ( !bEnabled ) continue;
+			tblPackDetail = ContentPack_GetDetail(sCapKey);
+			Content_AppendDeclaredPackFiles(files, &iFileCount, (int)(sizeof(files) / sizeof(files[0])), arrOwnedPath, arrOwnedData, &iOwnedCount, (int)(sizeof(arrOwnedPath) / sizeof(arrOwnedPath[0])), tblPackDetail);
+			if ( tblPackDetail ) xvoUnref(tblPackDetail);
+		}
+	}
 
 	memset(&spec, 0, sizeof(spec));
 	spec.xid = sGeneratedPluginXid;
@@ -543,15 +746,19 @@ cleanup:
 	if ( sSpecJson ) xrtFree(sSpecJson);
 	if ( sManagedSpecJson ) xrtFree(sManagedSpecJson);
 	if ( sPluginJson ) xrtFree(sPluginJson);
+	if ( sExtraBuildSourcesJson ) xrtFree(sExtraBuildSourcesJson);
+	if ( sBuildIncludeDirsJson ) xrtFree(sBuildIncludeDirsJson);
 	if ( sMainC ) xrtFree(sMainC);
 	if ( sAdminHtml ) xrtFree(sAdminHtml);
 	if ( sDraftHtml ) xrtFree(sDraftHtml);
 	if ( sEditorHtml ) xrtFree(sEditorHtml);
 	if ( sCategoryHtml ) xrtFree(sCategoryHtml);
+	if ( sDashboardHtml ) xrtFree(sDashboardHtml);
 	if ( sDefaults ) xrtFree(sDefaults);
 	if ( sSchema ) xrtFree(sSchema);
 	if ( sManaged ) xrtFree(sManaged);
 	if ( sContracts ) xrtFree(sContracts);
+	if ( sCapabilityManifest ) xrtFree(sCapabilityManifest);
 	if ( sPublicHtml ) xrtFree(sPublicHtml);
 	if ( sAbilityHtml ) xrtFree(sAbilityHtml);
 	if ( sStaticDetailHtml ) xrtFree(sStaticDetailHtml);
@@ -563,5 +770,9 @@ cleanup:
 	if ( sOutputJson ) xrtFree(sOutputJson);
 	if ( sAdvisorJson ) xrtFree(sAdvisorJson);
 	if ( sValidateError ) xrtFree(sValidateError);
+	for ( int i = 0; i < iOwnedCount; i++ ) {
+		if ( arrOwnedPath[i] ) xrtFree(arrOwnedPath[i]);
+		if ( arrOwnedData[i] ) xrtFree(arrOwnedData[i]);
+	}
 	return tblRet;
 }

@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.audit-log: records sensitive operations; define retention, privacy boundary and storage cleanup policy.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/audit-log/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_audit_log"
 }

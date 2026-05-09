@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS content_workflow_log (
   to_draft INTEGER NOT NULL DEFAULT 0,
   reason TEXT NOT NULL DEFAULT '',
   operator_id INTEGER NOT NULL DEFAULT 0,
+  assignee_id INTEGER NOT NULL DEFAULT 0,
   create_time INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_content_workflow_log_content ON content_workflow_log(content_id, id DESC);

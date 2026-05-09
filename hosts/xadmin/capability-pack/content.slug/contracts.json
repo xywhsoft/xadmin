@@ -2,8 +2,10 @@
   "permissions": ["slug.view", "slug.manage"],
   "adminPages": ["slugs"],
   "publicApis": ["slug.resolve"],
+  "adminApis": ["slug.check", "slug.preview", "slug.history", "slug.repair"],
+  "tables": ["content_slug_history"],
   "storage": "payload",
   "fields": ["slug"],
   "events": ["content.beforeSave", "content.afterPublish"],
-  "tasks": []
+  "tasks": ["slug.repair"]
 }

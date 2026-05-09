@@ -35,5 +35,8 @@
   "hooks": "hooks.json",
   "symbols": "symbols.json",
   "patches": "patches.json",
-  "contracts": "contracts.json"
+  "contracts": "contracts.json",
+  "advisorMessage": "Capability content.like: records interaction counters; define dedupe key and abuse limits.",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/like/count?contentId=1",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_like"
 }

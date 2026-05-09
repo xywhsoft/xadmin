@@ -73,6 +73,9 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, XS
 	if ( G_DynamicRouteTableHTTP.sLastError ) {
 		xvoTableSetText(tblRoute, "dynamicLastError", 16, G_DynamicRouteTableHTTP.sLastError, 0, FALSE);
 	}
+	if ( G_DynamicRouteTableHTTP.sLastWarning ) {
+		xvoTableSetText(tblRoute, "dynamicLastWarning", 18, G_DynamicRouteTableHTTP.sLastWarning, 0, FALSE);
+	}
 	xvoTableSetValue(tblData, "route", 5, tblRoute, TRUE);
 	
 	// 数据库连接信�?

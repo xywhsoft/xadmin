@@ -27,6 +27,7 @@ body { margin: 0; background: #f2f2f2; color: #1f2937; }
 .option-table { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
 .option-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) 76px; gap: 8px; align-items: center; }
 .generate-grid { display: grid; grid-template-columns: repeat(3, minmax(160px, 1fr)); gap: 12px; }
+.generate-wide { grid-column: 1 / -1; }
 .cap-item { border: 1px solid #e6e6e6; padding: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
 .cap-title { font-weight: 600; }
 .cap-meta { color: #667085; font-size: 12px; margin-top: 4px; }

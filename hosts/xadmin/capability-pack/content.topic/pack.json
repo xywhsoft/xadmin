@@ -35,5 +35,8 @@
   "hooks": "hooks.json",
   "symbols": "symbols.json",
   "patches": "patches.json",
-  "contracts": "contracts.json"
+  "contracts": "contracts.json",
+  "advisorMessage": "Capability content.topic: adds topic aggregation; confirm topic URL, ordering and ownership rules.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/topic/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_topic"
 }

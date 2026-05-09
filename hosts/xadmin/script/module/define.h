@@ -143,6 +143,7 @@ typedef struct {
 	uint32 iCompiledCount;
 	uint32 iGeneration;
 	str sLastError;
+	str sLastWarning;
 } DynamicRouteTableHTTP;
 
 DynamicRouteTableHTTP G_DynamicRouteTableHTTP = {0};
@@ -296,16 +297,50 @@ static void DynamicRoute_SetError(const char* sMessage)
 	}
 }
 
-static void DynamicRoute_PrintPatternRisk(str uri, str pattern)
+static void DynamicRoute_SetWarning(const char* sMessage)
 {
+	if ( G_DynamicRouteTableHTTP.sLastWarning ) {
+		xrtFree(G_DynamicRouteTableHTTP.sLastWarning);
+		G_DynamicRouteTableHTTP.sLastWarning = NULL;
+	}
+	if ( sMessage ) {
+		G_DynamicRouteTableHTTP.sLastWarning = xrtCopyStr((str)sMessage, 0);
+	}
+}
+
+const char* DynamicRoute_GetLastErrorHTTP()
+{
+	return G_DynamicRouteTableHTTP.sLastError ? (const char*)G_DynamicRouteTableHTTP.sLastError : "";
+}
+
+const char* DynamicRoute_GetLastWarningHTTP()
+{
+	return G_DynamicRouteTableHTTP.sLastWarning ? (const char*)G_DynamicRouteTableHTTP.sLastWarning : "";
+}
+
+static void DynamicRoute_RecordPatternRisk(str uri, str pattern)
+{
+	str sWarning = NULL;
+
 	if ( pattern == NULL ) {
 		return;
 	}
 	if ( strcmp(pattern, "^/.*$") == 0 || strcmp(pattern, "^/(.*)$") == 0 || strcmp(pattern, "^/([^/]+)$") == 0 ) {
-		printf("[dynamic_route:warn] broad pattern: uri=%s pattern=%s\n", uri, pattern);
+		sWarning = xrtFormat("broad pattern: uri=%s pattern=%s", uri ? (const char*)uri : "", pattern);
 	}
 	if ( strstr(pattern, "/css") || strstr(pattern, "/js") || strstr(pattern, "/img") || strstr(pattern, "/uploads") || strstr(pattern, "/res") ) {
-		printf("[dynamic_route:warn] pattern may overlap static assets: uri=%s pattern=%s\n", uri, pattern);
+		str sNext = xrtFormat("%s%sstatic asset overlap risk: uri=%s pattern=%s",
+			sWarning ? (const char*)sWarning : "",
+			sWarning ? "; " : "",
+			uri ? (const char*)uri : "",
+			pattern);
+		if ( sWarning ) xrtFree(sWarning);
+		sWarning = sNext;
+	}
+	if ( sWarning ) {
+		DynamicRoute_SetWarning((const char*)sWarning);
+		printf("[dynamic_route:warn] %s\n", (const char*)sWarning);
+		xrtFree(sWarning);
 	}
 }
 
@@ -403,7 +438,8 @@ bool AddDynamicRouteHTTPEx(str uri, str pattern, void* proc, int iPriority, int 
 		DynamicRoute_SetError("dynamic route uri conflicts with static route");
 		return FALSE;
 	}
-	DynamicRoute_PrintPatternRisk(uri, pattern);
+	DynamicRoute_SetWarning(NULL);
+	DynamicRoute_RecordPatternRisk(uri, pattern);
 
 	pRegex = xrtRegexCreate(pattern);
 	sRegexError = pRegex ? xrtRegexGetErrorMsg(pRegex) : NULL;

@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.access: gates public reads; verify read levels, member identity source and static-page behavior.",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/access/check?contentId=1",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_access"
 }

@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.related: adds related-content relations; define duplicate handling and relation weight semantics.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/related/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_related"
 }

@@ -19,6 +19,11 @@
     <div class="layui-input-block managed-content-editor-actions" style="margin-left: 0;">
       <button type="button" class="layui-btn layui-bg-blue" id="Save_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-ok"></i> &#20445;&#23384;</button>
       <button type="button" class="layui-btn layui-btn-warm" id="SaveDraft_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-file-b"></i> &#20445;&#23384;&#33609;&#31295;</button>
+      <button type="button" class="layui-btn layui-btn-primary managed-workflow-action" id="WorkflowSubmit_{{PLUGIN_DOM_ID_BASE}}" style="display:none;"><i class="layui-icon layui-icon-upload"></i> &#25552;&#20132;&#23457;&#26680;</button>
+      <button type="button" class="layui-btn layui-bg-green managed-workflow-action" id="WorkflowApprove_{{PLUGIN_DOM_ID_BASE}}" style="display:none;"><i class="layui-icon layui-icon-ok-circle"></i> &#21457;&#24067;</button>
+      <button type="button" class="layui-btn layui-btn-danger managed-workflow-action" id="WorkflowReject_{{PLUGIN_DOM_ID_BASE}}" style="display:none;"><i class="layui-icon layui-icon-close-fill"></i> &#39539;&#22238;</button>
+      <button type="button" class="layui-btn layui-btn-primary managed-workflow-action" id="WorkflowOffline_{{PLUGIN_DOM_ID_BASE}}" style="display:none;"><i class="layui-icon layui-icon-down"></i> &#19979;&#32447;</button>
+      <button type="button" class="layui-btn layui-btn-primary" id="RevisionList_{{PLUGIN_DOM_ID_BASE}}" style="display:none;"><i class="layui-icon layui-icon-list"></i> &#29256;&#26412;</button>
       <button type="button" class="layui-btn layui-btn-primary" id="Cancel_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-close"></i> &#21462;&#28040;</button>
     </div>
     <div class="managed-content-status" id="Status_{{PLUGIN_DOM_ID_BASE}}"></div>
@@ -91,6 +96,11 @@ layui.use(['form'], function(){
     form: 'Form_' + domBase,
     save: 'Save_' + domBase,
     saveDraft: 'SaveDraft_' + domBase,
+    workflowSubmit: 'WorkflowSubmit_' + domBase,
+    workflowApprove: 'WorkflowApprove_' + domBase,
+    workflowReject: 'WorkflowReject_' + domBase,
+    workflowOffline: 'WorkflowOffline_' + domBase,
+    revisionList: 'RevisionList_' + domBase,
     cancel: 'Cancel_' + domBase,
     status: 'Status_' + domBase
   };
@@ -104,6 +114,8 @@ layui.use(['form'], function(){
     hasSeo: false,
     hasSlug: false,
     hasMedia: false,
+    hasWorkflow: false,
+    hasRevision: false,
     currentId: 0
   };
 
@@ -174,6 +186,12 @@ layui.use(['form'], function(){
     return value == null ? '' : String(value);
   }
 
+  function htmlOf(value) {
+    return textOf(value).replace(/[&<>"']/g, function(ch){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+    });
+  }
+
   function setStatus(message, color) {
     var el = byId(ids.status);
     if (!el) return;
@@ -191,7 +209,23 @@ layui.use(['form'], function(){
     state.hasSeo = hasMountedPack(state.meta, 'content.seo');
     state.hasSlug = hasMountedPack(state.meta, 'content.slug');
     state.hasMedia = hasMountedPack(state.meta, 'content.media');
+    state.hasWorkflow = hasMountedPack(state.meta, 'content.workflow');
+    state.hasRevision = hasMountedPack(state.meta, 'content.revision');
+    renderWorkflowActions();
+    renderRevisionAction();
     return state.meta;
+  }
+
+  function renderWorkflowActions() {
+    ['workflowSubmit', 'workflowApprove', 'workflowReject', 'workflowOffline'].forEach(function(key){
+      var el = byId(ids[key]);
+      if (el) el.style.display = state.hasWorkflow && state.currentId > 0 ? '' : 'none';
+    });
+  }
+
+  function renderRevisionAction() {
+    var el = byId(ids.revisionList);
+    if (el) el.style.display = state.hasRevision && state.currentId > 0 ? '' : 'none';
   }
 
   function categoryLabel(row) {
@@ -237,6 +271,15 @@ layui.use(['form'], function(){
 
   async function fetchJson(path) {
     var response = await fetch(path, { cache: 'no-store' });
+    return response.json();
+  }
+
+  async function postJson(path, data) {
+    var response = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data || {})
+    });
     return response.json();
   }
 
@@ -326,14 +369,16 @@ layui.use(['form'], function(){
         type: 'text',
         label: '\u5c01\u9762\u8d44\u6e90ID',
         required: false,
-        placeholder: '1'
+        placeholder: '1',
+        actions: [{ key: 'pickCoverMedia', text: '\u9009\u62e9\u8d44\u6e90' }]
       });
       publishGroup.fields.push({
         name: 'media_ids',
         type: 'text',
         label: '\u6b63\u6587\u8d44\u6e90ID',
         required: false,
-        placeholder: '1,2,3'
+        placeholder: '1,2,3',
+        actions: [{ key: 'pickBodyMedia', text: '\u9009\u62e9\u8d44\u6e90' }]
       });
     }
     publishGroup = next.groups[0];
@@ -409,8 +454,47 @@ layui.use(['form'], function(){
     var relationValues = await loadRelationValues(meta, state.currentId);
     var host = byId(ids.form);
     host.innerHTML = '<div class="managed-content-empty">' + t('loadingForm') + '</div>';
-    state.form = await window.XForm.render(host, withManagedSystemFields(meta.schema || { title: 'Content', groups: [] }, categories, meta, tags, topics), formValuesFromRecord(record, relationValues), meta.fieldTypes || {}, {});
+    state.form = await window.XForm.render(host, withManagedSystemFields(meta.schema || { title: 'Content', groups: [] }, categories, meta, tags, topics), formValuesFromRecord(record, relationValues), meta.fieldTypes || {}, { onAction: handleFormAction });
     setStatus('');
+  }
+
+  async function handleFormAction(instance, field, action) {
+    if (!state.hasMedia || !action) return;
+    if (action.key === 'pickCoverMedia') {
+      await openMediaPicker(field.name, false);
+    } else if (action.key === 'pickBodyMedia') {
+      await openMediaPicker(field.name, true);
+    }
+  }
+
+  async function openMediaPicker(fieldName, multiple) {
+    if (!state.form || !fieldName) return;
+    var result = await fetchJson('/admin/api/plugin/' + pluginXid + '/media/list');
+    if (!result || !result.result) throw new Error((result && result.message) || 'media list failed');
+    var rows = Array.isArray(result.data) ? result.data : [];
+    var html = '<div style="padding:12px 16px;"><table class="layui-table"><thead><tr><th style="width:80px">ID</th><th>Title</th><th>URL</th><th style="width:100px">Size</th><th style="width:90px">Action</th></tr></thead><tbody>';
+    rows.forEach(function(row){
+      html += '<tr><td>' + htmlOf(row.id || '') + '</td><td>' + htmlOf(row.title || '') + '</td><td style="word-break:break-all;">' + htmlOf(row.url || '') + '</td><td>' + htmlOf(row.width && row.height ? (row.width + 'x' + row.height) : '') + '</td><td><button type="button" class="layui-btn layui-btn-xs" data-media-id="' + htmlOf(row.id || '') + '">Select</button></td></tr>';
+    });
+    if (!rows.length) html += '<tr><td colspan="5" style="text-align:center;color:#667085;">No media resources</td></tr>';
+    html += '</tbody></table></div>';
+    var index = layer.open({ type: 1, title: multiple ? 'Select Media Resources' : 'Select Cover Resource', area: ['860px','560px'], content: html, success: function(layero){
+      layero[0].addEventListener('click', function(ev){
+        var btn = ev.target.closest('[data-media-id]');
+        if (!btn) return;
+        var id = btn.getAttribute('data-media-id') || '';
+        if (!id) return;
+        if (multiple) {
+          var data = state.form.collect ? state.form.collect() : {};
+          var values = String(data[fieldName] || '').split(',').map(function(item){ return item.trim(); }).filter(Boolean);
+          if (values.indexOf(id) < 0) values.push(id);
+          state.form.setValue(fieldName, values.join(','));
+        } else {
+          state.form.setValue(fieldName, id);
+          layer.close(index);
+        }
+      });
+    }});
   }
 
   function closeFrame() {
@@ -450,6 +534,99 @@ layui.use(['form'], function(){
     closeFrame();
   }
 
+  async function runWorkflowAction(action) {
+    if (!state.hasWorkflow || state.currentId <= 0) return;
+    var reason = '';
+    if (action === 'reject' || action === 'offline') {
+      reason = window.prompt(action === 'reject' ? '\u8bf7\u586b\u5199\u9a73\u56de\u539f\u56e0' : '\u8bf7\u586b\u5199\u4e0b\u7ebf\u539f\u56e0', '') || '';
+    }
+    setStatus('\u6b63\u5728\u5904\u7406\u5de5\u4f5c\u6d41...');
+    var response = await fetch('/admin/api/plugin/' + pluginXid + '/workflow/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: state.currentId, action: action, reason: reason })
+    });
+    var result = await response.json();
+    if (!result || !result.result) throw new Error((result && result.message) || '\u5de5\u4f5c\u6d41\u64cd\u4f5c\u5931\u8d25');
+    layer.msg('\u5de5\u4f5c\u6d41\u5df2\u66f4\u65b0', { icon: 1 });
+    setStatus('');
+    await renderEditor();
+  }
+
+  async function openRevisionList() {
+    if (!state.hasRevision || state.currentId <= 0) return;
+    var result = await fetchJson('/admin/api/plugin/' + pluginXid + '/revision/list?contentId=' + encodeURIComponent(state.currentId));
+    if (!result || !result.result) throw new Error((result && result.message) || '\u7248\u672c\u52a0\u8f7d\u5931\u8d25');
+    var rows = Array.isArray(result.data) ? result.data : [];
+    var html = '<div style="padding:12px 16px;"><table class="layui-table"><thead><tr><th>ID</th><th>\u7248\u672c</th><th>\u6807\u9898</th><th>\u72b6\u6001</th><th>\u52a8\u4f5c</th><th>\u65f6\u95f4</th><th>\u64cd\u4f5c</th></tr></thead><tbody>';
+    rows.forEach(function(row){
+      html += '<tr><td>' + htmlOf(row.id) + '</td><td>' + htmlOf(row.revisionNo) + '</td><td>' + htmlOf(row.title) + '</td><td>' + htmlOf(row.status) + '</td><td>' + htmlOf(row.action) + '</td><td>' + htmlOf(row.createTimeText) + '</td><td><button type="button" class="layui-btn layui-btn-primary layui-btn-xs js-rev-diff" data-id="' + htmlOf(row.id) + '">Diff</button><button type="button" class="layui-btn layui-btn-danger layui-btn-xs js-rev-restore" data-id="' + htmlOf(row.id) + '">Restore</button></td></tr>';
+    });
+    if (!rows.length) html += '<tr><td colspan="7" style="text-align:center;color:#667085;">\u6682\u65e0\u7248\u672c</td></tr>';
+    html += '</tbody></table></div>';
+    layer.open({
+      type:1,
+      title:'\u5185\u5bb9\u7248\u672c',
+      area:['860px','560px'],
+      content:html,
+      success:function(layero){
+        Array.prototype.forEach.call(layero[0].querySelectorAll('.js-rev-diff'), function(btn){
+          btn.onclick = function(){ showEditorRevisionDiff(Number(btn.getAttribute('data-id') || 0)).catch(handleError); };
+        });
+        Array.prototype.forEach.call(layero[0].querySelectorAll('.js-rev-restore'), function(btn){
+          btn.onclick = function(){ showEditorRevisionRestore(Number(btn.getAttribute('data-id') || 0)).catch(handleError); };
+        });
+      }
+    });
+  }
+
+  async function showEditorRevisionDiff(id) {
+    if (!id) return;
+    var ret = await fetchJson('/admin/api/plugin/' + pluginXid + '/revision/diff?id=' + encodeURIComponent(id));
+    if (!ret || !ret.result) throw new Error((ret && ret.message) || 'revision diff failed');
+    layer.open({type:1,title:'Revision Diff #' + id,area:['860px','560px'],content:renderRevisionChangeDialog((ret.data && ret.data.changes) || [], ret.data)});
+  }
+
+  function renderRevisionValue(value, peer) {
+    var text = String(value == null ? '' : value);
+    var peerText = String(peer == null ? '' : peer);
+    var isLong = text.length > 160 || peerText.length > 160 || text.indexOf('\n') >= 0 || peerText.indexOf('\n') >= 0;
+    if (!isLong) return '<pre style="white-space:pre-wrap;margin:0;">' + htmlOf(text) + '</pre>';
+    var lines = text.split(/\r?\n/);
+    var peerLines = peerText.split(/\r?\n/);
+    var max = Math.min(lines.length, 200);
+    var html = '<div class="revision-line-diff">';
+    for (var i = 0; i < max; i++) {
+      var changed = lines[i] !== peerLines[i];
+      html += '<div style="display:flex;gap:8px;background:' + (changed ? '#fff7ed' : 'transparent') + ';border-bottom:1px solid #f2f4f7;"><span style="width:42px;text-align:right;color:#98a2b3;flex:none;">' + (i + 1) + '</span><pre style="white-space:pre-wrap;margin:0;flex:1;">' + htmlOf(lines[i]) + '</pre></div>';
+    }
+    if (lines.length > max) html += '<div style="color:#667085;font-size:12px;">... ' + htmlOf(lines.length - max) + ' more lines omitted</div>';
+    return html + '</div>';
+  }
+
+  function renderRevisionChangeDialog(changes, data) {
+    var rows = Array.isArray(changes) ? changes : [];
+    var html = '<div style="padding:12px 16px;"><div style="color:#667085;margin-bottom:8px;">' + htmlOf((data && data.changeCount) || rows.length || 0) + ' changed fields</div><table class="layui-table"><thead><tr><th style="width:160px">Field</th><th>Before</th><th>After</th></tr></thead><tbody>';
+    rows.forEach(function(row){
+      html += '<tr><td><b>' + htmlOf(row.title || row.field || '') + '</b><div style="color:#667085;font-size:12px;">' + htmlOf(row.field || '') + '</div></td><td>' + renderRevisionValue(row.before, row.after) + '</td><td>' + renderRevisionValue(row.after, row.before) + '</td></tr>';
+    });
+    if (!rows.length) html += '<tr><td colspan="3" style="text-align:center;color:#667085;">No field changes</td></tr>';
+    return html + '</tbody></table></div>';
+  }
+
+  async function showEditorRevisionRestore(id) {
+    if (!id) return;
+    var ret = await fetchJson('/admin/api/plugin/' + pluginXid + '/revision/restore-preview?id=' + encodeURIComponent(id));
+    if (!ret || !ret.result) throw new Error((ret && ret.message) || 'revision restore preview failed');
+    layer.confirm(renderRevisionChangeDialog((ret.data && ret.data.changes) || [], ret.data), {title:'Restore Revision #' + id, area:['860px','560px']}, async function(index){
+      var restore = await postJson('/admin/api/plugin/' + pluginXid + '/revision/restore', {id:id});
+      layer.close(index);
+      if (!restore || !restore.result) throw new Error((restore && restore.message) || 'revision restore failed');
+      layer.msg('\u7248\u672c\u5df2\u6062\u590d', {icon:1});
+      await renderEditor();
+    });
+  }
+
   async function saveAbilityRelations(contentId, tagIds, tagNames, topicIds) {
     var meta = await loadMeta();
     if (contentId <= 0) return;
@@ -482,6 +659,11 @@ layui.use(['form'], function(){
   state.currentId = Number(queryValue('id') || 0);
   byId(ids.save).onclick = function(){ saveRecord(false).catch(handleError); };
   byId(ids.saveDraft).onclick = function(){ saveRecord(true).catch(handleError); };
+  byId(ids.workflowSubmit).onclick = function(){ runWorkflowAction('submit').catch(handleError); };
+  byId(ids.workflowApprove).onclick = function(){ runWorkflowAction('approve').catch(handleError); };
+  byId(ids.workflowReject).onclick = function(){ runWorkflowAction('reject').catch(handleError); };
+  byId(ids.workflowOffline).onclick = function(){ runWorkflowAction('offline').catch(handleError); };
+  byId(ids.revisionList).onclick = function(){ openRevisionList().catch(handleError); };
   byId(ids.cancel).onclick = closeFrame;
   renderEditor().catch(handleError);
 });

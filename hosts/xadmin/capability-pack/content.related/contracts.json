@@ -2,7 +2,13 @@
   "permissions": ["related.view", "related.manage"],
   "adminPages": ["related"],
   "publicApis": ["related.list"],
+  "adminApis": ["related.list", "related.save", "related.delete", "related.rebuild"],
   "tables": ["content_related"],
   "events": ["content.afterSave", "related.afterBind"],
+  "runtime": {
+    "saveSync": true,
+    "peerSync": true,
+    "configKeys": ["ruleLimit"]
+  },
   "tasks": []
 }

@@ -1,8 +1,13 @@
 {
-  "permissions": ["audit_log.view"],
+  "permissions": ["audit_log.view", "audit_log.manage"],
   "adminPages": ["audit_logs"],
   "publicApis": [],
+  "adminApis": ["audit-log.list", "audit-log.cleanup"],
   "tables": ["content_audit_log"],
   "events": ["content.afterSave", "content.afterDelete", "content.afterPublish"],
-  "tasks": []
+  "runtime": {
+    "diffSummary": true,
+    "ipSource": ["session.ip", "session.clientIp", "session.remoteAddr"]
+  },
+  "tasks": ["audit-log.cleanup"]
 }

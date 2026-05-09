@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.sitemap: exposes sitemap/rss/robots endpoints; confirm public URL base and cache strategy.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/sitemap/stats",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_sitemap"
 }

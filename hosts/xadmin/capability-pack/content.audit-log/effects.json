@@ -3,7 +3,12 @@
   "fields": [],
   "adminPages": ["audit_logs"],
   "publicApis": [],
-  "permissions": ["audit_log.view"],
+  "permissions": ["audit_log.view", "audit_log.manage"],
+  "adminApis": ["audit-log.list", "audit-log.cleanup"],
   "events": ["content.afterSave", "content.afterDelete", "content.afterPublish"],
-  "tasks": []
+  "runtime": {
+    "diffSummary": true,
+    "ipSource": ["session.ip", "session.clientIp", "session.remoteAddr"]
+  },
+  "tasks": ["audit-log.cleanup"]
 }

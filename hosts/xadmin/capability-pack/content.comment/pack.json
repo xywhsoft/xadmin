@@ -35,5 +35,8 @@
   "hooks": "hooks.json",
   "symbols": "symbols.json",
   "patches": "patches.json",
-  "contracts": "contracts.json"
+  "contracts": "contracts.json",
+  "advisorMessage": "Capability content.comment: opens comment storage and moderation routes; configure review flow and spam handling.",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/comment/list?contentId=1",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_comment"
 }

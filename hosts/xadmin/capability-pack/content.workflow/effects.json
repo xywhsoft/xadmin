@@ -5,7 +5,23 @@
   ],
   "adminPages": ["workflow"],
   "publicApis": [],
+  "adminApis": ["workflow.action", "workflow.log.list", "workflow.scheduled-publish"],
   "permissions": ["workflow.view", "workflow.submit", "workflow.review", "workflow.publish"],
   "events": ["workflow.afterSubmit", "workflow.afterReview", "workflow.afterPublish"],
+  "runtime": {
+    "actionPanel": true,
+    "actionPermissions": {
+      "submit": "workflow.submit",
+      "approve": "workflow.review",
+      "reject": "workflow.review",
+      "schedule": "workflow.publish",
+      "offline": "workflow.publish",
+      "publish": "workflow.publish"
+    },
+    "scheduledPublish": true,
+    "syncContentEffects": true,
+    "assigneeFlow": true,
+    "editorActions": ["submit", "approve", "reject", "offline"]
+  },
   "tasks": ["workflow.scheduledPublish"]
 }

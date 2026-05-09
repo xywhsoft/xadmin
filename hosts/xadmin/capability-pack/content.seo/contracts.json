@@ -2,8 +2,16 @@
   "permissions": ["seo.view", "seo.manage"],
   "adminPages": ["seo"],
   "publicApis": ["seo.meta"],
-  "storage": "payload",
-  "fields": ["seo_title", "seo_keywords", "seo_description"],
-  "events": ["content.beforeRender", "content.afterPublish"],
+  "adminApis": ["seo.list", "seo.save", "seo.delete"],
+  "storage": "table+payload",
+  "tables": ["content_seo_meta"],
+  "fields": ["seo_title", "seo_keywords", "seo_description", "category.seo_title", "category.seo_keywords", "category.seo_description"],
+  "events": ["content.beforeRender", "content.afterPublish", "category.beforeRender"],
+  "runtime": {
+    "publicHeadInjection": true,
+    "categorySeoFields": true,
+    "listMetaOutput": true,
+    "categoryHeadInjection": true
+  },
   "tasks": []
 }

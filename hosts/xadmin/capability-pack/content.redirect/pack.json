@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.redirect: adds redirect rules and hit tracking; verify redirect loops and static resource path conflicts during rule submission.",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/redirect/resolve?path=/old-url",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_redirect"
 }

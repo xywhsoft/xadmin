@@ -10,6 +10,15 @@
   "installType": "bundled",
   "status": "active",
   "sort": 210,
+  "advisorMessage": "Capability content.slug: enables slug lookup; confirm slug uniqueness and URL conflict rules before public launch.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/slug/check?slug=demo",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_slug",
+  "sourceFiles": [
+    "source/content_slug_pack.c"
+  ],
+  "includeFiles": [
+    "include/content_slug_pack.h"
+  ],
   "protection": {
     "system": true,
     "readonly": true,

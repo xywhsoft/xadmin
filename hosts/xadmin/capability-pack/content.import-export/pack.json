@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.import-export: enables bulk data movement; use preview, field whitelist and explicit confirmation before importing.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/import-export/import/jobs",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_import_export"
 }

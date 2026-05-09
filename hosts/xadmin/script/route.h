@@ -322,6 +322,10 @@ void RouteHTTP_Unit()
 		xrtFree(G_DynamicRouteTableHTTP.sLastError);
 		G_DynamicRouteTableHTTP.sLastError = NULL;
 	}
+	if ( G_DynamicRouteTableHTTP.sLastWarning ) {
+		xrtFree(G_DynamicRouteTableHTTP.sLastWarning);
+		G_DynamicRouteTableHTTP.sLastWarning = NULL;
+	}
 	if ( G_DynamicRouteInvokeContext ) {
 		xrtDictDestroy(G_DynamicRouteInvokeContext);
 		G_DynamicRouteInvokeContext = NULL;

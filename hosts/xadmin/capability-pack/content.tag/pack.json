@@ -35,5 +35,8 @@
   "hooks": "hooks.json",
   "symbols": "symbols.json",
   "patches": "patches.json",
-  "contracts": "contracts.json"
+  "contracts": "contracts.json",
+  "advisorMessage": "Capability content.tag: adds tag taxonomy and binding routes; confirm tag normalization and duplicate policy.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/tag/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_tag"
 }

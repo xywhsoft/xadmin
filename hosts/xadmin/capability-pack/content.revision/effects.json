@@ -3,7 +3,12 @@
   "fields": [],
   "adminPages": ["revisions"],
   "publicApis": [],
+  "adminApis": ["revision.list", "revision.detail", "revision.diff", "revision.restore", "revision.restore-preview"],
   "permissions": ["revision.view", "revision.restore"],
-  "events": ["content.beforeSave", "revision.afterRestore"],
+  "events": ["content.beforeSave", "revision.beforeRestore", "revision.afterRestore"],
+  "runtime": {
+    "editorVersionDialog": true,
+    "editorDiffRestore": true
+  },
   "tasks": []
 }

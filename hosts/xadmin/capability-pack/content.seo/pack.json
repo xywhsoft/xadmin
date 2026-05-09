@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.seo: adds SEO fields and public meta API; confirm title/keywords/description ownership with the theme.",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/seo/meta?id=1",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/editor"
 }

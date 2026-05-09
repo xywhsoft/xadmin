@@ -37,5 +37,8 @@
   "hooks": "hooks.json",
   "symbols": "symbols.json",
   "patches": "patches.json",
-  "contracts": "contracts.json"
+  "contracts": "contracts.json",
+  "advisorMessage": "Capability content.static: writes generated static artifacts; confirm output path, cleanup and refresh triggers.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/static/rule/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_static"
 }

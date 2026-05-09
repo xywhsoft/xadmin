@@ -2,7 +2,12 @@
   "permissions": ["revision.view", "revision.restore"],
   "adminPages": ["revisions"],
   "publicApis": [],
+  "adminApis": ["revision.list", "revision.detail", "revision.diff", "revision.restore", "revision.restore-preview"],
   "tables": ["content_revision"],
-  "events": ["content.beforeSave", "revision.afterRestore"],
+  "events": ["content.beforeSave", "revision.beforeRestore", "revision.afterRestore"],
+  "runtime": {
+    "editorVersionDialog": true,
+    "editorDiffRestore": true
+  },
   "tasks": []
 }

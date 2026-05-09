@@ -4,5 +4,10 @@
   "publicApis": ["category.list", "category.detail", "category.contents"],
   "tables": ["content_category"],
   "events": ["category.afterSave", "category.afterDelete"],
+  "runtime": {
+    "publicFilter": true,
+    "publicCategoryHead": true,
+    "publicTemplateKeys": ["default", "compact", "grid", "feature"]
+  },
   "tasks": []
 }

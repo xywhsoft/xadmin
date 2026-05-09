@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.media: tracks media resources and content references; plan upload storage, deletion protection and image processing policy.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/media/ref/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_media"
 }

@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.revision: stores content snapshots on writes; estimate database growth and retention policy.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/revision/diff?id=1",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_revision"
 }

@@ -7,5 +7,10 @@
   "publicApis": ["category.list", "category.detail", "category.contents"],
   "permissions": ["category.view", "category.manage"],
   "events": ["category.afterSave", "category.afterDelete"],
+  "runtime": {
+    "publicFilter": true,
+    "publicCategoryHead": true,
+    "publicTemplateKeys": ["default", "compact", "grid", "feature"]
+  },
   "tasks": []
 }

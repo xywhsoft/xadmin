@@ -2,8 +2,12 @@
   "tables": ["content_redirect"],
   "fields": [],
   "adminPages": ["redirects"],
-  "publicApis": ["redirect.resolve"],
+  "publicApis": ["redirect.resolve", "redirect.http"],
+  "adminApis": ["redirect.list", "redirect.save", "redirect.delete", "redirect.import"],
   "permissions": ["redirect.view", "redirect.manage"],
   "events": ["slug.afterChange", "redirect.afterHit"],
+  "runtime": {
+    "httpRedirect": true
+  },
   "tasks": []
 }

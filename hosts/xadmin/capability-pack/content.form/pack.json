@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.form: accepts public submissions; configure validation, notification, retention and anti-abuse policy.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/form/submission/export",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_form"
 }

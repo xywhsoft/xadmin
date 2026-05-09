@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.search: exposes public/admin search; confirm searchable fields, index rebuild cost and result visibility.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/search/stats",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_search"
 }

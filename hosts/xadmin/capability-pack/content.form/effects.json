@@ -3,7 +3,13 @@
   "fields": [],
   "adminPages": ["forms", "form_submissions"],
   "publicApis": ["form.submit"],
+  "adminApis": ["form.list", "form.save", "form.delete", "form.submission.list", "form.submission.export", "form.submission.status"],
   "permissions": ["form.view", "form.manage", "form.export"],
   "events": ["form.afterSubmit"],
+  "runtime": {
+    "schemaValidation": ["required", "fields.type", "fields.format", "fields.minLength", "fields.maxLength", "fields.min", "fields.max", "fields.pattern"],
+    "ipSource": ["session.ip", "session.clientIp", "session.remoteAddr"],
+    "antiSpam": ["honeypot", "minSubmitSeconds"]
+  },
   "tasks": []
 }

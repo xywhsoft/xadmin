@@ -15,5 +15,8 @@
     "readonly": true,
     "disableAllowed": true,
     "deleteAllowed": false
-  }
+  },
+  "advisorMessage": "Capability content.category: registers category routes, menu and editor fields; confirm the content model really needs a category tree.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/category/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/categories"
 }

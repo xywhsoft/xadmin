@@ -37,5 +37,8 @@
   "hooks": "hooks.json",
   "symbols": "symbols.json",
   "patches": "patches.json",
-  "contracts": "contracts.json"
+  "contracts": "contracts.json",
+  "advisorMessage": "Capability content.view-stat: records view logs and counters; define visitor key, privacy boundary and log retention.",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/view/counter/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_view_stat"
 }

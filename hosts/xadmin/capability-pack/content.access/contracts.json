@@ -3,6 +3,13 @@
   "adminPages": ["access"],
   "publicApis": ["access.check"],
   "tables": ["content_access_rule"],
-  "events": ["content.beforeRead"],
+  "events": ["content.beforeRead", "category.accessInherit"],
+  "rules": {
+    "inheritFromCategory": true,
+    "categoryRuleTarget": "content_id = -category_id",
+    "contentRulePriority": "content rule overrides category rule",
+    "passwordHash": "xsha256 salted transitional hash, xrt64/plaintext compatible",
+    "paidMode": "returns payRequired and price; order validation is a later integration"
+  },
   "tasks": []
 }

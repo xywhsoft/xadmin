@@ -1,10 +1,17 @@
 <style>
 .managed-category-page { padding: 16px; }
-.managed-category-editor { position: relative; height: 100%; min-height: 380px; box-sizing: border-box; padding: 18px 22px 74px; }
+.managed-category-editor { position: relative; height: 100%; min-height: 520px; box-sizing: border-box; padding: 18px 22px 74px; }
 .managed-category-editor .layui-form-label { width: 92px; }
 .managed-category-editor .layui-input-block { margin-left: 122px; }
 .managed-category-editor .managed-category-actions { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; box-sizing: border-box; padding: 10px 22px; border-top: 1px solid #eee; background: #fff; text-align: right; }
 .managed-category-editor .managed-category-actions .layui-btn { min-width: 92px; }
+.managed-category-sort-input { width: 68px; height: 28px; line-height: 28px; padding: 0 6px; }
+.managed-category-seo { display: none; }
+.managed-category-seo.enabled { display: block; }
+.managed-category-drag-list { padding: 12px 16px; max-height: 460px; overflow: auto; }
+.managed-category-drag-item { display: flex; align-items: center; gap: 10px; min-height: 34px; margin-bottom: 6px; padding: 8px 10px; border: 1px solid #e6e6e6; background: #fff; cursor: move; }
+.managed-category-drag-item.dragging { opacity: .55; }
+.managed-category-drag-handle { color: #999; font-size: 16px; }
 @media (max-width: 640px) {
   .managed-category-editor .layui-form-label { width: 88px; }
   .managed-category-editor .layui-input-block { margin-left: 118px; }
@@ -18,6 +25,8 @@
 <script type="text/html" id="Toolbar_{{PLUGIN_DOM_ID_BASE}}">
   <div class="layui-inline">
     <button class="layui-btn layui-btn-sm" lay-event="Add_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-addition"></i> &#28155;&#21152;&#26639;&#30446;</button>
+    <button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="SaveSort_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-ok"></i> &#20445;&#23384;&#25490;&#24207;</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="DragSort_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-template-1"></i> Drag Sort</button>
     <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
   </div>
 </script>
@@ -45,9 +54,47 @@
       </div>
     </div>
     <div class="layui-form-item">
-      <label class="layui-form-label">&#29238;&#26639;&#30446;ID</label>
+      <label class="layui-form-label">&#29238;&#26639;&#30446;</label>
       <div class="layui-input-block">
-        <input type="number" name="parentId" placeholder="0" autocomplete="off" class="layui-input">
+        <select name="parentId" id="Parent_{{PLUGIN_DOM_ID_BASE}}"></select>
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">&#26639;&#30446;&#25551;&#36848;</label>
+      <div class="layui-input-block">
+        <textarea name="description" placeholder="&#29992;&#20110;&#21069;&#21488;&#26639;&#30446;&#39029;&#25688;&#35201;" class="layui-textarea"></textarea>
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">&#23553;&#38754;URL</label>
+      <div class="layui-input-block">
+        <input type="text" name="coverUrl" placeholder="/plugin-static/{{PLUGIN_XID}}/cover.jpg" autocomplete="off" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">&#27169;&#26495;&#38190;</label>
+      <div class="layui-input-block">
+        <input type="text" name="templateKey" placeholder="default" autocomplete="off" class="layui-input">
+      </div>
+    </div>
+    <div class="managed-category-seo" id="SeoFields_{{PLUGIN_DOM_ID_BASE}}">
+      <div class="layui-form-item">
+        <label class="layui-form-label">SEO Title</label>
+        <div class="layui-input-block">
+          <input type="text" name="seoTitle" placeholder="Category SEO title" autocomplete="off" class="layui-input">
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">SEO Keywords</label>
+        <div class="layui-input-block">
+          <input type="text" name="seoKeywords" placeholder="keyword1,keyword2" autocomplete="off" class="layui-input">
+        </div>
+      </div>
+      <div class="layui-form-item">
+        <label class="layui-form-label">SEO Desc</label>
+        <div class="layui-input-block">
+          <textarea name="seoDescription" placeholder="Category SEO description" class="layui-textarea"></textarea>
+        </div>
       </div>
     </div>
     <div class="layui-form-item">
@@ -86,10 +133,12 @@ layui.use(['table', 'form'], function(){
     tool: 'Tool_' + domBase,
     editor: 'Editor_' + domBase,
     form: 'Form_' + domBase,
+    parent: 'Parent_' + domBase,
+    seoFields: 'SeoFields_' + domBase,
     save: 'Save_' + domBase,
     cancel: 'Cancel_' + domBase
   };
-  var state = { layerIndex: 0, current: null };
+  var state = { layerIndex: 0, current: null, categories: [], seoEnabled: false };
 
   function byId(id) { return document.getElementById(id); }
   function textOf(value) { return value == null ? '' : String(value); }
@@ -104,20 +153,68 @@ layui.use(['table', 'form'], function(){
       parentId: row.parentId || 0,
       title: row.title || '',
       slug: row.slug || '',
+      path: row.path || '',
+      level: row.level || 0,
+      description: row.description || '',
+      coverUrl: row.coverUrl || '',
+      templateKey: row.templateKey || '',
+      seoTitle: row.seoTitle || '',
+      seoKeywords: row.seoKeywords || '',
+      seoDescription: row.seoDescription || '',
       sort: row.sort || 0,
       status: row.status == null ? 1 : row.status
     };
+  }
+  function hasAbilityPack(meta, packId) {
+    var packs = (((meta || {}).contracts || {}).abilityPacks) || [];
+    return packs.some(function(item){ return String((item || {}).packId || '') === String(packId); });
+  }
+  function loadMeta() {
+    return fetch('/api/plugin/' + pluginXid + '/meta', { cache: 'no-store' })
+      .then(function(response){ return response.json(); })
+      .then(function(result){
+        state.seoEnabled = !!(result && result.result && hasAbilityPack(result.data || {}, 'content.seo'));
+        var seoHost = byId(ids.seoFields);
+        if (seoHost) seoHost.className = state.seoEnabled ? 'managed-category-seo enabled' : 'managed-category-seo';
+      }).catch(function(){ state.seoEnabled = false; });
+  }
+  function renderParentOptions(current) {
+    var select = byId(ids.parent);
+    var currentId = Number((current && current.id) || 0);
+    var currentPath = (current && current.path) || '';
+    select.innerHTML = '';
+    var root = document.createElement('option');
+    root.value = '0';
+    root.textContent = '\u65e0\u7236\u680f\u76ee';
+    select.appendChild(root);
+    (state.categories || []).forEach(function(item){
+      var id = Number(item.id || 0);
+      var path = item.path || '';
+      if (!id || id === currentId) return;
+      if (currentPath && path.indexOf(currentPath) === 0) return;
+      var option = document.createElement('option');
+      option.value = String(id);
+      option.textContent = textOf(item.treeTitle || item.title || ('#' + id));
+      select.appendChild(option);
+    });
   }
   function openEditor(row) {
     state.current = normalizeRow(row);
     state.layerIndex = layer.open({
       title: state.current.id ? '\u7f16\u8f91\u680f\u76ee' : '\u6dfb\u52a0\u680f\u76ee',
       type: 1,
-      area: ['620px', '470px'],
+      area: ['680px', '650px'],
       shadeClose: false,
       content: $('#' + ids.editor),
       success: function(){
-        form.val(ids.form, state.current);
+        renderParentOptions(state.current);
+        var formValue = Object.assign({}, state.current);
+        if (!state.seoEnabled) {
+          formValue.seoTitle = '';
+          formValue.seoKeywords = '';
+          formValue.seoDescription = '';
+        }
+        form.val(ids.form, formValue);
         form.render();
       },
       end: function(){ byId(ids.editor).style.display = 'none'; }
@@ -154,13 +251,98 @@ layui.use(['table', 'form'], function(){
       layer.close(index);
     });
   }
+  function saveSort() {
+    var items = [];
+    document.querySelectorAll('.managed-category-sort-input-' + domBase).forEach(function(input){
+      items.push({ id: Number(input.getAttribute('data-id') || 0), sort: Number(input.value || 0) });
+    });
+    if (!items.length) {
+      layer.msg('\u6682\u65e0\u53ef\u4fdd\u5b58\u7684\u680f\u76ee', { icon: 0 });
+      return;
+    }
+    fetch('/admin/api/plugin/' + pluginXid + '/category/sort', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: items })
+    }).then(function(response){ return response.json(); }).then(function(result){
+      if (!result || !result.result) throw new Error((result && result.message) || '\u4fdd\u5b58\u5931\u8d25');
+      layer.msg('\u6392\u5e8f\u5df2\u4fdd\u5b58', { icon: 1 });
+      reloadTable();
+    }).catch(function(error){ layer.msg(error.message || String(error), { icon: 2 }); });
+  }
+
+  function dragSortItems() {
+    return state.categories.map(function(row){
+      return { id: Number(row.id || 0), parentId: Number(row.parentId || 0), title: row.treeTitle || row.title || ('#' + row.id), sort: Number(row.sort || 0) };
+    }).filter(function(row){ return row.id > 0; });
+  }
+
+  function dragParentOptions(row, rows) {
+    var html = '<select class="managed-category-drag-parent" data-id="' + row.id + '"><option value="0">Root</option>';
+    rows.forEach(function(item){
+      if (Number(item.id) === Number(row.id)) return;
+      html += '<option value="' + Number(item.id || 0) + '"' + (Number(row.parentId || 0) === Number(item.id || 0) ? ' selected' : '') + '>' + escapeHtml(item.title) + '</option>';
+    });
+    return html + '</select>';
+  }
+
+  function openDragSort() {
+    var rows = dragSortItems();
+    var html = '<div class="managed-category-drag-list" id="DragSortList_' + domBase + '">';
+    rows.forEach(function(row){
+      html += '<div class="managed-category-drag-item" draggable="true" data-id="' + row.id + '"><span class="managed-category-drag-handle">&#9776;</span><span style="flex:1">' + escapeHtml(row.title) + '</span>' + dragParentOptions(row, rows) + '</div>';
+    });
+    if (!rows.length) html += '<div style="padding:24px;text-align:center;color:#999;">No categories</div>';
+    html += '</div><div style="border-top:1px solid #eee;padding:12px 16px;text-align:right;"><button type="button" class="layui-btn" id="DragSortSave_' + domBase + '">Save</button><button type="button" class="layui-btn layui-btn-primary" id="DragSortCancel_' + domBase + '">Cancel</button></div>';
+    var index = layer.open({
+      type: 1,
+      title: 'Category Drag Sort',
+      area: ['560px', '620px'],
+      content: html,
+      success: function(layero){
+        var dragging = null;
+        var list = layero[0].querySelector('#DragSortList_' + domBase);
+        if (!list) return;
+        Array.prototype.forEach.call(list.querySelectorAll('.managed-category-drag-item'), function(item){
+          item.addEventListener('dragstart', function(){ dragging = item; item.classList.add('dragging'); });
+          item.addEventListener('dragend', function(){ item.classList.remove('dragging'); dragging = null; });
+          item.addEventListener('dragover', function(ev){
+            ev.preventDefault();
+            if (!dragging || dragging === item) return;
+            var rect = item.getBoundingClientRect();
+            var after = ev.clientY > rect.top + rect.height / 2;
+            list.insertBefore(dragging, after ? item.nextSibling : item);
+          });
+        });
+        layero[0].querySelector('#DragSortCancel_' + domBase).onclick = function(){ layer.close(index); };
+        layero[0].querySelector('#DragSortSave_' + domBase).onclick = function(){
+          var items = [];
+          Array.prototype.forEach.call(list.querySelectorAll('.managed-category-drag-item'), function(item, idx){
+            var select = item.querySelector('.managed-category-drag-parent');
+            items.push({ id: Number(item.getAttribute('data-id') || 0), parentId: Number(select && select.value || 0), sort: (idx + 1) * 10 });
+          });
+          fetch('/admin/api/plugin/' + pluginXid + '/category/sort', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: items })
+          }).then(function(response){ return response.json(); }).then(function(result){
+            if (!result || !result.result) throw new Error((result && result.message) || 'save drag sort failed');
+            layer.close(index);
+            layer.msg('saved', { icon: 1 });
+            reloadTable();
+          }).catch(function(error){ layer.msg(error.message || String(error), { icon: 2 }); });
+        };
+      }
+    });
+  }
 
   table.render({
     elem: '#' + ids.table,
     toolbar: '#' + ids.toolbar,
-    url: '/admin/api/plugin/' + pluginXid + '/category/list',
+    url: '/admin/api/plugin/' + pluginXid + '/category/tree',
     method: 'get',
     parseData: function(result){
+      state.categories = (result && result.data) || [];
       return {
         code: result && result.result ? 0 : 1,
         msg: (result && result.message) || '',
@@ -175,10 +357,11 @@ layui.use(['table', 'form'], function(){
     page: false,
     cols: [[
       { field: 'id', width: 80, title: 'ID' },
-      { field: 'title', minWidth: 240, title: '\u680f\u76ee\u540d\u79f0', templet: function(d){ return escapeHtml(d.title || '\u672a\u547d\u540d\u680f\u76ee'); } },
+      { field: 'treeTitle', minWidth: 260, title: '\u680f\u76ee\u540d\u79f0', templet: function(d){ return escapeHtml(d.treeTitle || d.title || '\u672a\u547d\u540d\u680f\u76ee'); } },
       { field: 'parentId', width: 100, title: '\u7236\u680f\u76ee' },
       { field: 'contentCount', width: 110, title: '\u5185\u5bb9\u6570' },
-      { field: 'sort', width: 90, title: '\u6392\u5e8f' },
+      { field: 'templateKey', width: 120, title: '\u6a21\u677f', templet: function(d){ return escapeHtml(d.templateKey || 'default'); } },
+      { field: 'sort', width: 100, title: '\u6392\u5e8f', templet: function(d){ return '<input type="number" class="layui-input managed-category-sort-input managed-category-sort-input-' + domBase + '" data-id="' + Number(d.id || 0) + '" value="' + Number(d.sort || 0) + '">'; } },
       { field: 'status', width: 100, title: '\u72b6\u6001', templet: function(d){ return d.status ? '<span class="layui-badge layui-bg-green">\u542f\u7528</span>' : '<span class="layui-badge">\u505c\u7528</span>'; } },
       { field: 'updateTimeText', width: 170, title: '\u4fee\u6539\u65f6\u95f4' },
       { width: 140, title: '\u64cd\u4f5c', fixed: 'right', templet: '#' + ids.tool }
@@ -187,6 +370,8 @@ layui.use(['table', 'form'], function(){
 
   table.on('toolbar(' + ids.table + ')', function(obj){
     if (obj.event === 'Add_{{PLUGIN_DOM_ID_BASE}}') openEditor({});
+    if (obj.event === 'SaveSort_{{PLUGIN_DOM_ID_BASE}}') saveSort();
+    if (obj.event === 'DragSort_{{PLUGIN_DOM_ID_BASE}}') openDragSort();
     if (obj.event === 'Refresh_{{PLUGIN_DOM_ID_BASE}}') reloadTable();
   });
   table.on('tool(' + ids.table + ')', function(obj){
@@ -195,5 +380,6 @@ layui.use(['table', 'form'], function(){
   });
   byId(ids.save).onclick = saveCategory;
   byId(ids.cancel).onclick = function(){ layer.close(state.layerIndex); };
+  loadMeta();
 });
 </script>

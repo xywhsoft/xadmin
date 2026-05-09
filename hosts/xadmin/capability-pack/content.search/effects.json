@@ -3,7 +3,14 @@
   "fields": [],
   "adminPages": ["search"],
   "publicApis": ["search.query"],
+  "adminApis": ["search.query", "search.rebuild", "search.stats"],
   "permissions": ["search.view", "search.manage"],
   "events": ["content.afterSave", "content.afterDelete"],
+  "runtime": {
+    "publicSearchEndpoint": true,
+    "publicSnippetOutput": true,
+    "publicHighlight": true,
+    "weightedRanking": "title:100,keywords:60,summary:35,body:10"
+  },
   "tasks": ["search.rebuildIndex"]
 }
