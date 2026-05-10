@@ -21,5 +21,4 @@ action TEXT NOT NULL DEFAULT '',
 create_time INTEGER NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_sensitive_word_word_scope ON sensitive_word(word, scope) WHERE delete_time = 0;
-CREATE INDEX IF NOT EXISTS idx_sensitive_word_group ON sensitive_word(group_key, scope, status, delete_time);
 CREATE INDEX IF NOT EXISTS idx_sensitive_hit_target ON sensitive_hit_log(target_type, target_id, create_time DESC);

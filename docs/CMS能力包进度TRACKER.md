@@ -75,9 +75,9 @@ git diff --check
 | --- | --- | --- | --- | --- | --- |
 | GEN-001 | 未启用能力包不注册 | done | 路由、菜单、权限、schema、runtime manifest 均尊重 enabled。 | 无。 | `managed route capability boundary scan` |
 | GEN-002 | 未启用能力包不复制源码 | done | source/include/template/assets 声明复制已只遍历启用能力包；`content.slug`、`content.like`、`content.audit-log`、`content.import-export` 已作为声明式源码候选进入门禁。 | 深层业务函数仍可继续逐包从大模板迁出，但生成边界已具备可验证闭环。 | `capability manifest generation wiring` / `declared capability source compile` |
-| GEN-003 | `#ifdef XADMIN_CAP_*` 过渡宏 | done | build.defines 已生成；候选声明源码 include/link 受 `XADMIN_CAP_CONTENT_SLUG/LIKE/AUDIT_LOG/IMPORT_EXPORT` 宏保护。 | 后续按能力包生产级任务继续减少大模板体积。 | `capability source macro boundary` |
+| GEN-003 | `#ifdef XADMIN_CAP_*` 过渡宏 | done | build.defines 已生成；已实际链接的候选声明源码 include/link 受 `XADMIN_CAP_CONTENT_SLUG/LIKE` 宏保护；`content.audit-log`、`content.import-export` 先进入 enabled-only 复制/编译门禁，不在模板硬 include，避免旧注册表未同步时生成物启用失败。 | 后续按能力包生产级任务继续减少大模板体积。 | `capability source macro boundary` |
 | GEN-004 | 基础内容插件纯净度 | done | 大部分能力包表和页面已迁到能力包条件；栏目未启用时不再接受外部栏目过滤/保存/导入/导出语义；栏目关系已迁入 `content_category_bind` 能力包表，并有后台迁移状态诊断和显式回填入口辅助后续拆除 legacy mirror；`CORE-003-A/B/C/D/E` 已完成扫描、迁移边界、schema 条件化、页面入口条件化和 base-only HTTP smoke。 | `content_item.category_id` 作为 legacy mirror 兼容保留，彻底物理删除进入后续深拆窗口。 | `managed category schema boundary scan` / `base content write guard` / `check_cms_capability_workflow.ps1 -RunLiveSmoke` |
-| GEN-005 | 能力包代码桩和 Hook | done | 生成器输出 `capabilityHookSlots`，固定 schema/route/menu/page/task/public-head/public-render 七类 slot；第二批 `content.audit-log`、`content.import-export` 已接入声明式 source/include 和宏链接门禁。 | 深层业务迁出继续按单包生产级任务推进。 | `capability hook slot contract wiring` |
+| GEN-005 | 能力包代码桩和 Hook | done | 生成器输出 `capabilityHookSlots`，固定 schema/route/menu/page/task/public-head/public-render 七类 slot；第二批 `content.audit-log`、`content.import-export` 已接入声明式 source/include 和 enabled-only 复制/编译门禁。 | 深层业务迁出继续按单包生产级任务推进。 | `capability hook slot contract wiring` |
 
 ## P4 验收与质量门禁
 

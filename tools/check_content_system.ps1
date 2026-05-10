@@ -331,15 +331,9 @@ Invoke-Step 'capability source macro boundary' {
 		'#include "content_slug_pack.h"',
 		'#ifdef XADMIN_CAP_CONTENT_LIKE',
 		'#include "content_like_pack.h"',
-		'#ifdef XADMIN_CAP_CONTENT_AUDIT_LOG',
-		'#include "content_audit_log_pack.h"',
-		'#ifdef XADMIN_CAP_CONTENT_IMPORT_EXPORT',
-		'#include "content_import_export_pack.h"',
 		'Managed_LinkDeclaredCapabilitySources',
 		'XAdminContentSlugPackLinked',
-		'XAdminContentLikePackLinked',
-		'XAdminContentAuditLogPackLinked',
-		'XAdminContentImportExportPackLinked'
+		'XAdminContentLikePackLinked'
 	)) {
 		if ($mainTemplate -notmatch [regex]::Escape($needle)) {
 			throw "managed_main.c.tpl missing source macro boundary marker: $needle"
@@ -380,7 +374,7 @@ Invoke-Step 'capability source macro boundary' {
 Invoke-Step 'capability hook slot contract wiring' {
 	$generator = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generator.h')
 	$generation = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generation.h')
-	$spec = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'docs/CMS能力包收口执行SPEC.md')
+	$tracker = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'docs/CMS能力包进度TRACKER.md')
 	$capabilityDoc = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'docs/内容系统能力包规范.md')
 	foreach ($needle in @(
 		'Content_AppendCapabilityHookSlot',
@@ -408,9 +402,9 @@ Invoke-Step 'capability hook slot contract wiring' {
 			throw "content_generation.h missing task dashboard ability marker: $needle"
 		}
 	}
-	foreach ($needle in @('schema、route、menu、page、task、public-head、public-render', 'content.slug', 'content.like', 'disabled 不复制、不编译、不注册')) {
-		if ($spec -notmatch [regex]::Escape($needle)) {
-			throw "CMS ability closeout spec missing hook slot progress marker: $needle"
+	foreach ($needle in @('capabilityHookSlots', 'content.slug', 'content.like', 'content.audit-log', 'content.import-export', 'enabled-only')) {
+		if ($tracker -notmatch [regex]::Escape($needle)) {
+			throw "CMS ability tracker missing hook slot progress marker: $needle"
 		}
 	}
 	foreach ($needle in @('capabilityHookSlots', 'schema', 'route', 'menu', 'page', 'task', 'public-head', 'public-render', 'content.category')) {
@@ -1818,6 +1812,8 @@ Invoke-Step 'sensitive scope and config wiring' {
 		'SELECT word,COUNT(*),COALESCE(MAX(create_time),0) FROM sensitive_hit_log WHERE create_time>=? GROUP BY word',
 		"COALESCE(w.group_key,'unknown')",
 		'ALTER TABLE sensitive_word ADD COLUMN group_key',
+		'G_SensitivePostMigrationIndexSql',
+		'Managed_ExecSql(pDb, G_SensitivePostMigrationIndexSql)',
 		'Managed_TableColumnExists(pDb, sTable, "group_key")',
 		'xvoTableSetText(tblRet, "groupKey", 8, sGroupKey',
 		'UPDATE sensitive_word SET word=?,level=?,scope=?,group_key=?',
@@ -1844,7 +1840,7 @@ Invoke-Step 'sensitive scope and config wiring' {
 			throw "content.sensitive contracts.json missing boundary marker: $needle"
 		}
 	}
-	foreach ($needle in @('group_key TEXT NOT NULL DEFAULT', 'idx_sensitive_word_group')) {
+	foreach ($needle in @('group_key TEXT NOT NULL DEFAULT')) {
 		if ($sensitiveSchema -notmatch [regex]::Escape($needle)) {
 			throw "content.sensitive schema.sql missing group marker: $needle"
 		}

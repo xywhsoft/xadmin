@@ -5,12 +5,6 @@
 #ifdef XADMIN_CAP_CONTENT_LIKE
 #include "content_like_pack.h"
 #endif
-#ifdef XADMIN_CAP_CONTENT_AUDIT_LOG
-#include "content_audit_log_pack.h"
-#endif
-#ifdef XADMIN_CAP_CONTENT_IMPORT_EXPORT
-#include "content_import_export_pack.h"
-#endif
 
 typedef struct {
 	int iPageSize;
@@ -50,6 +44,9 @@ static const char* G_CategoryPostMigrationIndexSql =
 
 static const char* G_SlugPostMigrationIndexSql =
 	"CREATE INDEX IF NOT EXISTS idx_content_item_slug_value ON content_item(slug_value, delete_time, is_draft, status);";
+
+static const char* G_SensitivePostMigrationIndexSql =
+	"CREATE INDEX IF NOT EXISTS idx_sensitive_word_group ON sensitive_word(group_key, scope, status, delete_time);";
 
 static const char* G_RouteRuleSchemaSql =
 	"CREATE TABLE IF NOT EXISTS content_route_rule ("
@@ -111,12 +108,6 @@ void Managed_LinkDeclaredCapabilitySources(void)
 #endif
 #ifdef XADMIN_CAP_CONTENT_LIKE
 	(void)XAdminContentLikePackLinked();
-#endif
-#ifdef XADMIN_CAP_CONTENT_AUDIT_LOG
-	(void)XAdminContentAuditLogPackLinked();
-#endif
-#ifdef XADMIN_CAP_CONTENT_IMPORT_EXPORT
-	(void)XAdminContentImportExportPackLinked();
 #endif
 }
 
@@ -334,6 +325,9 @@ bool Managed_EnsureSchema(void)
 	}
 	if ( bOK && Managed_AbilityPackMounted("content.sensitive") && !Managed_TableColumnExists(pDb, "sensitive_word", "group_key") ) {
 		bOK = Managed_ExecSql(pDb, "ALTER TABLE sensitive_word ADD COLUMN group_key TEXT NOT NULL DEFAULT 'default'");
+	}
+	if ( bOK && Managed_AbilityPackMounted("content.sensitive") ) {
+		bOK = Managed_ExecSql(pDb, G_SensitivePostMigrationIndexSql);
 	}
 	if ( bOK && Managed_AbilityPackMounted("content.slug") && !Managed_TableColumnExists(pDb, "content_item", "slug_value") ) {
 		bOK = Managed_ExecSql(pDb, "ALTER TABLE content_item ADD COLUMN slug_value TEXT NOT NULL DEFAULT ''");

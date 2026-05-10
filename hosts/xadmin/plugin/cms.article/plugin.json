@@ -9,7 +9,7 @@
 	"kind": "singleton",
 	"runtime": {"compiler":"tcc","language":"c"},
 	"resources": {"page":"page","template":"template","option":"option","static":"static"},
-	"build": {"entry":"generated/main.c","sources":["generated/main.c"],"defines":["XADMIN_PLUGIN=1"]},
+	"build": {"entry":"generated/main.c","sources":["generated/main.c","source/content_like_pack.c","source/content_slug_pack.c"],"includeDirs":["include"],"defines":["XADMIN_PLUGIN=1","XADMIN_CAP_CONTENT_COMMENT=1","XADMIN_CAP_CONTENT_TAG=1","XADMIN_CAP_CONTENT_TOPIC=1","XADMIN_CAP_CONTENT_SENSITIVE=1","XADMIN_CAP_CONTENT_STATIC=1","XADMIN_CAP_CONTENT_LIKE=1","XADMIN_CAP_CONTENT_VIEW_STAT=1","XADMIN_CAP_CONTENT_SEO=1","XADMIN_CAP_CONTENT_SLUG=1","XADMIN_CAP_CONTENT_REDIRECT=1","XADMIN_CAP_CONTENT_CATEGORY=1","XADMIN_CAP_CONTENT_MEDIA=1","XADMIN_CAP_CONTENT_REVISION=1","XADMIN_CAP_CONTENT_WORKFLOW=1","XADMIN_CAP_CONTENT_SEARCH=1","XADMIN_CAP_CONTENT_SITEMAP=1","XADMIN_CAP_CONTENT_RELATED=1","XADMIN_CAP_CONTENT_FORM=1","XADMIN_CAP_CONTENT_ACCESS=1","XADMIN_CAP_CONTENT_AUDIT_LOG=1","XADMIN_CAP_CONTENT_IMPORT_EXPORT=1"]},
 	"compat": {"minHostVersion":"4.0.0","maxHostVersion":"5.0.0","abiVersion":4},
 	"capabilities": ["route.public","route.admin"],
 	"dependencies": {"plugins":[],"services":[],"features":[]},
