@@ -4,6 +4,7 @@
   "publicApis": [],
   "adminApis": ["import-export.import.preview", "import-export.import.commit", "import-export.import.jobs", "import-export.import.replay", "import-export.export.json", "import-export.field-plan", "import-export.export.jobs", "import-export.export.download", "import-export.stats"],
   "tables": ["content_import_job", "content_export_job"],
+  "sharedTables": ["content_background_task"],
   "events": ["import.afterFinish", "export.afterFinish"],
   "runtime": {
     "conflictMode": ["insert", "update", "skip"],
@@ -15,6 +16,10 @@
     "jobListLimit": "admin import/export job lists clamp request limit by maxJobRows",
     "jobStats": "admin import-export.stats returns import/export totals and status aggregates for operational visibility",
     "jobStatsUi": "ability page renders import/export totals and status aggregates as tables, while retaining raw JSON for diagnostics",
+    "backgroundTaskSchema": "content_background_task is created only when static, sitemap or import-export task-capable packs are enabled and contains task_type, target_type, target_id, status, progress, payload, result, error, retry and timestamps",
+    "backgroundTaskApis": ["task.create", "task.list", "task.detail", "task.cancel", "task.retry"],
+    "backgroundTaskImportProcess": "import-export.import.commit keeps the bounded synchronous chunk path and records a content.import.process row in content_background_task with backgroundTaskId in the response",
+    "backgroundTaskExportProcess": "import-export.export.json keeps the bounded synchronous chunk path and records a content.export.process row in content_background_task with backgroundTaskId in the response",
     "failureSamples": "admin import-export.stats returns bounded recent importFailureSamples rows so admins can locate failed import jobs without replaying them",
     "jobStatusFilter": "admin import/export job lists accept optional status filter with bound SQL and maxJobRows limit",
     "importResultStatus": "import commit counts success only after row validation, write and derived sync all complete; saved import job status is imported, partial_failed or failed based on final row results",

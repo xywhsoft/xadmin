@@ -4,6 +4,7 @@
   "publicApis": ["sitemap.xml", "sitemap-index.xml", "rss.xml", "robots.txt"],
   "adminApis": ["sitemap.entry.list", "sitemap.refresh-plan", "sitemap.refresh", "sitemap.stats"],
   "tables": ["content_sitemap_entry"],
+  "sharedTables": ["content_background_task"],
   "events": ["content.afterPublish", "content.afterDelete"],
   "runtime": {
     "absoluteUrlConfig": true,
@@ -21,6 +22,9 @@
     "dirtyMetadata": "admin stats reads sitemap/dirty.json and reports cacheDirty from dirty metadata",
     "dirtyMetadataDetail": "admin stats exposes dirtyReason, dirtyContentId and dirtyUpdateTime from sitemap/dirty.json for cache diagnostics",
     "cacheFileDiagnostics": "admin stats exposes cacheFiles with path, exists, sizeBytes and updateTimeText for sitemap.xml, sitemap-index.xml, rss.xml, robots.txt, cache.json and dirty.json",
+    "backgroundTaskSchema": "content_background_task is created only when static, sitemap or import-export task-capable packs are enabled and contains task_type, target_type, target_id, status, progress, payload, result, error, retry and timestamps",
+    "backgroundTaskApis": ["task.create", "task.list", "task.detail", "task.cancel", "task.retry"],
+    "backgroundTaskSitemapRefresh": "sitemap.refresh keeps the synchronous bounded refresh path and records a content.sitemap.refresh row in content_background_task with backgroundTaskId in the response",
     "categoryBindIntegration": "entry list, manual refresh candidate rows, and sitemap/RSS fallback rows prefer content_category_bind when content.category is enabled",
     "accessIntegration": "sitemap sync and refresh remove restricted content when content.access is enabled; public sitemap/RSS bypass stale cache and filter fallback rows when access is mounted"
   },

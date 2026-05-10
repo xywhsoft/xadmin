@@ -242,7 +242,15 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	}
 
 	if ( tcc_relocate(pTcc) < 0 ) {
-		pGeneration->sErrorMessage = xrtCopyStr("failed to relocate plugin image", 0);
+		if ( pGeneration->sErrorMessage ) {
+			str sRelocateError = xrtFormat("%s\nfailed to relocate plugin image", pGeneration->sErrorMessage);
+			if ( sRelocateError ) {
+				xrtFree(pGeneration->sErrorMessage);
+				pGeneration->sErrorMessage = sRelocateError;
+			}
+		} else {
+			pGeneration->sErrorMessage = xrtCopyStr("failed to relocate plugin image", 0);
+		}
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
 		if ( tblManifest ) {
 			xvoUnref(tblManifest);

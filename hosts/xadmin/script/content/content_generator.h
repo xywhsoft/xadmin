@@ -858,6 +858,23 @@ str Content_BuildManagedDashboardHtml(const char* sPluginXid)
 	return sTemplate;
 }
 
+str Content_BuildManagedTasksHtml(const char* sPluginXid)
+{
+	str sTemplate = Content_LoadGeneratorTemplate("managed_tasks.html.tpl");
+	str sDomIdBase = Content_BuildPluginDomIdBase(sPluginXid);
+	str sPageDomIdBase = NULL;
+	if ( sTemplate == NULL ) {
+		if ( sDomIdBase ) xrtFree(sDomIdBase);
+		return xrtCopyStr("<div style=\"padding:16px;\">Task dashboard page missing.</div>", 0);
+	}
+	sPageDomIdBase = xrtFormat("%s_Tasks", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin");
+	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_XID}}", sPluginXid ? sPluginXid : "");
+	sTemplate = Content_TemplateSet(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sPageDomIdBase ? (const char*)sPageDomIdBase : (sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin_Tasks"));
+	if ( sPageDomIdBase ) xrtFree(sPageDomIdBase);
+	if ( sDomIdBase ) xrtFree(sDomIdBase);
+	return sTemplate;
+}
+
 str Content_BuildManagedStaticDetailHtml(void)
 {
 	str sTemplate = Content_LoadGeneratorTemplate("managed_static_detail.html.tpl");

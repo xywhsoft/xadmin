@@ -86,6 +86,7 @@ for (const file of [
   "hosts/xadmin/data/content/templates/managed_ability.html.tpl",
   "hosts/xadmin/data/content/templates/managed_category.html.tpl",
   "hosts/xadmin/data/content/templates/managed_dashboard.html.tpl",
+  "hosts/xadmin/data/content/templates/managed_tasks.html.tpl",
   "hosts/xadmin/data/content/templates/managed_public.html.tpl"
 ]) {
   const html = fs.readFileSync(file, "utf8");
@@ -217,6 +218,7 @@ Invoke-Step 'cms text mojibake scan' {
 		'hosts/xadmin/data/content/templates/managed_editor.html.tpl',
 		'hosts/xadmin/data/content/templates/managed_category.html.tpl',
 		'hosts/xadmin/data/content/templates/managed_dashboard.html.tpl',
+		'hosts/xadmin/data/content/templates/managed_tasks.html.tpl',
 		'hosts/xadmin/data/content/templates/managed_public.html.tpl'
 	)
 	$badChars = @(
@@ -315,6 +317,46 @@ Invoke-Step 'declared capability source compile' {
 			Write-Output "$($dir.Name): $source compile OK; warnings=0"
 		}
 	}
+}
+
+Invoke-Step 'capability source macro boundary' {
+	$mainTemplate = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/data/content/templates/managed_main.c.tpl')
+	$generator = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generator.h')
+	$generation = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generation.h')
+	$likePack = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.like/pack.json')
+	foreach ($needle in @(
+		'#ifdef XADMIN_CAP_CONTENT_SLUG',
+		'#include "content_slug_pack.h"',
+		'#ifdef XADMIN_CAP_CONTENT_LIKE',
+		'#include "content_like_pack.h"',
+		'Managed_LinkDeclaredCapabilitySources',
+		'XAdminContentSlugPackLinked',
+		'XAdminContentLikePackLinked'
+	)) {
+		if ($mainTemplate -notmatch [regex]::Escape($needle)) {
+			throw "managed_main.c.tpl missing source macro boundary marker: $needle"
+		}
+	}
+	foreach ($needle in @('Content_CapabilityDefineName', 'XADMIN_CAP_', '%s=1')) {
+		if ($generator -notmatch [regex]::Escape($needle)) {
+			throw "content_generator.h missing capability define marker: $needle"
+		}
+	}
+	foreach ($needle in @(
+		'if ( !bEnabled ) continue;',
+		'Content_AppendDeclaredPackBuildPaths(tblPackDetail, &sExtraBuildSourcesJson, &sBuildIncludeDirsJson)',
+		'Content_AppendDeclaredPackFiles(files, &iFileCount'
+	)) {
+		if ($generation -notmatch [regex]::Escape($needle)) {
+			throw "content_generation.h missing enabled-only declared source marker: $needle"
+		}
+	}
+	foreach ($needle in @('source/content_like_pack.c', 'include/content_like_pack.h')) {
+		if ($likePack -notmatch [regex]::Escape($needle)) {
+			throw "content.like pack.json missing declared source marker: $needle"
+		}
+	}
+	Write-Output 'capability source macro boundary OK'
 }
 
 Invoke-Step 'capability manifest generation wiring' {
@@ -698,6 +740,16 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		'/route-rule/validate',
 		'Managed_RequestRouteRuleListAdmin',
 		'/route-rule/list',
+		'Managed_RequestRouteRuleSaveAdmin',
+		'/route-rule/save',
+		'Managed_RequestRouteRuleStatusAdmin',
+		'/route-rule/status',
+		'Managed_RequestRouteRuleSortAdmin',
+		'/route-rule/sort',
+		'Managed_RefreshEditableRouteRulesRuntime',
+		'routeRefreshError',
+		'runtimeRefreshed',
+		'XAdmin_RouteParam(0, sSlug',
 		'Managed_RequestRouteRuleStatsAdmin',
 		'Managed_AppendRouteRuleGroupStat',
 		'/route-rule/stats',
@@ -712,9 +764,20 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		'xvoTableSetBool(tblData, "targetLoaded"',
 		'Managed_AppendRouteRuleWarning',
 		'Managed_AppendRoutePrefixConflictWarnings',
+		'Managed_RouteRuleBuildSaveWarning',
+		'Managed_RouteRuleHasStaticRouteConflict',
+		'Managed_RouteRulePatternCompiles',
+		'Managed_RouteRuleTypeValid',
 		'Managed_AppendRouteRuleSnapshotRow',
 		'G_RouteRuleSchemaSql',
 		'content_route_rule',
+		'source_pack TEXT NOT NULL DEFAULT',
+		'match_pattern TEXT NOT NULL DEFAULT',
+		'target_path TEXT NOT NULL DEFAULT',
+		'priority INTEGER NOT NULL DEFAULT 0',
+		'compile_status INTEGER NOT NULL DEFAULT 1',
+		'compile_message TEXT NOT NULL DEFAULT',
+		'managed_flag INTEGER NOT NULL DEFAULT 0',
 		'idx_content_route_rule_key',
 		'Managed_SyncRouteRuleSnapshot',
 		'Managed_UpsertRouteRuleSnapshot',
@@ -725,8 +788,23 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		'SELECT id,name,path_pattern,template_name,status FROM static_rule ORDER BY status DESC,id DESC LIMIT ?',
 		'SELECT id,path_pattern FROM static_rule ORDER BY status DESC,id DESC LIMIT ?',
 		'SELECT id,path_pattern,status FROM static_rule ORDER BY status DESC,id DESC LIMIT ?',
-		'SELECT id,pack_id,rule_type,rule_key,pattern,source,source_id,status,warning,update_time FROM content_route_rule WHERE (?='''' OR pack_id=?)',
+		'SELECT id,pack_id,rule_type,rule_key,source_pack,pattern,match_pattern,target_path,source,source_id,priority,status,warning,compile_status,compile_message,managed_flag,update_time FROM content_route_rule WHERE (?='''' OR pack_id=? OR source_pack=?)',
 		"(?=0 OR warning<>'')",
+		"(?='' OR rule_key LIKE '%'||?||'%' OR pattern LIKE '%'||?||'%' OR match_pattern LIKE '%'||?||'%' OR target_path LIKE '%'||?||'%' OR source LIKE '%'||?||'%' OR warning LIKE '%'||?||'%')",
+		'Managed_ReadTextQuery(objReq, "sourcePack"',
+		'Managed_ReadTextQuery(objReq, "keyword"',
+		'xvoTableSetText(tblRow, "sourcePack"',
+		'xvoTableSetText(tblRow, "matchPattern"',
+		'xvoTableSetText(tblRow, "targetPath"',
+		'xvoTableSetInt(tblRow, "priority"',
+		'xvoTableSetInt(tblRow, "compileStatus"',
+		'xvoTableSetText(tblRow, "compileMessage"',
+		'xvoTableSetInt(tblRow, "managedFlag"',
+		'route-rule.create',
+		'route-rule.update',
+		'route-rule.status',
+		'route-rule.sort',
+		'updatedCount',
 		'persistedStaticRules',
 		'checkedStaticRules',
 		'adminTimeOnly',
@@ -743,7 +821,7 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		throw 'managed_main.c.tpl uses obsolete xrt regex capture success semantics for form pattern validation'
 	}
 	$slugContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.slug/contracts.json')
-	foreach ($needle in @('accessIntegration', 'categoryBindIntegration', 'submitWarnings', 'checkPreviewUi', 'repairResultUi', 'routeRulePreview', 'ruleConflictExplain', 'crossAbilityRuleCheck', 'unifiedRulePlan', 'routeRulePlanApi', 'routeRuleValidateApi', 'routeRuleListApi', 'routeRuleStatsApi', 'routeRuleRefreshApi', 'routeRulePlanUi', 'routeRuleValidateUi', 'routeRuleStatsUi', 'routeRuleRefreshUi', 'independentRouteRuleStore', 'routeRuleListFilters', 'historyFilters')) {
+	foreach ($needle in @('accessIntegration', 'categoryBindIntegration', 'submitWarnings', 'checkPreviewUi', 'repairResultUi', 'routeRulePreview', 'ruleConflictExplain', 'crossAbilityRuleCheck', 'unifiedRulePlan', 'routeRulePlanApi', 'routeRuleValidateApi', 'routeRuleListApi', 'routeRuleSaveApi', 'routeRuleStatusApi', 'routeRuleSortApi', 'route-rule.save', 'routeRuleStatsApi', 'routeRuleRefreshApi', 'routeRulePlanUi', 'routeRuleValidateUi', 'routeRuleStatsUi', 'routeRuleRefreshUi', 'routeRuleEditDialogUi', 'routeRuleRuntimeRefresh', 'independentRouteRuleStore', 'routeRuleEditableContract', 'routeRuleListFilters', '"sourcePack"', '"keyword"', 'historyFilters')) {
 		if ($slugContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.slug contracts.json missing access integration marker: $needle"
 		}
@@ -775,6 +853,23 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		'btnRouteRuleFilter',
 		'btnRouteRuleFilterClear',
 		'btnRouteRuleRefresh',
+		'btnAddRouteRule',
+		'openRouteRuleDialog',
+		'btnRouteRuleSave_',
+		'routeRuleDialogWarning_',
+		'routeRuleLocalWarning',
+		'routeRuleEdit',
+		'routeRuleToggle',
+		'routeRuleSort',
+		"api('/route-rule/status')",
+		"api('/route-rule/sort')",
+		"field:'sourcePack'",
+		"field:'matchPattern'",
+		"field:'targetPath'",
+		"field:'priority'",
+		"field:'compileStatus'",
+		"field:'compileMessage'",
+		"field:'managedFlag'",
 		'btnRouteRuleStats',
 		'showRouteRuleStats',
 		'renderRouteRulePlan',
@@ -830,7 +925,7 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		}
 	}
 	$redirectContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.redirect/contracts.json')
-	foreach ($needle in @('boundedChainedLoop', 'chainDepthLimit8', 'redirectRoutePrefix', 'routePrefixConfig', 'maxListRows', 'maxImportRows', 'maxRequestBytes', 'importLimit', 'requestLimit', 'importResultUi', 'routeRulePreview', 'ruleConflictExplain', 'crossAbilityRuleCheck', 'unifiedRulePlan', 'routeRulePlanApi', 'routeRuleValidateApi', 'routeRuleListApi', 'routeRuleStatsApi', 'routeRuleRefreshApi', 'routeRulePlanUi', 'routeRuleValidateUi', 'routeRuleStatsUi', 'routeRuleRefreshUi', 'route-rule.validate', 'route-rule.list', 'route-rule.stats', 'route-rule.refresh', 'independentRouteRuleStore', 'routeRuleListFilters', 'redirectListFilters')) {
+	foreach ($needle in @('boundedChainedLoop', 'chainDepthLimit8', 'redirectRoutePrefix', 'routePrefixConfig', 'maxListRows', 'maxImportRows', 'maxRequestBytes', 'importLimit', 'requestLimit', 'importResultUi', 'routeRulePreview', 'ruleConflictExplain', 'crossAbilityRuleCheck', 'unifiedRulePlan', 'routeRulePlanApi', 'routeRuleValidateApi', 'routeRuleListApi', 'routeRuleSaveApi', 'routeRuleStatusApi', 'routeRuleSortApi', 'routeRuleStatsApi', 'routeRuleRefreshApi', 'routeRulePlanUi', 'routeRuleValidateUi', 'routeRuleStatsUi', 'routeRuleRefreshUi', 'routeRuleEditDialogUi', 'routeRuleRuntimeRefresh', 'route-rule.validate', 'route-rule.list', 'route-rule.save', 'route-rule.status', 'route-rule.sort', 'route-rule.stats', 'route-rule.refresh', 'independentRouteRuleStore', 'routeRuleEditableContract', 'routeRuleListFilters', '"sourcePack"', '"keyword"', 'redirectListFilters')) {
 		if ($redirectContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.redirect contracts.json missing submit warning marker: $needle"
 		}
@@ -902,6 +997,89 @@ Invoke-Step 'managed multi-row limit guard' {
 		}
 	}
 	Write-Output 'managed multi-row limit guard OK'
+}
+
+Invoke-Step 'background task schema wiring' {
+	$mainTemplate = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/data/content/templates/managed_main.c.tpl')
+	foreach ($needle in @(
+		'G_BackgroundTaskSchemaSql',
+		'CREATE TABLE IF NOT EXISTS content_background_task',
+		'Managed_RequestTaskCreateAdmin',
+		'Managed_RequestTaskListAdmin',
+		'Managed_RequestTaskDetailAdmin',
+		'Managed_RequestTaskCancelAdmin',
+		'Managed_RequestTaskRetryAdmin',
+		'Managed_RequestTasksView',
+		'Managed_BackgroundTaskCreate',
+		'content.static.generate',
+		'content.static.retryFailed',
+		'content.sitemap.refresh',
+		'content.import.process',
+		'content.export.process',
+		'backgroundTaskId',
+		'queued',
+		'/task/create',
+		'/task/list',
+		'/task/detail',
+		'/task/cancel',
+		'/task/retry',
+		'/admin/view/plugin/{{PLUGIN_XID}}/tasks',
+		'generated/tasks.html',
+		'Managed content task dashboard',
+		'task_type TEXT NOT NULL DEFAULT',
+		'target_type TEXT NOT NULL DEFAULT',
+		'target_id INTEGER NOT NULL DEFAULT 0',
+		'progress INTEGER NOT NULL DEFAULT 0',
+		'payload_json TEXT NOT NULL DEFAULT',
+		'result_json TEXT NOT NULL DEFAULT',
+		'error_message TEXT NOT NULL DEFAULT',
+		'retry_count INTEGER NOT NULL DEFAULT 0',
+		'idx_content_background_task_status',
+		'idx_content_background_task_target',
+		'Managed_AbilityPackMounted("content.static") || Managed_AbilityPackMounted("content.sitemap") || Managed_AbilityPackMounted("content.import-export")'
+	)) {
+		if ($mainTemplate -notmatch [regex]::Escape($needle)) {
+			throw "managed_main.c.tpl missing background task schema marker: $needle"
+		}
+	}
+	foreach ($packId in @('content.static', 'content.sitemap', 'content.import-export')) {
+		$contracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root "hosts/xadmin/capability-pack/$packId/contracts.json")
+		foreach ($needle in @('content_background_task', 'backgroundTaskSchema', 'backgroundTaskApis')) {
+			if ($contracts -notmatch [regex]::Escape($needle)) {
+				throw "$packId contracts.json missing background task marker: $needle"
+			}
+		}
+	}
+	$staticContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.static/contracts.json')
+	foreach ($needle in @('backgroundTaskStaticGenerate', 'backgroundTaskStaticRetryFailed')) {
+		if ($staticContracts -notmatch [regex]::Escape($needle)) {
+			throw "content.static contracts.json missing background static task marker: $needle"
+		}
+	}
+	$sitemapContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.sitemap/contracts.json')
+	if ($sitemapContracts -notmatch [regex]::Escape('backgroundTaskSitemapRefresh')) {
+		throw 'content.sitemap contracts.json missing background sitemap refresh marker'
+	}
+	$importExportContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.import-export/contracts.json')
+	foreach ($needle in @('backgroundTaskImportProcess', 'backgroundTaskExportProcess')) {
+		if ($importExportContracts -notmatch [regex]::Escape($needle)) {
+			throw "content.import-export contracts.json missing background import/export task marker: $needle"
+		}
+	}
+	$taskTemplate = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/data/content/templates/managed_tasks.html.tpl')
+	$generator = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generator.h')
+	$generation = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generation.h')
+	foreach ($needle in @('managed_tasks.html.tpl', 'Content_BuildManagedTasksHtml', 'generated/tasks.html', 'bTaskPack')) {
+		if (($generator + $generation) -notmatch [regex]::Escape($needle)) {
+			throw "content generator missing background task page marker: $needle"
+		}
+	}
+	foreach ($needle in @('TaskTable_{{PLUGIN_DOM_ID_BASE}}', '/task/list', '/task/detail', '/task/retry', '/task/cancel', '任务详情', 'task-actions')) {
+		if ($taskTemplate -notmatch [regex]::Escape($needle)) {
+			throw "managed_tasks.html.tpl missing background task page marker: $needle"
+		}
+	}
+	Write-Output 'background task schema wiring OK'
 }
 
 Invoke-Step 'managed request safety scans' {
@@ -1202,6 +1380,12 @@ for (const route of routes) {
   if (route.path === "/admin/view/plugin/{{PLUGIN_XID}}/dashboard") {
     if (!guardText.includes("bLikePack") || !guardText.includes("bViewPack")) {
       failures.push(`${file}:${route.line}: dashboard route must stay gated by metric packs`);
+    }
+    continue;
+  }
+  if (route.path === "/admin/view/plugin/{{PLUGIN_XID}}/tasks") {
+    if (!guardText.includes("bTaskPack")) {
+      failures.push(`${file}:${route.line}: task dashboard route must stay gated by background task packs`);
     }
     continue;
   }
@@ -2982,7 +3166,7 @@ Invoke-Step 'static access guard wiring' {
 		}
 	}
 	$staticContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.static/contracts.json')
-	foreach ($needle in @('"maxRequestBytes"', '"adminRequestLimit"', '"static.rule.preview"', '"rulePreview"', '"rulePreviewUi"', '"static.task.status"', '"static.task.retry"', '"static.task.retry-failed"', '"static.stats"', '"adminStats"', '"adminStatsUi"', '"generateResultUi"', '"cleanResultUi"', '"taskPersistenceStatus"', '"ruleStatusValidation"', '"taskRetry"', '"taskRetryFailed"', '"taskRetryFailedUi"', '"taskStatusFilter"', '"taskRuleTargetFilter"', '"artifactTargetFilter"', '"artifactPathFilter"', '"ruleListFilters"', '"unifiedRulePlan"', '"routeRulePlanApi"', '"route-rule.plan"', '"routeRuleValidateApi"', '"route-rule.validate"', '"routeRuleListApi"', '"route-rule.list"', '"routeRuleStatsApi"', '"route-rule.stats"', '"routeRuleRefreshApi"', '"route-rule.refresh"', '"routeRulePlanUi"', '"routeRuleValidateUi"', '"routeRuleStatsUi"', '"routeRuleRefreshUi"', '"independentRouteRuleStore"', '"routeRuleListFilters"')) {
+	foreach ($needle in @('"maxRequestBytes"', '"adminRequestLimit"', '"static.rule.preview"', '"rulePreview"', '"rulePreviewUi"', '"static.task.status"', '"static.task.retry"', '"static.task.retry-failed"', '"static.stats"', '"adminStats"', '"adminStatsUi"', '"generateResultUi"', '"cleanResultUi"', '"taskPersistenceStatus"', '"ruleStatusValidation"', '"taskRetry"', '"taskRetryFailed"', '"taskRetryFailedUi"', '"taskStatusFilter"', '"taskRuleTargetFilter"', '"artifactTargetFilter"', '"artifactPathFilter"', '"ruleListFilters"', '"unifiedRulePlan"', '"routeRulePlanApi"', '"route-rule.plan"', '"routeRuleValidateApi"', '"route-rule.validate"', '"routeRuleListApi"', '"route-rule.list"', '"routeRuleSaveApi"', '"route-rule.save"', '"routeRuleStatusApi"', '"route-rule.status"', '"routeRuleSortApi"', '"route-rule.sort"', '"routeRuleStatsApi"', '"route-rule.stats"', '"routeRuleRefreshApi"', '"route-rule.refresh"', '"routeRulePlanUi"', '"routeRuleValidateUi"', '"routeRuleStatsUi"', '"routeRuleRefreshUi"', '"routeRuleEditDialogUi"', '"routeRuleRuntimeRefresh"', '"independentRouteRuleStore"', '"routeRuleEditableContract"', '"routeRuleListFilters"', '"sourcePack"', '"keyword"')) {
 		if ($staticContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.static contracts.json missing admin request boundary marker: $needle"
 		}
@@ -3747,7 +3931,7 @@ Invoke-Step 'smoke acceptance script syntax' {
 		'RuntimeDir is required unless GenerateXid or PluginXid can resolve',
 		'Wait-LiveServer',
 		'Test-LiveServer',
-		'/plugin/list',
+		"baseUrl.TrimEnd('/') + '/'",
 		'smoke_generated_runtime.ps1',
 		'server is not reachable',
 		'SkipContentCheck'
@@ -3765,7 +3949,7 @@ Invoke-Step 'smoke acceptance script syntax' {
 		'Start-Process',
 		'-WindowStyle Hidden',
 		'Wait-LiveServer',
-		'/content/types',
+		"baseUrl.TrimEnd('/') + '/'",
 		'server is not reachable',
 		'GenerateXid',
 		'EnableGeneratedPlugin',
@@ -3796,6 +3980,8 @@ Invoke-Step 'smoke acceptance script syntax' {
 		'AdminPasswordHash',
 		'get_admin_cookie.ps1',
 		'AdminBase',
+		'AdminLoginPath',
+		'Use -AdminLoginPath when the site enables a custom admin entry',
 		'CMS capability workflow checks OK'
 	)) {
 		if ($cmsWorkflowScript -notmatch [regex]::Escape($needle)) {
@@ -3808,6 +3994,7 @@ Invoke-Step 'smoke acceptance script syntax' {
 		'XADMIN_SMOKE_PASSWORD_HASH',
 		'Get-Sha256Hex',
 		'_xywhsoft_',
+		'AdminLoginPath',
 		'/login',
 		'Set-Cookie',
 		'XSID=',

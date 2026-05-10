@@ -600,6 +600,45 @@ int PS_HostUnregisterRoute(XAdminRouteToken token)
 	return 0;
 }
 
+int PS_HostUnpublishRouteToken(PluginSystemRouteToken* pToken)
+{
+	RouteInfo* pCurrent;
+
+	if ( pToken == NULL || pToken->base.bReleased || !pToken->base.bPublished ) {
+		return 0;
+	}
+
+	if ( pToken->sPath ) {
+		if ( pToken->bDynamic ) {
+			pCurrent = FindDynamicRouteHTTP(pToken->sPath);
+			if ( pCurrent && (pCurrent->pPluginRouteToken == pToken) ) {
+				pCurrent->pPluginRouteToken = NULL;
+				RemoveDynamicRouteHTTP(pToken->sPath);
+			}
+		} else {
+			pCurrent = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
+			if ( pCurrent && (pCurrent->pPluginRouteToken == pToken) ) {
+				pCurrent->pPluginRouteToken = NULL;
+				xrtDictRemove(G_StaticRouteTableHTTP, pToken->sPath, strlen(pToken->sPath));
+			}
+		}
+	}
+	pToken->base.bPublished = FALSE;
+	PS_HostRefreshRouteCaches();
+	return 0;
+}
+
+void PS_HostUnpublishGenerationRoutes(PluginSystemGeneration* pGeneration)
+{
+	if ( (pGeneration == NULL) || (pGeneration->lstRouteTokens == NULL) ) {
+		return;
+	}
+	for ( int i = 0; i < xrtListCount(pGeneration->lstRouteTokens); i++ ) {
+		PluginSystemRouteToken* pToken = xrtListGetPtr(pGeneration->lstRouteTokens, i);
+		PS_HostUnpublishRouteToken(pToken);
+	}
+}
+
 int PS_HostReplyJson(XS_ResponseObject resp, int code, const char* json, size_t len)
 {
 	return xsHttpReplyAuto(resp, code, HTTP_CT_JSON, json, len);
@@ -2132,6 +2171,7 @@ void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc)
 	tcc_add_symbol(pTcc, "XAdmin_AttachmentUrl", XAdmin_AttachmentUrl);
 	tcc_add_symbol(pTcc, "XAdmin_AttachmentUploadUrl", XAdmin_AttachmentUploadUrl);
 	tcc_add_symbol(pTcc, "XAdmin_AttachmentListUrl", XAdmin_AttachmentListUrl);
+	tcc_add_symbol(pTcc, "ServerHashPassword", ServerHashPassword);
 	tcc_add_symbol(pTcc, "XAdmin_Free", XAdmin_Free);
 }
 

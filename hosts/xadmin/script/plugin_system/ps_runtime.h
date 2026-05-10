@@ -230,16 +230,26 @@ bool PS_RuntimeWaitForPackageDrain(PluginSystemPackage* pPackage, PluginSystemGe
 
 bool PS_RuntimeFailGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration, str sMessage, bool bMarkPackageFailed)
 {
+	str sSafeMessage = NULL;
+
 	printf("        [PluginSystem] Generation failed: package=%s generation=%u reason=%s\n",
 		PS_PackageLogId(pPackage),
 		pGeneration ? pGeneration->iGeneration : 0,
 		sMessage ? (const char*)sMessage : "(null)");
 
 	if ( pGeneration ) {
+		/* Compile failures often pass pGeneration->sErrorMessage back into this function. */
+		if ( sMessage == pGeneration->sErrorMessage ) {
+			sSafeMessage = xrtCopyStr(sMessage, 0);
+			sMessage = sSafeMessage;
+		}
 		PS_FreeString(&pGeneration->sErrorMessage);
 		pGeneration->sErrorMessage = xrtCopyStr(sMessage, 0);
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
 		PS_StorageSaveGeneration(pPackage, pGeneration);
+		if ( sSafeMessage ) {
+			xrtFree(sSafeMessage);
+		}
 	}
 	if ( bMarkPackageFailed && pPackage ) {
 		pPackage->iStatus = PS_PACKAGE_STATUS_FAILED;
@@ -426,15 +436,22 @@ bool PS_RuntimeDiscardPreparedGeneration(PluginSystemPackage* pPackage, PluginSy
 
 bool PS_RuntimeActivateGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration* pGeneration, PluginSystemGeneration* pPreviousGeneration)
 {
+	bool bPreviousRoutesUnpublished = FALSE;
+
 	if ( (pPackage == NULL) || (pGeneration == NULL) ) {
 		return FALSE;
+	}
+
+	if ( pPreviousGeneration ) {
+		PS_HostUnpublishGenerationRoutes(pPreviousGeneration);
+		bPreviousRoutesUnpublished = TRUE;
 	}
 
 	if ( !PS_HostPublishGenerationEntryPoints(pGeneration) ) {
 		printf("        [PluginSystem] Activate publish failed: package=%s generation=%u\n",
 			PS_PackageLogId(pPackage),
 			pGeneration->iGeneration);
-		if ( pPreviousGeneration && !PS_HostRestoreGenerationEntryPoints(pPreviousGeneration) ) {
+		if ( bPreviousRoutesUnpublished && !PS_HostRestoreGenerationEntryPoints(pPreviousGeneration) ) {
 			printf("        [PluginSystem] Restore previous generation entry points failed: package=%s generation=%u\n",
 				PS_PackageLogId(pPackage),
 				pPreviousGeneration->iGeneration);

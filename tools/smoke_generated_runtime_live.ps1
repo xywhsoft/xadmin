@@ -5,7 +5,11 @@ param(
 	[string]$GenerateXid,
 	[string]$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
 	[string]$AdminBase = '/admin',
+	[string]$AdminLoginPath = '',
 	[string]$CookieHeader = '',
+	[string]$AdminUsername = '',
+	[string]$AdminPassword = '',
+	[string]$AdminPasswordHash = '',
 	[string]$ServerExe = '',
 	[string]$ServerCwd = '',
 	[int]$TimeoutSec = 10,
@@ -13,27 +17,69 @@ param(
 	[switch]$StartServer,
 	[switch]$StopStartedServer,
 	[switch]$EnableGeneratedPlugin,
+	[switch]$RememberLogin,
 	[switch]$SkipContentCheck
 )
 
 $ErrorActionPreference = 'Stop'
 
-function New-SmokeHeaders() {
-	if ([string]::IsNullOrWhiteSpace($CookieHeader)) {
-		return @{}
+function New-SmokeWebSession($baseUrl) {
+	$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+	if (![string]::IsNullOrWhiteSpace($CookieHeader)) {
+		$uri = [uri]$baseUrl
+		foreach ($part in ($CookieHeader -split ';')) {
+			$item = $part.Trim()
+			if ($item -match '^([^=]+)=(.*)$') {
+				$session.Cookies.Add($uri, (New-Object System.Net.Cookie($Matches[1], $Matches[2], '/')))
+			}
+		}
 	}
-	return @{ Cookie = $CookieHeader }
+	return $session
+}
+
+function Update-SmokeCookieFromLogin($baseUrl, $timeoutSec) {
+	$loginArgs = @(
+		'-BaseUrl', $baseUrl,
+		'-AdminBase', $AdminBase,
+		'-TimeoutSec', $timeoutSec
+	)
+	if (![string]::IsNullOrWhiteSpace($AdminLoginPath)) { $loginArgs += @('-AdminLoginPath', $AdminLoginPath) }
+	if (![string]::IsNullOrWhiteSpace($AdminUsername)) { $loginArgs += @('-Username', $AdminUsername) }
+	if (![string]::IsNullOrWhiteSpace($AdminPassword)) { $loginArgs += @('-Password', $AdminPassword) }
+	if (![string]::IsNullOrWhiteSpace($AdminPasswordHash)) { $loginArgs += @('-PasswordHash', $AdminPasswordHash) }
+	if ($RememberLogin) { $loginArgs += '-Remember' }
+	$script = Join-Path $PSScriptRoot 'get_admin_cookie.ps1'
+	$newCookie = (& powershell -ExecutionPolicy Bypass -File $script @loginArgs | Select-Object -Last 1)
+	if ([string]::IsNullOrWhiteSpace($newCookie)) {
+		throw 'get_admin_cookie.ps1 did not return a CookieHeader after host reload'
+	}
+	$script:CookieHeader = $newCookie
+	$script:SmokeWebSession = New-SmokeWebSession $baseUrl
+}
+
+function Invoke-HostReload($baseUrl, $timeoutSec) {
+	$adminBase = '/' + $AdminBase.Trim('/')
+	$url = $baseUrl.TrimEnd('/') + $adminBase + '/tool/reload/host'
+	try {
+		$response = Invoke-WebRequest -Uri $url -Method Post -TimeoutSec $timeoutSec -UseBasicParsing -ContentType 'application/json' -Body '{}' -WebSession $SmokeWebSession
+		$json = [string]$response.Content | ConvertFrom-Json
+		if ($true -ne [bool]$json.result) {
+			throw "host reload failed: $($json.message)"
+		}
+		return $true
+	} catch {
+		throw "host reload request failed: $url $($_.Exception.Message)"
+	}
 }
 
 function Test-LiveServer($baseUrl, $timeoutSec) {
-	$adminBase = '/' + $AdminBase.Trim('/')
 	try {
-		Invoke-WebRequest -Uri ($baseUrl.TrimEnd('/') + $adminBase + '/plugin/list') -Method Get -TimeoutSec $timeoutSec -UseBasicParsing -Headers (New-SmokeHeaders) | Out-Null
+		Invoke-WebRequest -Uri ($baseUrl.TrimEnd('/') + '/') -Method Get -TimeoutSec $timeoutSec -UseBasicParsing | Out-Null
 		return $true
 	} catch {
 		if ($_.Exception.Response) {
 			$status = [int]$_.Exception.Response.StatusCode
-			return $status -ne 404
+			return ($status -ge 200 -and $status -lt 500)
 		}
 		return $false
 	}
@@ -54,9 +100,9 @@ function Invoke-ContentGenerate($baseUrl, $xid, $timeoutSec) {
 	$adminBase = '/' + $AdminBase.Trim('/')
 	$url = $baseUrl.TrimEnd('/') + $adminBase + '/content/generate?xid=' + [uri]::EscapeDataString($xid)
 	try {
-		$response = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec $timeoutSec -UseBasicParsing -Headers (New-SmokeHeaders)
+		$response = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec $timeoutSec -UseBasicParsing -WebSession $SmokeWebSession
 		$json = [string]$response.Content | ConvertFrom-Json
-		if ($true -ne [bool]$json.success) {
+		if (($true -ne [bool]$json.result) -and ($true -ne [bool]$json.success)) {
 			throw "content generate failed: $($json.message)"
 		}
 		$pluginXid = [string]$json.data.pluginXid
@@ -74,7 +120,7 @@ function Invoke-PluginAction($baseUrl, $pluginXid, $action, $timeoutSec) {
 	$url = $baseUrl.TrimEnd('/') + $adminBase + '/plugin/' + $action
 	try {
 		$body = @{ name = $pluginXid } | ConvertTo-Json -Compress
-		$response = Invoke-WebRequest -Uri $url -Method Post -TimeoutSec $timeoutSec -UseBasicParsing -ContentType 'application/json' -Body $body -Headers (New-SmokeHeaders)
+		$response = Invoke-WebRequest -Uri $url -Method Post -TimeoutSec $timeoutSec -UseBasicParsing -ContentType 'application/json' -Body $body -WebSession $SmokeWebSession
 		$json = [string]$response.Content | ConvertFrom-Json
 		if ($true -ne [bool]$json.result) {
 			throw "plugin $action failed: $($json.message)"
@@ -93,6 +139,7 @@ if ([string]::IsNullOrWhiteSpace($ServerExe)) {
 }
 
 $started = $null
+$SmokeWebSession = New-SmokeWebSession $BaseUrl
 $alreadyLive = Test-LiveServer $BaseUrl $TimeoutSec
 if (!$alreadyLive -and $StartServer) {
 	if (!(Test-Path $ServerExe)) {
@@ -115,7 +162,20 @@ try {
 		$PluginXid = Invoke-ContentGenerate $BaseUrl $GenerateXid $TimeoutSec
 	}
 	if ($EnableGeneratedPlugin -and ![string]::IsNullOrWhiteSpace($PluginXid)) {
-		Invoke-PluginAction $BaseUrl $PluginXid 'enable' $TimeoutSec | Out-Null
+		try {
+			Invoke-PluginAction $BaseUrl $PluginXid 'enable' $TimeoutSec | Out-Null
+		} catch {
+			if ([string]::IsNullOrWhiteSpace($AdminUsername) -and [string]::IsNullOrWhiteSpace($AdminPasswordHash)) {
+				throw
+			}
+			Invoke-HostReload $BaseUrl $TimeoutSec | Out-Null
+			Start-Sleep -Seconds 2
+			Update-SmokeCookieFromLogin $BaseUrl $TimeoutSec
+			if (!(Wait-LiveServer $BaseUrl $TimeoutSec $StartupTimeoutSec)) {
+				throw "server is not reachable after host reload: $BaseUrl"
+			}
+			Invoke-PluginAction $BaseUrl $PluginXid 'enable' $TimeoutSec | Out-Null
+		}
 		Invoke-PluginAction $BaseUrl $PluginXid 'reload' $TimeoutSec | Out-Null
 	}
 	if ([string]::IsNullOrWhiteSpace($RuntimeDir) -and ![string]::IsNullOrWhiteSpace($PluginXid)) {

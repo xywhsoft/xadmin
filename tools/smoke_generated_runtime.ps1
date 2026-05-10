@@ -19,11 +19,18 @@ function Read-JsonFile($path) {
 	(Get-Content -Raw -Encoding UTF8 $path) | ConvertFrom-Json
 }
 
-function New-SmokeHeaders() {
-	if ([string]::IsNullOrWhiteSpace($CookieHeader)) {
-		return @{}
+function New-SmokeWebSession($baseUrl) {
+	$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+	if (![string]::IsNullOrWhiteSpace($CookieHeader)) {
+		$uri = [uri]$baseUrl
+		foreach ($part in ($CookieHeader -split ';')) {
+			$item = $part.Trim()
+			if ($item -match '^([^=]+)=(.*)$') {
+				$session.Cookies.Add($uri, (New-Object System.Net.Cookie($Matches[1], $Matches[2], '/')))
+			}
+		}
 	}
-	return @{ Cookie = $CookieHeader }
+	return $session
 }
 
 function Test-GeneratedUrl($url, $timeoutSec, $kind) {
@@ -32,7 +39,7 @@ function Test-GeneratedUrl($url, $timeoutSec, $kind) {
 	$contentText = ''
 	$contentOk = $true
 	try {
-		$response = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec $timeoutSec -UseBasicParsing -Headers (New-SmokeHeaders)
+		$response = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec $timeoutSec -UseBasicParsing -WebSession $SmokeWebSession
 		$status = [int]$response.StatusCode
 		$contentText = [string]$response.Content
 	} catch {
@@ -130,6 +137,7 @@ if ($ValidateManifestOnly) {
 $base = $BaseUrl.TrimEnd('/')
 $adminBase = '/' + $AdminBase.Trim('/')
 $encodedXid = [uri]::EscapeDataString($PluginXid)
+$SmokeWebSession = New-SmokeWebSession $BaseUrl
 $corePaths = @(
 	[pscustomobject]@{ kind = 'view'; path = "$adminBase/view/plugin/$encodedXid" },
 	[pscustomobject]@{ kind = 'api'; path = "$adminBase/api/plugin/$encodedXid/list?limit=1" },
@@ -157,12 +165,12 @@ if ($capabilityExit -ne 0 -or [int]$capabilityResult.ErrorCount -gt 0) {
 	ManagedPath = $managedPath
 	ManifestPath = $manifestPath
 	ContractsPath = $contractsPath
-	ContentCheck = !$SkipContentCheck
+	ContentCheck = [bool](!$SkipContentCheck)
 	CoreChecked = $coreResults.Count
-	CoreResults = @($coreResults)
+	CoreResults = @($coreResults.ToArray())
 	Capability = $capabilityResult
 	ErrorCount = $errors.Count
-	Errors = @($errors)
+	Errors = @($errors.ToArray())
 } | ConvertTo-Json -Depth 8
 
 if ($errors.Count -gt 0) {

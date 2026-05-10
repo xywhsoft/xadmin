@@ -38,5 +38,11 @@
   "contracts": "contracts.json",
   "advisorMessage": "能力包 content.like：会记录互动计数，请确认去重策略、访客标识和滥用边界。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/like/counter/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_like"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_like",
+  "sourceFiles": [
+    "source/content_like_pack.c"
+  ],
+  "includeFiles": [
+    "include/content_like_pack.h"
+  ]
 }

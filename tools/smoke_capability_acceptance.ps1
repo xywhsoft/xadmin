@@ -19,11 +19,18 @@ function Read-PackManifest($path) {
 	(Get-Content -Raw -Encoding UTF8 $path) | ConvertFrom-Json
 }
 
-function New-SmokeHeaders() {
-	if ([string]::IsNullOrWhiteSpace($CookieHeader)) {
-		return @{}
+function New-SmokeWebSession($baseUrl) {
+	$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+	if (![string]::IsNullOrWhiteSpace($CookieHeader)) {
+		$uri = [uri]$baseUrl
+		foreach ($part in ($CookieHeader -split ';')) {
+			$item = $part.Trim()
+			if ($item -match '^([^=]+)=(.*)$') {
+				$session.Cookies.Add($uri, (New-Object System.Net.Cookie($Matches[1], $Matches[2], '/')))
+			}
+		}
 	}
-	return @{ Cookie = $CookieHeader }
+	return $session
 }
 
 function Resolve-RuntimeSiblingPath($manifestPath, $fileName) {
@@ -41,6 +48,9 @@ function Read-PackIdsFromRuntimeManifest($path) {
 	}
 	$ids = New-Object System.Collections.Generic.List[string]
 	$seen = @{}
+	if ($null -eq $manifest.abilityPacks) {
+		return @()
+	}
 	foreach ($pack in @($manifest.abilityPacks)) {
 		$id = [string]$pack.packId
 		if (![string]::IsNullOrWhiteSpace($id)) {
@@ -53,7 +63,7 @@ function Read-PackIdsFromRuntimeManifest($path) {
 			throw 'runtime capability manifest abilityPacks item missing packId'
 		}
 	}
-	return @($ids)
+	return @($ids.ToArray())
 }
 
 function Read-PackIdsFromRuntimeManaged($path) {
@@ -66,6 +76,9 @@ function Read-PackIdsFromRuntimeManaged($path) {
 	}
 	$ids = New-Object System.Collections.Generic.List[string]
 	$seen = @{}
+	if ($null -eq $managed.capabilitySlots) {
+		return @()
+	}
 	foreach ($slot in @($managed.capabilitySlots)) {
 		$id = [string]$(if (![string]::IsNullOrWhiteSpace([string]$slot.key)) { $slot.key } else { $slot.packId })
 		if ([string]::IsNullOrWhiteSpace($id)) {
@@ -77,7 +90,7 @@ function Read-PackIdsFromRuntimeManaged($path) {
 		$seen[$id] = $true
 		$ids.Add($id) | Out-Null
 	}
-	return @($ids)
+	return @($ids.ToArray())
 }
 
 function Read-PackIdsFromRuntimeContracts($path) {
@@ -87,22 +100,26 @@ function Read-PackIdsFromRuntimeContracts($path) {
 	$contracts = (Get-Content -Raw -Encoding UTF8 $path) | ConvertFrom-Json
 	$packIds = New-Object System.Collections.Generic.List[string]
 	$capIds = New-Object System.Collections.Generic.List[string]
-	foreach ($pack in @($contracts.abilityPacks)) {
-		$id = [string]$pack.packId
-		if ([string]::IsNullOrWhiteSpace($id)) {
-			throw 'runtime contracts abilityPacks item missing packId'
+	if ($null -ne $contracts.abilityPacks) {
+		foreach ($pack in @($contracts.abilityPacks)) {
+			$id = [string]$pack.packId
+			if ([string]::IsNullOrWhiteSpace($id)) {
+				throw 'runtime contracts abilityPacks item missing packId'
+			}
+			$packIds.Add($id) | Out-Null
 		}
-		$packIds.Add($id) | Out-Null
 	}
-	foreach ($cap in @($contracts.capabilities)) {
-		$id = [string]$(if (![string]::IsNullOrWhiteSpace([string]$cap.key)) { $cap.key } else { $cap.packId })
-		if ([string]::IsNullOrWhiteSpace($id)) {
-			throw 'runtime contracts capabilities item missing key/packId'
+	if ($null -ne $contracts.capabilities) {
+		foreach ($cap in @($contracts.capabilities)) {
+			$id = [string]$(if (![string]::IsNullOrWhiteSpace([string]$cap.key)) { $cap.key } else { $cap.packId })
+			if ([string]::IsNullOrWhiteSpace($id)) {
+				throw 'runtime contracts capabilities item missing key/packId'
+			}
+			$capIds.Add($id) | Out-Null
 		}
-		$capIds.Add($id) | Out-Null
 	}
 	Assert-SamePackIds @($packIds) @($capIds) 'runtime contracts abilityPacks/capabilities'
-	return @($packIds)
+	return @($packIds.ToArray())
 }
 
 function Assert-SamePackIds($expected, $actual, $label) {
@@ -124,7 +141,7 @@ function Test-SmokeUrl($url, $timeoutSec, $kind) {
 	$contentText = ''
 	$contentOk = $true
 	try {
-		$response = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec $timeoutSec -UseBasicParsing -Headers (New-SmokeHeaders)
+		$response = Invoke-WebRequest -Uri $url -Method Get -TimeoutSec $timeoutSec -UseBasicParsing -WebSession $SmokeWebSession
 		$status = [int]$response.StatusCode
 		$contentText = [string]$response.Content
 	} catch {
@@ -198,6 +215,9 @@ function Resolve-AcceptancePath($packId, $path, $kind) {
 function Normalize-PackIdList($ids, $source) {
 	$list = New-Object System.Collections.Generic.List[string]
 	$seen = @{}
+	if ($null -eq $ids) {
+		return @()
+	}
 	foreach ($raw in @($ids)) {
 		$id = [string]$raw
 		if ([string]::IsNullOrWhiteSpace($id)) {
@@ -212,7 +232,7 @@ function Normalize-PackIdList($ids, $source) {
 		$seen[$id] = $true
 		$list.Add($id) | Out-Null
 	}
-	return @($list)
+	return @($list.ToArray())
 }
 
 if ([string]::IsNullOrWhiteSpace($PluginXid)) {
@@ -293,6 +313,7 @@ if ($ValidateManifestOnly) {
 }
 
 $base = $BaseUrl.TrimEnd('/')
+$SmokeWebSession = New-SmokeWebSession $BaseUrl
 $results = New-Object System.Collections.Generic.List[object]
 $errors = New-Object System.Collections.Generic.List[string]
 $apiSuccessCount = 0
@@ -358,7 +379,7 @@ foreach ($pack in $PackId) {
 	BaseUrl = $base
 	RuntimeDir = $RuntimeDir
 	ManifestPath = $ManifestPath
-	ContentCheck = !$SkipContentCheck
+	ContentCheck = [bool](!$SkipContentCheck)
 	Checked = $results.Count
 	Summary = [pscustomobject]@{
 		api2xx = $apiSuccessCount
@@ -370,8 +391,8 @@ foreach ($pack in $PackId) {
 		viewAuth = $viewAuthCount
 	}
 	ErrorCount = $errors.Count
-	Results = @($results)
-	Errors = @($errors)
+	Results = @($results.ToArray())
+	Errors = @($errors.ToArray())
 } | ConvertTo-Json -Depth 6
 
 if ($errors.Count -gt 0) {

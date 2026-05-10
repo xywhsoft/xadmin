@@ -83,6 +83,16 @@
 		{{# if(d.__ops && d.__ops.indexOf('edit') >= 0){ }}
 		<a class="layui-btn layui-btn-xs" lay-event="edit">编辑</a>
 		{{# } }}
+		{{# if(d.__ops && d.__ops.indexOf('routeRuleEdit') >= 0){ }}
+		<a class="layui-btn layui-btn-xs" lay-event="routeRuleEdit">编辑</a>
+		{{# } }}
+		{{# if(d.__ops && d.__ops.indexOf('routeRuleToggle') >= 0){ }}
+		<a class="layui-btn layui-btn-primary layui-btn-xs" lay-event="routeRuleToggle">启停</a>
+		{{# } }}
+		{{# if(d.__ops && d.__ops.indexOf('routeRuleSort') >= 0){ }}
+		<a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="routeRuleSortUp">上移</a>
+		<a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="routeRuleSortDown">下移</a>
+		{{# } }}
 		{{# if(d.__ops && d.__ops.indexOf('delete') >= 0){ }}
 		<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="delete">删除</a>
 		{{# } }}
@@ -1057,10 +1067,12 @@
 				var typeInput = byId('routeRuleType');
 				var statusInput = byId('routeRuleStatus');
 				var warningOnlyInput = byId('routeRuleWarningOnly');
+				var keywordInput = byId('routeRuleKeyword');
 				abilityListFilters.routeRulePackId = packInput ? String(packInput.value || '').trim() : '';
 				abilityListFilters.routeRuleType = typeInput ? String(typeInput.value || '').trim() : '';
 				abilityListFilters.routeRuleStatus = statusInput ? String(statusInput.value || '').trim() : '';
 				abilityListFilters.routeRuleWarningOnly = warningOnlyInput ? String(warningOnlyInput.value || '').trim() : '';
+				abilityListFilters.routeRuleKeyword = keywordInput ? String(keywordInput.value || '').trim() : '';
 				reload();
 			};
 			if(btnRouteRuleFilterClear) btnRouteRuleFilterClear.onclick = function(){
@@ -1068,7 +1080,8 @@
 				abilityListFilters.routeRuleType = '';
 				abilityListFilters.routeRuleStatus = '';
 				abilityListFilters.routeRuleWarningOnly = '';
-				['routeRulePackId','routeRuleType','routeRuleStatus','routeRuleWarningOnly'].forEach(function(id){
+				abilityListFilters.routeRuleKeyword = '';
+				['routeRulePackId','routeRuleType','routeRuleStatus','routeRuleWarningOnly','routeRuleKeyword'].forEach(function(id){
 					var input = byId(id);
 					if(input) input.value = '';
 				});
@@ -3189,6 +3202,57 @@
 				});
 			}});
 		}
+		function routeRuleLocalWarning(data){
+			var pattern = String(data && data.matchPattern || '');
+			var target = String(data && data.targetPath || '');
+			if(pattern === '^/.*$' || pattern === '^/(.*)$' || pattern === '^/([^/]+)$') return '规则匹配范围较宽，可能吞掉后续动态规则；这是保存期提示，不进入请求热路径。';
+			if(pattern.indexOf('^/admin') === 0 || pattern.indexOf('^/api') === 0 || pattern.indexOf('^/uploads') === 0 || pattern.indexOf('^/static') === 0 || target.indexOf('/admin') === 0 || target.indexOf('/api') === 0) return '规则涉及后台、API 或静态资源前缀，请确认不会覆盖已有静态路由。';
+			return '未发现明显保存期风险，最终以服务端校验结果为准。';
+		}
+		function openRouteRuleDialog(row){
+			row = row || {};
+			var html = '<div class="managed-ability-dialog"><form class="layui-form" id="routeRuleForm_'+instanceKey+'">'
+				+ '<input type="hidden" name="id" value="'+esc(row.id || 0)+'">'
+				+ '<div class="layui-form-item"><label class="layui-form-label">规则类型</label><div class="layui-input-block"><select name="ruleType"><option value="slug" '+((row.ruleType || '') === 'slug' ? 'selected' : '')+'>slug</option><option value="redirect" '+((row.ruleType || '') === 'redirect' ? 'selected' : '')+'>redirect</option><option value="static" '+((row.ruleType || '') === 'static' ? 'selected' : '')+'>static</option></select></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">来源能力包</label><div class="layui-input-block"><select name="sourcePack"><option value="content.slug" '+((row.sourcePack || row.packId || '') === 'content.slug' ? 'selected' : '')+'>content.slug</option><option value="content.redirect" '+((row.sourcePack || row.packId || '') === 'content.redirect' ? 'selected' : '')+'>content.redirect</option><option value="content.static" '+((row.sourcePack || row.packId || '') === 'content.static' ? 'selected' : '')+'>content.static</option></select></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">规则键</label><div class="layui-input-block"><input name="ruleKey" class="layui-input" value="'+esc(row.ruleKey || '')+'" placeholder="唯一规则键，例如 slug:/article/{id}"></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">匹配规则</label><div class="layui-input-block"><input name="matchPattern" class="layui-input" value="'+esc(row.matchPattern || row.pattern || '')+'" placeholder="^/article/([^/]+)$"></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">目标路径</label><div class="layui-input-block"><input name="targetPath" class="layui-input" value="'+esc(row.targetPath || row.source || '')+'" placeholder="/plugin/{{PLUGIN_XID}}/detail"></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">优先级</label><div class="layui-input-block"><input name="priority" type="number" class="layui-input" value="'+esc(row.priority || 0)+'" placeholder="0"></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">状态</label><div class="layui-input-block"><select name="status"><option value="1" '+(row.status === 0 ? '' : 'selected')+'>启用</option><option value="0" '+(row.status === 0 ? 'selected' : '')+'>停用</option></select></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">保存提示</label><div class="layui-input-block"><pre class="x-code" id="routeRuleDialogWarning_'+instanceKey+'">'+esc(row.warning || '填写后保存前会显示保存期风险提示。')+'</pre></div></div>'
+				+ '<div class="x-dialog-actions"><button type="button" class="layui-btn layui-btn-primary" id="btnRouteRuleCancel_'+instanceKey+'">取消</button><button type="button" class="layui-btn" id="btnRouteRuleSave_'+instanceKey+'">保存</button></div>'
+				+ '</form></div>';
+			var index = layer.open({type:1,title:row.id ? '编辑 URL 规则' : '新增 URL 规则',area:['720px','680px'],content:html,success:function(dom){
+				layui.form.render();
+				function readRouteRuleForm(){
+					var form = dom.find('#routeRuleForm_'+instanceKey)[0];
+					var data = formDataFromElement(form);
+					data.id = Number(data.id || 0);
+					data.priority = Number(data.priority || 0);
+					data.status = Number(data.status || 0) ? 1 : 0;
+					data.managedFlag = 1;
+					return data;
+				}
+				function updateWarning(){
+					var warn = dom.find('#routeRuleDialogWarning_'+instanceKey);
+					if(warn.length) warn.text(routeRuleLocalWarning(readRouteRuleForm()));
+				}
+				dom.find('input,select').on('change keyup', updateWarning);
+				updateWarning();
+				dom.find('#btnRouteRuleCancel_'+instanceKey).on('click', function(){ layer.close(index); });
+				dom.find('#btnRouteRuleSave_'+instanceKey).on('click', function(){
+					var data = readRouteRuleForm();
+					updateWarning();
+					post(api('/route-rule/save'), data).then(function(ret){
+						var warn = dom.find('#routeRuleDialogWarning_'+instanceKey);
+						if(warn.length) warn.text((ret && ret.warning) ? ret.warning : (ret && ret.message ? ret.message : routeRuleLocalWarning(data)));
+						message(ret);
+						if(ret && ret.result !== false){ layer.close(index); reload(); }
+					});
+				});
+			}});
+		}
 		function formDataFromElement(form){
 			var data = {};
 			Array.prototype.forEach.call(form ? form.elements : [], function(el){
@@ -3633,9 +3697,9 @@
 			configs['content.redirect'].cols = [{field:'id',title:'ID',width:80},{field:'sourcePath',title:'来源路径',minWidth:220},{field:'targetUrl',title:'目标地址',minWidth:260},{field:'statusCode',title:'状态码',width:90},{field:'hitCount',title:'命中次数',width:90},{field:'lastHitTimeText',title:'最后命中',width:160},{field:'status',title:'启用',width:80},{title:'操作',toolbar:'#rowActions',width:140}];
 			configs['content.redirect'].views = {
 				main:{listApi:'/redirect/list', ops:'edit,delete', listQuery:function(){return queryFromPairs([['sourcePath', abilityListFilters.redirectSourcePath], ['targetUrl', abilityListFilters.redirectTargetUrl], ['status', abilityListFilters.redirectStatus]]);}, cols:configs['content.redirect'].cols},
-				routeRules:{listApi:'/route-rule/list', ops:'', listQuery:function(){return queryFromPairs([['packId', abilityListFilters.routeRulePackId], ['ruleType', abilityListFilters.routeRuleType], ['status', abilityListFilters.routeRuleStatus], ['warningOnly', abilityListFilters.routeRuleWarningOnly]]);}, cols:[{field:'id',title:'ID',width:80},{field:'packId',title:'能力包',width:150},{field:'ruleType',title:'规则类型',width:130},{field:'ruleKey',title:'规则键',minWidth:180},{field:'pattern',title:'匹配规则',minWidth:240},{field:'source',title:'来源',minWidth:220},{field:'sourceId',title:'来源ID',width:90},{field:'status',title:'状态',width:80},{field:'warning',title:'风险提示',minWidth:260},{field:'updateTimeText',title:'更新时间',width:170}]}
+				routeRules:{listApi:'/route-rule/list', ops:'routeRuleEdit,routeRuleToggle,routeRuleSort', listQuery:function(){return queryFromPairs([['packId', abilityListFilters.routeRulePackId], ['sourcePack', abilityListFilters.routeRulePackId], ['ruleType', abilityListFilters.routeRuleType], ['status', abilityListFilters.routeRuleStatus], ['warningOnly', abilityListFilters.routeRuleWarningOnly], ['keyword', abilityListFilters.routeRuleKeyword]]);}, cols:[{field:'id',title:'ID',width:80},{field:'sourcePack',title:'能力包',width:150},{field:'ruleType',title:'规则类型',width:110},{field:'ruleKey',title:'规则键',minWidth:150},{field:'matchPattern',title:'匹配规则',minWidth:240},{field:'targetPath',title:'目标路径',minWidth:180},{field:'priority',title:'优先级',width:90},{field:'status',title:'状态',width:80},{field:'warning',title:'风险提示',minWidth:220},{field:'compileStatus',title:'编译',width:80},{field:'compileMessage',title:'编译消息',minWidth:160},{field:'managedFlag',title:'人工',width:80},{field:'updateTimeText',title:'更新时间',width:170},{title:'操作',toolbar:'#rowActions',width:220}]}
 			};
-			configs['content.redirect'].form = function(){return viewSwitch([{key:'main',text:'跳转规则'},{key:'routeRules',text:'URL 规则'}]) + '<div class="x-toolbar"><div><div class="x-muted">跳转规则仅在 content.redirect 启用时加载；URL 规则视图读取 slug/redirect/static 的统一快照，只在管理期同步，不改变请求热路径。</div><div style="display:flex;gap:8px;margin-top:8px;max-width:860px;flex-wrap:wrap"><input id="redirectSourcePathFilter" class="layui-input" style="width:190px" value="'+esc(abilityListFilters.redirectSourcePath || '')+'" placeholder="来源路径"><input id="redirectTargetUrlFilter" class="layui-input" style="width:210px" value="'+esc(abilityListFilters.redirectTargetUrl || '')+'" placeholder="目标地址"><input id="redirectStatusFilter" class="layui-input" style="width:110px" value="'+esc(abilityListFilters.redirectStatus || '')+'" placeholder="启用 1/0"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectFilter"><i class="layui-icon layui-icon-search"></i> 筛选跳转</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectFilterClear"><i class="layui-icon layui-icon-close"></i> 清空跳转</button></div><div style="display:flex;gap:8px;margin-top:8px;max-width:760px;flex-wrap:wrap"><input id="routeRulePackId" class="layui-input" style="width:170px" value="'+esc(abilityListFilters.routeRulePackId || '')+'" placeholder="能力包ID"><input id="routeRuleType" class="layui-input" style="width:150px" value="'+esc(abilityListFilters.routeRuleType || '')+'" placeholder="规则类型"><input id="routeRuleStatus" class="layui-input" style="width:120px" value="'+esc(abilityListFilters.routeRuleStatus || '')+'" placeholder="状态"></div><textarea id="redirectImportJson" class="layui-textarea" style="width:520px;margin-top:8px" placeholder=\'[{\"sourcePath\":\"/old\",\"targetUrl\":\"/new\",\"statusCode\":301}]\'></textarea><pre id="redirectImportResult" class="x-code" style="margin-top:8px"></pre></div><div class="layui-btn-container"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRouteRuleFilter"><i class="layui-icon layui-icon-search"></i> 筛选 URL 规则</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRouteRuleFilterClear"><i class="layui-icon layui-icon-close"></i> 清空 URL 筛选</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRouteRuleRefresh"><i class="layui-icon layui-icon-refresh"></i> 刷新快照</button><button type="button" class="layui-btn layui-btn-sm" id="btnAddRedirect"><i class="layui-icon layui-icon-add-1"></i> 新增规则</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectRuleExplain"><i class="layui-icon layui-icon-read"></i> 规则说明</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectUnifiedRuleExplain"><i class="layui-icon layui-icon-template"></i> 统一计划</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectUnifiedRuleValidate"><i class="layui-icon layui-icon-vercode"></i> 批量验证</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectPreview"><i class="layui-icon layui-icon-list"></i> 预览导入</button><button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="btnRedirectImport"><i class="layui-icon layui-icon-upload"></i> 确认导入</button></div></div>';};
+			configs['content.redirect'].form = function(){return viewSwitch([{key:'main',text:'跳转规则'},{key:'routeRules',text:'URL 规则'}]) + '<div class="x-toolbar"><div><div class="x-muted">跳转规则仅在 content.redirect 启用时加载；URL 规则视图读取 slug/redirect/static 的统一快照，只在管理期同步，不改变请求热路径。</div><div style="display:flex;gap:8px;margin-top:8px;max-width:860px;flex-wrap:wrap"><input id="redirectSourcePathFilter" class="layui-input" style="width:190px" value="'+esc(abilityListFilters.redirectSourcePath || '')+'" placeholder="来源路径"><input id="redirectTargetUrlFilter" class="layui-input" style="width:210px" value="'+esc(abilityListFilters.redirectTargetUrl || '')+'" placeholder="目标地址"><input id="redirectStatusFilter" class="layui-input" style="width:110px" value="'+esc(abilityListFilters.redirectStatus || '')+'" placeholder="启用 1/0"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectFilter"><i class="layui-icon layui-icon-search"></i> 筛选跳转</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectFilterClear"><i class="layui-icon layui-icon-close"></i> 清空跳转</button></div><div style="display:flex;gap:8px;margin-top:8px;max-width:900px;flex-wrap:wrap"><input id="routeRulePackId" class="layui-input" style="width:170px" value="'+esc(abilityListFilters.routeRulePackId || '')+'" placeholder="能力包ID"><input id="routeRuleType" class="layui-input" style="width:150px" value="'+esc(abilityListFilters.routeRuleType || '')+'" placeholder="规则类型"><input id="routeRuleStatus" class="layui-input" style="width:120px" value="'+esc(abilityListFilters.routeRuleStatus || '')+'" placeholder="状态"><input id="routeRuleKeyword" class="layui-input" style="width:180px" value="'+esc(abilityListFilters.routeRuleKeyword || '')+'" placeholder="规则关键词"></div><textarea id="redirectImportJson" class="layui-textarea" style="width:520px;margin-top:8px" placeholder=\'[{\"sourcePath\":\"/old\",\"targetUrl\":\"/new\",\"statusCode\":301}]\'></textarea><pre id="redirectImportResult" class="x-code" style="margin-top:8px"></pre></div><div class="layui-btn-container"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRouteRuleFilter"><i class="layui-icon layui-icon-search"></i> 筛选 URL 规则</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRouteRuleFilterClear"><i class="layui-icon layui-icon-close"></i> 清空 URL 筛选</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRouteRuleRefresh"><i class="layui-icon layui-icon-refresh"></i> 刷新快照</button><button type="button" class="layui-btn layui-btn-sm" id="btnAddRouteRule"><i class="layui-icon layui-icon-add-1"></i> 新增 URL 规则</button><button type="button" class="layui-btn layui-btn-sm" id="btnAddRedirect"><i class="layui-icon layui-icon-add-1"></i> 新增跳转</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectRuleExplain"><i class="layui-icon layui-icon-read"></i> 规则说明</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectUnifiedRuleExplain"><i class="layui-icon layui-icon-template"></i> 统一计划</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectUnifiedRuleValidate"><i class="layui-icon layui-icon-vercode"></i> 批量验证</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnRedirectPreview"><i class="layui-icon layui-icon-list"></i> 预览导入</button><button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="btnRedirectImport"><i class="layui-icon layui-icon-upload"></i> 确认导入</button></div></div>';};
 		}
 		if(configs['content.redirect']){
 			var redirectRuleBaseForm = configs['content.redirect'].form;
@@ -3742,6 +3806,17 @@
 					if(obj.event === 'replay'){
 						if(packId === 'content.form') replayFormNotification(obj.data);
 					}
+					if(obj.event === 'routeRuleEdit'){
+						openRouteRuleDialog(obj.data);
+					}
+					if(obj.event === 'routeRuleToggle'){
+						post(api('/route-rule/status'), {id:obj.data.id,status:obj.data.status ? 0 : 1}).then(function(ret){showRowActionResult(ret, 'URL 规则启停结果', obj.data, obj.data.status ? '停用' : '启用');message(ret);reload();});
+					}
+					if(obj.event === 'routeRuleSortUp' || obj.event === 'routeRuleSortDown'){
+						var delta = obj.event === 'routeRuleSortUp' ? -1 : 1;
+						var nextPriority = (parseInt(obj.data.priority || 0, 10) || 0) + delta;
+						post(api('/route-rule/sort'), {items:[{id:obj.data.id,priority:nextPriority}]}).then(function(ret){showRowActionResult(ret, 'URL 规则排序结果', obj.data, delta < 0 ? '上移' : '下移');message(ret);reload();});
+					}
 					if(obj.event === 'delete'){
 						var cfg = currentConfig();
 						var delApi = packId === 'content.comment' ? '/comment/delete' : packId === 'content.tag' ? '/tag/delete' : packId === 'content.topic' ? '/topic/delete' : packId === 'content.sensitive' ? '/sensitive/word/delete' : packId === 'content.static' ? '/static/rule/delete' : packId === 'content.seo' ? '/seo/delete' : packId === 'content.redirect' ? '/redirect/delete' : packId === 'content.media' ? '/media/delete' : packId === 'content.related' ? '/related/delete' : packId === 'content.form' ? '/form/delete' : packId === 'content.access' ? '/access/rule/delete' : '';
@@ -3758,6 +3833,8 @@
 					if(!root || !root.contains(ev.target)) return;
 					var btn = ev.target && ev.target.closest ? ev.target.closest('#btnAddRedirect') : null;
 					if(btn) openRedirectDialog();
+					btn = ev.target && ev.target.closest ? ev.target.closest('#btnAddRouteRule') : null;
+					if(btn) openRouteRuleDialog();
 					btn = ev.target && ev.target.closest ? ev.target.closest('#btnAddSeo') : null;
 					if(btn) openSeoDialog();
 					btn = ev.target && ev.target.closest ? ev.target.closest('#btnSeoPreview') : null;

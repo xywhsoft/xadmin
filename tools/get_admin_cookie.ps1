@@ -1,6 +1,7 @@
 param(
 	[string]$BaseUrl = 'http://127.0.0.1',
 	[string]$AdminBase = '/admin',
+	[string]$AdminLoginPath = '',
 	[string]$Username = '',
 	[string]$Password = '',
 	[string]$PasswordHash = '',
@@ -40,8 +41,13 @@ if ([string]::IsNullOrWhiteSpace($PasswordHash)) {
 	$PasswordHash = Get-Sha256Hex ($Username + '_xywhsoft_' + $Password)
 }
 
-$adminBasePath = '/' + $AdminBase.Trim('/')
-$url = $BaseUrl.TrimEnd('/') + $adminBasePath + '/login'
+if ([string]::IsNullOrWhiteSpace($AdminLoginPath)) {
+	$adminBasePath = '/' + $AdminBase.Trim('/')
+	$AdminLoginPath = $adminBasePath + '/login'
+} else {
+	$AdminLoginPath = '/' + $AdminLoginPath.Trim('/')
+}
+$url = $BaseUrl.TrimEnd('/') + $AdminLoginPath
 $body = @{
 	username = $Username
 	password = $PasswordHash

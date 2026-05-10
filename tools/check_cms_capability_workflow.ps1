@@ -2,6 +2,7 @@ param(
 	[string]$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
 	[string]$BaseUrl = 'http://127.0.0.1',
 	[string]$AdminBase = '/admin',
+	[string]$AdminLoginPath = '',
 	[string]$CookieHeader = '',
 	[string]$AdminUsername = '',
 	[string]$AdminPassword = '',
@@ -52,12 +53,13 @@ try {
 	}
 
 	if ($RunLiveSmoke) {
-		if ([string]::IsNullOrWhiteSpace($CookieHeader)) {
+		if ([string]::IsNullOrWhiteSpace($CookieHeader) -and !$StartServer) {
 			$loginArgs = @(
 				'-BaseUrl', $BaseUrl,
 				'-AdminBase', $AdminBase,
 				'-TimeoutSec', $TimeoutSec
 			)
+			if (![string]::IsNullOrWhiteSpace($AdminLoginPath)) { $loginArgs += @('-AdminLoginPath', $AdminLoginPath) }
 			if (![string]::IsNullOrWhiteSpace($AdminUsername)) { $loginArgs += @('-Username', $AdminUsername) }
 			if (![string]::IsNullOrWhiteSpace($AdminPassword)) { $loginArgs += @('-Password', $AdminPassword) }
 			if (![string]::IsNullOrWhiteSpace($AdminPasswordHash)) { $loginArgs += @('-PasswordHash', $AdminPasswordHash) }
@@ -76,10 +78,15 @@ try {
 				'-Root', $Root,
 				'-BaseUrl', $BaseUrl,
 				'-AdminBase', $AdminBase,
-				'-CookieHeader', $CookieHeader,
 				'-TimeoutSec', $TimeoutSec,
 				'-StartupTimeoutSec', $StartupTimeoutSec
 			)
+			if (![string]::IsNullOrWhiteSpace($CookieHeader)) { $args += @('-CookieHeader', $CookieHeader) }
+			if (![string]::IsNullOrWhiteSpace($AdminLoginPath)) { $args += @('-AdminLoginPath', $AdminLoginPath) }
+			if (![string]::IsNullOrWhiteSpace($AdminUsername)) { $args += @('-AdminUsername', $AdminUsername) }
+			if (![string]::IsNullOrWhiteSpace($AdminPassword)) { $args += @('-AdminPassword', $AdminPassword) }
+			if (![string]::IsNullOrWhiteSpace($AdminPasswordHash)) { $args += @('-AdminPasswordHash', $AdminPasswordHash) }
+			if ($RememberLogin) { $args += '-RememberLogin' }
 			if ($StartServer) { $args += '-StartServer' }
 			if ($StopStartedServer) { $args += '-StopStartedServer' }
 			if ($SkipContentCheck) { $args += '-SkipContentCheck' }
@@ -87,7 +94,7 @@ try {
 		}
 	} else {
 		Write-Host '== generated runtime live smoke =='
-		Write-Host 'SKIP: pass -RunLiveSmoke with -CookieHeader "XSID=..." or -AdminUsername/-AdminPassword to run the protected admin HTTP path.'
+		Write-Host 'SKIP: pass -RunLiveSmoke with -CookieHeader "XSID=..." or -AdminUsername/-AdminPassword to run the protected admin HTTP path. Use -AdminLoginPath when the site enables a custom admin entry.'
 		Write-Host ''
 	}
 

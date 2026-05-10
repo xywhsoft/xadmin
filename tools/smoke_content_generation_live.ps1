@@ -3,23 +3,70 @@ param(
 	[string]$SpecPath = (Join-Path $PSScriptRoot 'fixtures/content_smoke_model.json'),
 	[string]$Root = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path,
 	[string]$AdminBase = '/admin',
+	[string]$AdminLoginPath = '',
 	[string]$CookieHeader = '',
+	[string]$AdminUsername = '',
+	[string]$AdminPassword = '',
+	[string]$AdminPasswordHash = '',
 	[string]$ServerExe = '',
 	[string]$ServerCwd = '',
 	[int]$TimeoutSec = 10,
 	[int]$StartupTimeoutSec = 20,
 	[switch]$StartServer,
 	[switch]$StopStartedServer,
+	[switch]$RememberLogin,
 	[switch]$SkipContentCheck
 )
 
 $ErrorActionPreference = 'Stop'
 
-function New-SmokeHeaders() {
-	if ([string]::IsNullOrWhiteSpace($CookieHeader)) {
-		return @{}
+function New-SmokeWebSession($baseUrl) {
+	$session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
+	if (![string]::IsNullOrWhiteSpace($CookieHeader)) {
+		$uri = [uri]$baseUrl
+		foreach ($part in ($CookieHeader -split ';')) {
+			$item = $part.Trim()
+			if ($item -match '^([^=]+)=(.*)$') {
+				$session.Cookies.Add($uri, (New-Object System.Net.Cookie($Matches[1], $Matches[2], '/')))
+			}
+		}
 	}
-	return @{ Cookie = $CookieHeader }
+	return $session
+}
+
+function Update-SmokeCookieFromLogin($baseUrl, $timeoutSec) {
+	$loginArgs = @(
+		'-BaseUrl', $baseUrl,
+		'-AdminBase', $AdminBase,
+		'-TimeoutSec', $timeoutSec
+	)
+	if (![string]::IsNullOrWhiteSpace($AdminLoginPath)) { $loginArgs += @('-AdminLoginPath', $AdminLoginPath) }
+	if (![string]::IsNullOrWhiteSpace($AdminUsername)) { $loginArgs += @('-Username', $AdminUsername) }
+	if (![string]::IsNullOrWhiteSpace($AdminPassword)) { $loginArgs += @('-Password', $AdminPassword) }
+	if (![string]::IsNullOrWhiteSpace($AdminPasswordHash)) { $loginArgs += @('-PasswordHash', $AdminPasswordHash) }
+	if ($RememberLogin) { $loginArgs += '-Remember' }
+	$script = Join-Path $PSScriptRoot 'get_admin_cookie.ps1'
+	$newCookie = (& powershell -ExecutionPolicy Bypass -File $script @loginArgs | Select-Object -Last 1)
+	if ([string]::IsNullOrWhiteSpace($newCookie)) {
+		throw 'get_admin_cookie.ps1 did not return a CookieHeader after host reload'
+	}
+	$script:CookieHeader = $newCookie
+	$script:SmokeWebSession = New-SmokeWebSession $baseUrl
+}
+
+function Invoke-HostReload($baseUrl, $timeoutSec) {
+	$adminBase = '/' + $AdminBase.Trim('/')
+	$url = $baseUrl.TrimEnd('/') + $adminBase + '/tool/reload/host'
+	try {
+		$response = Invoke-WebRequest -Uri $url -Method Post -TimeoutSec $timeoutSec -UseBasicParsing -ContentType 'application/json' -Body '{}' -WebSession $SmokeWebSession
+		$json = [string]$response.Content | ConvertFrom-Json
+		if ($true -ne [bool]$json.result) {
+			throw "host reload failed: $($json.message)"
+		}
+		return $true
+	} catch {
+		throw "host reload request failed: $url $($_.Exception.Message)"
+	}
 }
 
 function Invoke-ContentSave($baseUrl, $specPath, $timeoutSec) {
@@ -35,7 +82,7 @@ function Invoke-ContentSave($baseUrl, $specPath, $timeoutSec) {
 	$adminBase = '/' + $AdminBase.Trim('/')
 	$url = $baseUrl.TrimEnd('/') + $adminBase + '/content/save'
 	try {
-		$response = Invoke-WebRequest -Uri $url -Method Post -TimeoutSec $timeoutSec -UseBasicParsing -ContentType 'application/json' -Body $specText -Headers (New-SmokeHeaders)
+		$response = Invoke-WebRequest -Uri $url -Method Post -TimeoutSec $timeoutSec -UseBasicParsing -ContentType 'application/json' -Body $specText -WebSession $SmokeWebSession
 		$json = [string]$response.Content | ConvertFrom-Json
 		if ($true -ne [bool]$json.result) {
 			throw "content save failed: $($json.message)"
@@ -47,14 +94,13 @@ function Invoke-ContentSave($baseUrl, $specPath, $timeoutSec) {
 }
 
 function Test-LiveServer($baseUrl, $timeoutSec) {
-	$adminBase = '/' + $AdminBase.Trim('/')
 	try {
-		Invoke-WebRequest -Uri ($baseUrl.TrimEnd('/') + $adminBase + '/content/types') -Method Get -TimeoutSec $timeoutSec -UseBasicParsing -Headers (New-SmokeHeaders) | Out-Null
+		Invoke-WebRequest -Uri ($baseUrl.TrimEnd('/') + '/') -Method Get -TimeoutSec $timeoutSec -UseBasicParsing | Out-Null
 		return $true
 	} catch {
 		if ($_.Exception.Response) {
 			$status = [int]$_.Exception.Response.StatusCode
-			return $status -ne 404
+			return ($status -ge 200 -and $status -lt 500)
 		}
 		return $false
 	}
@@ -74,6 +120,7 @@ function Wait-LiveServer($baseUrl, $timeoutSec, $startupTimeoutSec) {
 $liveScript = Join-Path $PSScriptRoot 'smoke_generated_runtime_live.ps1'
 $xid = ''
 $started = $null
+$SmokeWebSession = New-SmokeWebSession $BaseUrl
 
 if ([string]::IsNullOrWhiteSpace($ServerCwd)) {
 	$ServerCwd = $Root
@@ -100,6 +147,19 @@ try {
 		throw "server is not reachable: $BaseUrl"
 	}
 
+	if ([string]::IsNullOrWhiteSpace($CookieHeader) -and (![string]::IsNullOrWhiteSpace($AdminUsername) -or ![string]::IsNullOrWhiteSpace($AdminPasswordHash))) {
+		Update-SmokeCookieFromLogin $BaseUrl $TimeoutSec
+	}
+
+	if (($null -eq $started) -and (![string]::IsNullOrWhiteSpace($AdminUsername) -or ![string]::IsNullOrWhiteSpace($AdminPasswordHash))) {
+		Invoke-HostReload $BaseUrl $TimeoutSec | Out-Null
+		Start-Sleep -Seconds 2
+		Update-SmokeCookieFromLogin $BaseUrl $TimeoutSec
+		if (!(Wait-LiveServer $BaseUrl $TimeoutSec $StartupTimeoutSec)) {
+			throw "server is not reachable after host reload: $BaseUrl"
+		}
+	}
+
 	$xid = Invoke-ContentSave $BaseUrl $SpecPath $TimeoutSec
 
 	$smokeArgs = @(
@@ -112,6 +172,11 @@ try {
 		'-GenerateXid', $xid,
 		'-EnableGeneratedPlugin'
 	)
+	if (![string]::IsNullOrWhiteSpace($AdminLoginPath)) { $smokeArgs += @('-AdminLoginPath', $AdminLoginPath) }
+	if (![string]::IsNullOrWhiteSpace($AdminUsername)) { $smokeArgs += @('-AdminUsername', $AdminUsername) }
+	if (![string]::IsNullOrWhiteSpace($AdminPassword)) { $smokeArgs += @('-AdminPassword', $AdminPassword) }
+	if (![string]::IsNullOrWhiteSpace($AdminPasswordHash)) { $smokeArgs += @('-AdminPasswordHash', $AdminPasswordHash) }
+	if ($RememberLogin) { $smokeArgs += '-RememberLogin' }
 	if (![string]::IsNullOrWhiteSpace($ServerExe)) { $smokeArgs += @('-ServerExe', $ServerExe) }
 	if (![string]::IsNullOrWhiteSpace($ServerCwd)) { $smokeArgs += @('-ServerCwd', $ServerCwd) }
 	if ($SkipContentCheck) { $smokeArgs += '-SkipContentCheck' }

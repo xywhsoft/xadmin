@@ -607,6 +607,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	str sEditorHtml = NULL;
 	str sCategoryHtml = NULL;
 	str sDashboardHtml = NULL;
+	str sTaskHtml = NULL;
 	str sDefaults = NULL;
 	str sSchema = NULL;
 	str sManaged = NULL;
@@ -627,6 +628,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	int64 iNow = xrtNow();
 	bool bCategoryPack = FALSE;
 	bool bMetricPack = FALSE;
+	bool bTaskPack = FALSE;
 	bool bOK;
 	int iFileCount = 0;
 	int iOwnedCount = 0;
@@ -665,6 +667,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	arrCapabilities = xvoTableGetValue(tblSpecJson, "capabilities", 12);
 	bCategoryPack = Content_SpecHasCapability(tblSpecJson, "content.category");
 	bMetricPack = Content_SpecHasCapability(tblSpecJson, "content.like") || Content_SpecHasCapability(tblSpecJson, "content.view-stat");
+	bTaskPack = Content_SpecHasCapability(tblSpecJson, "content.static") || Content_SpecHasCapability(tblSpecJson, "content.sitemap") || Content_SpecHasCapability(tblSpecJson, "content.import-export");
 	sManagedSpecJson = Content_BuildManagedSpecJson(tblSpecJson, sXid, sTitle, sPluginDescription);
 	if ( arrCapabilities && (xvoType(arrCapabilities) == XVO_DT_ARRAY) ) {
 		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
@@ -692,6 +695,9 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	if ( bMetricPack ) {
 		sDashboardHtml = Content_BuildManagedDashboardHtml(sGeneratedPluginXid);
 	}
+	if ( bTaskPack ) {
+		sTaskHtml = Content_BuildManagedTasksHtml(sGeneratedPluginXid);
+	}
 	sPublicHtml = Content_BuildManagedPublicHtml(sGeneratedPluginXid);
 	sAbilityHtml = Content_BuildManagedAbilityHtml(sGeneratedPluginXid);
 	sStaticDetailHtml = Content_BuildManagedStaticDetailHtml();
@@ -706,12 +712,20 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sMigrationSql = xrtCopyStr("-- Managed content migration is handled by generated plugin startup.\n", 0);
 	sCustomReadme = xrtCopyStr("This directory is reserved for user-owned extensions.\n", 0);
 	sOutputJson = xrtFormat(
-		(bCategoryPack && bMetricPack)
+		(bCategoryPack && bMetricPack && bTaskPack)
+			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/dashboard.html\",\"generated/tasks.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
+			: (bCategoryPack && bMetricPack)
 			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/dashboard.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
+			: (bCategoryPack && bTaskPack)
+			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/tasks.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
+			: (bMetricPack && bTaskPack)
+			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/dashboard.html\",\"generated/tasks.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
 			: bCategoryPack
 			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/categories.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
 			: bMetricPack
 			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/dashboard.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
+			: bTaskPack
+			? "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/tasks.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}"
 			: "{\"pluginXid\":\"%s\",\"revision\":%d,\"files\":[\"plugin.json\",\"generated/main.c\",\"generated/admin.html\",\"generated/drafts.html\",\"generated/editor.html\",\"generated/public.html\",\"generated/ability.html\",\"generated/spec.json\",\"template/static/detail.html\",\"config.defaults.json\",\"config.schema.json\",\"runtime/managed.json\",\"runtime/contracts.json\",\"runtime/capability.manifest.json\",\"runtime/capability.mounts.example.json\",\"runtime/capability.mounts.schema.json\",\"runtime/migration.plan.json\",\"generated/migration.sql\",\"custom/README.txt\"]}",
 		sGeneratedPluginXid ? (const char*)sGeneratedPluginXid : "",
 		iRevision
@@ -730,6 +744,9 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	}
 	if ( bMetricPack ) {
 		Content_SetGeneratedFile(&files[iFileCount++], "generated/dashboard.html", sDashboardHtml);
+	}
+	if ( bTaskPack ) {
+		Content_SetGeneratedFile(&files[iFileCount++], "generated/tasks.html", sTaskHtml);
 	}
 	Content_SetGeneratedFile(&files[iFileCount++], "generated/public.html", sPublicHtml);
 	Content_SetGeneratedFile(&files[iFileCount++], "generated/ability.html", sAbilityHtml);
@@ -801,6 +818,7 @@ cleanup:
 	if ( sEditorHtml ) xrtFree(sEditorHtml);
 	if ( sCategoryHtml ) xrtFree(sCategoryHtml);
 	if ( sDashboardHtml ) xrtFree(sDashboardHtml);
+	if ( sTaskHtml ) xrtFree(sTaskHtml);
 	if ( sDefaults ) xrtFree(sDefaults);
 	if ( sSchema ) xrtFree(sSchema);
 	if ( sManaged ) xrtFree(sManaged);

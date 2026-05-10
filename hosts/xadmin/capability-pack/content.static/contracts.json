@@ -24,12 +24,20 @@
     "static.stats",
     "static.artifact.list",
     "static.artifact.clean",
-    "static.clean"
+    "static.clean",
+    "task.create",
+    "task.list",
+    "task.detail",
+    "task.cancel",
+    "task.retry"
   ],
   "tables": [
     "static_rule",
     "static_task",
     "static_artifact"
+  ],
+  "sharedTables": [
+    "content_background_task"
   ],
   "events": [
     "content.afterPublish",
@@ -52,6 +60,12 @@
     "routeRuleValidateApi": "admin route-rule.validate scans static_rule.pathPattern with bounded limit and reports warnings without request hot-path checks",
     "routeRuleValidateApiKey": "route-rule.validate",
     "routeRuleListApi": "admin route-rule.list exposes static route snapshots beside slug and redirect rules",
+    "routeRuleSaveApi": "admin route-rule.save validates and stores editable URL rules with regex compile status and submit-time warnings",
+    "routeRuleSaveApiKey": "route-rule.save",
+    "routeRuleStatusApi": "admin route-rule.status enables or disables an editable URL rule and returns table rows",
+    "routeRuleStatusApiKey": "route-rule.status",
+    "routeRuleSortApi": "admin route-rule.sort updates editable URL rule priority in a bounded batch and returns table rows",
+    "routeRuleSortApiKey": "route-rule.sort",
     "routeRuleListApiKey": "route-rule.list",
     "routeRuleStatsApi": "admin route-rule.stats returns read-only aggregate counts from the unified URL rule snapshot table",
     "routeRuleStatsApiKey": "route-rule.stats",
@@ -61,8 +75,15 @@
     "routeRuleValidateUi": "ability page renders bounded URL rule validation warnings as a table without request hot-path checks",
     "routeRuleStatsUi": "ability page renders unified URL rule snapshot stats by pack and rule type",
     "routeRuleRefreshUi": "ability page renders route-rule.refresh as before/synced/after counts while retaining raw JSON diagnostics",
+    "routeRuleEditDialogUi": "ability page opens a table-row add/edit dialog for URL rules with rule type, source pack, pattern, target path, priority, status and submit-time warning preview",
+    "routeRuleRuntimeRefresh": "route-rule.save/status/sort refresh editable dynamic URL rules during admin-time and return runtimeRefreshed, runtimeRouteCount and routeRefreshError",
+    "backgroundTaskSchema": "content_background_task is created only when static, sitemap or import-export task-capable packs are enabled and contains task_type, target_type, target_id, status, progress, payload, result, error, retry and timestamps",
+    "backgroundTaskApis": ["task.create", "task.list", "task.detail", "task.cancel", "task.retry"],
+    "backgroundTaskStaticGenerate": "static.generate keeps the small synchronous path and records a completed content.static.generate row in content_background_task with backgroundTaskId in the response",
+    "backgroundTaskStaticRetryFailed": "static.task.retry-failed keeps the bounded synchronous retry path and records a content.static.retryFailed row in content_background_task with backgroundTaskId in the response",
     "independentRouteRuleStore": "content_route_rule snapshot is created only when slug, redirect or static packs are enabled and is refreshed by admin plan/validate calls",
-    "routeRuleListFilters": ["packId", "ruleType", "status", "warningOnly"],
+    "routeRuleEditableContract": "content_route_rule exposes sourcePack, matchPattern, targetPath, priority, compileStatus, compileMessage and managedFlag for the unified editable URL rule model",
+    "routeRuleListFilters": ["packId", "sourcePack", "ruleType", "status", "warningOnly", "keyword"],
     "ruleListFilters": ["pathPattern", "status"],
     "rulePreview": "admin static.rule.preview expands pathPattern with a bounded content sample and returns warning, relativePath and artifactUrl without changing request routing",
     "rulePreviewUi": "ability page renders static.rule.preview as path/template/target/output/warning table while retaining raw JSON diagnostics",
