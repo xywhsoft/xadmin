@@ -15,11 +15,13 @@
     "processFields": ["processNote", "processedBy", "processTime"],
     "notificationLog": "content_form_notification",
     "notificationStatus": "admin can mark local form notification rows read or unread with readTime metadata",
-    "notificationStats": "admin form.notification.stats reports local notification read/unread counts and event aggregates without external delivery",
+    "notificationStats": "admin form.notification.stats reports local notification read/unread counts and event aggregates plus bounded delivery task policy",
     "notificationStatsUi": "ability page renders local notification totals and event aggregates as tables, while retaining raw JSON for diagnostics",
     "submissionStatsUi": "ability page renders submission totals, status aggregates and per-form aggregates as tables while retaining raw JSON diagnostics",
     "submissionExportUi": "ability page renders submission export as bounded summary and preview rows while retaining raw JSON diagnostics",
-    "notificationReplay": "admin form.notification.replay creates a new local notification row from an existing notification without external delivery",
+    "notificationDeliveryTask": "form.afterSubmit creates a completed content.form.notification.deliver background task for the notification payload; request-time external HTTP is intentionally not executed",
+    "notificationReplay": "admin form.notification.replay creates a new local notification row from an existing notification and records a content.form.notification.replay background task",
+    "notificationReplayTaskUi": "ability page row-action replay result exposes backgroundTaskId and queued state through the standard result dialog",
     "notificationStatLimit": "maxNotificationStatEvents",
     "schemaDesigner": ["addField", "updateField", "removeField", "moveField", "format", "validate"],
     "designerPreviewUi": "ability page previews fields[] from schemaJson, flags empty or duplicated field names, and lets operators select a field to refill the designer inputs without server writes",
@@ -32,5 +34,5 @@
     "notificationFilters": "admin notification list accepts optional formId/contentId/status/event filters with bound SQL and maxListRows limit",
     "exportLimit": "maxExportRows"
   },
-  "tasks": []
+  "tasks": ["content.form.notification.deliver", "content.form.notification.replay"]
 }

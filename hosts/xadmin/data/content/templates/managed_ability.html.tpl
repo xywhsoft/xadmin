@@ -361,6 +361,16 @@
 				reload();
 			});
 		}
+		function runImportStage(){
+			var rows = importExportItems();
+			var payload = {sourceName:'manual-json-stage',fields:importExportFields(),items:rows};
+			var target = byId('importExportResult');
+			post(api('/import-export/import/stage'), payload).then(function(ret){
+				if(target) target.innerHTML = '<div class="x-muted">导入载荷已落盘并记录后台任务；后续仍通过预检、确认导入或分片导入执行。</div><pre class="x-code">' + esc(JSON.stringify(ret || {}, null, 2)) + '</pre>';
+				message(ret);
+				reload();
+			});
+		}
 		function runImportExportChunked(confirm){
 			var rows = importExportItems();
 			var size = importExportChunkSize();
@@ -444,6 +454,7 @@
 				+ '<td>' + esc(row.id || ret.id || '') + '</td>'
 				+ '<td>' + esc(ret.result === false ? '失败' : '成功') + '</td>'
 				+ '<td>' + esc(ret.message || ret.error || '') + '</td></tr></tbody></table>';
+			html += '<table class="layui-table"><thead><tr><th>backgroundTaskId</th><th>queued</th></tr></thead><tbody><tr><td>' + esc(ret.backgroundTaskId || '') + '</td><td>' + esc(ret.queued ? 'yes' : 'no') + '</td></tr></tbody></table>';
 			html += '<pre class="x-code">' + esc(JSON.stringify(ret, null, 2)) + '</pre></div>';
 			return html;
 		}
@@ -1488,6 +1499,11 @@
 		}
 		function renderStaticCleanResult(data){
 			data = data || {};
+			var rows = Array.isArray(data.rows) ? data.rows : [];
+			var rowHtml = rows.map(function(row){
+				return '<tr><td>' + esc(row.artifactId || 0) + '</td><td>' + esc(row.ruleId || 0) + '</td><td>' + esc(row.targetId || 0) + '</td><td>' + esc(row.path || '') + '</td><td>' + esc(row.fileDeleteAttempted ? '已尝试' : '未尝试') + '</td></tr>';
+			}).join('');
+			if(!rowHtml) rowHtml = '<tr><td colspan="5" class="x-muted">暂无清理产物</td></tr>';
 			var html = '<div class="x-form"><div class="x-muted">静态产物清理结果</div>';
 			html += '<table class="layui-table"><thead><tr><th>清理数量</th><th>本次上限</th><th>最大上限</th><th>内容筛选</th><th>规则筛选</th></tr></thead><tbody><tr>'
 				+ '<td>' + esc(data.cleaned || 0) + '</td>'
@@ -1495,7 +1511,8 @@
 				+ '<td>' + esc(data.maxCleanRows || 0) + '</td>'
 				+ '<td>' + esc(data.targetId || '-') + '</td>'
 				+ '<td>' + esc(data.ruleId || '-') + '</td></tr></tbody></table>';
-			html += '<div class="x-muted">清理只按固定上限删除已记录的静态产物，不改变请求期静态文件查找顺序。</div>';
+			html += '<table class="layui-table"><thead><tr><th>产物 ID</th><th>规则 ID</th><th>内容 ID</th><th>路径</th><th>文件删除</th></tr></thead><tbody>' + rowHtml + '</tbody></table>';
+			html += '<div class="x-muted">清理只按固定上限删除已记录的静态产物，写入 content.static.clean 后台任务记录，不改变请求期静态文件查找顺序。</div>';
 			html += '<pre class="x-code">' + esc(JSON.stringify(data, null, 2)) + '</pre></div>';
 			return html;
 		}
@@ -1607,6 +1624,11 @@
 				+ '<td>' + esc(data.saved || 0) + '</td>'
 				+ '<td>' + esc(data.limit || 0) + '</td>'
 				+ '<td>' + esc(data.maxRepairRows || 0) + '</td></tr></tbody></table>';
+			html += '<table class="layui-table"><thead><tr><th>规则快照同步</th><th>运行规则刷新</th><th>运行规则数</th><th>刷新错误</th></tr></thead><tbody><tr>'
+				+ '<td>' + esc(data.syncedRouteRules || 0) + '</td>'
+				+ '<td>' + esc(data.runtimeRefreshed ? '成功' : (data.confirm ? '失败/未执行' : '预览未执行')) + '</td>'
+				+ '<td>' + esc(data.runtimeRouteCount || 0) + '</td>'
+				+ '<td>' + esc(data.routeRefreshError || '') + '</td></tr></tbody></table>';
 			html += '<table class="layui-table"><thead><tr><th>内容 ID</th><th>标题</th><th>旧 slug</th><th>新 slug</th><th>动作</th><th>变更</th><th>已保存</th><th>冲突内容</th><th>风险提示</th></tr></thead><tbody>' + renderSlugRepairRows(rows) + '</tbody></table>';
 			html += '<pre class="x-code">' + esc(JSON.stringify(data, null, 2)) + '</pre></div>';
 			return html;
@@ -2179,6 +2201,11 @@
 				+ '<td>' + esc(data.saved || 0) + '</td>'
 				+ '<td>' + esc(data.failed || 0) + '</td>'
 				+ '<td>' + esc((data.saved || 0) > 0 ? '是' : '否') + '</td></tr></tbody></table>';
+			html += '<table class="layui-table"><thead><tr><th>同步 URL 规则</th><th>运行时刷新</th><th>动态路由数</th><th>刷新错误</th></tr></thead><tbody><tr>'
+				+ '<td>' + esc(data.syncedRouteRules || 0) + '</td>'
+				+ '<td>' + esc(data.runtimeRefreshed ? '成功' : (data.confirm ? '失败/未执行' : '预览未执行')) + '</td>'
+				+ '<td>' + esc(data.runtimeRouteCount || 0) + '</td>'
+				+ '<td>' + esc(data.routeRefreshError || '') + '</td></tr></tbody></table>';
 			html += '<table class="layui-table"><thead><tr><th>行号</th><th>来源路径</th><th>目标 URL</th><th>状态码</th><th>有效</th><th>已保存</th><th>消息</th><th>风险提示</th></tr></thead><tbody>' + renderRedirectImportRows(rows) + '</tbody></table>';
 			html += '<div class="x-muted">导入预检和跳转链路风险只在管理期执行，不在请求路由热路径追加全站检查。</div>';
 			html += '<pre class="x-code">' + esc(JSON.stringify(data, null, 2)) + '</pre></div>';
@@ -2542,15 +2569,17 @@
 		function renderSearchRebuildResult(data){
 			data = data || {};
 			var html = '<div class="x-form"><div class="x-muted">搜索索引重建结果</div>';
-			html += '<table class="layui-table"><thead><tr><th>扫描内容</th><th>写入索引</th><th>本批偏移</th><th>本批上限</th><th>最大上限</th><th>是否还有下一批</th><th>下一偏移</th></tr></thead><tbody><tr>'
+			html += '<table class="layui-table"><thead><tr><th>扫描内容</th><th>写入索引</th><th>本批偏移</th><th>本批上限</th><th>最大上限</th><th>是否还有下一批</th><th>下一偏移</th><th>后台任务</th><th>任务状态</th></tr></thead><tbody><tr>'
 				+ '<td>' + esc(data.total || 0) + '</td>'
 				+ '<td>' + esc(data.indexed || 0) + '</td>'
 				+ '<td>' + esc(data.offset || 0) + '</td>'
 				+ '<td>' + esc(data.limit || 0) + '</td>'
 				+ '<td>' + esc(data.maxRebuildRows || 0) + '</td>'
 				+ '<td>' + esc(data.hasMore ? '是' : '否') + '</td>'
-				+ '<td>' + esc(data.nextOffset || 0) + '</td></tr></tbody></table>';
-			html += '<div class="x-muted">重建按 offset/limit 分片执行，只影响后台索引维护流程，不改变公开搜索请求路径。</div>';
+				+ '<td>' + esc(data.nextOffset || 0) + '</td>'
+				+ '<td>' + esc(data.backgroundTaskId || '-') + '</td>'
+				+ '<td>' + esc(data.queued ? '已记录' : '未记录') + '</td></tr></tbody></table>';
+			html += '<div class="x-muted">重建按 offset/limit 分片执行，并写入 content.search.rebuild 后台任务记录；只影响后台索引维护流程，不改变公开搜索请求路径。</div>';
 			html += '<pre class="x-code">' + esc(JSON.stringify(data, null, 2)) + '</pre></div>';
 			return html;
 		}
@@ -3090,10 +3119,27 @@
 			}
 			return html;
 		}
+		function renderWorkflowPlanRows(rows, type){
+			var html = '';
+			rows = Array.isArray(rows) ? rows : [];
+			if(rows.length){
+				rows.forEach(function(row){
+					if(type === 'transition'){
+						html += '<tr><td>' + esc(row.action || '') + '</td><td>' + esc(row.fromNode || '') + '</td><td>' + esc(row.toNode || '') + '</td><td>' + esc(row.permission || '') + '</td><td>' + esc(row.automatic ? '是' : '否') + '</td></tr>';
+					}else{
+						html += '<tr><td>' + esc(row.key || '') + '</td><td>' + esc(row.title || '') + '</td><td>' + esc(row.ownerPolicy || '') + '</td><td>' + esc(row.status || 0) + '</td><td>' + esc(row.isDraft ? '是' : '否') + '</td></tr>';
+					}
+				});
+			}else{
+				html += '<tr><td colspan="5" class="x-muted">暂无流程模型</td></tr>';
+			}
+			return html;
+		}
 		function renderWorkflowStats(data){
 			data = data || {};
 			var approval = data.approvalConfig || {};
 			var due = data.scheduledDue || {};
+			var plan = data.workflowPlan || {};
 			var html = '<div class="x-form"><div class="x-muted">工作流统计</div>';
 			html += '<table class="layui-table"><thead><tr><th>待办数</th><th>日志数</th><th>通知数</th><th>未读通知</th><th>最近日志</th><th>最近通知</th></tr></thead><tbody><tr>'
 				+ '<td>' + esc(data.todoCount || 0) + '</td>'
@@ -3110,6 +3156,8 @@
 				+ '<td>' + esc(due.scannedDraftCount || 0) + '</td>'
 				+ '<td>' + esc(due.scanLimit || 0) + '</td>'
 				+ '<td>' + esc(due.truncated ? '是' : '否') + '</td></tr></tbody></table>';
+			html += '<div class="x-muted" style="margin-top:12px">流程节点模型：' + esc(plan.modelVersion || '') + '</div><table class="layui-table"><thead><tr><th>节点</th><th>名称</th><th>处理人策略</th><th>状态</th><th>草稿</th></tr></thead><tbody>' + renderWorkflowPlanRows(plan.nodes, 'node') + '</tbody></table>';
+			html += '<div class="x-muted" style="margin-top:12px">流转模型：兼容 requiredApprovals=' + esc(plan.requiredApprovals || approval.requiredApprovals || 1) + '</div><table class="layui-table"><thead><tr><th>动作</th><th>来源节点</th><th>目标节点</th><th>权限</th><th>自动</th></tr></thead><tbody>' + renderWorkflowPlanRows(plan.transitions, 'transition') + '</tbody></table>';
 			html += '<div class="x-muted" style="margin-top:12px">流转动作分布</div><table class="layui-table"><thead><tr><th>动作</th><th>数量</th><th>最近时间</th></tr></thead><tbody>' + renderWorkflowActionStats(data.actionStats, '暂无流转日志') + '</tbody></table>';
 			html += '<div class="x-muted" style="margin-top:12px">通知动作分布</div><table class="layui-table"><thead><tr><th>动作</th><th>数量</th><th>最近时间</th></tr></thead><tbody>' + renderWorkflowActionStats(data.notificationActionStats, '暂无通知记录') + '</tbody></table>';
 			html += '<pre class="x-code">' + esc(JSON.stringify(data, null, 2)) + '</pre></div>';
@@ -3188,9 +3236,10 @@
 				+ '<div class="layui-form-item"><label class="layui-form-label">目标地址</label><div class="layui-input-block"><input name="targetUrl" class="layui-input" value="'+esc(row.targetUrl || '')+'" placeholder="/new-url 或 https://example.com"></div></div>'
 				+ '<div class="layui-form-item"><label class="layui-form-label">状态码</label><div class="layui-input-block"><select name="statusCode"><option value="301" '+((row.statusCode || 301) == 301 ? 'selected' : '')+'>301 永久跳转</option><option value="302" '+(row.statusCode == 302 ? 'selected' : '')+'>302 临时跳转</option></select></div></div>'
 				+ '<div class="layui-form-item"><label class="layui-form-label">启用</label><div class="layui-input-block"><input type="checkbox" name="statusEnabled" lay-skin="switch" lay-text="ON|OFF" '+(row.status === 0 ? '' : 'checked')+'></div></div>'
+				+ '<div class="layui-form-item"><label class="layui-form-label">保存反馈</label><div class="layui-input-block"><pre class="x-code" id="redirectSaveResult_'+instanceKey+'">保存后会同步统一 URL 规则并刷新动态路由。</pre></div></div>'
 				+ '<div class="x-dialog-actions"><button type="button" class="layui-btn layui-btn-primary" id="btnRedirectCancel_'+instanceKey+'">取消</button><button type="button" class="layui-btn" id="btnRedirectSave_'+instanceKey+'">保存</button></div>'
 				+ '</form></div>';
-			var index = layer.open({type:1,title:row.id ? '编辑跳转规则' : '新增跳转规则',area:['560px','420px'],content:html,success:function(dom){
+			var index = layer.open({type:1,title:row.id ? '编辑跳转规则' : '新增跳转规则',area:['620px','520px'],content:html,success:function(dom){
 				layui.form.render();
 				dom.find('#btnRedirectCancel_'+instanceKey).on('click', function(){ layer.close(index); });
 				dom.find('#btnRedirectSave_'+instanceKey).on('click', function(){
@@ -3198,7 +3247,18 @@
 					var data = formDataFromElement(form);
 					data.status = form.elements.statusEnabled && form.elements.statusEnabled.checked ? 1 : 0;
 					delete data.statusEnabled;
-					post(api('/redirect/save'), data).then(function(ret){ message(ret); if(ret && ret.result !== false){ layer.close(index); reload(); } });
+					post(api('/redirect/save'), data).then(function(ret){
+						var result = dom.find('#redirectSaveResult_'+instanceKey);
+						if(result.length) result.text(JSON.stringify({
+							warning: ret && ret.warning || '',
+							syncedRouteRules: ret && ret.syncedRouteRules || 0,
+							runtimeRefreshed: !!(ret && ret.runtimeRefreshed),
+							runtimeRouteCount: ret && ret.runtimeRouteCount || 0,
+							routeRefreshError: ret && ret.routeRefreshError || ''
+						}, null, 2));
+						message(ret);
+						if(ret && ret.result !== false){ layer.close(index); reload(); }
+					});
 				});
 			}});
 		}
@@ -3673,7 +3733,7 @@
 		if(configs['content.import-export'] && configs['content.import-export'].views && configs['content.import-export'].views.exports){
 			var importExportBaseForm = configs['content.import-export'].form;
 			configs['content.import-export'].form = function(){
-				return importExportBaseForm() + '<div class="x-toolbar"><div><div class="x-muted">导入 conflictMode 支持 insert、update 和 skip。update/skip 会按 id 或 contentId 匹配；失败重放会把导入任务中的失败行载入 JSON 编辑区；分片导入会把 JSON 数组拆成有上限的 API 调用。</div><div style="display:flex;gap:8px;max-width:540px;margin-top:8px"><input id="importExportConflictMode" class="layui-input" style="width:160px" value="insert" placeholder="insert/update/skip"><input id="importReplayJobId" class="layui-input" style="width:160px" placeholder="重放任务ID"><input id="importExportChunkSize" class="layui-input" type="number" min="1" max="200" style="width:140px" value="50" placeholder="分片大小"></div><textarea id="importExportItems" class="layui-textarea" style="width:520px;margin-top:8px" placeholder="JSON 数组数据">[{}]</textarea></div><div class="layui-btn-container"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnImportReplay"><i class="layui-icon layui-icon-refresh"></i> 重放失败</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnImportManualPreview"><i class="layui-icon layui-icon-list"></i> 预览 JSON</button><button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="btnImportManualCommit"><i class="layui-icon layui-icon-upload"></i> 确认导入</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnImportChunkPreview"><i class="layui-icon layui-icon-template-1"></i> 分片预览</button><button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="btnImportChunkCommit"><i class="layui-icon layui-icon-upload-drag"></i> 分片导入</button></div></div>';
+				return importExportBaseForm() + '<div class="x-toolbar"><div><div class="x-muted">导入 conflictMode 支持 insert、update 和 skip。update/skip 会按 id 或 contentId 匹配；失败重放会把导入任务中的失败行载入 JSON 编辑区；分片导入会把 JSON 数组拆成有上限的 API 调用。</div><div style="display:flex;gap:8px;max-width:540px;margin-top:8px"><input id="importExportConflictMode" class="layui-input" style="width:160px" value="insert" placeholder="insert/update/skip"><input id="importReplayJobId" class="layui-input" style="width:160px" placeholder="重放任务ID"><input id="importExportChunkSize" class="layui-input" type="number" min="1" max="200" style="width:140px" value="50" placeholder="分片大小"></div><textarea id="importExportItems" class="layui-textarea" style="width:520px;margin-top:8px" placeholder="JSON 数组数据">[{}]</textarea></div><div class="layui-btn-container"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnImportStage"><i class="layui-icon layui-icon-upload-drag"></i> 载荷落盘</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnImportReplay"><i class="layui-icon layui-icon-refresh"></i> 重放失败</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnImportManualPreview"><i class="layui-icon layui-icon-list"></i> 预览 JSON</button><button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="btnImportManualCommit"><i class="layui-icon layui-icon-upload"></i> 确认导入</button><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnImportChunkPreview"><i class="layui-icon layui-icon-template-1"></i> 分片预览</button><button type="button" class="layui-btn layui-btn-normal layui-btn-sm" id="btnImportChunkCommit"><i class="layui-icon layui-icon-upload-drag"></i> 分片导入</button></div></div>';
 			};
 			configs['content.import-export'].views.exports.ops = 'download';
 			configs['content.import-export'].views.exports.cols.push({title:'操作',toolbar:'#rowActions',width:100});
@@ -3757,7 +3817,7 @@
 		if(configs['content.form']){
 			var formBaseForm = configs['content.form'].form;
 			configs['content.form'].form = function(){
-				return formBaseForm() + '<div class="x-toolbar"><div><div class="x-muted">表单通知统计只观察本地通知收件箱，不会尝试外部投递。</div></div><div class="layui-btn-container"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnFormNotificationStats"><i class="layui-icon layui-icon-chart"></i> 通知统计</button></div></div>';
+				return formBaseForm() + '<div class="x-toolbar"><div><div class="x-muted">表单通知统计观察本地通知收件箱和后台投递任务，公开提交不会执行请求期外部 HTTP。</div></div><div class="layui-btn-container"><button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btnFormNotificationStats"><i class="layui-icon layui-icon-chart"></i> 通知统计</button></div></div>';
 			};
 			var formSubmissionStatsBaseForm = configs['content.form'].form;
 			configs['content.form'].form = function(){
@@ -3878,6 +3938,8 @@
 					});
 					btn = ev.target && ev.target.closest ? ev.target.closest('#btnImportManualPreview') : null;
 					if(btn) runImportExportCommit(false);
+					btn = ev.target && ev.target.closest ? ev.target.closest('#btnImportStage') : null;
+					if(btn) runImportStage();
 					btn = ev.target && ev.target.closest ? ev.target.closest('#btnImportManualCommit') : null;
 					if(btn) runImportExportCommit(true);
 					btn = ev.target && ev.target.closest ? ev.target.closest('#btnImportChunkPreview') : null;

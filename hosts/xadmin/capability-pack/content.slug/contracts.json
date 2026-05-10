@@ -40,6 +40,8 @@
     "publicLookupLimit": "slug public/detail lookup clamps payload scan by maxPublicLookupRows",
     "physicalSlugColumn": "enabled pack migrates content_item.slug_value and indexes new writes while preserving payload fallback for old rows",
     "repairLimit": "admin slug repair clamps batch size by maxRepairRows",
+    "repairRouteRuleRefresh": "confirmed slug.repair synchronizes the unified URL rule snapshot inside the repair transaction, rolls back on snapshot sync failure, then refreshes editable dynamic route rules and returns runtimeRefreshed, runtimeRouteCount and routeRefreshError",
+    "repairRouteRuleRefreshUi": "ability page renders slug.repair route snapshot sync and runtime refresh feedback as a table",
     "requestLimit": "admin slug repair rejects request bodies beyond maxRequestBytes before JSON parse",
     "categoryBindIntegration": "detail and slug.resolve responses prefer content_category_bind categoryId when content.category is enabled",
     "accessIntegration": "slug.resolve hides restricted content through content.access when that pack is enabled"

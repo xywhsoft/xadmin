@@ -986,18 +986,43 @@ str Content_BuildGeneratedFieldRows(xvalue tblSpec)
 	return sRows;
 }
 
+void Content_AppendCapabilityHookSlot(xvalue arrSlots, const char* sKey, const char* sSurface, const char* sPhase, const char* sDescription)
+{
+	xvalue tblSlot = xvoCreateTable();
+
+	if ( (arrSlots == NULL) || (tblSlot == NULL) ) return;
+	xvoTableSetText(tblSlot, "key", 3, (str)Content_TextOr(sKey, ""), 0, FALSE);
+	xvoTableSetText(tblSlot, "surface", 7, (str)Content_TextOr(sSurface, ""), 0, FALSE);
+	xvoTableSetText(tblSlot, "phase", 5, (str)Content_TextOr(sPhase, ""), 0, FALSE);
+	xvoTableSetText(tblSlot, "description", 11, (str)Content_TextOr(sDescription, ""), 0, FALSE);
+	xvoArrayAppendValue(arrSlots, tblSlot, TRUE);
+}
+
+void Content_AppendCapabilityHookSlots(xvalue arrSlots)
+{
+	Content_AppendCapabilityHookSlot(arrSlots, "schema", "database", "generation", "Ability packs may declare tables, indexes and bounded migrations.");
+	Content_AppendCapabilityHookSlot(arrSlots, "route", "plugin.route", "startup", "Ability packs may register admin or public routes only when mounted.");
+	Content_AppendCapabilityHookSlot(arrSlots, "menu", "admin.menu", "startup", "Ability packs may register admin menu entries only when mounted.");
+	Content_AppendCapabilityHookSlot(arrSlots, "page", "admin.page", "generation", "Ability packs may copy generated admin pages and templates.");
+	Content_AppendCapabilityHookSlot(arrSlots, "task", "background.task", "runtime", "Ability packs may register bounded background task producers and dashboards.");
+	Content_AppendCapabilityHookSlot(arrSlots, "public-head", "public.html.head", "render", "Ability packs may inject public head assets only when mounted.");
+	Content_AppendCapabilityHookSlot(arrSlots, "public-render", "public.html.body", "render", "Ability packs may inject public list/detail render fragments only when mounted.");
+}
+
 str Content_BuildGeneratedContracts(const char* sModelXid, int iRevision, xvalue tblSpec)
 {
 	xvalue arrCapabilities = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
 	xvalue tblRoot = xvoCreateTable();
 	xvalue arrEnabledCapabilities = xvoCreateArray();
 	xvalue arrPacks = xvoCreateArray();
+	xvalue arrHookSlots = xvoCreateArray();
 	str sJson;
 
 	xvoTableSetText(tblRoot, "model", 5, (str)Content_TextOr(sModelXid, ""), 0, FALSE);
 	xvoTableSetInt(tblRoot, "revision", 8, iRevision);
 	xvoTableSetText(tblRoot, "permissionBinding", 17, "ability-admin-page-bound", 0, FALSE);
 	xvoTableSetText(tblRoot, "permissionBindingNote", 21, "Ability permissions are registered and each mounted ability admin page route is bound to the first permission declared by that ability pack.", 0, FALSE);
+	Content_AppendCapabilityHookSlots(arrHookSlots);
 	if ( arrCapabilities && xvoType(arrCapabilities) == XVO_DT_ARRAY ) {
 		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
 			xvalue tblItem = xvoArrayGetValue(arrCapabilities, i);
@@ -1050,9 +1075,10 @@ str Content_BuildGeneratedContracts(const char* sModelXid, int iRevision, xvalue
 	}
 	xvoTableSetValue(tblRoot, "capabilities", 12, arrEnabledCapabilities, TRUE);
 	xvoTableSetValue(tblRoot, "abilityPacks", 12, arrPacks, TRUE);
+	xvoTableSetValue(tblRoot, "capabilityHookSlots", 19, arrHookSlots, TRUE);
 	sJson = xrtStringifyJSON(tblRoot, TRUE, NULL);
 	xvoUnref(tblRoot);
-	return sJson ? sJson : xrtCopyStr("{\"capabilities\":[],\"abilityPacks\":[]}\n", 0);
+	return sJson ? sJson : xrtCopyStr("{\"capabilities\":[],\"abilityPacks\":[],\"capabilityHookSlots\":[]}\n", 0);
 }
 
 str Content_BuildGeneratedCapabilityManifest(const char* sModelXid, int iRevision, xvalue tblSpec)

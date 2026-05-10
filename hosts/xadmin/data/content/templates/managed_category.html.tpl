@@ -382,6 +382,38 @@ layui.use(['table', 'form'], function(){
       layer.close(index);
     });
   }
+  function renderCategorySortRows(rows) {
+    var html = '';
+    rows = Array.isArray(rows) ? rows : [];
+    rows.forEach(function(row){
+      html += '<tr><td>' + escapeHtml(row.rowIndex || '') + '</td>'
+        + '<td>' + escapeHtml(row.id || '') + '</td>'
+        + '<td>' + escapeHtml(row.parentId || 0) + '</td>'
+        + '<td>' + escapeHtml(row.sort || 0) + '</td>'
+        + '<td>' + escapeHtml(row.moveParent ? '是' : '否') + '</td>'
+        + '<td>' + escapeHtml(row.updated ? '是' : '否') + '</td>'
+        + '<td>' + escapeHtml(row.descendantPathsUpdated ? '是' : '否') + '</td>'
+        + '<td>' + escapeHtml(row.message || '') + '</td></tr>';
+    });
+    if (!rows.length) html += '<tr><td colspan="8" style="text-align:center;color:#999;">暂无结果行</td></tr>';
+    return html;
+  }
+  function showCategorySortResult(result) {
+    result = result || {};
+    var rows = Array.isArray(result.rows) ? result.rows : [];
+    var html = '<div style="padding:12px 16px;">'
+      + '<table class="layui-table"><thead><tr><th>更新数</th><th>后代路径失败</th><th>最大批量</th><th>结果行</th></tr></thead><tbody><tr>'
+      + '<td>' + escapeHtml(result.updated || 0) + '</td>'
+      + '<td>' + escapeHtml(result.descendantPathFailures || 0) + '</td>'
+      + '<td>' + escapeHtml(result.maxSortRows || '') + '</td>'
+      + '<td>' + escapeHtml(rows.length) + '</td></tr></tbody></table>'
+      + '<table class="layui-table"><thead><tr><th>行号</th><th>ID</th><th>父栏目</th><th>排序</th><th>移动父级</th><th>已更新</th><th>后代路径</th><th>消息</th></tr></thead><tbody>'
+      + renderCategorySortRows(rows)
+      + '</tbody></table>'
+      + '<pre style="max-height:160px;overflow:auto;background:#f7f7f7;padding:10px;">' + escapeHtml(JSON.stringify(result, null, 2)) + '</pre>'
+      + '</div>';
+    layer.open({ type: 1, title: '栏目排序结果', area: ['760px', '560px'], content: html });
+  }
   function saveSort() {
     var items = [];
     document.querySelectorAll('.managed-category-sort-input-' + domBase).forEach(function(input){
@@ -397,6 +429,7 @@ layui.use(['table', 'form'], function(){
       body: JSON.stringify({ items: items })
     }).then(function(response){ return response.json(); }).then(function(result){
       if (!result || !result.result) throw new Error((result && result.message) || '\u4fdd\u5b58\u5931\u8d25');
+      showCategorySortResult(result);
       layer.msg('\u6392\u5e8f\u5df2\u4fdd\u5b58', { icon: 1 });
       reloadTable();
     }).catch(function(error){ layer.msg(error.message || String(error), { icon: 2 }); });
@@ -459,6 +492,7 @@ layui.use(['table', 'form'], function(){
           }).then(function(response){ return response.json(); }).then(function(result){
             if (!result || !result.result) throw new Error((result && result.message) || '保存拖拽排序失败');
             layer.close(index);
+            showCategorySortResult(result);
             layer.msg('已保存', { icon: 1 });
             reloadTable();
           }).catch(function(error){ layer.msg(error.message || String(error), { icon: 2 }); });

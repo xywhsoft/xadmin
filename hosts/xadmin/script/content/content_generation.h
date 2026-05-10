@@ -667,7 +667,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	arrCapabilities = xvoTableGetValue(tblSpecJson, "capabilities", 12);
 	bCategoryPack = Content_SpecHasCapability(tblSpecJson, "content.category");
 	bMetricPack = Content_SpecHasCapability(tblSpecJson, "content.like") || Content_SpecHasCapability(tblSpecJson, "content.view-stat");
-	bTaskPack = Content_SpecHasCapability(tblSpecJson, "content.static") || Content_SpecHasCapability(tblSpecJson, "content.sitemap") || Content_SpecHasCapability(tblSpecJson, "content.import-export");
+	bTaskPack = Content_SpecHasCapability(tblSpecJson, "content.static") || Content_SpecHasCapability(tblSpecJson, "content.sitemap") || Content_SpecHasCapability(tblSpecJson, "content.import-export") || Content_SpecHasCapability(tblSpecJson, "content.search") || Content_SpecHasCapability(tblSpecJson, "content.form") || Content_SpecHasCapability(tblSpecJson, "content.audit-log");
 	sManagedSpecJson = Content_BuildManagedSpecJson(tblSpecJson, sXid, sTitle, sPluginDescription);
 	if ( arrCapabilities && (xvoType(arrCapabilities) == XVO_DT_ARRAY) ) {
 		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {

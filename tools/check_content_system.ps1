@@ -324,14 +324,22 @@ Invoke-Step 'capability source macro boundary' {
 	$generator = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generator.h')
 	$generation = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generation.h')
 	$likePack = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.like/pack.json')
+	$auditPack = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.audit-log/pack.json')
+	$importExportPack = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.import-export/pack.json')
 	foreach ($needle in @(
 		'#ifdef XADMIN_CAP_CONTENT_SLUG',
 		'#include "content_slug_pack.h"',
 		'#ifdef XADMIN_CAP_CONTENT_LIKE',
 		'#include "content_like_pack.h"',
+		'#ifdef XADMIN_CAP_CONTENT_AUDIT_LOG',
+		'#include "content_audit_log_pack.h"',
+		'#ifdef XADMIN_CAP_CONTENT_IMPORT_EXPORT',
+		'#include "content_import_export_pack.h"',
 		'Managed_LinkDeclaredCapabilitySources',
 		'XAdminContentSlugPackLinked',
-		'XAdminContentLikePackLinked'
+		'XAdminContentLikePackLinked',
+		'XAdminContentAuditLogPackLinked',
+		'XAdminContentImportExportPackLinked'
 	)) {
 		if ($mainTemplate -notmatch [regex]::Escape($needle)) {
 			throw "managed_main.c.tpl missing source macro boundary marker: $needle"
@@ -356,7 +364,61 @@ Invoke-Step 'capability source macro boundary' {
 			throw "content.like pack.json missing declared source marker: $needle"
 		}
 	}
+	foreach ($needle in @('source/content_audit_log_pack.c', 'include/content_audit_log_pack.h')) {
+		if ($auditPack -notmatch [regex]::Escape($needle)) {
+			throw "content.audit-log pack.json missing declared source marker: $needle"
+		}
+	}
+	foreach ($needle in @('source/content_import_export_pack.c', 'include/content_import_export_pack.h')) {
+		if ($importExportPack -notmatch [regex]::Escape($needle)) {
+			throw "content.import-export pack.json missing declared source marker: $needle"
+		}
+	}
 	Write-Output 'capability source macro boundary OK'
+}
+
+Invoke-Step 'capability hook slot contract wiring' {
+	$generator = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generator.h')
+	$generation = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/script/content/content_generation.h')
+	$spec = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'docs/CMS能力包收口执行SPEC.md')
+	$capabilityDoc = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'docs/内容系统能力包规范.md')
+	foreach ($needle in @(
+		'Content_AppendCapabilityHookSlot',
+		'Content_AppendCapabilityHookSlots',
+		'capabilityHookSlots',
+		'"schema"',
+		'"route"',
+		'"menu"',
+		'"page"',
+		'"task"',
+		'"public-head"',
+		'"public-render"',
+		'xvoTableSetValue(tblRoot, "capabilityHookSlots", 19, arrHookSlots, TRUE)'
+	)) {
+		if ($generator -notmatch [regex]::Escape($needle)) {
+			throw "content_generator.h missing capability hook slot marker: $needle"
+		}
+	}
+	foreach ($needle in @(
+		'Content_SpecHasCapability(tblSpecJson, "content.search")',
+		'Content_SpecHasCapability(tblSpecJson, "content.form")',
+		'Content_SpecHasCapability(tblSpecJson, "content.audit-log")'
+	)) {
+		if ($generation -notmatch [regex]::Escape($needle)) {
+			throw "content_generation.h missing task dashboard ability marker: $needle"
+		}
+	}
+	foreach ($needle in @('schema、route、menu、page、task、public-head、public-render', 'content.slug', 'content.like', 'disabled 不复制、不编译、不注册')) {
+		if ($spec -notmatch [regex]::Escape($needle)) {
+			throw "CMS ability closeout spec missing hook slot progress marker: $needle"
+		}
+	}
+	foreach ($needle in @('capabilityHookSlots', 'schema', 'route', 'menu', 'page', 'task', 'public-head', 'public-render', 'content.category')) {
+		if ($capabilityDoc -notmatch [regex]::Escape($needle)) {
+			throw "content ability pack doc missing current hook/category boundary marker: $needle"
+		}
+	}
+	Write-Output 'capability hook slot contract wiring OK'
 }
 
 Invoke-Step 'capability manifest generation wiring' {
@@ -721,6 +783,11 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		'slug request body is too large',
 		'slug repair transaction failed',
 		'slug repair commit failed',
+		'Managed_SyncRouteRuleSnapshot(pDb, iLimit, &iSyncedRouteRules)',
+		'Managed_RefreshEditableRouteRulesRuntime(&iRuntimeRoutes, &sRouteRefreshError)',
+		'xvoTableSetInt(tblData, "syncedRouteRules", 16, iSyncedRouteRules)',
+		'xvoTableSetBool(tblData, "runtimeRefreshed", 16, bRuntimeRefreshed)',
+		'xvoTableSetText(tblData, "routeRefreshError", 17, sRouteRefreshError',
 		'slug lookup exceeded configured scan limit',
 		'Managed_AccessCheckRule(pDb, xvoTableGetInt(tblCandidate, "id", 2), objReq, objSession, FALSE, NULL)',
 		'Managed_AbilityPackConfigInt("content.import-export", "maxBatchRows", 200)',
@@ -821,7 +888,7 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		throw 'managed_main.c.tpl uses obsolete xrt regex capture success semantics for form pattern validation'
 	}
 	$slugContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.slug/contracts.json')
-	foreach ($needle in @('accessIntegration', 'categoryBindIntegration', 'submitWarnings', 'checkPreviewUi', 'repairResultUi', 'routeRulePreview', 'ruleConflictExplain', 'crossAbilityRuleCheck', 'unifiedRulePlan', 'routeRulePlanApi', 'routeRuleValidateApi', 'routeRuleListApi', 'routeRuleSaveApi', 'routeRuleStatusApi', 'routeRuleSortApi', 'route-rule.save', 'routeRuleStatsApi', 'routeRuleRefreshApi', 'routeRulePlanUi', 'routeRuleValidateUi', 'routeRuleStatsUi', 'routeRuleRefreshUi', 'routeRuleEditDialogUi', 'routeRuleRuntimeRefresh', 'independentRouteRuleStore', 'routeRuleEditableContract', 'routeRuleListFilters', '"sourcePack"', '"keyword"', 'historyFilters')) {
+	foreach ($needle in @('accessIntegration', 'categoryBindIntegration', 'submitWarnings', 'checkPreviewUi', 'repairResultUi', 'repairRouteRuleRefresh', 'repairRouteRuleRefreshUi', 'routeRulePreview', 'ruleConflictExplain', 'crossAbilityRuleCheck', 'unifiedRulePlan', 'routeRulePlanApi', 'routeRuleValidateApi', 'routeRuleListApi', 'routeRuleSaveApi', 'routeRuleStatusApi', 'routeRuleSortApi', 'route-rule.save', 'routeRuleStatsApi', 'routeRuleRefreshApi', 'routeRulePlanUi', 'routeRuleValidateUi', 'routeRuleStatsUi', 'routeRuleRefreshUi', 'routeRuleEditDialogUi', 'routeRuleRuntimeRefresh', 'independentRouteRuleStore', 'routeRuleEditableContract', 'routeRuleListFilters', '"sourcePack"', '"keyword"', 'historyFilters')) {
 		if ($slugContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.slug contracts.json missing access integration marker: $needle"
 		}
@@ -832,6 +899,9 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		'params.get("slug") || mpPrettySlugFromPath()',
 		'renderSlugCheckResult',
 		'renderSlugRepairResult',
+		'syncedRouteRules',
+		'runtimeRefreshed',
+		'routeRefreshError',
 		'renderSlugRepairRows',
 		'canonicalUrl',
 		'conflictId',
@@ -925,7 +995,7 @@ Invoke-Step 'dynamic route risk warning wiring' {
 		}
 	}
 	$redirectContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.redirect/contracts.json')
-	foreach ($needle in @('boundedChainedLoop', 'chainDepthLimit8', 'redirectRoutePrefix', 'routePrefixConfig', 'maxListRows', 'maxImportRows', 'maxRequestBytes', 'importLimit', 'requestLimit', 'importResultUi', 'routeRulePreview', 'ruleConflictExplain', 'crossAbilityRuleCheck', 'unifiedRulePlan', 'routeRulePlanApi', 'routeRuleValidateApi', 'routeRuleListApi', 'routeRuleSaveApi', 'routeRuleStatusApi', 'routeRuleSortApi', 'routeRuleStatsApi', 'routeRuleRefreshApi', 'routeRulePlanUi', 'routeRuleValidateUi', 'routeRuleStatsUi', 'routeRuleRefreshUi', 'routeRuleEditDialogUi', 'routeRuleRuntimeRefresh', 'route-rule.validate', 'route-rule.list', 'route-rule.save', 'route-rule.status', 'route-rule.sort', 'route-rule.stats', 'route-rule.refresh', 'independentRouteRuleStore', 'routeRuleEditableContract', 'routeRuleListFilters', '"sourcePack"', '"keyword"', 'redirectListFilters')) {
+	foreach ($needle in @('boundedChainedLoop', 'chainDepthLimit8', 'redirectRoutePrefix', 'routePrefixConfig', 'maxListRows', 'maxImportRows', 'maxRequestBytes', 'importLimit', 'requestLimit', 'importResultUi', 'routeRulePreview', 'ruleConflictExplain', 'crossAbilityRuleCheck', 'unifiedRulePlan', 'routeRulePlanApi', 'routeRuleValidateApi', 'routeRuleListApi', 'routeRuleSaveApi', 'routeRuleStatusApi', 'routeRuleSortApi', 'routeRuleStatsApi', 'routeRuleRefreshApi', 'routeRulePlanUi', 'routeRuleValidateUi', 'routeRuleStatsUi', 'routeRuleRefreshUi', 'routeRuleEditDialogUi', 'routeRuleRuntimeRefresh', 'redirectSaveRouteRuleRefresh', 'redirectImportRouteRuleRefresh', 'redirectImportRouteRuleRefreshUi', 'route-rule.validate', 'route-rule.list', 'route-rule.save', 'route-rule.status', 'route-rule.sort', 'route-rule.stats', 'route-rule.refresh', 'independentRouteRuleStore', 'routeRuleEditableContract', 'routeRuleListFilters', '"sourcePack"', '"keyword"', 'redirectListFilters')) {
 		if ($redirectContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.redirect contracts.json missing submit warning marker: $needle"
 		}
@@ -934,9 +1004,14 @@ Invoke-Step 'dynamic route risk warning wiring' {
 	if ($redirectPack -notmatch [regex]::Escape('/redirect/list')) {
 		throw 'content.redirect pack.json acceptanceApiPath must use bounded redirect/list route, not public resolve'
 	}
-	foreach ($needle in @('renderRedirectImportResult', 'renderRedirectImportRows', 'redirectImportResult', 'rowIndex', 'sourcePath', 'targetUrl')) {
+	foreach ($needle in @('renderRedirectImportResult', 'renderRedirectImportRows', 'redirectImportResult', 'redirectSaveResult_', 'syncedRouteRules', 'runtimeRefreshed', 'runtimeRouteCount', 'routeRefreshError', 'rowIndex', 'sourcePath', 'targetUrl')) {
 		if ($abilityTemplate -notmatch [regex]::Escape($needle)) {
 			throw "managed_ability.html.tpl missing redirect import UI marker: $needle"
+		}
+	}
+	foreach ($needle in @('Managed_SyncRouteRuleSnapshot(pDb, Managed_RedirectMaxListRows(), &iSyncedRouteRules)', 'Managed_RefreshEditableRouteRulesRuntime(&iRuntimeRoutes, &sRouteRefreshError)', '"syncedRouteRules"', '"runtimeRefreshed"', '"runtimeRouteCount"', '"routeRefreshError"')) {
+		if ($mainTemplate -notmatch [regex]::Escape($needle)) {
+			throw "managed_main.c.tpl missing redirect route refresh marker: $needle"
 		}
 	}
 	if ($redirectPack -match [regex]::Escape('/redirect/resolve')) {
@@ -1014,8 +1089,13 @@ Invoke-Step 'background task schema wiring' {
 		'content.static.generate',
 		'content.static.retryFailed',
 		'content.sitemap.refresh',
+		'content.search.rebuild',
+		'content.form.notification.deliver',
+		'content.form.notification.replay',
+		'content.import.stage',
 		'content.import.process',
 		'content.export.process',
+		'content.audit.cleanup',
 		'backgroundTaskId',
 		'queued',
 		'/task/create',
@@ -1061,7 +1141,7 @@ Invoke-Step 'background task schema wiring' {
 		throw 'content.sitemap contracts.json missing background sitemap refresh marker'
 	}
 	$importExportContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.import-export/contracts.json')
-	foreach ($needle in @('backgroundTaskImportProcess', 'backgroundTaskExportProcess')) {
+	foreach ($needle in @('backgroundTaskImportStage', 'backgroundTaskImportProcess', 'backgroundTaskExportProcess')) {
 		if ($importExportContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.import-export contracts.json missing background import/export task marker: $needle"
 		}
@@ -2129,6 +2209,9 @@ Invoke-Step 'category drag sort wiring' {
 		'rowContainsKeyword',
 		'keyword ? filteredRows : visibleCategoryRows(filteredRows)',
 		'filtered.length',
+		'renderCategorySortRows',
+		'showCategorySortResult',
+		'栏目排序结果',
 		"{ field: 'childCount', width: 100"
 	)) {
 		if ($categoryTemplate -notmatch [regex]::Escape($needle)) {
@@ -2185,6 +2268,12 @@ Invoke-Step 'category drag sort wiring' {
 		'INNER JOIN content_item i ON i.id=cb.content_id',
 		'category request body is too large',
 		'category sort rows exceeded configured limit',
+		'xvalue arrRows = xvoCreateArray()',
+		'xvoTableSetInt(tblRow, "rowIndex", 8',
+		'xvoTableSetBool(tblRow, "moveParent", 10',
+		'xvoTableSetBool(tblRow, "updated", 7',
+		'xvoTableSetBool(tblRow, "descendantPathsUpdated", 22',
+		'xvoTableSetValue(tblRet, "rows", 4, arrRows, TRUE)',
 		'FROM content_category c WHERE c.delete_time = 0 ORDER BY c.parent_id ASC, c.sort ASC, c.id ASC LIMIT ?',
 		'FROM content_category c WHERE c.delete_time = 0 AND c.status = 1 ORDER BY c.path ASC, c.sort ASC, c.id ASC LIMIT ?',
 		'AS child_count',
@@ -2226,7 +2315,7 @@ Invoke-Step 'category drag sort wiring' {
 			throw "managed_ability.html.tpl missing category bind migration marker: $needle"
 		}
 	}
-	foreach ($needle in @('content_category_bind', 'categoryBindTable', 'categoryBindBackfill', 'category.bind.status', 'category.bind.backfill', 'categoryBindDiagnostics', 'categoryBindDriftSamples', 'categoryBindAdminBackfill', 'categoryBindDiagnosticsUi', 'categoryBindBackfillUi', 'categoryBindWritePaths', 'maxSortRows', 'maxRequestBytes', 'maxDriftSampleRows', 'sortLimit', 'requestLimit', 'accessIntegration', 'adminTreeFilter', 'treeObservability', 'treeUi', 'treeSummaryUi', 'treeFilterContextUi', 'deleteProtectionCounts', 'statusValidation')) {
+	foreach ($needle in @('content_category_bind', 'categoryBindTable', 'categoryBindBackfill', 'category.bind.status', 'category.bind.backfill', 'categoryBindDiagnostics', 'categoryBindDriftSamples', 'categoryBindAdminBackfill', 'categoryBindDiagnosticsUi', 'categoryBindBackfillUi', 'categoryBindWritePaths', 'sortResultRows', 'sortResultUi', 'maxSortRows', 'maxRequestBytes', 'maxDriftSampleRows', 'sortLimit', 'requestLimit', 'accessIntegration', 'adminTreeFilter', 'treeObservability', 'treeUi', 'treeSummaryUi', 'treeFilterContextUi', 'deleteProtectionCounts', 'statusValidation')) {
 		if ($categoryContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.category contracts.json missing category boundary marker: $needle"
 		}
@@ -2444,6 +2533,8 @@ Invoke-Step 'form schema designer wiring' {
 		'strcmp(sFormat, "phone")',
 		'option is invalid',
 		'Managed_FormNotify',
+		'Managed_BackgroundTaskCreate(pDb, "content.form.notification.deliver"',
+		'Managed_BackgroundTaskCreate(pDb, "content.form.notification.replay"',
 		'Managed_RequestFormSubmissionStatsAdmin',
 		'Managed_AppendFormSubmissionStatusStat',
 		'Managed_AppendFormSubmissionFormStat',
@@ -2466,6 +2557,8 @@ Invoke-Step 'form schema designer wiring' {
 		'/form/notification/replay',
 		'form.notification.status',
 		'form.notification.replay',
+		'backgroundTaskId',
+		'queued',
 		'sourceNotificationId',
 		'newNotificationId',
 		'read_time',
@@ -2519,7 +2612,9 @@ Invoke-Step 'form schema designer wiring' {
 		'notificationStatus',
 		'notificationStats',
 		'notificationStatsUi',
+		'notificationDeliveryTask',
 		'notificationReplay',
+		'notificationReplayTaskUi',
 		'designerPreviewUi',
 		'accessIntegration',
 		'requestLimit',
@@ -2892,7 +2987,10 @@ Invoke-Step 'audit request ip wiring' {
 		'Managed_ReadIntQuery(objReq, "targetId", 0)',
 		"WHERE (?='' OR target_type=?) AND (?='' OR action=?) AND (?<=0 OR target_id=?) ORDER BY create_time DESC,id DESC LIMIT ?",
 		'DELETE FROM content_audit_log WHERE id IN (SELECT id FROM content_audit_log WHERE create_time < ? ORDER BY create_time ASC,id ASC LIMIT ?)',
-		'{\"deleted\":%d,\"beforeTime\":%lld,\"limit\":%d}'
+		'{\"deleted\":%d,\"beforeTime\":%lld,\"limit\":%d}',
+		'Managed_BackgroundTaskCreate(pDb, "content.audit.cleanup"',
+		'xvoTableSetInt(tblRet, "backgroundTaskId", 16, iBackgroundTaskId)',
+		'xvoTableSetBool(tblRet, "queued", 6, iBackgroundTaskId > 0 ? TRUE : FALSE)'
 	)) {
 		if ($mainTemplate -notmatch [regex]::Escape($needle)) {
 			throw "managed_main.c.tpl missing audit request ip marker: $needle"
@@ -2913,7 +3011,10 @@ Invoke-Step 'audit request ip wiring' {
 		'operatorStats',
 		'adminStatsUi',
 		'cleanupResultUi',
-		'detailView'
+		'detailView',
+		'backgroundTaskAuditCleanup',
+		'cleanupTaskUi',
+		'content.audit.cleanup'
 	)) {
 		if ($auditContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.audit-log contracts.json missing list limit marker: $needle"
@@ -2935,6 +3036,8 @@ Invoke-Step 'audit request ip wiring' {
 		'btnAuditFilterClear',
 		'renderAuditCleanupResult',
 		'deletedCount',
+		'backgroundTaskId',
+		'queued',
 		'maxCleanupRows',
 		'auditStatTable',
 		'auditOperatorTable',
@@ -3089,6 +3192,11 @@ Invoke-Step 'static access guard wiring' {
 		'xvoTableSetInt(tblRet, "cleaned", 7, iCleaned)',
 		'xvoTableSetInt(tblRet, "limit", 5, iLimit)',
 		'xvoTableSetInt(tblRet, "maxCleanRows", 12, iMaxCleanRows)',
+		'content.static.clean',
+		'xvoTableSetInt(tblRet, "backgroundTaskId", 16, iBackgroundTaskId)',
+		'xvoTableSetValue(tblRet, "rows", 4, arrRows, TRUE)',
+		'xvoTableSetInt(tblRow, "artifactId", 10',
+		'xvoTableSetBool(tblRow, "fileDeleteAttempted", 19',
 		'xvoTableSetInt(tblRet, "targetId", 8, iTargetId)',
 		'xvoTableSetInt(tblRet, "ruleId", 6, iRuleId)',
 		'/static/task/status',
@@ -3141,6 +3249,8 @@ Invoke-Step 'static access guard wiring' {
 		'renderStaticStatusRows',
 		'renderStaticGenerateResult',
 		'renderStaticCleanResult',
+		'fileDeleteAttempted',
+		'content.static.clean',
 		'renderStaticRetryFailedResult',
 		'renderStaticRulePreviewResult',
 		'renderRouteRuleRefreshResult',
@@ -3166,7 +3276,7 @@ Invoke-Step 'static access guard wiring' {
 		}
 	}
 	$staticContracts = Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'hosts/xadmin/capability-pack/content.static/contracts.json')
-	foreach ($needle in @('"maxRequestBytes"', '"adminRequestLimit"', '"static.rule.preview"', '"rulePreview"', '"rulePreviewUi"', '"static.task.status"', '"static.task.retry"', '"static.task.retry-failed"', '"static.stats"', '"adminStats"', '"adminStatsUi"', '"generateResultUi"', '"cleanResultUi"', '"taskPersistenceStatus"', '"ruleStatusValidation"', '"taskRetry"', '"taskRetryFailed"', '"taskRetryFailedUi"', '"taskStatusFilter"', '"taskRuleTargetFilter"', '"artifactTargetFilter"', '"artifactPathFilter"', '"ruleListFilters"', '"unifiedRulePlan"', '"routeRulePlanApi"', '"route-rule.plan"', '"routeRuleValidateApi"', '"route-rule.validate"', '"routeRuleListApi"', '"route-rule.list"', '"routeRuleSaveApi"', '"route-rule.save"', '"routeRuleStatusApi"', '"route-rule.status"', '"routeRuleSortApi"', '"route-rule.sort"', '"routeRuleStatsApi"', '"route-rule.stats"', '"routeRuleRefreshApi"', '"route-rule.refresh"', '"routeRulePlanUi"', '"routeRuleValidateUi"', '"routeRuleStatsUi"', '"routeRuleRefreshUi"', '"routeRuleEditDialogUi"', '"routeRuleRuntimeRefresh"', '"independentRouteRuleStore"', '"routeRuleEditableContract"', '"routeRuleListFilters"', '"sourcePack"', '"keyword"')) {
+	foreach ($needle in @('"maxRequestBytes"', '"adminRequestLimit"', '"static.rule.preview"', '"rulePreview"', '"rulePreviewUi"', '"static.task.status"', '"static.task.retry"', '"static.task.retry-failed"', '"static.stats"', '"adminStats"', '"adminStatsUi"', '"generateResultUi"', '"cleanResultUi"', '"cleanRows"', '"backgroundTaskStaticClean"', '"taskPersistenceStatus"', '"ruleStatusValidation"', '"taskRetry"', '"taskRetryFailed"', '"taskRetryFailedUi"', '"taskStatusFilter"', '"taskRuleTargetFilter"', '"artifactTargetFilter"', '"artifactPathFilter"', '"ruleListFilters"', '"unifiedRulePlan"', '"routeRulePlanApi"', '"route-rule.plan"', '"routeRuleValidateApi"', '"route-rule.validate"', '"routeRuleListApi"', '"route-rule.list"', '"routeRuleSaveApi"', '"route-rule.save"', '"routeRuleStatusApi"', '"route-rule.status"', '"routeRuleSortApi"', '"route-rule.sort"', '"routeRuleStatsApi"', '"route-rule.stats"', '"routeRuleRefreshApi"', '"route-rule.refresh"', '"routeRulePlanUi"', '"routeRuleValidateUi"', '"routeRuleStatsUi"', '"routeRuleRefreshUi"', '"routeRuleEditDialogUi"', '"routeRuleRuntimeRefresh"', '"independentRouteRuleStore"', '"routeRuleEditableContract"', '"routeRuleListFilters"', '"sourcePack"', '"keyword"')) {
 		if ($staticContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.static contracts.json missing admin request boundary marker: $needle"
 		}
@@ -3190,6 +3300,9 @@ Invoke-Step 'import export paging UI wiring' {
 		'renderImportExportChunkResult',
 		'btnImportExportStats',
 		'showImportExportStats',
+		'btnImportStage',
+		'runImportStage',
+		'/import-export/import/stage',
 		'/import-export/stats',
 		'importExportResult',
 		'statusTable',
@@ -3230,7 +3343,10 @@ Invoke-Step 'import export paging UI wiring' {
 		'Managed_ImportExportBuildFieldPlan',
 		'Managed_RequestImportExportFieldPlanAdmin',
 		'Managed_RequestImportExportStatsAdmin',
+		'Managed_RequestImportStageAdmin',
 		'Managed_AppendImportExportStatusStat',
+		'/import-export/import/stage',
+		'content.import.stage',
 		'/import-export/field-plan',
 		'/import-export/stats',
 		'fieldPlan',
@@ -3271,7 +3387,7 @@ Invoke-Step 'import export paging UI wiring' {
 			throw "managed_main.c.tpl missing import/export bounded batch marker: $needle"
 		}
 	}
-	foreach ($needle in @('defaultExportLimit', 'jobListLimit', 'jobStats', 'jobStatsUi', 'failureSamples', 'jobStatusFilter', 'importResultStatus', 'exportResultUi', 'importResultUi', 'chunkResultUi', 'replayLimit', 'fieldPlan', 'fieldPlanUi', 'categoryBindIntegration', 'categoryBindImportSync', 'maxRequestBytes', 'requestLimit', 'import-export.stats')) {
+	foreach ($needle in @('defaultExportLimit', 'jobListLimit', 'jobStats', 'jobStatsUi', 'failureSamples', 'jobStatusFilter', 'importResultStatus', 'exportResultUi', 'importResultUi', 'chunkResultUi', 'replayLimit', 'fieldPlan', 'fieldPlanUi', 'categoryBindIntegration', 'categoryBindImportSync', 'maxRequestBytes', 'requestLimit', 'stagedUpload', 'stagedUploadUi', 'backgroundTaskImportStage', 'import-export.import.stage', 'import-export.stats')) {
 		if ($importContracts -notmatch [regex]::Escape($needle)) {
 			throw "content.import-export contracts.json missing marker: $needle"
 		}
@@ -3441,6 +3557,9 @@ Invoke-Step 'search probe UI wiring' {
 		'/search/rebuild?offset=',
 		'data.hasMore',
 		'maxRebuildRows',
+		'backgroundTaskId',
+		'data.backgroundTaskId',
+		'content.search.rebuild',
 		'search query is required',
 		'if(limit > 20) limit = 20'
 	)) {
@@ -3505,6 +3624,10 @@ Invoke-Step 'search probe UI wiring' {
 		'SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ? OFFSET ?',
 		'search rebuild transaction failed',
 		'search rebuild commit failed',
+		'Managed_BackgroundTaskCreate(pDb, "content.search.rebuild"',
+		'xvoTableSetInt(tblRet, "backgroundTaskId", 16, iBackgroundTaskId)',
+		'xvoTableSetBool(tblRet, "queued", 6, iBackgroundTaskId > 0 ? TRUE : FALSE)',
+		'bTaskPack = bStaticPack || bSitemapPack || bImportExportPack || bSearchPack || bFormPack || bAuditLogPack',
 		'Managed_CategoryBindApplyToItem(pDb, tblItem)',
 		'hasMore',
 		'nextOffset',
@@ -3535,6 +3658,8 @@ Invoke-Step 'search probe UI wiring' {
 		'rankingExplainUi',
 		'probeResultUi',
 		'rebuildResultUi',
+		'rebuildBackgroundTask',
+		'rebuildTaskUi',
 		'prefixTitleWeight',
 		'exactPhraseWeight',
 		'exactPhraseScore',
@@ -3684,11 +3809,13 @@ Invoke-Step 'workflow due-run bounded UI wiring' {
 		'renderWorkflowStats',
 		'renderWorkflowActionResult',
 		'renderWorkflowActionStats',
+		'renderWorkflowPlanRows',
 		'renderWorkflowScheduledResult',
 		'actionStats',
 		'notificationActionStats',
 		'approvalConfig',
 		'scheduledDue',
+		'workflowPlan',
 		'/workflow/stats',
 		'btnWorkflowRunScheduled',
 		'content.workflow',
@@ -3722,11 +3849,18 @@ Invoke-Step 'workflow due-run bounded UI wiring' {
 		'Managed_RequestWorkflowStatsAdmin',
 		'Managed_WorkflowCountScheduledDue',
 		'Managed_AppendWorkflowActionStat',
+		'Managed_WorkflowBuildPlan',
+		'Managed_WorkflowAppendNode',
+		'Managed_WorkflowAppendTransition',
 		'/workflow/stats',
 		'actionStats',
 		'notificationActionStats',
 		'approvalConfig',
 		'scheduledDue',
+		'workflowPlan',
+		'workflow-v1-requiredApprovals-compatible',
+		'compatRequiredApprovals',
+		'assigneePolicy',
 		'scannedDraftCount',
 		'diagnosticMode',
 		'unreadNotificationCount',
@@ -3801,6 +3935,9 @@ Invoke-Step 'workflow due-run bounded UI wiring' {
 		'actionResultUi',
 		'scheduledPublishUi',
 		'statsDiagnostics',
+		'nodePlan',
+		'transitionPlan',
+		'workflowPlanUi',
 		'workflow.stats',
 		'multiApproval',
 		'distinctApprovers',

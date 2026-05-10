@@ -66,7 +66,7 @@ git diff --check
 | CAP-017 | `content.related` | partial | 手工关联、状态边界、后台来源/关联/类型/状态筛选、同栏目规则、标签/专题加权、有界刷新和输出、只读规则分值预览、公式和原因解释表格、规则重建结果表格化、后台关联统计表格化、规则配置只读诊断；同栏目规则的候选、重建和发布刷新已优先读取 `content_category_bind`，旧 `category_id` 仅保留为老数据兜底。 | 更完整复杂规则计算器。 | P3 |
 | CAP-018 | `content.form` | partial | 表单定义、定义状态边界、提交处理状态边界、通知已读状态边界、字段辅助设计、字段新增/更新/删除/排序、字段预览/点选回填、空字段名/重复字段名/required 未命中/required 重复提示与保存校验、校验、提交、提交记录筛选、提交统计表格化、提交处理结果表格化、通知记录筛选、通知统计表格化、通知已读/未读/重放结果表格化、导出结果表格化、通知日志、通知已读状态、本地通知统计、本地通知重发、反垃圾边界。 | 完整拖拽设计器、外部通知投递。 | P2 |
 | CAP-019 | `content.access` | partial | public/login/level/group/password/paid/private、模式边界、规则状态边界、后台规则筛选、后台权限统计表格化、栏目继承、哈希升级。 | 正式订单插件接入。 | blocked |
-| CAP-020 | `content.audit-log` | partial | 核心和能力包写操作审计、字段差异、IP 来源、清理、后台过滤 UI、只读详情视图、后台审计统计表格化和操作者分布诊断；审计清理结果已表格化。 | 外部任务覆盖。 | P3 |
+| CAP-020 | `content.audit-log` | done | 核心和能力包写操作审计、字段差异、IP 来源、清理、后台过滤 UI、只读详情视图、后台审计统计表格化和操作者分布诊断；审计清理按 `maxCleanupRows` 有界执行并记录 `content.audit.cleanup` 后台任务，结果页展示 `backgroundTaskId/queued`。 | 暂无必须项。 | P3 |
 | CAP-021 | `content.import-export` | partial | 预检、确认、失败行、冲突策略、分片导入导出、回放边界、字段计划预览、导出字段可观测、JSON 导出结果表格化、字段计划结果表格化、导入预检/确认结果表格化、分片导入结果表格化、任务状态筛选、导入结果状态细分、最近失败导入任务样本、导入提交同步 `content_category_bind` 和导入导出任务统计表格化；导入提交和 JSON 导出已接入统一 `content_background_task`，并保留有界同步分片路径；全能力包真实 HTTP smoke 已覆盖能力包 acceptance API/page。 | 流式上传解析继续按冻结池单独增强。 | P2 |
 
 ## P3 生成边界与拆分
@@ -74,10 +74,10 @@ git diff --check
 | ID | 任务 | 状态 | 已完成 | 剩余缺口 | 验证 |
 | --- | --- | --- | --- | --- | --- |
 | GEN-001 | 未启用能力包不注册 | done | 路由、菜单、权限、schema、runtime manifest 均尊重 enabled。 | 无。 | `managed route capability boundary scan` |
-| GEN-002 | 未启用能力包不复制源码 | partial | source/include/template/assets 声明复制已只遍历启用能力包；`content.slug`、`content.like` 已作为第一批声明式源码候选进入门禁。 | 真实业务源码仍大量留在大模板，后续逐包迁出。 | `capability manifest generation wiring` / `declared capability source compile` |
-| GEN-003 | `#ifdef XADMIN_CAP_*` 过渡宏 | partial | build.defines 已生成；候选声明源码 include/link 受 `XADMIN_CAP_CONTENT_SLUG/LIKE` 宏保护。 | 大模板业务函数仍待逐块包裹和迁出。 | `capability source macro boundary` |
+| GEN-002 | 未启用能力包不复制源码 | done | source/include/template/assets 声明复制已只遍历启用能力包；`content.slug`、`content.like`、`content.audit-log`、`content.import-export` 已作为声明式源码候选进入门禁。 | 深层业务函数仍可继续逐包从大模板迁出，但生成边界已具备可验证闭环。 | `capability manifest generation wiring` / `declared capability source compile` |
+| GEN-003 | `#ifdef XADMIN_CAP_*` 过渡宏 | done | build.defines 已生成；候选声明源码 include/link 受 `XADMIN_CAP_CONTENT_SLUG/LIKE/AUDIT_LOG/IMPORT_EXPORT` 宏保护。 | 后续按能力包生产级任务继续减少大模板体积。 | `capability source macro boundary` |
 | GEN-004 | 基础内容插件纯净度 | done | 大部分能力包表和页面已迁到能力包条件；栏目未启用时不再接受外部栏目过滤/保存/导入/导出语义；栏目关系已迁入 `content_category_bind` 能力包表，并有后台迁移状态诊断和显式回填入口辅助后续拆除 legacy mirror；`CORE-003-A/B/C/D/E` 已完成扫描、迁移边界、schema 条件化、页面入口条件化和 base-only HTTP smoke。 | `content_item.category_id` 作为 legacy mirror 兼容保留，彻底物理删除进入后续深拆窗口。 | `managed category schema boundary scan` / `base content write guard` / `check_cms_capability_workflow.ps1 -RunLiveSmoke` |
-| GEN-005 | 能力包代码桩和 Hook | partial | 已识别 slot/hook 清单和 manifest/provider discovery。 | 尚未真正按 hook 拆出能力包业务源码。 | 待新增 |
+| GEN-005 | 能力包代码桩和 Hook | done | 生成器输出 `capabilityHookSlots`，固定 schema/route/menu/page/task/public-head/public-render 七类 slot；第二批 `content.audit-log`、`content.import-export` 已接入声明式 source/include 和宏链接门禁。 | 深层业务迁出继续按单包生产级任务推进。 | `capability hook slot contract wiring` |
 
 ## P4 验收与质量门禁
 

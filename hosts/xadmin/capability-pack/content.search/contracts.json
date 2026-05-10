@@ -15,6 +15,8 @@
     "rankingExplainUi": "ability page renders search ranking explanation as guard, weight, and top-result score tables while retaining raw JSON diagnostics",
     "probeResultUi": "ability page renders search probe results as bounded score breakdown tables instead of only raw JSON",
     "rebuildResultUi": "ability page renders search.rebuild execution result as a bounded offset/limit operation table while retaining raw JSON diagnostics",
+    "rebuildBackgroundTask": "search.rebuild writes a completed content.search.rebuild row into content_background_task with bounded offset/limit payload and result metadata",
+    "rebuildTaskUi": "ability page shows backgroundTaskId and queued state for each bounded search index rebuild batch",
     "adminStatsUi": "ability page renders search.stats as an index health table while retaining raw JSON diagnostics",
     "configKeys": ["titleWeight", "exactTitleWeight", "prefixTitleWeight", "keywordWeight", "summaryWeight", "bodyWeight", "exactPhraseWeight", "termCoverageWeight", "cjkBigramWeight", "freshnessWeight", "freshnessWindowDays", "minQueryLength", "maxResultLimit", "maxRebuildRows"],
     "queryGuards": {
@@ -33,5 +35,5 @@
     "categoryBindIntegration": "search result rows and rebuild candidate objects prefer content_category_bind when content.category is enabled, with legacy content_item.category_id only as a compatibility mirror",
     "accessIntegration": "public search results and count filter restricted content when content.access is enabled"
   },
-  "tasks": ["search.rebuildIndex"]
+  "tasks": ["search.rebuildIndex", "content.search.rebuild"]
 }

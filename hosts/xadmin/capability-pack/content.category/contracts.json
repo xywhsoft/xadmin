@@ -26,6 +26,8 @@
     "categoryBindDiagnosticsUi": "ability page renders category.bind.status as fixed migration metric tables while retaining raw JSON diagnostics",
     "categoryBindBackfillUi": "ability page renders category.bind.backfill result as a bounded migration result table",
     "categoryBindWritePaths": "content save, delete, import commit and revision restore synchronize content_category_bind when content.category is enabled",
+    "sortResultRows": "category.sort returns bounded per-row results with rowIndex, id, parentId, sort, moveParent, updated, descendantPathsUpdated and message",
+    "sortResultUi": "category admin page renders category.sort and drag-sort save responses as summary and per-row result tables",
     "adminTreeFilter": "category admin page provides local keyword filtering over the bounded tree result without adding request hot-path cost",
     "sortLimit": "category.sort rejects item arrays beyond maxSortRows",
     "requestLimit": "category save/delete/sort reject request bodies beyond maxRequestBytes before JSON parse",
