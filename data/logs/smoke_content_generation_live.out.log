@@ -1,0 +1,119 @@
+[xs:info] mode : normal
+[xs:info] XServer vNext bootstrap
+[xs:info] loading config : D:\Git\x-admin\xs.json
+[xs:info] config file : D:\Git\x-admin\xs.json
+[xs:info] config base : D:\Git\x-admin
+[xs:info] server count : 1
+[xs:info] server[0] class=http host_aware=true name=xAdmin Server dev=protocol
+[xs:info] server[0] default_host=true host_count=0
+[xs:info] runtime servers : 1
+[xs:info] runtime engine workers : 12
+[xs:info] runtime server[0] class=http addr=0.0.0.0:80 name=xAdmin Server
+[xs:info] script host loaded: server=xAdmin Server host=xAdmin file=D:\Git\x-admin\hosts/xadmin/script/main.c
+[xadmin:init] Define_Init begin
+        Define_Init 
+[xadmin:init] Define_Init done
+[xadmin:init] Guard_Init begin
+        Guard_Init 
+[xadmin:init] Guard_Init done
+[xadmin:init] Form_Init begin
+        Form_Init 
+[xadmin:init] Form_Init done
+[xadmin:init] Template_Init begin
+        Template_Init 
+[template][form] parse begin: json=
+{
+	"source": "form",
+	"file": "demo_form.json"
+}
+
+[template][form] parse success: html=5375 bytes
+[template] cache loaded key=form/block_demo.html
+        Template cache ready: loaded=25 failed=0
+[xadmin:init] Template_Init done
+[xadmin:init] Install_Init begin
+        Install_Init 
+[xadmin:init] Install_Init done
+[xadmin:init] Session_Init begin
+        Session_Init 
+[xadmin:init] Session_Init done
+[xadmin:init] DB_Init begin
+        DB_Init 
+[xadmin:init] DB_Init done
+[xadmin:init] Content_Init begin
+[xadmin:init] Content_Init done
+[xadmin:init] RouteHTTP_Init begin
+        RouteHTTP_Init 
+[xadmin:init] RouteHTTP_Init done
+[xadmin:init] Admin_Init begin
+        Admin_Init 
+[xadmin:init] Admin_Init done
+[xadmin:init] Auth_Init begin
+        Auth_Init 
+[xadmin:init] Auth_Init done
+[xadmin:init] StandalonePage_Init begin
+        StandalonePage_Init 
+[xadmin:init] StandalonePage_Init done
+[xadmin:init] Logs_Init begin
+        Logs_Init 
+[xadmin:init] Logs_Init done
+[xadmin:init] Option_Init begin
+        Option_Init 
+[option] Option_RebuildCache begin
+[option] admin entry protected: /jvb5umu0000a0az05tjn9q0ttrnms888
+[option] Option_RebuildCache done
+[xadmin:init] Option_Init done
+[xadmin:init] Sched_Init begin
+        Sched_Init 
+[xadmin:init] Sched_Init done
+[xadmin:init] Menu_Init begin
+        Menu_Init 
+[xadmin:init] Menu_Init done
+[xadmin:init] PluginRoute_EnsureMenus begin
+[xadmin:init] PluginRoute_EnsureMenus done
+[xadmin:init] Member_Init begin
+        Member_Init 
+[xadmin:init] Member_Init done
+[xadmin:init] MemberMessage_Init begin
+        MemberMessage_Init 
+[xadmin:init] MemberMessage_Init done
+[xadmin:init] MemberAuth_Init begin
+        MemberAuth_Init 
+[xadmin:init] MemberAuth_Init done
+[xadmin:init] Attachment_Init begin
+        Attachment_Init 
+[xadmin:init] Attachment_Init done
+[xadmin:init] Auth_SyncURIS begin
+[xadmin:init] Auth_SyncURIS done
+[xadmin:init] PluginSystem_Init begin
+        PluginSystem_Init 
+        [PluginSystem] Discovered package: cms.article
+        [PluginSystem] Discovered package: cms.codex_verify_0501
+        [PluginSystem] Discovered package: comment-system
+        [PluginSystem] Discovered package: content-system
+        [PluginSystem] Discovered package: filemanager
+        [PluginSystem] Discovered package: firewall
+        [PluginSystem] Discovered package: gbdemo
+        [PluginSystem] Discovered package: guestbook_v3
+        [PluginSystem] Discovered package: hello
+        [PluginSystem] Discovered package: perfmon
+        [PluginSystem] Discovered package: xlogserver
+        [PluginSystem] AutoStart check: package=cms.article enabled=1 status=3 active=96
+        [PluginSystem] Preparing generation: package=cms.article generation=97
+        [PluginSystem] Start ok: package=cms.article generation=97
+        [PluginSystem] AutoStart check: package=cms.codex_verify_0501 enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=comment-system enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=content-system enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=filemanager enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=firewall enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=gbdemo enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=guestbook_v3 enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=hello enabled=0 status=0 active=0
+        [PluginSystem] AutoStart check: package=perfmon enabled=0 status=1 active=0
+        [PluginSystem] AutoStart check: package=xlogserver enabled=0 status=1 active=0
+[xadmin:init] PluginSystem_Init done
+[xs:info] http init: name=xAdmin Server addr=0.0.0.0:80 default_host=true hosts=0
+[xs:info] http default host: name=xAdmin path=D:\Git\x-admin\hosts/xadmin/wwwroot dev=script-c
+[xs:info] http start: server=xAdmin Server addr=0.0.0.0:80 bound_port=80
+[xs:info] stage complete : runtime entered serving loop
+[xs:info] press Ctrl+C to stop

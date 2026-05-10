@@ -3,7 +3,7 @@
   "packId": "content.view-stat",
   "name": "view-stat",
   "title": "访问统计",
-  "description": "Generate view counters, view logs, rank APIs, and admin statistics reports.",
+  "description": "提供访问计数、访问日志、排行接口、日趋势和后台统计看板能力。",
   "version": "1.0.0",
   "author": "xAdmin",
   "source": "xadmin",
@@ -38,7 +38,7 @@
   "symbols": "symbols.json",
   "patches": "patches.json",
   "contracts": "contracts.json",
-  "advisorMessage": "Capability content.view-stat: records view logs and counters; define visitor key, privacy boundary and log retention.",
+  "advisorMessage": "能力包 content.view-stat：会记录访问日志和计数，请确认访客标识、隐私边界和日志保留策略。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/view/counter/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_view_stat"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_view_stat"
 }

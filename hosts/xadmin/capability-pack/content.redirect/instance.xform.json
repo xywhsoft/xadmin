@@ -1,0 +1,49 @@
+{
+  "groups": [
+    {
+      "key": "redirect-route",
+      "title": "跳转动态路由选项",
+      "fields": [
+        {
+          "name": "enablePrettyRedirectRoute",
+          "type": "switch",
+          "label": "启用 /{pluginXid}/r/... 动态跳转入口",
+          "value": true
+        },
+        {
+          "name": "redirectRoutePrefix",
+          "type": "text",
+          "label": "跳转公开前缀",
+          "value": "/{pluginXid}/r"
+        },
+        {
+          "name": "maxListRows",
+          "type": "number",
+          "label": "后台列表行数上限",
+          "value": 200,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxImportRows",
+          "type": "number",
+          "label": "导入行数上限",
+          "value": 200,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "请求体字节上限",
+          "value": 262144,
+          "min": 1024,
+          "max": 1048576,
+          "step": 1024
+        }
+      ]
+    }
+  ]
+}

@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.revision: stores content snapshots on writes; estimate database growth and retention policy.",
-  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/revision/diff?id=1",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_revision"
+  "advisorMessage": "能力包 content.revision：会在写入时保存内容快照，请评估数据库增长和版本保留策略。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/revision/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_revision"
 }

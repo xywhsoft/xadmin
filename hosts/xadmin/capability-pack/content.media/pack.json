@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.media: tracks media resources and content references; plan upload storage, deletion protection and image processing policy.",
+  "advisorMessage": "能力包 content.media：会跟踪媒体资源和内容引用，请规划上传存储、删除保护和图片处理策略。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/media/ref/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_media"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_media"
 }

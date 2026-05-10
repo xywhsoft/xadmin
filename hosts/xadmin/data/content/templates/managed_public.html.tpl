@@ -585,6 +585,7 @@
       ranks: [],
       abilityState: {},
       fieldFilters: {},
+      listMeta: {},
       workspaceSlotKey: "",
       workspaceHref: "",
       workspaceTitle: ""
@@ -813,6 +814,31 @@
       return packs.some((item) => String((item || {}).packId || "") === String(packId));
     }
 
+    function mpAbilityPackConfig(packId) {
+      const packs = (((mp.meta || {}).contracts || {}).abilityPacks) || [];
+      const pack = packs.find((item) => String((item || {}).packId || "") === String(packId));
+      return (pack && pack.instanceConfig && typeof pack.instanceConfig === "object") ? pack.instanceConfig : {};
+    }
+
+    function mpAbilityRoutePrefix(packId, name, fallback) {
+      const config = mpAbilityPackConfig(packId);
+      let prefix = String((config && config[name]) || fallback || "");
+      prefix = prefix.replace(/\{pluginXid\}/g, "{{PLUGIN_XID}}").trim();
+      if (!prefix || prefix[0] !== "/") prefix = String(fallback || "");
+      while (prefix.length > 1 && prefix.endsWith("/")) {
+        prefix = prefix.slice(0, -1);
+      }
+      return prefix || String(fallback || "");
+    }
+
+    function mpApplyTextTemplate(template, values) {
+      const text = String(template || "");
+      if (!text) return "";
+      return text.replace(/\{([A-Za-z0-9_]+)\}/g, (all, key) => {
+        return Object.prototype.hasOwnProperty.call(values || {}, key) ? String(values[key] || "") : all;
+      });
+    }
+
     function mpClientKey(name) {
       const key = `managed_public_${name}_{{PLUGIN_XID}}`;
       try {
@@ -832,7 +858,7 @@
       const parts = [];
       if (!host) return;
       if (mpHasAbilityPack("content.category")) {
-        parts.push(`<select id="mp_category_filter" onchange="mpApplySearch()"><option value="">All categories</option>${(mp.categories || []).map((item) => `<option value="${mpEscape(item.id)}">${mpEscape(item.treeTitle || item.title || item.slug || item.id)}</option>`).join("")}</select>`);
+        parts.push(`<select id="mp_category_filter" onchange="mpApplySearch()"><option value="">All categories</option>${(mp.categories || []).map((item) => `<option value="${mpEscape(item.id)}">${mpEscape(item.breadcrumb || item.treeTitle || item.title || item.slug || item.id)}</option>`).join("")}</select>`);
       }
       if (mpHasAbilityPack("content.tag")) {
         parts.push(`<select id="mp_tag_filter" onchange="mpApplySearch()"><option value="">全部标签</option>${(mp.tags || []).map((item) => `<option value="${mpEscape(item.id)}">${mpEscape(item.name || item.slug || item.id)}</option>`).join("")}</select>`);
@@ -869,8 +895,22 @@
       if (searchEl) searchEl.value = mp.query || "";
     }
 
+    function mpPrettySlugFromPath() {
+      const prefix = `${mpAbilityRoutePrefix("content.slug", "slugRoutePrefix", "/{{PLUGIN_XID}}")}/`;
+      const path = String(window.location.pathname || "");
+      if (!mpHasAbilityPack("content.slug") || path.indexOf(prefix) !== 0) return "";
+      const slug = path.slice(prefix.length);
+      if (!slug || slug.indexOf("/") >= 0) return "";
+      try {
+        return decodeURIComponent(slug);
+      } catch (err) {
+        return slug;
+      }
+    }
+
     function mpSyncUrl(item) {
       const params = new URLSearchParams();
+      const prettySlug = mpPrettySlugFromPath();
       if (mp.query) params.set("q", mp.query);
       if (mp.sortBy) params.set("sortBy", mp.sortBy);
       if (mp.sortDir) params.set("sortDir", mp.sortDir);
@@ -883,9 +923,9 @@
           params.set(mpFieldQueryKey(field), value);
         }
       }
-      if (item && item.slug) {
+      if (item && item.slug && String(item.slug) !== prettySlug) {
         params.set("slug", String(item.slug));
-      } else if (item && Number(item.id) > 0) {
+      } else if (item && Number(item.id) > 0 && !prettySlug) {
         params.set("id", String(item.id));
       }
       const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
@@ -963,12 +1003,28 @@
 
     function mpCategorySeoMeta(category) {
       if (!category || !mpHasAbilityPack("content.seo")) return null;
-      if (!category.seoTitle && !category.seoKeywords && !category.seoDescription) return null;
+      const identity = (((mp.meta || {}).spec || {}).identity) || {};
+      const pluginTitle = (mp.meta && mp.meta.title) || identity.title || "{{PLUGIN_XID}}";
+      const config = mpAbilityPackConfig("content.seo");
+      const values = {
+        categoryId: category.id || "",
+        categoryTitle: category.title || "",
+        categorySlug: category.slug || "",
+        categoryDescription: category.description || "",
+        siteName: pluginTitle,
+        pluginTitle: pluginTitle,
+        pluginXid: "{{PLUGIN_XID}}"
+      };
+      const title = category.seoTitle || mpApplyTextTemplate(config.categoryTitleTemplate, values) || category.title || "";
+      const keywords = category.seoKeywords || mpApplyTextTemplate(config.categoryKeywordsTemplate, values) || "";
+      const description = category.seoDescription || mpApplyTextTemplate(config.categoryDescriptionTemplate, values) || category.description || "";
+      const canonical = mpApplyTextTemplate(config.categoryCanonicalTemplate, values) || (category.slug ? `/plugin/{{PLUGIN_XID}}?categoryId=${encodeURIComponent(category.id)}` : "");
+      if (!title && !keywords && !description && !canonical) return null;
       return {
-        title: category.seoTitle || category.title || "",
-        keywords: category.seoKeywords || "",
-        description: category.seoDescription || category.description || "",
-        canonical: category.slug ? `/plugin/{{PLUGIN_XID}}?categoryId=${encodeURIComponent(category.id)}` : ""
+        title: title,
+        keywords: keywords,
+        description: description,
+        canonical: canonical
       };
     }
 
@@ -1020,9 +1076,7 @@
     function mpCapabilitySlots() {
       const mountItems = (((mp.meta || {}).mounts || {}).mounts) || [];
       if (mountItems.length) return mountItems.map((item) => item.slot || {});
-      return ((((mp.meta || {}).contracts || {}).capabilitySlots)
-        || (((((mp.meta || {}).managed || {}).contracts || {}).capabilitySlots))
-        || []);
+      return ((((mp.meta || {}).managed || {}).capabilitySlots) || []);
     }
 
     function mpMountRegistry() {
@@ -1872,8 +1926,16 @@
       const result = await response.json();
       if (!result || !result.result) throw new Error((result && result.message) || "列表加载失败");
       mp.items = result.data || [];
+      mp.listMeta = {
+        scanLimit: Number(result.scanLimit || 0),
+        scanLimitReached: !!result.scanLimitReached
+      };
       mpRenderList();
       mpRenderViewRank();
+      if (mp.listMeta.scanLimitReached) {
+        mpSetStatus("mp_nav_status", `${mp.items.length} rows loaded; scan limit ${mp.listMeta.scanLimit} reached.`, "#fbbf24");
+        return;
+      }
       mpSetStatus("mp_nav_status", `${mp.items.length} 条已发布记录已加载${mp.query ? `，关键词“${mp.query}”` : ""}。`);
     }
 
@@ -1912,7 +1974,7 @@
         await mpLoadList();
         await mpLoadViewRank();
         const requestedId = Number(params.get("id") || 0);
-        const requestedSlug = String(params.get("slug") || "");
+        const requestedSlug = String(params.get("slug") || mpPrettySlugFromPath() || "");
         const slugItem = requestedSlug
           ? (mp.items.find((item) => String(item.slug || "") === requestedSlug) || null)
           : null;

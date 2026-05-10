@@ -472,6 +472,7 @@ str Content_BuildManagedSpecJson(xvalue tblSpec, const char* sModelXid, const ch
 	xvalue tblPolicies = tblSpec ? xvoTableGetValue(tblSpec, "policies", 8) : NULL;
 	xvalue tblPages = tblSpec ? xvoTableGetValue(tblSpec, "pages", 5) : NULL;
 	xvalue arrCapabilities = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
+	xvalue arrEnabledCapabilities = xvoCreateArray();
 	xvalue arrGroups = NULL;
 	const char* sName = tblSpec ? xvoTableGetText(tblSpec, "name", 4) : NULL;
 	const char* sNamespace = tblSpec ? xvoTableGetText(tblSpec, "namespace", 9) : NULL;
@@ -517,8 +518,16 @@ str Content_BuildManagedSpecJson(xvalue tblSpec, const char* sModelXid, const ch
 		xvoTableSetValue(tblRoot, "policies", 8, xvoCopy(tblPolicies), TRUE);
 	}
 	if ( arrCapabilities && xvoType(arrCapabilities) == XVO_DT_ARRAY ) {
-		xvoTableSetValue(tblRoot, "capabilitySlots", 15, xvoCopy(arrCapabilities), TRUE);
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
+			xvalue tblCap = xvoArrayGetValue(arrCapabilities, i);
+			bool bEnabled = TRUE;
+			if ( (tblCap == NULL) || (xvoType(tblCap) != XVO_DT_TABLE) ) continue;
+			if ( xvoTableExists(tblCap, "enabled", 7) ) bEnabled = xvoTableGetBool(tblCap, "enabled", 7);
+			if ( !bEnabled ) continue;
+			xvoArrayAppendValue(arrEnabledCapabilities, xvoCopy(tblCap), TRUE);
+		}
 	}
+	xvoTableSetValue(tblRoot, "capabilitySlots", 15, arrEnabledCapabilities, TRUE);
 	if ( tblPages && xvoType(tblPages) == XVO_DT_TABLE ) {
 		arrGroups = xvoTableGetValue(tblPages, "fieldGroups", 11);
 		if ( arrGroups && xvoType(arrGroups) == XVO_DT_ARRAY ) {
@@ -530,6 +539,44 @@ str Content_BuildManagedSpecJson(xvalue tblSpec, const char* sModelXid, const ch
 
 	sJson = xrtStringifyJSON(tblRoot, FALSE, NULL);
 	xvoUnref(tblRoot);
+	return sJson;
+}
+
+str Content_BuildRuntimeManagedJson(const char* sPluginXid, int iRevision, int64 iNow, xvalue tblSpec)
+{
+	xvalue tblRoot = xvoCreateTable();
+	xvalue arrCapabilities = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
+	xvalue arrEnabledCapabilities = xvoCreateArray();
+	str sJson = NULL;
+
+	/* runtime/managed.json is loaded before contracts; keep enabled pack slots here too. */
+	if ( arrCapabilities && xvoType(arrCapabilities) == XVO_DT_ARRAY ) {
+		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
+			xvalue tblCap = xvoArrayGetValue(arrCapabilities, i);
+			bool bEnabled = TRUE;
+			if ( (tblCap == NULL) || (xvoType(tblCap) != XVO_DT_TABLE) ) continue;
+			if ( xvoTableExists(tblCap, "enabled", 7) ) bEnabled = xvoTableGetBool(tblCap, "enabled", 7);
+			if ( !bEnabled ) continue;
+			xvoArrayAppendValue(arrEnabledCapabilities, xvoCopy(tblCap), TRUE);
+		}
+	}
+
+	xvoTableSetBool(tblRoot, "managed", 7, TRUE);
+	xvoTableSetText(tblRoot, "managedBy", 9, "content", 0, FALSE);
+	xvoTableSetText(tblRoot, "managedType", 11, "generated-plugin", 0, FALSE);
+	xvoTableSetText(tblRoot, "pluginXid", 9, (str)Content_TextOr(sPluginXid, ""), 0, FALSE);
+	xvoTableSetInt(tblRoot, "contentTypeRevision", 19, iRevision);
+	xvoTableSetText(tblRoot, "generatedRoot", 13, "generated", 0, FALSE);
+	xvoTableSetText(tblRoot, "runtimeRoot", 11, "runtime", 0, FALSE);
+	xvoTableSetText(tblRoot, "customRoot", 10, "custom", 0, FALSE);
+	xvoTableSetInt(tblRoot, "generatedAt", 11, iNow);
+	xvoTableSetValue(tblRoot, "capabilitySlots", 15, arrEnabledCapabilities, TRUE);
+
+	sJson = xrtStringifyJSON(tblRoot, FALSE, NULL);
+	xvoUnref(tblRoot);
+	if ( sJson == NULL ) {
+		sJson = xrtFormat("{\"managed\":true,\"managedBy\":\"content\",\"managedType\":\"generated-plugin\",\"pluginXid\":\"%s\",\"contentTypeRevision\":%d,\"generatedRoot\":\"generated\",\"runtimeRoot\":\"runtime\",\"customRoot\":\"custom\",\"generatedAt\":%lld,\"capabilitySlots\":[]}\n", Content_TextOr(sPluginXid, ""), iRevision, (long long)iNow);
+	}
 	return sJson;
 }
 
@@ -650,7 +697,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	sStaticDetailHtml = Content_BuildManagedStaticDetailHtml();
 	sDefaults = xrtCopyStr("{\"pageSize\":20}\n", 0);
 	sSchema = xrtCopyStr("{\"type\":\"object\",\"properties\":{\"pageSize\":{\"type\":\"integer\",\"title\":\"Page Size\"}},\"additionalProperties\":false}\n", 0);
-	sManaged = xrtFormat("{\"managed\":true,\"managedBy\":\"content\",\"managedType\":\"generated-plugin\",\"pluginXid\":\"%s\",\"contentTypeRevision\":%d,\"generatedRoot\":\"generated\",\"runtimeRoot\":\"runtime\",\"customRoot\":\"custom\",\"generatedAt\":%lld}\n", sGeneratedPluginXid ? (const char*)sGeneratedPluginXid : "", iRevision, (long long)iNow);
+	sManaged = Content_BuildRuntimeManagedJson(sGeneratedPluginXid, iRevision, iNow, tblSpecJson);
 	sContracts = Content_BuildGeneratedContracts(sXid, iRevision, tblSpecJson);
 	sCapabilityManifest = Content_BuildGeneratedCapabilityManifest(sXid, iRevision, tblSpecJson);
 	sMountExample = xrtCopyStr("{\"mounts\":[]}\n", 0);

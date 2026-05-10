@@ -2,13 +2,28 @@
   "permissions": ["related.view", "related.manage"],
   "adminPages": ["related"],
   "publicApis": ["related.list"],
-  "adminApis": ["related.list", "related.save", "related.delete", "related.rebuild"],
+  "adminApis": ["related.list", "related.save", "related.delete", "related.rebuild", "related.rule.preview", "related.stats"],
   "tables": ["content_related"],
   "events": ["content.afterSave", "related.afterBind"],
   "runtime": {
     "saveSync": true,
     "peerSync": true,
-    "configKeys": ["ruleLimit"]
+    "configKeys": ["ruleLimit", "publishRefreshLimit", "maxPublicRelated", "maxAdminListRows", "maxRebuildSources", "maxRequestBytes", "categoryWeight", "tagWeight", "topicWeight"],
+    "publicOutputLimit": "maxPublicRelated",
+    "adminListLimit": "maxAdminListRows",
+    "rebuildSourceLimit": "full rule rebuild clamps source content count by maxRebuildSources",
+    "requestLimit": "admin save/delete/rebuild reject request bodies beyond maxRequestBytes before JSON parse",
+    "accessIntegration": "related.list filters restricted content when content.access is enabled",
+    "categoryBindIntegration": "same-category rule rebuild and public related result rows read content_category_bind when content.category is enabled and keep legacy category_id only as old-data fallback",
+    "ruleWeights": "categoryWeight:10,tagWeight:30,topicWeight:20",
+    "rulePreview": "admin preview explains same-category candidates, shared tag/topic counts, score formula, reason text and final rule weights without writing content_related",
+    "rulePreviewReadOnly": "related.rule.preview returns writesData=false and writeMode=preview-only",
+    "rebuildResultUi": "ability page renders related.rebuild result as a bounded operation table while retaining raw JSON diagnostics",
+    "adminStats": "related.stats returns relation totals, relationType aggregates and current ruleConfig for admin diagnostics without changing recommendation rules",
+    "adminStatsUi": "ability page renders related.stats as relation totals, rule diagnostics and relation type aggregate tables while retaining raw JSON diagnostics",
+    "ruleConfigDiagnostics": "related.stats exposes ruleLimit, publishRefreshLimit, maxRebuildSources, categoryWeight, tagWeight, topicWeight and ruleFormula as read-only diagnostics",
+    "statusValidation": "manual related save normalizes status to enabled/disabled values before writing",
+    "adminListFilters": ["sourceContentId", "relatedContentId", "relationType", "status"]
   },
   "tasks": []
 }

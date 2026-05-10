@@ -584,12 +584,82 @@ layui.use(['form'], function(){
     if (!id) return;
     var ret = await fetchJson('/admin/api/plugin/' + pluginXid + '/revision/diff?id=' + encodeURIComponent(id));
     if (!ret || !ret.result) throw new Error((ret && ret.message) || 'revision diff failed');
-    layer.open({type:1,title:'Revision Diff #' + id,area:['860px','560px'],content:renderRevisionChangeDialog((ret.data && ret.data.changes) || [], ret.data)});
+    layer.open({type:1,title:'版本差异 #' + id,area:['860px','560px'],content:renderRevisionChangeDialog((ret.data && ret.data.changes) || [], ret.data)});
   }
 
-  function renderRevisionValue(value, peer) {
+  function revisionFieldText(row) {
+    return String((row && (row.field || row.title)) || '').toLowerCase();
+  }
+
+  function revisionValueText(value) {
+    if (value && typeof value === 'object') {
+      try { return JSON.stringify(value, null, 2); } catch (e) {}
+    }
+    return String(value == null ? '' : value);
+  }
+
+  function isRevisionStructuredValue(value) {
+    return value && typeof value === 'object';
+  }
+
+  function renderRevisionStructuredValue(value, peer) {
+    var valueObj = isRevisionStructuredValue(value);
+    var peerObj = isRevisionStructuredValue(peer);
+    var keys = [];
+    var seen = {};
+    if (!valueObj && !peerObj) return '';
+    if (Array.isArray(value) || Array.isArray(peer)) {
+      return '<pre class="revision-structured-diff" style="white-space:pre-wrap;margin:0;">' + htmlOf(revisionValueText(value)) + '</pre>';
+    }
+    Object.keys(valueObj ? value : {}).forEach(function(k){ seen[k] = true; keys.push(k); });
+    Object.keys(peerObj ? peer : {}).forEach(function(k){ if (!seen[k]) { seen[k] = true; keys.push(k); } });
+    if (!keys.length) return '<pre class="revision-structured-diff" style="white-space:pre-wrap;margin:0;">' + htmlOf(revisionValueText(value)) + '</pre>';
+    return '<table class="layui-table revision-structured-diff"><thead><tr><th style="width:150px">Key</th><th>Value</th></tr></thead><tbody>' + keys.map(function(k){
+      var hasValue = valueObj && Object.prototype.hasOwnProperty.call(value, k);
+      var hasPeer = peerObj && Object.prototype.hasOwnProperty.call(peer, k);
+      var changed = hasValue && hasPeer && revisionValueText(value[k]) !== revisionValueText(peer[k]);
+      var state = !hasPeer ? 'added' : (!hasValue ? 'removed' : (changed ? 'changed' : 'same'));
+      return '<tr data-state="' + state + '"><td>' + htmlOf(k) + '</td><td><pre style="white-space:pre-wrap;margin:0;">' + htmlOf(hasValue ? revisionValueText(value[k]) : '') + '</pre></td></tr>';
+    }).join('') + '</tbody></table>';
+  }
+
+  function isRevisionUrlValue(text) {
+    return /^https?:\/\//i.test(text) || text.indexOf('/') === 0 || text.indexOf('plugin-static/') === 0 || text.indexOf('static/') === 0;
+  }
+
+  function isRevisionImageValue(text, row) {
+    var path = String(text || '').split(/[?#]/)[0].toLowerCase();
+    var field = revisionFieldText(row);
+    return isRevisionUrlValue(text) && (/\.(png|jpe?g|gif|webp|svg|avif)$/.test(path) || field.indexOf('image') >= 0 || field.indexOf('cover') >= 0);
+  }
+
+  function renderRevisionMediaValue(value, peer, row) {
     var text = String(value == null ? '' : value);
-    var peerText = String(peer == null ? '' : peer);
+    var field = revisionFieldText(row);
+    if (!text || !isRevisionUrlValue(text)) return '';
+    if (isRevisionImageValue(text, row)) {
+      return '<div class="revision-media-diff"><img src="' + htmlOf(text) + '" alt="" style="display:block;max-width:220px;max-height:140px;margin-bottom:6px;border:1px solid #eaecf0;background:#f8fafc;"><pre style="white-space:pre-wrap;margin:0;">' + htmlOf(text) + '</pre></div>';
+    }
+    if (/url|link|path|file|media|asset|cover/.test(field)) {
+      return '<div class="revision-url-diff"><a href="' + htmlOf(text) + '" target="_blank" rel="noopener">打开 URL</a><pre style="white-space:pre-wrap;margin:0;">' + htmlOf(text) + '</pre></div>';
+    }
+    return '';
+  }
+
+  function renderRevisionValue(value, peer, row, resolvedLabel) {
+    if (row && resolvedLabel) {
+      var labelClass = row.diffMode === 'relation' ? 'revision-relation-diff' : 'revision-enum-diff';
+      return '<div class="' + labelClass + '"><pre style="white-space:pre-wrap;margin:0;">' + htmlOf(revisionValueText(value)) + '</pre><div style="color:#667085;font-size:12px;">label: ' + htmlOf(resolvedLabel) + '</div></div>';
+    }
+    if (row && row.diffMode === 'numeric' && Object.prototype.hasOwnProperty.call(row, 'numberDelta')) {
+      return '<div class="revision-number-diff"><pre style="white-space:pre-wrap;margin:0;">' + htmlOf(revisionValueText(value)) + '</pre><div style="color:#667085;font-size:12px;">delta: ' + htmlOf(row.numberDelta) + '</div></div>';
+    }
+    var structuredHtml = renderRevisionStructuredValue(value, peer);
+    if (structuredHtml) return structuredHtml;
+    var mediaHtml = renderRevisionMediaValue(value, peer, row);
+    if (mediaHtml) return mediaHtml;
+    var text = revisionValueText(value);
+    var peerText = revisionValueText(peer);
     var isLong = text.length > 160 || peerText.length > 160 || text.indexOf('\n') >= 0 || peerText.indexOf('\n') >= 0;
     if (!isLong) return '<pre style="white-space:pre-wrap;margin:0;">' + htmlOf(text) + '</pre>';
     var lines = text.split(/\r?\n/);
@@ -606,11 +676,12 @@ layui.use(['form'], function(){
 
   function renderRevisionChangeDialog(changes, data) {
     var rows = Array.isArray(changes) ? changes : [];
-    var html = '<div style="padding:12px 16px;"><div style="color:#667085;margin-bottom:8px;">' + htmlOf((data && data.changeCount) || rows.length || 0) + ' changed fields</div><table class="layui-table"><thead><tr><th style="width:160px">Field</th><th>Before</th><th>After</th></tr></thead><tbody>';
+    var html = '<div style="padding:12px 16px;"><div style="color:#667085;margin-bottom:8px;">' + htmlOf((data && data.changeCount) || rows.length || 0) + ' 个字段变更</div><table class="layui-table"><thead><tr><th style="width:160px">字段</th><th>变更前</th><th>变更后</th></tr></thead><tbody>';
     rows.forEach(function(row){
-      html += '<tr><td><b>' + htmlOf(row.title || row.field || '') + '</b><div style="color:#667085;font-size:12px;">' + htmlOf(row.field || '') + '</div></td><td>' + renderRevisionValue(row.before, row.after) + '</td><td>' + renderRevisionValue(row.after, row.before) + '</td></tr>';
+      var summary = (row.changeKind || 'modified') + (row.diffMode ? ' / ' + row.diffMode : '');
+      html += '<tr><td><b>' + htmlOf(row.title || row.field || '') + '</b><div style="color:#667085;font-size:12px;">' + htmlOf(row.field || '') + '</div><div style="color:#667085;font-size:12px;">' + htmlOf(summary) + '</div></td><td>' + renderRevisionValue(row.before, row.after, row, row.beforeLabel) + '</td><td>' + renderRevisionValue(row.after, row.before, row, row.afterLabel) + '</td></tr>';
     });
-    if (!rows.length) html += '<tr><td colspan="3" style="text-align:center;color:#667085;">No field changes</td></tr>';
+    if (!rows.length) html += '<tr><td colspan="3" style="text-align:center;color:#667085;">没有字段变更</td></tr>';
     return html + '</tbody></table></div>';
   }
 
@@ -618,7 +689,7 @@ layui.use(['form'], function(){
     if (!id) return;
     var ret = await fetchJson('/admin/api/plugin/' + pluginXid + '/revision/restore-preview?id=' + encodeURIComponent(id));
     if (!ret || !ret.result) throw new Error((ret && ret.message) || 'revision restore preview failed');
-    layer.confirm(renderRevisionChangeDialog((ret.data && ret.data.changes) || [], ret.data), {title:'Restore Revision #' + id, area:['860px','560px']}, async function(index){
+    layer.confirm(renderRevisionChangeDialog((ret.data && ret.data.changes) || [], ret.data), {title:'恢复版本 #' + id, area:['860px','560px']}, async function(index){
       var restore = await postJson('/admin/api/plugin/' + pluginXid + '/revision/restore', {id:id});
       layer.close(index);
       if (!restore || !restore.result) throw new Error((restore && restore.message) || 'revision restore failed');

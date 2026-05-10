@@ -1,10 +1,10 @@
 {
-  "permissions": ["workflow.view", "workflow.submit", "workflow.review", "workflow.publish"],
-  "adminApis": ["workflow.action", "workflow.log.list", "workflow.scheduled-publish"],
+  "permissions": ["workflow.view", "workflow.submit", "workflow.review", "workflow.publish", "workflow.manage"],
+  "adminApis": ["workflow.action", "workflow.log.list", "workflow.todo.list", "workflow.notification.list", "workflow.scheduled-publish", "workflow.stats"],
   "adminPages": ["workflow"],
   "publicApis": [],
-  "tables": ["content_workflow_log"],
-  "events": ["workflow.afterSubmit", "workflow.afterReview", "workflow.afterPublish"],
+  "tables": ["content_workflow_log", "content_workflow_notification"],
+  "events": ["workflow.afterSubmit", "workflow.afterReview", "workflow.afterPublish", "workflow.notification"],
   "runtime": {
     "actionPanel": true,
     "actionPermissions": {
@@ -16,9 +16,24 @@
       "publish": "workflow.publish"
     },
     "scheduledPublish": true,
+    "notificationLog": true,
     "syncContentEffects": true,
     "assigneeFlow": true,
-    "editorActions": ["submit", "approve", "reject", "offline"]
+    "operatorTracking": "workflow log records operatorId from admin/member session when available",
+    "multiApproval": "requiredApprovals controls how many approve actions are required before review content is published",
+    "distinctApprovers": "requireDistinctApprovers rejects repeated approval by the same operator in one workflow round",
+    "configKeys": ["defaultScheduledLimit", "maxListRows", "maxReasonLength", "maxRequestBytes", "requiredApprovals", "requireDistinctApprovers"],
+    "listLimit": "maxListRows",
+    "adminStats": "workflow.stats returns todo, notification and log action aggregates for the moderation dashboard",
+    "adminStatsUi": "ability page renders workflow.stats as overview, approval diagnostics, scheduled due diagnostics and action aggregate tables while retaining raw JSON diagnostics",
+    "actionResultUi": "ability page renders workflow.action result as a status/log/notification/approval table while retaining raw JSON diagnostics",
+    "scheduledPublishUi": "ability page renders workflow.scheduled-publish execution result as a bounded operation table while retaining raw JSON diagnostics",
+    "statsDiagnostics": "workflow.stats exposes approvalConfig and scheduledDue as read-only diagnostics, with scheduled due scanning bounded by maxListRows",
+    "adminListFilters": ["log.contentId", "log.assigneeId", "log.action", "todo.assigneeId", "todo.status", "notification.contentId", "notification.assigneeId", "notification.action", "notification.readStatus"],
+    "reasonLimit": "maxReasonLength",
+    "requestLimit": "workflow action and scheduled publish reject request bodies beyond maxRequestBytes before JSON parse",
+    "editorActions": ["submit", "approve", "reject", "offline"],
+    "approvalGate": ["requiredApprovals", "approvalCount", "approvalPending", "requireDistinctApprovers"]
   },
   "tasks": ["workflow.scheduledPublish"]
 }

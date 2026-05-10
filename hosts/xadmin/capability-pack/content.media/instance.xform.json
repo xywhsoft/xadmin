@@ -1,0 +1,102 @@
+{
+  "groups": [
+    {
+      "title": "媒体校验",
+      "fields": [
+        {
+          "name": "maxAssetSizeBytes",
+          "label": "最大文件大小字节",
+          "type": "number",
+          "defaultValue": 0,
+          "min": 0,
+          "max": 2147483647,
+          "step": 1024,
+          "placeholder": "0"
+        },
+        {
+          "name": "maxImageDimension",
+          "label": "最大图片宽高",
+          "type": "number",
+          "defaultValue": 100000,
+          "min": 1,
+          "max": 100000,
+          "step": 1,
+          "placeholder": "100000"
+        },
+        {
+          "name": "serverDetectImageSize",
+          "label": "服务端识别本地图片尺寸",
+          "type": "switch",
+          "defaultValue": true
+        },
+        {
+          "name": "allowedMimeTypes",
+          "label": "允许的 MIME 类型",
+          "type": "text",
+          "defaultValue": "",
+          "placeholder": "image/jpeg,image/png,image/gif"
+        },
+        {
+          "name": "maxListRows",
+          "label": "媒体列表行数上限",
+          "type": "number",
+          "defaultValue": 500,
+          "min": 50,
+          "max": 2000,
+          "step": 50,
+          "placeholder": "500"
+        },
+        {
+          "name": "maxRefListRows",
+          "label": "后台引用列表上限",
+          "type": "number",
+          "defaultValue": 300,
+          "min": 1,
+          "max": 1000,
+          "step": 1,
+          "placeholder": "300"
+        },
+        {
+          "name": "maxDetailMediaRows",
+          "label": "详情媒体行数上限",
+          "type": "number",
+          "defaultValue": 50,
+          "min": 1,
+          "max": 200,
+          "step": 1,
+          "placeholder": "50"
+        },
+        {
+          "name": "maxPublicRefCheckRows",
+          "label": "公开引用检查行数上限",
+          "type": "number",
+          "defaultValue": 100,
+          "min": 1,
+          "max": 1000,
+          "step": 1,
+          "placeholder": "100"
+        },
+        {
+          "name": "maxBatchRows",
+          "label": "批量操作行数上限",
+          "type": "number",
+          "defaultValue": 200,
+          "min": 1,
+          "max": 1000,
+          "step": 1,
+          "placeholder": "200"
+        },
+        {
+          "name": "maxRequestBytes",
+          "label": "请求体字节上限",
+          "type": "number",
+          "defaultValue": 262144,
+          "min": 1024,
+          "max": 1048576,
+          "step": 1024,
+          "placeholder": "262144"
+        }
+      ]
+    }
+  ]
+}

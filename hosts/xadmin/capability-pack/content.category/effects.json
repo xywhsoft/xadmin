@@ -1,5 +1,5 @@
 {
-  "tables": ["content_category"],
+  "tables": ["content_category", "content_category_bind"],
   "fields": [
     {"name": "category_id", "title": "栏目", "storage": {"type": "integer"}, "showInList": true}
   ],

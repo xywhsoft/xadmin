@@ -3,7 +3,7 @@
   "packId": "content.sensitive",
   "name": "sensitive",
   "title": "敏感词管理",
-  "description": "Generate sensitive word dictionaries, filter logs, and save/publish/comment filtering hooks.",
+  "description": "提供敏感词词库、过滤日志，以及内容保存、发布和评论提交过滤能力。",
   "version": "1.0.0",
   "author": "xAdmin",
   "source": "xadmin",
@@ -36,7 +36,7 @@
   "symbols": "symbols.json",
   "patches": "patches.json",
   "contracts": "contracts.json",
-  "advisorMessage": "Capability content.sensitive: scans writes for configured words; tune fields, false positives and audit policy.",
-  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/sensitive/word/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_sensitive"
+  "advisorMessage": "能力包 content.sensitive：会扫描写入内容，请确认过滤字段、误判处理和审计策略。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/pack/list?pack=content.sensitive",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_sensitive"
 }

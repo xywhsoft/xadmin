@@ -44,6 +44,7 @@ function articleTemplateSpec() {
 			detailFields: 'title,summary,content',
 			defaultSort: 'id_desc',
 			pageSize: 20,
+			maxScanRows: 5000,
 			displayGroups: [
 				{title:'内容', fields:['title','summary','content']}
 			],
@@ -100,7 +101,7 @@ function applyArticleTemplate() {
 	setTab('overview');
 }
 
-['page_admin','page_public','page_detail','page_list_columns','page_detail_fields','page_default_sort','page_page_size','page_display_groups','page_field_groups'].forEach(function(id) {
+['page_admin','page_public','page_detail','page_list_columns','page_detail_fields','page_default_sort','page_page_size','page_max_scan_rows','page_display_groups','page_field_groups'].forEach(function(id) {
 	var el = $(id);
 	el.onchange = function() { readPageControls(); updateImpact(); };
 	el.oninput = function() { readPageControls(); updateImpact(); };

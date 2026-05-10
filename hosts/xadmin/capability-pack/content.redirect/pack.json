@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.redirect: adds redirect rules and hit tracking; verify redirect loops and static resource path conflicts during rule submission.",
-  "acceptanceApiPath": "/api/plugin/{pluginXid}/redirect/resolve?path=/old-url",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_redirect"
+  "advisorMessage": "能力包 content.redirect：会启用跳转规则和命中统计，请在规则提交时检查跳转环和静态资源路径冲突。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/redirect/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_redirect"
 }

@@ -77,6 +77,9 @@ function togglePack(key, enabled) {
 function renderPackConfig(key, cfg, enabled) {
 	if (!enabled) return '';
 
+	var xformHtml = renderPackConfigFromXForm(key, cfg);
+	if (xformHtml) return xformHtml;
+
 	if (key === 'content.comment') {
 		return '<div class="cap-config">'
 			+ '<label>审核方式</label><select class="cap-config-input" data-key="' + esc(key) + '" data-name="moderation">'
@@ -87,7 +90,66 @@ function renderPackConfig(key, cfg, enabled) {
 			+ '</div>';
 	}
 
+	if (key === 'content.seo') {
+		return '<div class="cap-config">'
+			+ '<label>栏目 Title 模板</label><input class="cap-config-input" data-key="' + esc(key) + '" data-name="categoryTitleTemplate" value="' + esc(cfg.categoryTitleTemplate || '{categoryTitle} - {siteName}') + '" placeholder="{categoryTitle} - {siteName}">'
+			+ '<label>栏目 Keywords 模板</label><input class="cap-config-input" data-key="' + esc(key) + '" data-name="categoryKeywordsTemplate" value="' + esc(cfg.categoryKeywordsTemplate || '{categoryTitle},{siteName}') + '" placeholder="{categoryTitle},{siteName}">'
+			+ '<label>栏目 Description 模板</label><input class="cap-config-input" data-key="' + esc(key) + '" data-name="categoryDescriptionTemplate" value="' + esc(cfg.categoryDescriptionTemplate || '{categoryDescription}') + '" placeholder="{categoryDescription}">'
+			+ '<label>栏目 Canonical 模板</label><input class="cap-config-input" data-key="' + esc(key) + '" data-name="categoryCanonicalTemplate" value="' + esc(cfg.categoryCanonicalTemplate || '/plugin/{pluginXid}?categoryId={categoryId}') + '" placeholder="/plugin/{pluginXid}?categoryId={categoryId}">'
+			+ '<div class="cap-meta">模板变量在生成后的公开页按需消费：{siteName}、{pluginXid}、{categoryId}、{categoryTitle}、{categorySlug}、{categoryPath}、{categoryDescription}。</div>'
+			+ '</div>';
+	}
+
 	return '<div class="cap-config"><div class="cap-meta">该能力包的实例配置将由 XForm 配置面板渲染。</div></div>';
+}
+
+function renderPackConfigFromXForm(key, cfg) {
+	var pack = null;
+	var form = null;
+	var groups = [];
+	for (var i = 0; i < (contentState.capabilities || []).length; i++) {
+		if (packKey(contentState.capabilities[i]) === key) {
+			pack = contentState.capabilities[i];
+			break;
+		}
+	}
+	if (!pack || !pack.instanceFormJson) return '';
+	try {
+		form = JSON.parse(pack.instanceFormJson || '{}');
+	} catch (err) {
+		return '';
+	}
+	if (Array.isArray(form.groups)) groups = form.groups;
+	if (Array.isArray(form.fields)) groups = [{ fields: form.fields }];
+	if (!groups.length) return '';
+	return '<div class="cap-config">' + groups.map(function(group) {
+		var fields = Array.isArray(group.fields) ? group.fields : [];
+		if (!fields.length) return '';
+		return (group.title ? '<div class="cap-meta">' + esc(group.title) + '</div>' : '')
+			+ fields.map(function(field) { return renderXFormConfigField(key, cfg, field); }).join('');
+	}).join('') + '</div>';
+}
+
+function renderXFormConfigField(key, cfg, field) {
+	if (!field || !field.name) return '';
+	var type = String(field.type || 'input');
+	var name = String(field.name);
+	var value = cfg[name] !== undefined ? cfg[name] : (field.defaultValue !== undefined ? field.defaultValue : field.value);
+	var label = esc(field.label || name);
+	if (type === 'switch' || type === 'checkbox') {
+		return '<label><input type="checkbox" class="cap-config-input" data-key="' + esc(key) + '" data-name="' + esc(name) + '" ' + (value !== false ? 'checked' : '') + '> ' + label + '</label>';
+	}
+	if (type === 'select') {
+		var list = Array.isArray(field.list) ? field.list : [];
+		return '<label>' + label + '</label><select class="cap-config-input" data-key="' + esc(key) + '" data-name="' + esc(name) + '">'
+			+ list.map(function(item) {
+				var itemValue = item && item.value !== undefined ? item.value : item;
+				var itemLabel = item && item.label !== undefined ? item.label : itemValue;
+				return '<option value="' + esc(itemValue) + '" ' + (String(value) === String(itemValue) ? 'selected' : '') + '>' + esc(itemLabel) + '</option>';
+			}).join('')
+			+ '</select>';
+	}
+	return '<label>' + label + '</label><input type="' + (type === 'number' ? 'number' : 'text') + '" class="cap-config-input" data-key="' + esc(key) + '" data-name="' + esc(name) + '" value="' + esc(value == null ? '' : value) + '">';
 }
 
 function capabilityDefaults(key) {
@@ -103,8 +165,13 @@ function readPackFormDefaults(text) {
 	var defaults = {};
 	try {
 		var form = JSON.parse(text || '{}');
-		var fields = form.fields || [];
-		if (!Array.isArray(fields)) return defaults;
+		var fields = [];
+		if (Array.isArray(form.fields)) fields = fields.concat(form.fields);
+		if (Array.isArray(form.groups)) {
+			form.groups.forEach(function(group) {
+				if (group && Array.isArray(group.fields)) fields = fields.concat(group.fields);
+			});
+		}
 		fields.forEach(function(field) {
 			if (!field || !field.name) return;
 			if (field.defaultValue !== undefined) defaults[field.name] = field.defaultValue;

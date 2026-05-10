@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.import-export: enables bulk data movement; use preview, field whitelist and explicit confirmation before importing.",
+  "advisorMessage": "能力包 content.import-export：会启用批量数据进出，请使用预检、字段白名单和显式确认后再导入。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/import-export/import/jobs",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_import_export"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_import_export"
 }

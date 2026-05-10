@@ -3,7 +3,7 @@
   "packId": "content.topic",
   "name": "topic",
   "title": "专题管理",
-  "description": "Generate topic management, topic-content arranging, topic pages, and public topic APIs.",
+  "description": "提供专题管理、内容编排、专题公开接口和后台专题页面能力。",
   "version": "1.0.0",
   "author": "xAdmin",
   "source": "xadmin",
@@ -36,7 +36,7 @@
   "symbols": "symbols.json",
   "patches": "patches.json",
   "contracts": "contracts.json",
-  "advisorMessage": "Capability content.topic: adds topic aggregation; confirm topic URL, ordering and ownership rules.",
-  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/topic/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_topic"
+  "advisorMessage": "能力包 content.topic：会启用专题聚合能力，请确认专题 URL、排序和归属规则。",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/topic/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_topic"
 }

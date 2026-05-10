@@ -11,7 +11,7 @@ xvalue Content_CreateAdvisorItem(const char* sLevel, const char* sMessage, const
 
 xvalue Content_CreateCapabilityAcceptanceItem(const char* sPackId, const char* sApiPath, const char* sViewPath)
 {
-	xvalue tblItem = Content_CreateAdvisorItem("info", "Capability acceptance path registered", sPackId);
+	xvalue tblItem = Content_CreateAdvisorItem("info", "能力包验收路径已注册", sPackId);
 	xvoTableSetText(tblItem, "kind", 4, "acceptance", 0, FALSE);
 	xvoTableSetText(tblItem, "packId", 6, (str)(sPackId ? sPackId : ""), 0, FALSE);
 	xvoTableSetText(tblItem, "apiPath", 7, (str)(sApiPath ? sApiPath : ""), 0, FALSE);
@@ -22,7 +22,7 @@ xvalue Content_CreateCapabilityAcceptanceItem(const char* sPackId, const char* s
 const char* Content_AbilityAdvisorMessage(const char* sPackId)
 {
 	(void)sPackId;
-	return "Capability pack enabled: verify generated routes, schema, permissions and runtime cost before production launch.";
+	return "能力包已启用：生产发布前请检查生成路由、数据结构、权限和运行成本。";
 }
 
 const char* Content_AbilityAcceptanceApiPath(const char* sPackId)
@@ -34,7 +34,7 @@ const char* Content_AbilityAcceptanceApiPath(const char* sPackId)
 const char* Content_AbilityAcceptanceViewPath(const char* sPackId)
 {
 	(void)sPackId;
-	return "/admin/view/plugin/{pluginXid}/ability";
+	return "/admin/view/plugin/{pluginXid}";
 }
 
 str Content_CopyAbilityManifestText(const char* sPackId, const char* sKey)
@@ -112,22 +112,22 @@ xvalue Content_BuildAdvisor(xvalue tblSpec)
 	}
 
 	if ( !Content_IsValidXid(sXid) ) {
-		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "Invalid or missing model xid", NULL), TRUE);
+		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "模型 XID 缺失或不合法", NULL), TRUE);
 		iErrorCount++;
 	}
 	if ( (sTitle == NULL) || (sTitle[0] == '\0') ) {
-		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "Model title is required", NULL), TRUE);
+		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "模型标题不能为空", NULL), TRUE);
 		iErrorCount++;
 	}
 	if ( (arrFields == NULL) || (xvoType(arrFields) != XVO_DT_ARRAY) || (xvoArrayItemCount(arrFields) <= 0) ) {
-		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "At least one field is required", NULL), TRUE);
+		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "至少需要一个字段", NULL), TRUE);
 		iErrorCount++;
 	} else {
 		for ( uint32 i = 0; i < xvoArrayItemCount(arrFields); i++ ) {
 			xvalue tblField = xvoArrayGetValue(arrFields, i);
 			str sName = (tblField && (xvoType(tblField) == XVO_DT_TABLE)) ? xvoTableGetText(tblField, "name", 4) : NULL;
 			if ( (sName == NULL) || (sName[0] == '\0') ) {
-				xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "Field name is required", NULL), TRUE);
+				xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "字段名不能为空", NULL), TRUE);
 				iErrorCount++;
 				continue;
 			}
@@ -135,7 +135,7 @@ xvalue Content_BuildAdvisor(xvalue tblSpec)
 				xvalue tblOther = xvoArrayGetValue(arrFields, j);
 				str sOther = (tblOther && (xvoType(tblOther) == XVO_DT_TABLE)) ? xvoTableGetText(tblOther, "name", 4) : NULL;
 				if ( sOther && (strcmp(sName, sOther) == 0) ) {
-					xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "Duplicate field name", sName), TRUE);
+					xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("error", "字段名重复", sName), TRUE);
 					iErrorCount++;
 				}
 			}
@@ -143,20 +143,20 @@ xvalue Content_BuildAdvisor(xvalue tblSpec)
 	}
 
 	if ( arrFields && (xvoType(arrFields) == XVO_DT_ARRAY) ) {
-		str sMessage = xrtFormat("Fields: %u field(s) will be generated into payload and admin views", xvoArrayItemCount(arrFields));
+		str sMessage = xrtFormat("字段：%u 个字段会生成到 payload 和后台视图中", xvoArrayItemCount(arrFields));
 		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("info", sMessage, "fields"), TRUE);
 		if ( sMessage ) xrtFree(sMessage);
 	}
 	if ( tblPages && (xvoType(tblPages) == XVO_DT_TABLE) ) {
-		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("info", "Pages: admin/public/detail page switches will affect generated routes and page files", "pages"), TRUE);
+		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("info", "页面：后台、公开列表和详情页开关会影响生成路由和页面文件", "pages"), TRUE);
 	}
 	if ( arrCapabilities && (xvoType(arrCapabilities) == XVO_DT_ARRAY) && (xvoArrayItemCount(arrCapabilities) > 0) ) {
-		str sMessage = xrtFormat("Capabilities: %u capability item(s) will be written into contracts", xvoArrayItemCount(arrCapabilities));
+		str sMessage = xrtFormat("能力包：%u 个能力项会写入生成契约", xvoArrayItemCount(arrCapabilities));
 		xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("info", sMessage, "capabilities"), TRUE);
 		if ( sMessage ) xrtFree(sMessage);
 		Content_AppendCapabilityAdvisorItems(arrItems, arrCapabilities);
 	}
-	xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("info", "Database: business records stay in generated plugin private database", "database"), TRUE);
+	xvoArrayAppendValue(arrItems, Content_CreateAdvisorItem("info", "数据库：业务记录会保存在生成插件的私有数据库中", "database"), TRUE);
 
 	xvoTableSetText(tblRet, "status", 6, iErrorCount > 0 ? "error" : "ok", 0, FALSE);
 	xvoTableSetInt(tblRet, "errorCount", 10, iErrorCount);

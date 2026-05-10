@@ -31,6 +31,20 @@ operator_id TEXT NOT NULL DEFAULT '',
 note TEXT NOT NULL DEFAULT '',
 create_time INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS comment_notification (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+comment_id INTEGER NOT NULL DEFAULT 0,
+content_id INTEGER NOT NULL DEFAULT 0,
+event TEXT NOT NULL DEFAULT '',
+target_type TEXT NOT NULL DEFAULT '',
+target_id TEXT NOT NULL DEFAULT '',
+title TEXT NOT NULL DEFAULT '',
+body TEXT NOT NULL DEFAULT '',
+status INTEGER NOT NULL DEFAULT 0,
+create_time INTEGER NOT NULL DEFAULT 0,
+read_time INTEGER NOT NULL DEFAULT 0
+);
 CREATE INDEX IF NOT EXISTS idx_comment_item_content ON comment_item(content_id, status, create_time DESC);
 CREATE INDEX IF NOT EXISTS idx_comment_item_audit ON comment_item(status, create_time DESC);
 CREATE INDEX IF NOT EXISTS idx_comment_audit_log_comment ON comment_audit_log(comment_id, create_time DESC);
+CREATE INDEX IF NOT EXISTS idx_comment_notification_status ON comment_notification(status, create_time DESC);

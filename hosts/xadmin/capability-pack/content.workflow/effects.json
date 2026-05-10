@@ -1,13 +1,13 @@
 {
-  "tables": ["content_workflow_log"],
+  "tables": ["content_workflow_log", "content_workflow_notification"],
   "fields": [
     {"name": "workflow_status", "title": "审核状态", "storage": {"type": "integer"}, "showInList": true}
   ],
   "adminPages": ["workflow"],
   "publicApis": [],
-  "adminApis": ["workflow.action", "workflow.log.list", "workflow.scheduled-publish"],
+  "adminApis": ["workflow.action", "workflow.log.list", "workflow.todo.list", "workflow.notification.list", "workflow.scheduled-publish"],
   "permissions": ["workflow.view", "workflow.submit", "workflow.review", "workflow.publish"],
-  "events": ["workflow.afterSubmit", "workflow.afterReview", "workflow.afterPublish"],
+  "events": ["workflow.afterSubmit", "workflow.afterReview", "workflow.afterPublish", "workflow.notification"],
   "runtime": {
     "actionPanel": true,
     "actionPermissions": {
@@ -19,6 +19,7 @@
       "publish": "workflow.publish"
     },
     "scheduledPublish": true,
+    "notificationLog": true,
     "syncContentEffects": true,
     "assigneeFlow": true,
     "editorActions": ["submit", "approve", "reject", "offline"]

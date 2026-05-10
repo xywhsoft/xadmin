@@ -1,15 +1,16 @@
 {
-  "tables": ["content_form", "content_form_submission"],
+  "tables": ["content_form", "content_form_submission", "content_form_notification"],
   "fields": [],
   "adminPages": ["forms", "form_submissions"],
   "publicApis": ["form.submit"],
-  "adminApis": ["form.list", "form.save", "form.delete", "form.submission.list", "form.submission.export", "form.submission.status"],
+  "adminApis": ["form.list", "form.save", "form.delete", "form.submission.list", "form.submission.export", "form.submission.status", "form.notification.list"],
   "permissions": ["form.view", "form.manage", "form.export"],
-  "events": ["form.afterSubmit"],
+  "events": ["form.afterSubmit", "form.afterProcess", "form.notification"],
   "runtime": {
     "schemaValidation": ["required", "fields.type", "fields.format", "fields.minLength", "fields.maxLength", "fields.min", "fields.max", "fields.pattern"],
     "ipSource": ["session.ip", "session.clientIp", "session.remoteAddr"],
-    "antiSpam": ["honeypot", "minSubmitSeconds"]
+    "antiSpam": ["honeypot", "minSubmitSeconds"],
+    "notificationLog": "content_form_notification"
   },
   "tasks": []
 }

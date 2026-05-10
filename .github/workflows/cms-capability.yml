@@ -1,0 +1,41 @@
+name: CMS Capability Checks
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'docs/**'
+      - 'hosts/xadmin/capability-pack/**'
+      - 'hosts/xadmin/data/content/templates/**'
+      - 'hosts/xadmin/script/content/**'
+      - 'hosts/xadmin/wwwroot/content/js/**'
+      - 'tools/**'
+      - '.github/workflows/cms-capability.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'hosts/xadmin/capability-pack/**'
+      - 'hosts/xadmin/data/content/templates/**'
+      - 'hosts/xadmin/script/content/**'
+      - 'hosts/xadmin/wwwroot/content/js/**'
+      - 'tools/**'
+      - '.github/workflows/cms-capability.yml'
+
+jobs:
+  cms-capability:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check capability packs
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File tools\check_capability_packs.ps1
+
+      - name: Check content system
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File tools\check_content_system.ps1
+
+      - name: Check whitespace
+        shell: pwsh
+        run: git diff --check

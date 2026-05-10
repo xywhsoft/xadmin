@@ -1,0 +1,42 @@
+{
+  "groups": [
+    {
+      "key": "audit-log-cleanup",
+      "title": "审计日志清理选项",
+      "fields": [
+        {
+          "name": "defaultKeepDays",
+          "type": "number",
+          "label": "默认保留天数",
+          "value": 90
+        },
+        {
+          "name": "maxListRows",
+          "type": "number",
+          "label": "列表最大行数",
+          "value": 500,
+          "min": 50,
+          "max": 1000
+        },
+        {
+          "name": "maxCleanupRows",
+          "type": "number",
+          "label": "单次清理最大行数",
+          "value": 1000,
+          "min": 100,
+          "max": 10000,
+          "step": 100
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "后台请求体字节上限",
+          "value": 65536,
+          "min": 512,
+          "max": 262144,
+          "step": 512
+        }
+      ]
+    }
+  ]
+}

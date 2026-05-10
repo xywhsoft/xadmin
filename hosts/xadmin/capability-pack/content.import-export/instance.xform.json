@@ -1,0 +1,43 @@
+{
+  "groups": [
+    {
+      "key": "import-export-batch",
+      "title": "导入导出批量选项",
+      "fields": [
+        {
+          "name": "maxBatchRows",
+          "type": "number",
+          "label": "单批导入最大行数",
+          "value": 200
+        },
+        {
+          "name": "maxExportRows",
+          "type": "number",
+          "label": "单次导出最大行数",
+          "value": 1000,
+          "min": 1,
+          "max": 5000,
+          "step": 1
+        },
+        {
+          "name": "maxJobRows",
+          "type": "number",
+          "label": "后台任务列表上限",
+          "value": 200,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "后台请求体字节上限",
+          "value": 1048576,
+          "min": 1024,
+          "max": 4194304,
+          "step": 1024
+        }
+      ]
+    }
+  ]
+}

@@ -8,9 +8,17 @@
     "view_rank"
   ],
   "publicApis": [
+    "view.record",
+    "view.status",
     "view.count",
     "view.rank",
     "view.detail"
+  ],
+  "adminApis": [
+    "view.counter.list",
+    "view.log.list",
+    "view.daily.list",
+    "view.stats"
   ],
   "tables": [
     "view_counter",
@@ -21,6 +29,17 @@
     "content.afterView",
     "content.afterDelete"
   ],
+  "runtime": {
+    "dedup": "visitorKey all-time by default; uniqueWindowSeconds can limit UV dedup to a time window",
+    "config": ["enableViewLog", "rankEnabled", "uniqueWindowSeconds", "maxRankRows", "maxAdminListRows", "maxRequestBytes"],
+    "configKeys": ["enableViewLog", "rankEnabled", "uniqueWindowSeconds", "maxRankRows", "maxAdminListRows", "maxRequestBytes"],
+    "requestLimit": "maxRequestBytes",
+    "rankLimit": "public rank clamps request limit by maxRankRows",
+    "accessIntegration": "public view status/record/rank require readable content when content.access is enabled",
+    "adminListLimit": "admin counter/daily/log lists clamp request limit by maxAdminListRows",
+    "adminStats": "view.stats returns content count, aggregate view count, unique view count and log diagnostics for admin dashboards",
+    "adminStatsUi": "ability page renders view.stats as a metric table"
+  },
   "tasks": [
     "task.aggregate",
     "task.clean"

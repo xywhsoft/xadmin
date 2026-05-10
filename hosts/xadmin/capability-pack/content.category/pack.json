@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.category: registers category routes, menu and editor fields; confirm the content model really needs a category tree.",
+  "advisorMessage": "能力包 content.category：会注册栏目路由、菜单和编辑字段，请确认该内容模型确实需要栏目树。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/category/list",
   "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/categories"
 }

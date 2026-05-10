@@ -1,14 +1,31 @@
 {
-  "permissions": ["import_export.view", "import_export.import", "import_export.export"],
+  "permissions": ["import_export.view", "import_export.import", "import_export.export", "import_export.manage"],
   "adminPages": ["import_export"],
   "publicApis": [],
-  "adminApis": ["import/preview", "import/commit", "import/jobs", "import/replay", "export/json", "export/jobs", "export/download"],
+  "adminApis": ["import-export.import.preview", "import-export.import.commit", "import-export.import.jobs", "import-export.import.replay", "import-export.export.json", "import-export.field-plan", "import-export.export.jobs", "import-export.export.download", "import-export.stats"],
   "tables": ["content_import_job", "content_export_job"],
   "events": ["import.afterFinish", "export.afterFinish"],
   "runtime": {
     "conflictMode": ["insert", "update", "skip"],
     "failedReplay": true,
-    "chunkedExport": true
+    "chunkedExport": true,
+    "defaultExportLimit": "maxExportRows",
+    "configKeys": ["maxBatchRows", "maxExportRows", "maxJobRows", "maxRequestBytes"],
+    "requestLimit": "import preview/commit/replay and export json reject request bodies beyond maxRequestBytes before JSON parse",
+    "jobListLimit": "admin import/export job lists clamp request limit by maxJobRows",
+    "jobStats": "admin import-export.stats returns import/export totals and status aggregates for operational visibility",
+    "jobStatsUi": "ability page renders import/export totals and status aggregates as tables, while retaining raw JSON for diagnostics",
+    "failureSamples": "admin import-export.stats returns bounded recent importFailureSamples rows so admins can locate failed import jobs without replaying them",
+    "jobStatusFilter": "admin import/export job lists accept optional status filter with bound SQL and maxJobRows limit",
+    "importResultStatus": "import commit counts success only after row validation, write and derived sync all complete; saved import job status is imported, partial_failed or failed based on final row results",
+    "exportResultUi": "ability page renders JSON export as paging/job/field-plan summary and preview rows while retaining raw JSON diagnostics",
+    "importResultUi": "ability page renders import preview/commit as job summary and per-row result tables while retaining raw JSON diagnostics",
+    "chunkResultUi": "ability page renders chunked import preview/commit as chunk summary tables while retaining raw JSON diagnostics",
+    "replayLimit": "import replay output clamps failed rows by maxBatchRows",
+    "categoryBindIntegration": "export json rows prefer content_category_bind when content.category is enabled and only use legacy category_id as compatibility fallback",
+    "categoryBindImportSync": "import commit synchronizes content_category_bind when content.category is enabled before revision, derived sync and audit side effects",
+    "fieldPlan": "export json and field-plan API return availableFields, requestedFields, exportedFields, and ignoredFields without silently accepting unknown field names",
+    "fieldPlanUi": "ability page renders import-export.field-plan as field count and exported/ignored/available field tables while retaining raw JSON diagnostics"
   },
   "tasks": ["import.process", "export.process"]
 }

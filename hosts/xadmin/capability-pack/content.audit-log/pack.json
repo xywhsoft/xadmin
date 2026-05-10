@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.audit-log: records sensitive operations; define retention, privacy boundary and storage cleanup policy.",
+  "advisorMessage": "能力包 content.audit-log：会记录敏感操作，请确认日志保留周期、隐私边界和清理策略。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/audit-log/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_audit_log"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_audit_log"
 }

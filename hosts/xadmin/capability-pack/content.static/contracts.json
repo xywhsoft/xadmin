@@ -12,6 +12,20 @@
     "static.generate",
     "static.preview"
   ],
+    "adminApis": [
+        "static.rule.list",
+        "static.rule.save",
+        "static.rule.preview",
+        "static.rule.delete",
+    "static.task.list",
+    "static.task.status",
+    "static.task.retry",
+    "static.task.retry-failed",
+    "static.stats",
+    "static.artifact.list",
+    "static.artifact.clean",
+    "static.clean"
+  ],
   "tables": [
     "static_rule",
     "static_task",
@@ -24,5 +38,46 @@
   "tasks": [
     "task.generate",
     "task.clean"
-  ]
+  ],
+  "runtime": {
+    "configKeys": ["outputDir", "autoGenerate", "autoClean", "autoGenerateRuleLimit", "maxListRows", "maxCleanRows", "maxTaskRetryRows", "maxGenerateRequestBytes", "maxRequestBytes"],
+    "generateRequestLimit": "maxGenerateRequestBytes",
+    "adminRequestLimit": "maxRequestBytes",
+    "autoGenerateBounded": true,
+    "listLimit": "maxListRows",
+    "cleanLimit": "maxCleanRows",
+    "unifiedRulePlan": "ability page route rule plan exposes static_rule.pathPattern beside slug and redirect dynamic rules without adding request hot-path checks",
+    "routeRulePlanApi": "admin route-rule.plan returns enabled slug/redirect prefixes and persisted static_rule rows with submit-time warnings",
+    "routeRulePlanApiKey": "route-rule.plan",
+    "routeRuleValidateApi": "admin route-rule.validate scans static_rule.pathPattern with bounded limit and reports warnings without request hot-path checks",
+    "routeRuleValidateApiKey": "route-rule.validate",
+    "routeRuleListApi": "admin route-rule.list exposes static route snapshots beside slug and redirect rules",
+    "routeRuleListApiKey": "route-rule.list",
+    "routeRuleStatsApi": "admin route-rule.stats returns read-only aggregate counts from the unified URL rule snapshot table",
+    "routeRuleStatsApiKey": "route-rule.stats",
+    "routeRuleRefreshApi": "admin route-rule.refresh rewrites the unified URL rule snapshot table on demand and returns bounded sync counts",
+    "routeRuleRefreshApiKey": "route-rule.refresh",
+    "routeRulePlanUi": "ability page renders the unified URL rule plan as route source and static rule tables while retaining raw JSON diagnostics",
+    "routeRuleValidateUi": "ability page renders bounded URL rule validation warnings as a table without request hot-path checks",
+    "routeRuleStatsUi": "ability page renders unified URL rule snapshot stats by pack and rule type",
+    "routeRuleRefreshUi": "ability page renders route-rule.refresh as before/synced/after counts while retaining raw JSON diagnostics",
+    "independentRouteRuleStore": "content_route_rule snapshot is created only when slug, redirect or static packs are enabled and is refreshed by admin plan/validate calls",
+    "routeRuleListFilters": ["packId", "ruleType", "status", "warningOnly"],
+    "ruleListFilters": ["pathPattern", "status"],
+    "rulePreview": "admin static.rule.preview expands pathPattern with a bounded content sample and returns warning, relativePath and artifactUrl without changing request routing",
+    "rulePreviewUi": "ability page renders static.rule.preview as path/template/target/output/warning table while retaining raw JSON diagnostics",
+    "taskPersistenceStatus": "static task status is corrected to failed when artifact persistence fails after render",
+    "ruleStatusValidation": "static.rule.save normalizes status to enabled(1) or disabled(0)",
+    "taskRetry": "admin can retry an existing static task by reusing its rule and target with bounded request size",
+    "taskRetryFailed": "admin can retry failed static tasks in a bounded batch controlled by maxTaskRetryRows",
+    "taskRetryFailedUi": "ability page renders static.task.retry-failed as bounded summary and per-task result tables while retaining raw JSON diagnostics",
+    "adminStats": "static.stats returns rule/task/artifact totals and status aggregates for admin diagnostics",
+    "adminStatsUi": "ability page renders static.stats as rule, task, artifact and status aggregate tables while retaining raw JSON diagnostics",
+    "generateResultUi": "ability page renders static.generate as task id, artifact path, result and message table while retaining raw JSON diagnostics",
+    "cleanResultUi": "ability page renders static.clean as a bounded cleanup result table while retaining raw JSON diagnostics",
+    "taskStatusFilter": "static.task.list accepts optional status filter -1/0/1 with bounded limit for admin diagnostics",
+    "taskRuleTargetFilter": "static.task.list accepts optional ruleId and targetId filters with bounded limit for admin diagnostics",
+    "artifactTargetFilter": "static.artifact.list accepts optional targetId filter for content artifact diagnostics",
+    "artifactPathFilter": "static.artifact.list accepts optional path substring filter for admin artifact diagnostics without changing static serving"
+  }
 }

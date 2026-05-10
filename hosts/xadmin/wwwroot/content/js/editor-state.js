@@ -18,6 +18,7 @@ var contentState = {
 		detailFields: '',
 		defaultSort: 'id_desc',
 		pageSize: 20,
+		maxScanRows: 5000,
 		displayGroups: '',
 		fieldGroups: ''
 	},

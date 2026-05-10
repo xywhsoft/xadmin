@@ -11,13 +11,44 @@
     "tag.detail",
     "tag.contents"
   ],
+  "adminApis": [
+    "tag.list",
+    "tag.save",
+    "tag.delete",
+    "tag.bind",
+    "tag.unbind",
+    "tag.merge",
+    "tag.batch-status",
+    "tag.stats",
+    "tag.content.list"
+  ],
   "tables": [
     "tag",
     "content_tag"
   ],
   "events": [
     "content.afterDelete",
-    "tag.afterBind"
+    "tag.afterBind",
+    "tag.afterMerge"
   ],
+  "runtime": {
+    "configKeys": ["maxTags", "allowCreateInline", "maxPublicListRows", "maxDetailTags", "maxPublicContentRows", "maxAdminLinkRows", "maxRequestBytes", "maxBatchRows"],
+    "mergeBehavior": ["insertOrIgnoreTargetBindings", "deleteSourceBindings", "optionalSoftDeleteSource"],
+    "mergeResultUi": "ability page renders tag.merge as source/target/moved/deleted/source-deleted summary table while retaining raw JSON diagnostics",
+    "batchStatus": "tag.batch-status updates enabled status for a bounded ids array",
+    "batchStatusUi": "ability page renders tag.batch-status as bounded summary and per-id result table while retaining raw JSON diagnostics",
+    "batchLimit": "maxBatchRows",
+    "publicListLimit": "maxPublicListRows",
+    "detailTagLimit": "maxDetailTags",
+    "publicContentLimit": "maxPublicContentRows",
+    "adminLinkLimit": "maxAdminLinkRows",
+    "adminLinkFilters": "tag content relation list supports optional tagId/contentId filters with bound SQL and maxAdminLinkRows limit",
+    "adminStats": "tag.stats returns bounded read-only aggregate status and top tag relation counts",
+    "adminStatsUi": "ability page renders tag.stats as summary, status and top relation tables while retaining raw JSON diagnostics",
+    "requestLimit": "admin tag write endpoints reject request bodies beyond maxRequestBytes before JSON parse",
+    "statusValidation": "tag.save normalizes status to enabled(1) or disabled(0)",
+    "categoryBindIntegration": "tag.contents result rows prefer content_category_bind when content.category is enabled",
+    "accessIntegration": "tag.contents filters restricted content when content.access is enabled; tag.list/detail hide aggregate content counts when access is mounted"
+  },
   "tasks": []
 }

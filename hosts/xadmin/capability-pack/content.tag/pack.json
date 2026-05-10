@@ -3,7 +3,7 @@
   "packId": "content.tag",
   "name": "tag",
   "title": "标签管理",
-  "description": "Generate tag management, tag bindings, tag query APIs, and admin tag pages.",
+  "description": "提供标签管理、内容标签绑定、标签查询接口和后台标签页面能力。",
   "version": "1.0.0",
   "author": "xAdmin",
   "source": "xadmin",
@@ -36,7 +36,7 @@
   "symbols": "symbols.json",
   "patches": "patches.json",
   "contracts": "contracts.json",
-  "advisorMessage": "Capability content.tag: adds tag taxonomy and binding routes; confirm tag normalization and duplicate policy.",
-  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/tag/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_tag"
+  "advisorMessage": "能力包 content.tag：会启用标签分类和绑定路由，请确认标签规范化和重复处理策略。",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/tag/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_tag"
 }

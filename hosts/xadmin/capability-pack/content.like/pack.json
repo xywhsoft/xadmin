@@ -3,7 +3,7 @@
   "packId": "content.like",
   "name": "like",
   "title": "点赞管理",
-  "description": "Generate like/cancel APIs, duplicate prevention, counters, and admin like pages.",
+  "description": "提供点赞、取消点赞、去重计数、状态查询和后台点赞统计能力。",
   "version": "1.0.0",
   "author": "xAdmin",
   "source": "xadmin",
@@ -36,7 +36,7 @@
   "symbols": "symbols.json",
   "patches": "patches.json",
   "contracts": "contracts.json",
-  "advisorMessage": "Capability content.like: records interaction counters; define dedupe key and abuse limits.",
-  "acceptanceApiPath": "/api/plugin/{pluginXid}/like/count?contentId=1",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_like"
+  "advisorMessage": "能力包 content.like：会记录互动计数，请确认去重策略、访客标识和滥用边界。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/like/counter/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_like"
 }

@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.search: exposes public/admin search; confirm searchable fields, index rebuild cost and result visibility.",
+  "advisorMessage": "能力包 content.search：会启用前台和后台搜索，请确认可搜索字段、索引重建成本和结果可见性。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/search/stats",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_search"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_search"
 }

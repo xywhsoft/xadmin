@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.form: accepts public submissions; configure validation, notification, retention and anti-abuse policy.",
-  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/form/submission/export",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_form"
+  "advisorMessage": "能力包 content.form：会接收公开提交，请配置校验、通知、保留周期和防刷策略。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/form/submission/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_form"
 }

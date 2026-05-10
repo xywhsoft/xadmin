@@ -1,0 +1,108 @@
+{
+  "groups": [
+    {
+      "key": "search-weight",
+      "title": "搜索权重选项",
+      "fields": [
+        {
+          "name": "titleWeight",
+          "type": "number",
+          "label": "标题权重",
+          "value": 100
+        },
+        {
+          "name": "exactTitleWeight",
+          "type": "number",
+          "label": "标题精确命中权重",
+          "value": 200
+        },
+        {
+          "name": "prefixTitleWeight",
+          "type": "number",
+          "label": "标题前缀命中权重",
+          "value": 120
+        },
+        {
+          "name": "keywordWeight",
+          "type": "number",
+          "label": "关键词权重",
+          "value": 60
+        },
+        {
+          "name": "summaryWeight",
+          "type": "number",
+          "label": "摘要权重",
+          "value": 35
+        },
+        {
+          "name": "bodyWeight",
+          "type": "number",
+          "label": "正文权重",
+          "value": 10
+        },
+        {
+          "name": "exactPhraseWeight",
+          "type": "number",
+          "label": "完整短语命中权重",
+          "value": 50,
+          "min": 0,
+          "max": 200
+        },
+        {
+          "name": "termCoverageWeight",
+          "type": "number",
+          "label": "查询词覆盖权重",
+          "value": 20
+        },
+        {
+          "name": "cjkBigramWeight",
+          "type": "number",
+          "label": "中文二元词覆盖权重",
+          "value": 12,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "freshnessWeight",
+          "type": "number",
+          "label": "新鲜度权重",
+          "value": 15,
+          "min": 0,
+          "max": 100
+        },
+        {
+          "name": "freshnessWindowDays",
+          "type": "number",
+          "label": "新鲜度时间窗口天数",
+          "value": 30,
+          "min": 1,
+          "max": 3650
+        },
+        {
+          "name": "minQueryLength",
+          "type": "number",
+          "label": "最短查询长度",
+          "value": 1,
+          "min": 1,
+          "max": 32
+        },
+        {
+          "name": "maxResultLimit",
+          "type": "number",
+          "label": "单次最大返回数",
+          "value": 100,
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "maxRebuildRows",
+          "type": "number",
+          "label": "单次重建索引行数",
+          "value": 1000,
+          "min": 1,
+          "max": 10000
+        }
+      ]
+    }
+  ]
+}

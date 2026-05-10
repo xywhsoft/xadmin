@@ -1,5 +1,8 @@
 <style>
 .managed-category-page { padding: 16px; }
+.managed-category-filter { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; max-width: 620px; }
+.managed-category-filter .layui-input { width: 320px; }
+.managed-category-summary { margin: 0 0 10px; color: #666; font-size: 13px; }
 .managed-category-editor { position: relative; height: 100%; min-height: 520px; box-sizing: border-box; padding: 18px 22px 74px; }
 .managed-category-editor .layui-form-label { width: 92px; }
 .managed-category-editor .layui-input-block { margin-left: 122px; }
@@ -12,6 +15,10 @@
 .managed-category-drag-item { display: flex; align-items: center; gap: 10px; min-height: 34px; margin-bottom: 6px; padding: 8px 10px; border: 1px solid #e6e6e6; background: #fff; cursor: move; }
 .managed-category-drag-item.dragging { opacity: .55; }
 .managed-category-drag-handle { color: #999; font-size: 16px; }
+.managed-category-tree-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.managed-category-tree-toggle { width: 22px; height: 22px; line-height: 20px; padding: 0; text-align: center; }
+.managed-category-tree-spacer { display: inline-block; width: 22px; height: 22px; flex: 0 0 22px; }
+.managed-category-tree-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 640px) {
   .managed-category-editor .layui-form-label { width: 88px; }
   .managed-category-editor .layui-input-block { margin-left: 118px; }
@@ -19,6 +26,12 @@
 </style>
 
 <div class="managed-category-page">
+  <div class="managed-category-filter">
+    <input type="text" id="CategoryFilter_{{PLUGIN_DOM_ID_BASE}}" class="layui-input" placeholder="搜索栏目名称、别名、路径或模板">
+    <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="CategoryFilterApply_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+    <button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="CategoryFilterClear_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-close"></i> 清空</button>
+  </div>
+  <div class="managed-category-summary" id="CategorySummary_{{PLUGIN_DOM_ID_BASE}}">栏目树：0 / 0</div>
   <table class="layui-hide" id="Table_{{PLUGIN_DOM_ID_BASE}}" lay-filter="Table_{{PLUGIN_DOM_ID_BASE}}"></table>
 </div>
 
@@ -26,7 +39,9 @@
   <div class="layui-inline">
     <button class="layui-btn layui-btn-sm" lay-event="Add_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-addition"></i> &#28155;&#21152;&#26639;&#30446;</button>
     <button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="SaveSort_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-ok"></i> &#20445;&#23384;&#25490;&#24207;</button>
-    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="DragSort_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-template-1"></i> Drag Sort</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="DragSort_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-template-1"></i> 拖拽排序</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="ExpandAll_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-down"></i> 展开全部</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="CollapseAll_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-up"></i> 收起全部</button>
     <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_{{PLUGIN_DOM_ID_BASE}}"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
   </div>
 </script>
@@ -79,21 +94,21 @@
     </div>
     <div class="managed-category-seo" id="SeoFields_{{PLUGIN_DOM_ID_BASE}}">
       <div class="layui-form-item">
-        <label class="layui-form-label">SEO Title</label>
+        <label class="layui-form-label">SEO 标题</label>
         <div class="layui-input-block">
-          <input type="text" name="seoTitle" placeholder="Category SEO title" autocomplete="off" class="layui-input">
+          <input type="text" name="seoTitle" placeholder="栏目 SEO 标题" autocomplete="off" class="layui-input">
         </div>
       </div>
       <div class="layui-form-item">
-        <label class="layui-form-label">SEO Keywords</label>
+        <label class="layui-form-label">SEO 关键词</label>
         <div class="layui-input-block">
-          <input type="text" name="seoKeywords" placeholder="keyword1,keyword2" autocomplete="off" class="layui-input">
+          <input type="text" name="seoKeywords" placeholder="关键词1,关键词2" autocomplete="off" class="layui-input">
         </div>
       </div>
       <div class="layui-form-item">
-        <label class="layui-form-label">SEO Desc</label>
+        <label class="layui-form-label">SEO 描述</label>
         <div class="layui-input-block">
-          <textarea name="seoDescription" placeholder="Category SEO description" class="layui-textarea"></textarea>
+          <textarea name="seoDescription" placeholder="栏目 SEO 描述" class="layui-textarea"></textarea>
         </div>
       </div>
     </div>
@@ -133,12 +148,16 @@ layui.use(['table', 'form'], function(){
     tool: 'Tool_' + domBase,
     editor: 'Editor_' + domBase,
     form: 'Form_' + domBase,
+    filter: 'CategoryFilter_' + domBase,
+    filterApply: 'CategoryFilterApply_' + domBase,
+    filterClear: 'CategoryFilterClear_' + domBase,
+    summary: 'CategorySummary_' + domBase,
     parent: 'Parent_' + domBase,
     seoFields: 'SeoFields_' + domBase,
     save: 'Save_' + domBase,
     cancel: 'Cancel_' + domBase
   };
-  var state = { layerIndex: 0, current: null, categories: [], seoEnabled: false };
+  var state = { layerIndex: 0, current: null, categories: [], seoEnabled: false, collapsedMap: {} };
 
   function byId(id) { return document.getElementById(id); }
   function textOf(value) { return value == null ? '' : String(value); }
@@ -146,6 +165,117 @@ layui.use(['table', 'form'], function(){
     return textOf(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
   function reloadTable() { table.reloadData(ids.table, { page: { curr: 1 } }); }
+  function categoryFilterKeyword() {
+    var input = byId(ids.filter);
+    return input ? textOf(input.value).trim().toLowerCase() : '';
+  }
+  function rowContainsKeyword(row, keyword) {
+    if (!keyword) return true;
+    var text = [
+      row.title,
+      row.treeTitle,
+      row.slug,
+      row.path,
+      row.breadcrumb,
+      row.templateKey
+    ].map(textOf).join(' ').toLowerCase();
+    return text.indexOf(keyword) >= 0;
+  }
+  function buildCategoryRowMaps(rows) {
+    var maps = { byId: {}, childrenByParent: {} };
+    (rows || []).forEach(function(row){
+      row = row || {};
+      var id = Number(row.id || 0);
+      var parentId = Number(row.parentId || 0);
+      if (id > 0) maps.byId[id] = row;
+      if (!maps.childrenByParent[parentId]) maps.childrenByParent[parentId] = [];
+      maps.childrenByParent[parentId].push(row);
+    });
+    return maps;
+  }
+  function markCategoryFilterContext(row, maps, keep) {
+    var id = Number((row || {}).id || 0);
+    var parentId = Number((row || {}).parentId || 0);
+    var queue = [];
+    var guard = 0;
+    if (id > 0) keep[id] = true;
+    while (parentId > 0 && guard < 64) {
+      keep[parentId] = true;
+      parentId = maps.byId[parentId] ? Number(maps.byId[parentId].parentId || 0) : 0;
+      guard++;
+    }
+    queue = (maps.childrenByParent[id] || []).slice(0);
+    guard = 0;
+    while (queue.length && guard < 5000) {
+      var child = queue.shift() || {};
+      var childId = Number(child.id || 0);
+      if (childId > 0) keep[childId] = true;
+      Array.prototype.push.apply(queue, maps.childrenByParent[childId] || []);
+      guard++;
+    }
+  }
+  function filterCategoryRows(rows) {
+    var keyword = categoryFilterKeyword();
+    if (!keyword) return rows || [];
+    var maps = buildCategoryRowMaps(rows);
+    var keep = {};
+    (rows || []).forEach(function(row){
+      if (rowContainsKeyword(row || {}, keyword)) markCategoryFilterContext(row || {}, maps, keep);
+    });
+    return (rows || []).filter(function(row){ return !!keep[Number((row || {}).id || 0)]; });
+  }
+  function hasCollapsedAncestor(row, rowMap) {
+    var parentId = Number((row && row.parentId) || 0);
+    var guard = 0;
+    while (parentId > 0 && guard < 64) {
+      if (state.collapsedMap[parentId]) return true;
+      var parent = rowMap[parentId];
+      parentId = parent ? Number(parent.parentId || 0) : 0;
+      guard++;
+    }
+    return false;
+  }
+  function visibleCategoryRows(rows) {
+    var rowMap = {};
+    (rows || []).forEach(function(row){ rowMap[Number(row.id || 0)] = row || {}; });
+    return (rows || []).filter(function(row){ return !hasCollapsedAncestor(row || {}, rowMap); });
+  }
+  function categoryCollapsedCount() {
+    var count = 0;
+    Object.keys(state.collapsedMap || {}).forEach(function(key){ if (state.collapsedMap[key]) count++; });
+    return count;
+  }
+  function updateCategorySummary(totalRows, visibleRows) {
+    var node = byId(ids.summary);
+    if (!node) return;
+    node.innerHTML = '栏目树：显示 ' + Number(visibleRows || 0) + ' / ' + Number(totalRows || 0) + '，已收起节点 ' + categoryCollapsedCount();
+  }
+  function setAllCategoryCollapsed(collapsed) {
+    state.collapsedMap = {};
+    if (collapsed) {
+      (state.categories || []).forEach(function(row){
+        if (Number((row || {}).childCount || 0) > 0) state.collapsedMap[Number(row.id || 0)] = true;
+      });
+    }
+    reloadTable();
+  }
+  function toggleCategoryCollapsed(row) {
+    var id = Number((row || {}).id || 0);
+    if (id <= 0) return;
+    if (state.collapsedMap[id]) delete state.collapsedMap[id];
+    else state.collapsedMap[id] = true;
+    reloadTable();
+  }
+  function renderCategoryTreeTitle(row) {
+    var childCount = Number((row || {}).childCount || 0);
+    var id = Number((row || {}).id || 0);
+    var collapsed = !!state.collapsedMap[id];
+    var icon = collapsed ? '&#9658;' : '&#9660;';
+    var title = escapeHtml(row.breadcrumb || row.path || '');
+    var text = escapeHtml(row.treeTitle || row.title || '\u672a\u547d\u540d\u680f\u76ee');
+    var toggle = childCount > 0 ? '<button type="button" class="layui-btn layui-btn-primary layui-btn-xs managed-category-tree-toggle" lay-event="toggleTree" title="' + (collapsed ? '展开' : '收起') + '">' + icon + '</button>' : '<span class="managed-category-tree-spacer"></span>';
+    return '<div class="managed-category-tree-title" title="' + title + '">' + toggle + '<span class="managed-category-tree-name">' + text + '</span></div>';
+  }
   function normalizeRow(row) {
     row = row || {};
     return {
@@ -154,6 +284,7 @@ layui.use(['table', 'form'], function(){
       title: row.title || '',
       slug: row.slug || '',
       path: row.path || '',
+      breadcrumb: row.breadcrumb || row.path || '',
       level: row.level || 0,
       description: row.description || '',
       coverUrl: row.coverUrl || '',
@@ -194,7 +325,7 @@ layui.use(['table', 'form'], function(){
       if (currentPath && path.indexOf(currentPath) === 0) return;
       var option = document.createElement('option');
       option.value = String(id);
-      option.textContent = textOf(item.treeTitle || item.title || ('#' + id));
+      option.textContent = textOf(item.breadcrumb || item.treeTitle || item.title || ('#' + id));
       select.appendChild(option);
     });
   }
@@ -273,12 +404,12 @@ layui.use(['table', 'form'], function(){
 
   function dragSortItems() {
     return state.categories.map(function(row){
-      return { id: Number(row.id || 0), parentId: Number(row.parentId || 0), title: row.treeTitle || row.title || ('#' + row.id), sort: Number(row.sort || 0) };
+      return { id: Number(row.id || 0), parentId: Number(row.parentId || 0), title: row.breadcrumb || row.treeTitle || row.title || ('#' + row.id), sort: Number(row.sort || 0) };
     }).filter(function(row){ return row.id > 0; });
   }
 
   function dragParentOptions(row, rows) {
-    var html = '<select class="managed-category-drag-parent" data-id="' + row.id + '"><option value="0">Root</option>';
+    var html = '<select class="managed-category-drag-parent" data-id="' + row.id + '"><option value="0">顶级栏目</option>';
     rows.forEach(function(item){
       if (Number(item.id) === Number(row.id)) return;
       html += '<option value="' + Number(item.id || 0) + '"' + (Number(row.parentId || 0) === Number(item.id || 0) ? ' selected' : '') + '>' + escapeHtml(item.title) + '</option>';
@@ -292,11 +423,11 @@ layui.use(['table', 'form'], function(){
     rows.forEach(function(row){
       html += '<div class="managed-category-drag-item" draggable="true" data-id="' + row.id + '"><span class="managed-category-drag-handle">&#9776;</span><span style="flex:1">' + escapeHtml(row.title) + '</span>' + dragParentOptions(row, rows) + '</div>';
     });
-    if (!rows.length) html += '<div style="padding:24px;text-align:center;color:#999;">No categories</div>';
-    html += '</div><div style="border-top:1px solid #eee;padding:12px 16px;text-align:right;"><button type="button" class="layui-btn" id="DragSortSave_' + domBase + '">Save</button><button type="button" class="layui-btn layui-btn-primary" id="DragSortCancel_' + domBase + '">Cancel</button></div>';
+    if (!rows.length) html += '<div style="padding:24px;text-align:center;color:#999;">暂无栏目</div>';
+    html += '</div><div style="border-top:1px solid #eee;padding:12px 16px;text-align:right;"><button type="button" class="layui-btn" id="DragSortSave_' + domBase + '">保存</button><button type="button" class="layui-btn layui-btn-primary" id="DragSortCancel_' + domBase + '">取消</button></div>';
     var index = layer.open({
       type: 1,
-      title: 'Category Drag Sort',
+      title: '栏目拖拽排序',
       area: ['560px', '620px'],
       content: html,
       success: function(layero){
@@ -326,9 +457,9 @@ layui.use(['table', 'form'], function(){
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ items: items })
           }).then(function(response){ return response.json(); }).then(function(result){
-            if (!result || !result.result) throw new Error((result && result.message) || 'save drag sort failed');
+            if (!result || !result.result) throw new Error((result && result.message) || '保存拖拽排序失败');
             layer.close(index);
-            layer.msg('saved', { icon: 1 });
+            layer.msg('已保存', { icon: 1 });
             reloadTable();
           }).catch(function(error){ layer.msg(error.message || String(error), { icon: 2 }); });
         };
@@ -342,12 +473,17 @@ layui.use(['table', 'form'], function(){
     url: '/admin/api/plugin/' + pluginXid + '/category/tree',
     method: 'get',
     parseData: function(result){
-      state.categories = (result && result.data) || [];
+      var rows = (result && result.data) || [];
+      var keyword = categoryFilterKeyword();
+      var filteredRows = filterCategoryRows(rows);
+      var filtered = keyword ? filteredRows : visibleCategoryRows(filteredRows);
+      state.categories = rows;
+      updateCategorySummary(rows.length, filtered.length);
       return {
         code: result && result.result ? 0 : 1,
         msg: (result && result.message) || '',
-        count: (result && result.count) || 0,
-        data: (result && result.data) || []
+        count: filtered.length,
+        data: filtered
       };
     },
     defaultToolbar: ['filter', 'exports', 'print'],
@@ -357,8 +493,10 @@ layui.use(['table', 'form'], function(){
     page: false,
     cols: [[
       { field: 'id', width: 80, title: 'ID' },
-      { field: 'treeTitle', minWidth: 260, title: '\u680f\u76ee\u540d\u79f0', templet: function(d){ return escapeHtml(d.treeTitle || d.title || '\u672a\u547d\u540d\u680f\u76ee'); } },
+      { field: 'treeTitle', minWidth: 260, title: '\u680f\u76ee\u540d\u79f0', templet: renderCategoryTreeTitle },
+      { field: 'breadcrumb', minWidth: 220, title: '\u680f\u76ee\u8def\u5f84', templet: function(d){ return escapeHtml(d.breadcrumb || d.path || ''); } },
       { field: 'parentId', width: 100, title: '\u7236\u680f\u76ee' },
+      { field: 'childCount', width: 100, title: '\u5b50\u680f\u76ee' },
       { field: 'contentCount', width: 110, title: '\u5185\u5bb9\u6570' },
       { field: 'templateKey', width: 120, title: '\u6a21\u677f', templet: function(d){ return escapeHtml(d.templateKey || 'default'); } },
       { field: 'sort', width: 100, title: '\u6392\u5e8f', templet: function(d){ return '<input type="number" class="layui-input managed-category-sort-input managed-category-sort-input-' + domBase + '" data-id="' + Number(d.id || 0) + '" value="' + Number(d.sort || 0) + '">'; } },
@@ -372,11 +510,22 @@ layui.use(['table', 'form'], function(){
     if (obj.event === 'Add_{{PLUGIN_DOM_ID_BASE}}') openEditor({});
     if (obj.event === 'SaveSort_{{PLUGIN_DOM_ID_BASE}}') saveSort();
     if (obj.event === 'DragSort_{{PLUGIN_DOM_ID_BASE}}') openDragSort();
+    if (obj.event === 'ExpandAll_{{PLUGIN_DOM_ID_BASE}}') setAllCategoryCollapsed(false);
+    if (obj.event === 'CollapseAll_{{PLUGIN_DOM_ID_BASE}}') setAllCategoryCollapsed(true);
     if (obj.event === 'Refresh_{{PLUGIN_DOM_ID_BASE}}') reloadTable();
   });
   table.on('tool(' + ids.table + ')', function(obj){
+    if (obj.event === 'toggleTree') toggleCategoryCollapsed(obj.data || {});
     if (obj.event === 'edit') openEditor(obj.data || {});
     if (obj.event === 'delete') deleteCategory(obj.data || {});
+  });
+  byId(ids.filterApply).onclick = reloadTable;
+  byId(ids.filterClear).onclick = function(){
+    byId(ids.filter).value = '';
+    reloadTable();
+  };
+  byId(ids.filter).addEventListener('keydown', function(ev){
+    if (ev.key === 'Enter') reloadTable();
   });
   byId(ids.save).onclick = saveCategory;
   byId(ids.cancel).onclick = function(){ layer.close(state.layerIndex); };

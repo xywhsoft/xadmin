@@ -1,0 +1,48 @@
+{
+  "xid": "qa.content_smoke",
+  "name": "qa.content_smoke",
+  "title": "QA Content Smoke",
+  "namespace": "qa",
+  "description": "Fixed model used by generated content runtime smoke.",
+  "tableName": "qa_content_smoke",
+  "generatedPluginXid": "cms.qa_content_smoke",
+  "fields": [
+    {"name": "title", "title": "Title", "type": "text", "required": true, "showInList": true},
+    {"name": "slug", "title": "Slug", "type": "text", "showInList": true},
+    {"name": "summary", "title": "Summary", "type": "textarea", "showInList": true},
+    {"name": "cover", "title": "Cover", "type": "image", "showInList": false},
+    {"name": "body", "title": "Body", "type": "editor_md", "showInList": false},
+    {"name": "publishedAt", "title": "Published At", "type": "datetime", "showInList": true},
+    {"name": "status", "title": "Status", "type": "select", "options": "0:Draft,1:Published", "showInList": true}
+  ],
+  "capabilities": [
+    {"key": "content.category", "enabled": true, "config": {}},
+    {"key": "content.tag", "enabled": true, "config": {}},
+    {"key": "content.topic", "enabled": true, "config": {}},
+    {"key": "content.media", "enabled": true, "config": {}},
+    {"key": "content.slug", "enabled": true, "config": {}},
+    {"key": "content.redirect", "enabled": true, "config": {}},
+    {"key": "content.seo", "enabled": true, "config": {}},
+    {"key": "content.search", "enabled": true, "config": {}},
+    {"key": "content.related", "enabled": true, "config": {}},
+    {"key": "content.comment", "enabled": true, "config": {}},
+    {"key": "content.sensitive", "enabled": true, "config": {}},
+    {"key": "content.static", "enabled": true, "config": {}},
+    {"key": "content.like", "enabled": true, "config": {}},
+    {"key": "content.view-stat", "enabled": true, "config": {}},
+    {"key": "content.revision", "enabled": true, "config": {}},
+    {"key": "content.workflow", "enabled": true, "config": {}},
+    {"key": "content.sitemap", "enabled": true, "config": {}},
+    {"key": "content.form", "enabled": true, "config": {}},
+    {"key": "content.access", "enabled": true, "config": {}},
+    {"key": "content.audit-log", "enabled": true, "config": {}},
+    {"key": "content.import-export", "enabled": true, "config": {}}
+  ],
+  "pages": {
+    "displayGroups": [],
+    "fieldGroups": []
+  },
+  "policies": {
+    "smoke": true
+  }
+}

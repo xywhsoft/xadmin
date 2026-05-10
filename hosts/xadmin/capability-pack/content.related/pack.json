@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.related: adds related-content relations; define duplicate handling and relation weight semantics.",
+  "advisorMessage": "能力包 content.related：会启用相关内容关系，请确认重复处理和推荐权重语义。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/related/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_related"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_related"
 }

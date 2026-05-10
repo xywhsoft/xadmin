@@ -973,6 +973,7 @@ str Content_BuildGeneratedContracts(const char* sModelXid, int iRevision, xvalue
 {
 	xvalue arrCapabilities = tblSpec ? xvoTableGetValue(tblSpec, "capabilities", 12) : NULL;
 	xvalue tblRoot = xvoCreateTable();
+	xvalue arrEnabledCapabilities = xvoCreateArray();
 	xvalue arrPacks = xvoCreateArray();
 	str sJson;
 
@@ -981,7 +982,6 @@ str Content_BuildGeneratedContracts(const char* sModelXid, int iRevision, xvalue
 	xvoTableSetText(tblRoot, "permissionBinding", 17, "ability-admin-page-bound", 0, FALSE);
 	xvoTableSetText(tblRoot, "permissionBindingNote", 21, "Ability permissions are registered and each mounted ability admin page route is bound to the first permission declared by that ability pack.", 0, FALSE);
 	if ( arrCapabilities && xvoType(arrCapabilities) == XVO_DT_ARRAY ) {
-		xvoTableSetValue(tblRoot, "capabilities", 12, xvoCopy(arrCapabilities), TRUE);
 		for ( uint32 i = 0; i < xvoArrayItemCount(arrCapabilities); i++ ) {
 			xvalue tblItem = xvoArrayGetValue(arrCapabilities, i);
 			str sKey = (tblItem && xvoType(tblItem) == XVO_DT_TABLE) ? xvoTableGetText(tblItem, "key", 3) : NULL;
@@ -999,6 +999,9 @@ str Content_BuildGeneratedContracts(const char* sModelXid, int iRevision, xvalue
 			}
 			if ( !bEnabled ) {
 				continue;
+			}
+			if ( tblItem && (xvoType(tblItem) == XVO_DT_TABLE) ) {
+				xvoArrayAppendValue(arrEnabledCapabilities, xvoCopy(tblItem), TRUE);
 			}
 			tblPack = ContentPack_GetDetail((const char*)sKey);
 			tblOut = xvoCreateTable();
@@ -1027,9 +1030,8 @@ str Content_BuildGeneratedContracts(const char* sModelXid, int iRevision, xvalue
 			xvoArrayAppendValue(arrPacks, tblOut, TRUE);
 			if ( tblPack ) xvoUnref(tblPack);
 		}
-	} else {
-		xvoTableSetValue(tblRoot, "capabilities", 12, xvoCreateArray(), TRUE);
 	}
+	xvoTableSetValue(tblRoot, "capabilities", 12, arrEnabledCapabilities, TRUE);
 	xvoTableSetValue(tblRoot, "abilityPacks", 12, arrPacks, TRUE);
 	sJson = xrtStringifyJSON(tblRoot, TRUE, NULL);
 	xvoUnref(tblRoot);

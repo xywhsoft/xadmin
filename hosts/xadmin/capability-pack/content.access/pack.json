@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.access: gates public reads; verify read levels, member identity source and static-page behavior.",
+  "advisorMessage": "能力包 content.access：会拦截公开读取，请确认阅读等级、会员身份来源和静态页访问策略。",
   "acceptanceApiPath": "/api/plugin/{pluginXid}/access/check?contentId=1",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_access"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_access"
 }

@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.sitemap: exposes sitemap/rss/robots endpoints; confirm public URL base and cache strategy.",
+  "advisorMessage": "能力包 content.sitemap：会启用 sitemap、RSS 和 robots 输出，请确认公开站点根地址和缓存策略。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/sitemap/stats",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_sitemap"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_sitemap"
 }

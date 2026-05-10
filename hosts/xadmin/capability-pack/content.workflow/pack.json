@@ -16,7 +16,7 @@
     "disableAllowed": true,
     "deleteAllowed": false
   },
-  "advisorMessage": "Capability content.workflow: changes publish flow and status transitions; confirm roles, reviewer actions and rollback policy.",
+  "advisorMessage": "能力包 content.workflow：会改变发布流和状态流转，请确认角色、审核动作和回滚策略。",
   "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/workflow/log/list",
-  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/ability/content_workflow"
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_workflow"
 }

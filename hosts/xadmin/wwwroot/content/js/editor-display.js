@@ -34,6 +34,7 @@ function readPageControls() {
 		detailFields: $('page_detail_fields').value,
 		defaultSort: $('page_default_sort').value,
 		pageSize: Number($('page_page_size').value || 20),
+		maxScanRows: Number($('page_max_scan_rows').value || 5000),
 		displayGroups: parseGroupLines($('page_display_groups').value),
 		fieldGroups: parseGroupLines($('page_field_groups').value)
 	};
@@ -48,6 +49,7 @@ function writePageControls(pages) {
 	$('page_detail_fields').value = pages.detailFields || '';
 	$('page_default_sort').value = pages.defaultSort || 'id_desc';
 	$('page_page_size').value = pages.pageSize || 20;
+	$('page_max_scan_rows').value = pages.maxScanRows || 5000;
 	$('page_display_groups').value = stringifyGroupLines(pages.displayGroups);
 	$('page_field_groups').value = stringifyGroupLines(pages.fieldGroups);
 	readPageControls();

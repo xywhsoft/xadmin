@@ -69,6 +69,8 @@ void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, XS
 	xvoTableSetBool(tblRoute, "dynamicExists", 13, G_DynamicRouteTableHTTP.lstRoutes != NULL);
 	xvoTableSetInt(tblRoute, "dynamicCount", 12, G_DynamicRouteTableHTTP.lstRoutes ? xrtListCount(G_DynamicRouteTableHTTP.lstRoutes) : 0);
 	xvoTableSetInt(tblRoute, "dynamicCompiled", 15, G_DynamicRouteTableHTTP.iCompiledCount);
+	xvoTableSetInt(tblRoute, "dynamicCandidateLimit", 21, XADMIN_DYNAMIC_ROUTE_MAX_MATCHES);
+	xvoTableSetBool(tblRoute, "dynamicCandidateOverLimit", 25, G_DynamicRouteTableHTTP.iCompiledCount > XADMIN_DYNAMIC_ROUTE_MAX_MATCHES);
 	xvoTableSetInt(tblRoute, "dynamicGeneration", 17, G_DynamicRouteTableHTTP.iGeneration);
 	if ( G_DynamicRouteTableHTTP.sLastError ) {
 		xvoTableSetText(tblRoute, "dynamicLastError", 16, G_DynamicRouteTableHTTP.sLastError, 0, FALSE);

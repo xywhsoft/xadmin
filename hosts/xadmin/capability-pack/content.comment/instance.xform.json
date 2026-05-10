@@ -2,29 +2,173 @@
   "groups": [
     {
       "key": "comment",
-      "title": "Comment System Model Options",
+      "title": "评论基础选项",
       "fields": [
         {
           "name": "moderation",
           "type": "select",
-          "label": "Moderation",
+          "label": "审核方式",
           "value": "manual",
           "list": [
             {
               "value": "manual",
-              "label": "Manual"
+              "label": "人工审核"
             },
             {
               "value": "auto",
-              "label": "Auto approve"
+              "label": "自动通过"
             }
           ]
         },
         {
           "name": "allowPublicPost",
           "type": "switch",
-          "label": "Allow public post",
+          "label": "允许前台提交",
           "value": true
+        },
+        {
+          "name": "maxAuthorNameLength",
+          "type": "number",
+          "label": "评论昵称长度上限",
+          "value": 80,
+          "min": 1,
+          "max": 200,
+          "step": 1
+        },
+        {
+          "name": "maxUserAgentLength",
+          "type": "number",
+          "label": "请求 User-Agent 长度上限",
+          "value": 256,
+          "min": 64,
+          "max": 1024,
+          "step": 32
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "评论请求体字节上限",
+          "value": 65536,
+          "min": 1024,
+          "max": 1048576,
+          "step": 1024
+        },
+        {
+          "name": "maxBodyLength",
+          "type": "number",
+          "label": "评论最大长度",
+          "value": 5000
+        },
+        {
+          "name": "minBodyLength",
+          "type": "number",
+          "label": "评论最小长度",
+          "value": 0,
+          "min": 0,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "minSubmitSeconds",
+          "type": "number",
+          "label": "最短提交耗时秒数",
+          "value": 2,
+          "min": 0,
+          "max": 60,
+          "step": 1
+        }
+      ]
+    },
+    {
+      "key": "comment-protection",
+      "title": "评论防刷选项",
+      "fields": [
+        {
+          "name": "duplicateWindowSeconds",
+          "type": "number",
+          "label": "重复评论窗口秒数",
+          "value": 60
+        },
+        {
+          "name": "ipWindowSeconds",
+          "type": "number",
+          "label": "同 IP 限流窗口秒数",
+          "value": 60
+        },
+        {
+          "name": "ipWindowLimit",
+          "type": "number",
+          "label": "同 IP 限流次数",
+          "value": 10
+        },
+        {
+          "name": "maxLinks",
+          "type": "number",
+          "label": "评论正文链接数量上限",
+          "value": 0,
+          "min": 0,
+          "max": 50,
+          "step": 1
+        },
+        {
+          "name": "maxPublicRows",
+          "type": "number",
+          "label": "公开评论列表行数上限",
+          "value": 500,
+          "min": 50,
+          "max": 2000,
+          "step": 50
+        },
+        {
+          "name": "maxAdminListRows",
+          "type": "number",
+          "label": "后台列表行数上限",
+          "value": 500,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "moderationStatsRecentDays",
+          "type": "number",
+          "label": "审核统计近期天数",
+          "value": 7,
+          "min": 1,
+          "max": 365,
+          "step": 1
+        },
+        {
+          "name": "maxReplyDepth",
+          "type": "number",
+          "label": "评论回复层级上限",
+          "value": 0,
+          "min": 0,
+          "max": 20,
+          "step": 1
+        },
+        {
+          "name": "allowedAuthorNames",
+          "type": "textarea",
+          "label": "允许昵称名单",
+          "value": ""
+        },
+        {
+          "name": "blockedAuthorNames",
+          "type": "textarea",
+          "label": "禁用昵称名单",
+          "value": ""
+        },
+        {
+          "name": "blockedBodyPhrases",
+          "type": "textarea",
+          "label": "正文禁用片段",
+          "value": ""
+        },
+        {
+          "name": "blockedUserAgentPhrases",
+          "type": "textarea",
+          "label": "请求代理禁用片段",
+          "value": ""
         }
       ]
     }

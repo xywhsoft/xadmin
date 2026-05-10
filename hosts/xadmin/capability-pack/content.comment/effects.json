@@ -2,7 +2,8 @@
   "tables": [
     "comment_thread",
     "comment_item",
-    "comment_audit_log"
+    "comment_audit_log",
+    "comment_notification"
   ],
   "fields": [
     {
@@ -16,7 +17,8 @@
   ],
   "adminPages": [
     "comments",
-    "comment_audit"
+    "comment_audit",
+    "comment_notification"
   ],
   "publicApis": [
     "comment.list",
@@ -32,7 +34,9 @@
   "events": [
     "content.afterDelete",
     "content.afterPublish",
-    "content.afterView"
+    "content.afterView",
+    "comment.afterCreate",
+    "comment.afterModerate"
   ],
   "tasks": [],
   "files": [

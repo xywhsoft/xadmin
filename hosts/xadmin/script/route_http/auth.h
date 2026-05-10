@@ -1412,7 +1412,11 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		xvoUnref(tblForm);
 		
 		// 更新路由表和权限缓存
-		RouteInfo* pInfo = xrtDictGet(G_StaticRouteTableHTTP, uri, 0);
+		// Keep the in-memory route auth state in sync with the edited URI row.
+		RouteInfo* pInfo = uri ? xrtDictGet(G_StaticRouteTableHTTP, uri, strlen(uri)) : NULL;
+		if ( pInfo == NULL && uri ) {
+			pInfo = FindDynamicRouteHTTP(uri);
+		}
 		if ( pInfo ) {
 			pInfo->AuthID = authID;
 			pInfo->bAdmin = isBackend ? TRUE : FALSE;
