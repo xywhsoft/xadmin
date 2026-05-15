@@ -1404,7 +1404,7 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_uris_put, 6, needLog);
 		sqlite3_bind_int64(stmt_uris_put, 7, keepActive);
 		sqlite3_bind_int64(stmt_uris_put, 8, isPersistent ? 1 : 0);
-		sqlite3_bind_text(stmt_uris_put, 9, sNamespace ? sNamespace : "auto", -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_uris_put, 9, (const char*)(sNamespace ? sNamespace : (str)"auto"), -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_uris_put, 10, xrtNow());
 		sqlite3_bind_int64(stmt_uris_put, 11, id);
 		sqlite3_step(stmt_uris_put);

@@ -17,6 +17,7 @@
 #define XADMIN_GLOBAL_PLUGIN_ROOT_PATH 4
 #define XADMIN_GLOBAL_PLUGIN_DATA_PATH 5
 #define XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH 6
+#define XADMIN_GLOBAL_HOST_CONTEXT 7
 
 #define XADMIN_AUTH_SCOPE_ADMIN 1
 #define XADMIN_AUTH_SCOPE_MEMBER 2
@@ -44,6 +45,30 @@ typedef struct {
 	int status_code;
 	const char* message;
 } XAdminHealthReport;
+
+typedef struct {
+	uint32_t size;
+	uint32_t abi_version;
+	const char* exe_path;
+	const char* app_path;
+	const char* web_path;
+	const char* db_path;
+	const char* log_path;
+	const char* temp_path;
+	const char* page_path;
+	const char* site_page_path;
+	const char* tool_path;
+	const char* option_path;
+	const char* install_path;
+	const char* template_path;
+	const char* attachment_path;
+	const char* plugin_xid;
+	const char* plugin_root_path;
+	const char* plugin_data_path;
+	const char* plugin_private_db_path;
+	sqlite3* main_db;
+	xvalue option_table;
+} XAdminHostContext;
 
 typedef struct {
 	const char* path;

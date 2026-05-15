@@ -20,7 +20,7 @@ void PS_TCCGenerationErrorHandler(void* pOpaque, const char* sMsg)
 	}
 
 	if ( pGeneration->sErrorMessage == NULL ) {
-		pGeneration->sErrorMessage = xrtCopyStr(sMsg, 0);
+		pGeneration->sErrorMessage = xrtCopyStr((str)sMsg, 0);
 		return;
 	}
 	if ( strlen(pGeneration->sErrorMessage) > 2048 ) {
@@ -261,6 +261,29 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 
 	procSetGlobalData = (XAdminPluginSetGlobalDataProc)tcc_get_symbol(pTcc, "XAdmin_PluginSetGlobalData");
 	if ( procSetGlobalData ) {
+		memset(&pGeneration->tHostContext, 0, sizeof(pGeneration->tHostContext));
+		pGeneration->tHostContext.size = sizeof(pGeneration->tHostContext);
+		pGeneration->tHostContext.abi_version = XADMIN_ABI_VERSION;
+		pGeneration->tHostContext.exe_path = (const char*)ExePath;
+		pGeneration->tHostContext.app_path = (const char*)AppPath;
+		pGeneration->tHostContext.web_path = (const char*)WebPath;
+		pGeneration->tHostContext.db_path = (const char*)DBPath;
+		pGeneration->tHostContext.log_path = (const char*)LogPath;
+		pGeneration->tHostContext.temp_path = (const char*)TempPath;
+		pGeneration->tHostContext.page_path = (const char*)PagePath;
+		pGeneration->tHostContext.site_page_path = (const char*)SitePagePath;
+		pGeneration->tHostContext.tool_path = (const char*)ToolPath;
+		pGeneration->tHostContext.option_path = (const char*)OptionPath;
+		pGeneration->tHostContext.install_path = (const char*)InstallPath;
+		pGeneration->tHostContext.template_path = (const char*)TemplatePath;
+		pGeneration->tHostContext.attachment_path = (const char*)AttachmentPath;
+		pGeneration->tHostContext.plugin_xid = (const char*)pPackage->sXid;
+		pGeneration->tHostContext.plugin_root_path = (const char*)pPackage->sRootPath;
+		pGeneration->tHostContext.plugin_data_path = (const char*)pPackage->sDataPath;
+		pGeneration->tHostContext.plugin_private_db_path = (const char*)pPackage->sPrivateDbPath;
+		pGeneration->tHostContext.main_db = G_DB;
+		pGeneration->tHostContext.option_table = G_Option;
+		procSetGlobalData(XADMIN_GLOBAL_HOST_CONTEXT, &pGeneration->tHostContext);
 		procSetGlobalData(XADMIN_GLOBAL_MAIN_DB, G_DB);
 		procSetGlobalData(XADMIN_GLOBAL_OPTION_TABLE, G_Option);
 		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_XID, pPackage->sXid);

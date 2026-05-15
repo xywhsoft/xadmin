@@ -278,9 +278,9 @@ void TraceDynamicRoutes(xvalue arrRoutes)
 		DynamicRouteInfo* pRoute = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, i);
 		if ( pRoute ) {
 			xvalue tblRoute = xvoCreateTable();
-			xvoTableSetText(tblRoute, "uri", 3, pRoute->sUri ? pRoute->sUri : "", 0, FALSE);
+			xvoTableSetText(tblRoute, "uri", 3, pRoute->sUri ? pRoute->sUri : (str)"", 0, FALSE);
 			xvoTableSetText(tblRoute, "type", 4, "dynamic", 7, FALSE);
-			xvoTableSetText(tblRoute, "pattern", 7, pRoute->sPattern ? pRoute->sPattern : "", 0, FALSE);
+			xvoTableSetText(tblRoute, "pattern", 7, pRoute->sPattern ? pRoute->sPattern : (str)"", 0, FALSE);
 			xvoTableSetInt(tblRoute, "priority", 8, pRoute->iPriority);
 			xvoTableSetInt(tblRoute, "method", 6, pRoute->iMethod);
 			xvoTableSetInt(tblRoute, "patternIndex", 12, pRoute->iPatternIndex);

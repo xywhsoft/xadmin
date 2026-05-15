@@ -280,7 +280,7 @@ static int DynamicRoute_Compare(const void* pLeft, const void* pRight)
 	if ( pA == NULL ) return 1;
 	if ( pB == NULL ) return -1;
 	if ( pA->iPriority != pB->iPriority ) return (pA->iPriority < pB->iPriority) ? -1 : 1;
-	return strcmp(pA->sUri ? pA->sUri : "", pB->sUri ? pB->sUri : "");
+	return strcmp((const char*)(pA->sUri ? pA->sUri : (str)""), (const char*)(pB->sUri ? pB->sUri : (str)""));
 }
 
 static void DynamicRoute_SortMatchIndexes(uint32* arrMatches, uint32 iMatchCount)

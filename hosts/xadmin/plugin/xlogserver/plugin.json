@@ -3,7 +3,7 @@
 	"xid": "xlogserver",
 	"name": "xlogserver",
 	"title": "Log Service",
-	"description": "Multi-service log collection and task management plugin",
+	"description": "Compatible log collection and task management plugin",
 	"version": "1.0.0",
 	"author": "xAdmin",
 	"kind": "singleton",
@@ -25,7 +25,7 @@
 		"maxHostVersion": "5.0.0",
 		"abiVersion": 4
 	},
-	"capabilities": ["route.public", "route.admin", "service"],
+	"capabilities": ["route.public", "route.admin"],
 	"dependencies": {
 		"plugins": [],
 		"services": [],

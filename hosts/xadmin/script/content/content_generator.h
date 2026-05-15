@@ -1,4 +1,4 @@
-str Content_StripUtf8BomTake(str sText, uint32* pSize)
+str Content_StripUtf8BomTake(str sText, size_t* pSize)
 {
 	size_t iLen;
 	str sClean;
@@ -6,7 +6,7 @@ str Content_StripUtf8BomTake(str sText, uint32* pSize)
 	if ( sText == NULL ) {
 		return NULL;
 	}
-	iLen = pSize ? (size_t)(*pSize) : strlen(sText);
+	iLen = pSize ? *pSize : strlen(sText);
 	if ( iLen < 3 ) {
 		return sText;
 	}
@@ -17,7 +17,7 @@ str Content_StripUtf8BomTake(str sText, uint32* pSize)
 	sClean = xrtCopyStr(sText + 3, iLen - 3);
 	xrtFree(sText);
 	if ( pSize ) {
-		*pSize = sClean ? (uint32)(iLen - 3) : 0;
+		*pSize = sClean ? (iLen - 3) : 0;
 	}
 	return sClean;
 }
@@ -548,7 +548,7 @@ str Content_BuildAbilityPackAuthCode(const char* sPluginXid, const char* sPlugin
 			uint32 iPermCount = arrPermissions ? xvoArrayItemCount(arrPermissions) : 1;
 			for ( uint32 j = 0; j < iPermCount; j++ ) {
 				xvalue objPerm = arrPermissions ? xvoArrayGetValue(arrPermissions, j) : NULL;
-				const char* sPerm = arrPermissions ? xvoGetText(objPerm) : sFallbackPerm;
+				const char* sPerm = arrPermissions ? (const char*)xvoGetText(objPerm) : sFallbackPerm;
 				str sAuthName = NULL;
 				str sAuthDesc = NULL;
 				str sNext = NULL;

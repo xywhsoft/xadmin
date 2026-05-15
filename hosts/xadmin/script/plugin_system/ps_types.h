@@ -82,6 +82,7 @@ struct PluginSystemGeneration {
 	str sWorkDir;
 	str sCompileHash;
 	str sErrorMessage;
+	XAdminHostContext tHostContext;
 	TCCState* pTccState;
 	const XAdminPluginDescriptor* pDescriptor;
 	XAdminPluginHandle hPlugin;

@@ -644,8 +644,8 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 	}
 	if ( (tblSpecJson == NULL) || (xvoType(tblSpecJson) != XVO_DT_TABLE) || !Content_SpecValidate(tblSpecJson, &sValidateError) ) {
 		str sMessage = xrtFormat("stored spec invalid: %s", sValidateError ? sValidateError : "invalid json");
-		if ( psError ) *psError = xrtCopyStr(sMessage ? sMessage : "stored spec invalid", 0);
-		Content_RecordGenerationFailure(iModelId, iRevision, sGeneratedPluginXid, "{}", sMessage ? sMessage : "stored spec invalid", iNow);
+		if ( psError ) *psError = xrtCopyStr(sMessage ? sMessage : (str)"stored spec invalid", 0);
+		Content_RecordGenerationFailure(iModelId, iRevision, sGeneratedPluginXid, "{}", sMessage ? sMessage : (str)"stored spec invalid", iNow);
 		if ( sMessage ) xrtFree(sMessage);
 		goto cleanup;
 	}
@@ -779,7 +779,7 @@ xvalue Content_GeneratePluginForModel(const char* sXid, char** psError)
 
 	memset(&spec, 0, sizeof(spec));
 	spec.xid = sGeneratedPluginXid;
-	spec.title = sTitle ? sTitle : "Generated Content Plugin";
+	spec.title = sTitle ? (const char*)sTitle : "Generated Content Plugin";
 	spec.version = "1.0.0";
 	spec.entry = "generated/main.c";
 	spec.auto_enable = 0;
