@@ -26172,7 +26172,6 @@ int Managed_OnStart(XAdminPluginHandle handle)
 	XAdminMenuDecl menu;
 	XAdminAuthGroupDecl authGroup;
 	XAdminAuthDecl auth;
-	XAdminUriAuthDecl uriAuth;
 	int iRootMenuId = 0;
 	int iAbilityAuthGroupId = 0;
 	int auth_content_comment = 0;

@@ -1251,6 +1251,9 @@ void Request_View_Auth_URIs_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			xvoTableSetInt(tblInfo, "sort", 4, sqlite3_column_int64(stmt_uris_get, 8));
 			xvoTableSetInt(tblInfo, "isPersistent", 12, sqlite3_column_int64(stmt_uris_get, 11));
 			xvoTableSetText(tblInfo, "namespace", 9, (str)sqlite3_column_text(stmt_uris_get, 12), 0, FALSE);
+			xvoTableSetText(tblInfo, "pluginXid", 9, (str)sqlite3_column_text(stmt_uris_get, 13), 0, FALSE);
+			xvoTableSetInt(tblInfo, "pluginGeneration", 16, sqlite3_column_int64(stmt_uris_get, 14));
+			xvoTableSetInt(tblInfo, "routeActive", 11, sqlite3_column_int64(stmt_uris_get, 15));
 			xvoTableSetValue(tblInfo, "authList", 8, G_CACHE_Auth, FALSE);
 			xvoTableSetValue(tblInfo, "memberAuthList", 14, G_CACHE_MemberAuth, FALSE);
 			bRow = TRUE;
@@ -1317,8 +1320,11 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				xvoTableSetText(tblRow, "memberAuthName", 14, (str)sqlite3_column_text(stmt_uris_all, 12), 0, FALSE);
 				xvoTableSetInt(tblRow, "isPersistent", 12, sqlite3_column_int64(stmt_uris_all, 13));
 				xvoTableSetText(tblRow, "namespace", 9, (str)sqlite3_column_text(stmt_uris_all, 14), 0, FALSE);
+				xvoTableSetText(tblRow, "pluginXid", 9, (str)sqlite3_column_text(stmt_uris_all, 15), 0, FALSE);
+				xvoTableSetInt(tblRow, "pluginGeneration", 16, sqlite3_column_int64(stmt_uris_all, 16));
+				xvoTableSetInt(tblRow, "routeActive", 11, sqlite3_column_int64(stmt_uris_all, 17));
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_all, 15);
+					iCount = sqlite3_column_int64(stmt_uris_all, 18);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}
@@ -1328,8 +1334,9 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			sqlite3_bind_text(stmt_uris_sel, 1, sParam, iSize, NULL);
 			sqlite3_bind_text(stmt_uris_sel, 2, sParam, iSize, NULL);
 			sqlite3_bind_text(stmt_uris_sel, 3, sParam, iSize, NULL);
-			sqlite3_bind_int64(stmt_uris_sel, 4, iLimit);
-			sqlite3_bind_int64(stmt_uris_sel, 5, iOffset);
+			sqlite3_bind_text(stmt_uris_sel, 4, sParam, iSize, NULL);
+			sqlite3_bind_int64(stmt_uris_sel, 5, iLimit);
+			sqlite3_bind_int64(stmt_uris_sel, 6, iOffset);
 			while ( sqlite3_step(stmt_uris_sel) == SQLITE_ROW ) {
 				xvalue tblRow = xvoCreateTable();
 				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_uris_sel, 0));
@@ -1350,8 +1357,11 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				xvoTableSetText(tblRow, "memberAuthName", 14, (str)sqlite3_column_text(stmt_uris_sel, 12), 0, FALSE);
 				xvoTableSetInt(tblRow, "isPersistent", 12, sqlite3_column_int64(stmt_uris_sel, 13));
 				xvoTableSetText(tblRow, "namespace", 9, (str)sqlite3_column_text(stmt_uris_sel, 14), 0, FALSE);
+				xvoTableSetText(tblRow, "pluginXid", 9, (str)sqlite3_column_text(stmt_uris_sel, 15), 0, FALSE);
+				xvoTableSetInt(tblRow, "pluginGeneration", 16, sqlite3_column_int64(stmt_uris_sel, 16));
+				xvoTableSetInt(tblRow, "routeActive", 11, sqlite3_column_int64(stmt_uris_sel, 17));
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_sel, 15);
+					iCount = sqlite3_column_int64(stmt_uris_sel, 18);
 				}
 				xvoArrayAppendValue(data, tblRow, TRUE);
 			}

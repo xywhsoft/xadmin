@@ -34,21 +34,6 @@ void PS_RuntimeCleanupMenus(PluginSystemGeneration* pGeneration)
 	}
 }
 
-void PS_RuntimeCleanupUriAuths(PluginSystemGeneration* pGeneration)
-{
-	if ( (pGeneration == NULL) || (pGeneration->lstUriAuthTokens == NULL) ) {
-		return;
-	}
-
-	for ( int i = xrtListCount(pGeneration->lstUriAuthTokens) - 1; i >= 0; i-- ) {
-		ptr pToken = xrtListGetPtr(pGeneration->lstUriAuthTokens, i);
-		if ( pToken ) {
-			PS_HostUnregisterUriAuth((XAdminUriAuthToken)(uintptr_t)pToken);
-			xrtListSetPtr(pGeneration->lstUriAuthTokens, i, NULL, NULL);
-		}
-	}
-}
-
 void PS_RuntimeCleanupAuths(PluginSystemGeneration* pGeneration)
 {
 	if ( (pGeneration == NULL) || (pGeneration->lstAuthTokens == NULL) ) {
@@ -81,7 +66,6 @@ void PS_RuntimeCleanupAuthGroups(PluginSystemGeneration* pGeneration)
 
 void PS_RuntimeCleanupGenerationEntryPoints(PluginSystemGeneration* pGeneration)
 {
-	PS_RuntimeCleanupUriAuths(pGeneration);
 	PS_RuntimeCleanupAuths(pGeneration);
 	PS_RuntimeCleanupAuthGroups(pGeneration);
 	PS_RuntimeCleanupMenus(pGeneration);

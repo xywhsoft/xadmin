@@ -91,7 +91,6 @@ struct PluginSystemGeneration {
 	xlist lstMenuTokens;
 	xlist lstAuthGroupTokens;
 	xlist lstAuthTokens;
-	xlist lstUriAuthTokens;
 	xlist lstServiceRegistrations;
 	xlist lstEventRegistrations;
 	xlist lstHookRegistrations;
@@ -482,7 +481,6 @@ PluginSystemGeneration* PS_CreateGeneration(uint32_t iGeneration)
 	pGeneration->lstMenuTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstAuthGroupTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstAuthTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
-	pGeneration->lstUriAuthTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstServiceRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstEventRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstHookRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
@@ -510,10 +508,6 @@ void PS_DestroyGeneration(PluginSystemGeneration* pGeneration)
 	if ( pGeneration->lstAuthTokens ) {
 		xrtListDestroy(pGeneration->lstAuthTokens);
 		pGeneration->lstAuthTokens = NULL;
-	}
-	if ( pGeneration->lstUriAuthTokens ) {
-		xrtListDestroy(pGeneration->lstUriAuthTokens);
-		pGeneration->lstUriAuthTokens = NULL;
 	}
 	if ( pGeneration->lstServiceRegistrations ) {
 		xrtListDestroy(pGeneration->lstServiceRegistrations);

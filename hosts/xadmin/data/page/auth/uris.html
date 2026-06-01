@@ -75,6 +75,8 @@
 				{field:'needAuth', width:80, title: '鉴权', align:'center', templet: '<span class="{{# if(d.needAuth){ }}layui-badge layui-bg-green{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.needAuth){ }}需要{{# } else { }}否{{# } }}</span>'},
 				{field:'isBackend', width:80, title: '类型', align:'center', templet: '<span class="{{# if(d.isBackend){ }}layui-badge layui-bg-blue{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.isBackend){ }}后台{{# } else { }}前台{{# } }}</span>'},
 				{field:'namespace', width:110, title: '命名空间'},
+				{field:'pluginXid', width:150, title: '插件', templet: '<span>{{= d.pluginXid || "-" }}</span>'},
+				{field:'routeActive', width:90, title: '路由状态', align:'center', templet: '<span class="{{# if(d.routeActive){ }}layui-badge layui-bg-green{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.routeActive){ }}已加载{{# } else { }}未加载{{# } }}</span>'},
 				{field:'isPersistent', width:90, title: '持久化', align:'center', templet: '<span class="{{# if(d.isPersistent){ }}layui-badge layui-bg-green{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.isPersistent){ }}是{{# } else { }}否{{# } }}</span>'},
 				{width:140, title: '权限组', templet: renderAuthGroup},
 				{width:320, title: 'URI', templet: '<code>{{= d.uri }}</code>'},
@@ -118,7 +120,7 @@
 					title: '编辑 URI 权限',
 					type: 2,
 					shadeClose: true,
-					area: ['560px', '620px'],
+					area: ['620px', '700px'],
 					content: '/admin/view/auth/uris/edit?id=' + data.id,
 				});
 			}

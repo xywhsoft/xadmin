@@ -37,7 +37,6 @@ typedef uintptr_t XAdminRouteToken;
 typedef uintptr_t XAdminMenuToken;
 typedef uintptr_t XAdminAuthGroupToken;
 typedef uintptr_t XAdminAuthToken;
-typedef uintptr_t XAdminUriAuthToken;
 typedef uintptr_t XAdminEventToken;
 typedef uintptr_t XAdminHookToken;
 
@@ -77,6 +76,10 @@ typedef struct {
 	bool admin_only;
 	int auth_id;
 	int auth_level;
+	const char* description;
+	int sort;
+	bool need_log;
+	bool keep_active;
 } XAdminRouteDecl;
 
 typedef struct {
@@ -89,6 +92,10 @@ typedef struct {
 	bool admin_only;
 	int auth_id;
 	int auth_level;
+	const char* description;
+	int sort;
+	bool need_log;
+	bool keep_active;
 } XAdminDynamicRouteDecl;
 
 typedef struct {
@@ -120,18 +127,6 @@ typedef struct {
 	const char* description;
 	int sort;
 } XAdminAuthDecl;
-
-typedef struct {
-	int scope;
-	const char* key;
-	int auth_id;
-	const char* uri;
-	const char* description;
-	int sort;
-	bool need_auth;
-	bool need_log;
-	bool keep_active;
-} XAdminUriAuthDecl;
 
 typedef struct {
 	const char* service_name;
@@ -203,8 +198,6 @@ int XAdmin_RegisterAuthGroup(XAdminPluginHandle plugin_handle, const XAdminAuthG
 int XAdmin_UnregisterAuthGroup(XAdminAuthGroupToken token);
 int XAdmin_RegisterAuth(XAdminPluginHandle plugin_handle, const XAdminAuthDecl* decl, int* out_auth_id, XAdminAuthToken* token);
 int XAdmin_UnregisterAuth(XAdminAuthToken token);
-int XAdmin_RegisterUriAuth(XAdminPluginHandle plugin_handle, const XAdminUriAuthDecl* decl, int* out_uri_id, XAdminUriAuthToken* token);
-int XAdmin_UnregisterUriAuth(XAdminUriAuthToken token);
 
 int XAdmin_ListenEvent(XAdminPluginHandle plugin_handle, const XAdminEventDecl* decl, XAdminEventToken* token);
 int XAdmin_UnlistenEvent(XAdminEventToken token);

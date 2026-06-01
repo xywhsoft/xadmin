@@ -474,7 +474,6 @@ int Hello_OnStart(XAdminPluginHandle handle)
 {
 	XAdminAuthGroupDecl authGroup;
 	XAdminAuthDecl auth;
-	XAdminUriAuthDecl uriAuth;
 	XAdminMenuDecl menu;
 	XAdminRouteDecl route;
 	XAdminServiceDecl serviceDecl;
@@ -548,6 +547,9 @@ int Hello_OnStart(XAdminPluginHandle handle)
 	route.need_auth = TRUE;
 	route.admin_only = TRUE;
 	route.auth_id = iAuthId;
+	route.description = "Hello plugin generator api";
+	route.sort = 990002;
+	route.need_log = TRUE;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
 		return -1;
 	}
@@ -558,30 +560,9 @@ int Hello_OnStart(XAdminPluginHandle handle)
 	route.need_auth = TRUE;
 	route.admin_only = TRUE;
 	route.auth_id = iAuthId;
+	route.description = "Hello plugin admin page";
+	route.sort = 990001;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-		return -1;
-	}
-
-	memset(&uriAuth, 0, sizeof(uriAuth));
-	uriAuth.scope = XADMIN_AUTH_SCOPE_ADMIN;
-	uriAuth.auth_id = iAuthId;
-	uriAuth.uri = "/admin/view/plugin/hello";
-	uriAuth.description = "Hello plugin admin page";
-	uriAuth.sort = 990001;
-	uriAuth.need_auth = TRUE;
-	if ( XAdmin_RegisterUriAuth(handle, &uriAuth, NULL, NULL) != 0 ) {
-		return -1;
-	}
-
-	memset(&uriAuth, 0, sizeof(uriAuth));
-	uriAuth.scope = XADMIN_AUTH_SCOPE_ADMIN;
-	uriAuth.auth_id = iAuthId;
-	uriAuth.uri = "/api/plugin/hello/generate";
-	uriAuth.description = "Hello plugin generator api";
-	uriAuth.sort = 990002;
-	uriAuth.need_auth = TRUE;
-	uriAuth.need_log = TRUE;
-	if ( XAdmin_RegisterUriAuth(handle, &uriAuth, NULL, NULL) != 0 ) {
 		return -1;
 	}
 

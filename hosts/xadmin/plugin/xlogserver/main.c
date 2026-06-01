@@ -1209,6 +1209,9 @@ int XLog_RegisterAdminRoutes(XAdminPluginHandle handle, int iAuthId)
 		route.need_auth = TRUE;
 		route.admin_only = TRUE;
 		route.auth_id = iAuthId;
+		route.description = paths[i];
+		route.sort = 100010 + i;
+		route.need_log = strstr(paths[i], "/api/") != NULL ? TRUE : FALSE;
 		if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 	}
 	return 0;
@@ -1220,11 +1223,15 @@ int XLog_RegisterPublicRoutes(XAdminPluginHandle handle)
 	memset(&route, 0, sizeof(route));
 	route.path = "/api/v1/log/push";
 	route.proc = XLog_ApiLogPush;
+	route.description = "Push log entries";
+	route.sort = 100001;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/api/v1/task/create";
 	route.proc = XLog_ApiTaskCreate;
+	route.description = "Create log task";
+	route.sort = 100002;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 	return 0;
 }

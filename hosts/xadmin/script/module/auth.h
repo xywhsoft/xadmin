@@ -5,14 +5,18 @@ void Auth_CompileSQL()
 {
 	sqlite3_exec(G_DB, "ALTER TABLE uris ADD COLUMN isPersistent INTEGER DEFAULT 0", NULL, NULL, NULL);
 	sqlite3_exec(G_DB, "ALTER TABLE uris ADD COLUMN namespace TEXT DEFAULT 'auto'", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "ALTER TABLE uris ADD COLUMN plugin_xid TEXT", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "ALTER TABLE uris ADD COLUMN plugin_generation INTEGER DEFAULT 0", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "ALTER TABLE uris ADD COLUMN routeActive INTEGER DEFAULT 1", NULL, NULL, NULL);
 	sqlite3_exec(G_DB, "UPDATE uris SET namespace = 'auto' WHERE namespace IS NULL OR namespace = ''", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "UPDATE uris SET routeActive = 1 WHERE routeActive IS NULL", NULL, NULL, NULL);
 	// 棰勭紪璇?SQL 璇彞 - uris 琛?
-	int iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, COUNT(*) OVER() AS total_count FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_all, NULL);
+	int iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive, COUNT(*) OVER() AS total_count FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, COUNT(*) OVER() AS total_count FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id WHERE (uris.uri LIKE ?) OR (uris.desc LIKE ?) OR (uris.namespace LIKE ?) ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive, COUNT(*) OVER() AS total_count FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id WHERE (uris.uri LIKE ?) OR (uris.desc LIKE ?) OR (uris.namespace LIKE ?) OR (uris.plugin_xid LIKE ?) ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -32,7 +36,7 @@ void Auth_CompileSQL()
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_del] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT id,authID,uri,desc,isBackend,needAuth,needLog,keepActive,sort,createTime,updateTime,isPersistent,namespace FROM uris WHERE id=?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_get, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT id,authID,uri,desc,isBackend,needAuth,needLog,keepActive,sort,createTime,updateTime,isPersistent,namespace,plugin_xid,plugin_generation,routeActive FROM uris WHERE id=?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_get, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_get] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);

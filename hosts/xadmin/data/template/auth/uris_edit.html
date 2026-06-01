@@ -71,6 +71,24 @@
 					<input type="text" name="namespace" value="{{$namespace}}" placeholder="auto / page / plugin / custom" autocomplete="off" class="layui-input">
 				</div>
 			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">插件归属</label>
+				<div class="layui-input-block">
+					<input type="text" value="{{$pluginXid}}" placeholder="-" autocomplete="off" class="layui-input" readonly>
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">插件代次</label>
+				<div class="layui-input-block">
+					<input type="text" value="{{$pluginGeneration}}" placeholder="0" autocomplete="off" class="layui-input" readonly>
+				</div>
+			</div>
+			<div class="layui-form-item">
+				<label class="layui-form-label">路由状态</label>
+				<div class="layui-input-block">
+					<input type="text" id="routeActiveText" value="{{$routeActive}}" autocomplete="off" class="layui-input" readonly>
+				</div>
+			</div>
 			<div class="layui-form-item" style="margin-top: 10px;">
 				<label class="layui-form-label">属性说明</label>
 				<div class="layui-input-block">
@@ -123,6 +141,8 @@
 			// 初始值
 			var initAuthID = {{$authID}};
 			var initIsBackend = {{$isBackend}} == 1;
+			var initRouteActive = {{$routeActive}} == 1;
+			document.getElementById('routeActiveText').value = initRouteActive ? '已加载' : '未加载';
 			
 			// 渲染表单
 			form.render();

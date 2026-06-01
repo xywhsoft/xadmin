@@ -53,6 +53,7 @@ void PS_StorageInit()
 	PS_StorageExecIgnore("ALTER TABLE uris ADD COLUMN plugin_generation INTEGER");
 	PS_StorageExecIgnore("ALTER TABLE uris ADD COLUMN isPersistent INTEGER DEFAULT 0");
 	PS_StorageExecIgnore("ALTER TABLE uris ADD COLUMN namespace TEXT DEFAULT 'auto'");
+	PS_StorageExecIgnore("ALTER TABLE uris ADD COLUMN routeActive INTEGER DEFAULT 1");
 	PS_StorageExecIgnore("ALTER TABLE authGroup ADD COLUMN plugin_xid TEXT");
 	PS_StorageExecIgnore("ALTER TABLE authGroup ADD COLUMN plugin_generation INTEGER");
 	PS_StorageExecIgnore("ALTER TABLE auth ADD COLUMN plugin_xid TEXT");

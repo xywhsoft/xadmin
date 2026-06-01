@@ -31,6 +31,11 @@ typedef struct {
 	bool bAdminOnly;
 	int iAuthId;
 	int iAuthLevel;
+	str sDescription;
+	int iSort;
+	bool bNeedLog;
+	bool bKeepActive;
+	int iUriId;
 	int iPriority;
 	int iMethod;
 } PluginSystemRouteToken;
@@ -73,21 +78,6 @@ typedef struct {
 	str sDescription;
 	int iSort;
 } PluginSystemAuthToken;
-
-typedef struct {
-	PluginSystemTokenBase base;
-	int iScope;
-	int iUriId;
-	int iTempUriId;
-	int iAuthId;
-	str sKey;
-	str sUri;
-	str sDescription;
-	int iSort;
-	bool bNeedAuth;
-	bool bNeedLog;
-	bool bKeepActive;
-} PluginSystemUriAuthToken;
 
 const char* PS_HostLogLevelName(int iLevel)
 {
@@ -239,6 +229,7 @@ void PS_HostFreeRouteToken(PluginSystemRouteToken* pToken)
 	}
 	PS_FreeString(&pToken->sPath);
 	PS_FreeString(&pToken->sPattern);
+	PS_FreeString(&pToken->sDescription);
 	xrtFree(pToken);
 }
 
@@ -274,17 +265,6 @@ void PS_HostFreeAuthToken(PluginSystemAuthToken* pToken)
 	}
 	PS_FreeString(&pToken->sKey);
 	PS_FreeString(&pToken->sName);
-	PS_FreeString(&pToken->sDescription);
-	xrtFree(pToken);
-}
-
-void PS_HostFreeUriAuthToken(PluginSystemUriAuthToken* pToken)
-{
-	if ( pToken == NULL ) {
-		return;
-	}
-	PS_FreeString(&pToken->sKey);
-	PS_FreeString(&pToken->sUri);
 	PS_FreeString(&pToken->sDescription);
 	xrtFree(pToken);
 }
@@ -364,11 +344,6 @@ const char* PS_HostAuthResourceType(int iScope)
 	return (iScope == XADMIN_AUTH_SCOPE_MEMBER) ? "member_auth" : "admin_auth";
 }
 
-const char* PS_HostUriAuthResourceType(int iScope)
-{
-	return (iScope == XADMIN_AUTH_SCOPE_MEMBER) ? "member_uri_auth" : "admin_uri_auth";
-}
-
 void PS_HostLog(int level, const char* fmt, ...)
 {
 	va_list args;
@@ -438,6 +413,138 @@ void PS_HostInvokeRoute(RouteInfo* pInfo, XS_ServerObject objServer, XS_HostObje
 	}
 }
 
+int PS_HostFindUriId(const char* sUri)
+{
+	sqlite3_stmt* stmt = NULL;
+	int iUriId = 0;
+
+	if ( (G_DB == NULL) || (sUri == NULL) || (sUri[0] == '\0') ) {
+		return 0;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM uris WHERE uri = ? LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		return 0;
+	}
+
+	PS_StorageBindText(stmt, 1, sUri);
+	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+		iUriId = sqlite3_column_int(stmt, 0);
+	}
+
+	sqlite3_finalize(stmt);
+	return iUriId;
+}
+
+int PS_HostApplyRouteUriConfig(PluginSystemRouteToken* pToken, RouteInfo* pInfo, int iDefaultAuthId)
+{
+	sqlite3_stmt* stmt = NULL;
+	int iUriId;
+	int iAuthId = iDefaultAuthId > 0 ? iDefaultAuthId : 1;
+	int iIsBackend = pToken->bAdminOnly ? 1 : 0;
+	int iNeedAuth = pToken->bNeedAuth ? 1 : 0;
+	int iNeedLog = pToken->bNeedLog ? 1 : 0;
+	int iKeepActive = pToken->bKeepActive ? 1 : 0;
+	int64 iNow = xrtNow();
+	const char* sXid;
+
+	if ( (pToken == NULL) || (pInfo == NULL) || (pToken->sPath == NULL) || (pToken->base.pGeneration == NULL) || (pToken->base.pGeneration->pPackage == NULL) ) {
+		return -1;
+	}
+	sXid = PS_HostGenerationXid(pToken->base.pGeneration);
+	iUriId = PS_HostFindUriId(pToken->sPath);
+	if ( iUriId <= 0 ) {
+		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO uris (authID, uri, desc, isBackend, needAuth, needLog, keepActive, sort, createTime, updateTime, plugin_xid, plugin_generation, isPersistent, namespace, routeActive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'plugin', 1)", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+			return -1;
+		}
+		sqlite3_bind_int(stmt, 1, iAuthId);
+		PS_StorageBindText(stmt, 2, pToken->sPath);
+		PS_StorageBindText(stmt, 3, pToken->sDescription ? pToken->sDescription : pToken->sPath);
+		sqlite3_bind_int(stmt, 4, iIsBackend);
+		sqlite3_bind_int(stmt, 5, iNeedAuth);
+		sqlite3_bind_int(stmt, 6, iNeedLog);
+		sqlite3_bind_int(stmt, 7, iKeepActive);
+		sqlite3_bind_int(stmt, 8, pToken->iSort);
+		sqlite3_bind_int64(stmt, 9, iNow);
+		sqlite3_bind_int64(stmt, 10, iNow);
+		PS_StorageBindText(stmt, 11, sXid);
+		sqlite3_bind_int(stmt, 12, (int)pToken->base.pGeneration->iGeneration);
+		if ( sqlite3_step(stmt) != SQLITE_DONE ) {
+			sqlite3_finalize(stmt);
+			return -1;
+		}
+		iUriId = (int)sqlite3_last_insert_rowid(G_DB);
+		sqlite3_finalize(stmt);
+		stmt = NULL;
+	} else {
+		if ( sqlite3_prepare_v3(G_DB, "UPDATE uris SET plugin_xid = ?, plugin_generation = ?, isPersistent = 1, namespace = 'plugin', routeActive = 1, updateTime = ? WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+			return -1;
+		}
+		PS_StorageBindText(stmt, 1, sXid);
+		sqlite3_bind_int(stmt, 2, (int)pToken->base.pGeneration->iGeneration);
+		sqlite3_bind_int64(stmt, 3, iNow);
+		sqlite3_bind_int(stmt, 4, iUriId);
+		if ( sqlite3_step(stmt) != SQLITE_DONE ) {
+			sqlite3_finalize(stmt);
+			return -1;
+		}
+		sqlite3_finalize(stmt);
+		stmt = NULL;
+	}
+
+	if ( sqlite3_prepare_v3(G_DB, "SELECT authID, isBackend, needAuth, needLog, keepActive FROM uris WHERE id = ? LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
+		return -1;
+	}
+	sqlite3_bind_int(stmt, 1, iUriId);
+	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
+		iAuthId = sqlite3_column_int(stmt, 0);
+		iIsBackend = sqlite3_column_int(stmt, 1);
+		iNeedAuth = sqlite3_column_int(stmt, 2);
+		iNeedLog = sqlite3_column_int(stmt, 3);
+		iKeepActive = sqlite3_column_int(stmt, 4);
+	}
+	sqlite3_finalize(stmt);
+
+	pInfo->AuthID = iAuthId > 0 ? iAuthId : 1;
+	pInfo->bAdmin = iIsBackend ? TRUE : FALSE;
+	pInfo->bAuth = iNeedAuth ? TRUE : FALSE;
+	pInfo->bPutLog = iNeedLog ? TRUE : FALSE;
+	pInfo->bActive = iKeepActive ? TRUE : FALSE;
+	pToken->iUriId = iUriId;
+	return 0;
+}
+
+void PS_HostMarkRouteUriInactive(PluginSystemRouteToken* pToken)
+{
+	sqlite3_stmt* stmt = NULL;
+
+	if ( (G_DB == NULL) || (pToken == NULL) || (pToken->sPath == NULL) || (pToken->base.pGeneration == NULL) || (pToken->base.pGeneration->pPackage == NULL) ) {
+		return;
+	}
+	if ( sqlite3_prepare_v3(G_DB, "UPDATE uris SET routeActive = 0, updateTime = ? WHERE uri = ? AND plugin_xid = ? AND plugin_generation = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, xrtNow());
+		PS_StorageBindText(stmt, 2, pToken->sPath);
+		PS_StorageBindText(stmt, 3, PS_HostGenerationXid(pToken->base.pGeneration));
+		sqlite3_bind_int(stmt, 4, (int)pToken->base.pGeneration->iGeneration);
+		sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+	}
+}
+
+void PS_HostMarkGenerationRouteUrisInactive(PluginSystemGeneration* pGeneration)
+{
+	sqlite3_stmt* stmt = NULL;
+
+	if ( (G_DB == NULL) || (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
+		return;
+	}
+	if ( sqlite3_prepare_v3(G_DB, "UPDATE uris SET routeActive = 0, updateTime = ? WHERE plugin_xid = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
+		sqlite3_bind_int64(stmt, 1, xrtNow());
+		PS_StorageBindText(stmt, 2, PS_HostGenerationXid(pGeneration));
+		sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+	}
+}
+
 int PS_HostApplyRouteToken(PluginSystemRouteToken* pToken, bool bForce)
 {
 	RouteInfo* pInfo;
@@ -471,11 +578,11 @@ int PS_HostApplyRouteToken(PluginSystemRouteToken* pToken, bool bForce)
 		return -1;
 	}
 
-	pInfo->bAuth = pToken->bNeedAuth;
-	pInfo->bAdmin = pToken->bAdminOnly;
-	pInfo->AuthID = iAuthId;
 	pInfo->AuthLevel = pToken->iAuthLevel;
 	pInfo->pPluginRouteToken = pToken;
+	if ( PS_HostApplyRouteUriConfig(pToken, pInfo, iAuthId) != 0 ) {
+		return -1;
+	}
 
 	if ( pToken->base.iResourceId <= 0 ) {
 		pToken->base.iResourceId = PS_StorageTrackResource(pToken->base.pGeneration, "generation", "route", pToken->sPath, pToken->sPath, "auto_unload");
@@ -511,6 +618,10 @@ int PS_HostRegisterRoute(void* plugin_handle, const XAdminRouteDecl* decl, XAdmi
 	pToken->bAdminOnly = decl->admin_only;
 	pToken->iAuthId = decl->auth_id;
 	pToken->iAuthLevel = decl->auth_level;
+	pToken->sDescription = PS_HostCopyOptionalText(decl->description);
+	pToken->iSort = decl->sort;
+	pToken->bNeedLog = decl->need_log;
+	pToken->bKeepActive = decl->keep_active;
 	if ( pToken->sPath == NULL ) {
 		xrtFree(pToken);
 		return -1;
@@ -546,6 +657,10 @@ int PS_HostRegisterDynamicRoute(void* plugin_handle, const XAdminDynamicRouteDec
 	pToken->bAdminOnly = decl->admin_only;
 	pToken->iAuthId = decl->auth_id;
 	pToken->iAuthLevel = decl->auth_level;
+	pToken->sDescription = PS_HostCopyOptionalText(decl->description);
+	pToken->iSort = decl->sort;
+	pToken->bNeedLog = decl->need_log;
+	pToken->bKeepActive = decl->keep_active;
 	pToken->iPriority = decl->priority;
 	pToken->iMethod = decl->method;
 	if ( (pToken->sPath == NULL) || (pToken->sPattern == NULL) ) {
@@ -575,6 +690,7 @@ int PS_HostUnregisterRoute(XAdminRouteToken token)
 	pToken->base.bReleased = TRUE;
 
 	if ( pToken->base.bPublished && pToken->sPath ) {
+		PS_HostMarkRouteUriInactive(pToken);
 		if ( pToken->bDynamic ) {
 			pCurrent = FindDynamicRouteHTTP(pToken->sPath);
 			if ( pCurrent && (pCurrent->Proc == pToken->pProc) ) {
@@ -609,6 +725,7 @@ int PS_HostUnpublishRouteToken(PluginSystemRouteToken* pToken)
 	}
 
 	if ( pToken->sPath ) {
+		PS_HostMarkRouteUriInactive(pToken);
 		if ( pToken->bDynamic ) {
 			pCurrent = FindDynamicRouteHTTP(pToken->sPath);
 			if ( pCurrent && (pCurrent->pPluginRouteToken == pToken) ) {
@@ -1458,231 +1575,6 @@ int PS_HostUnregisterAuth(XAdminAuthToken token)
 	return 0;
 }
 
-int PS_HostFindUriId(const char* sUri)
-{
-	sqlite3_stmt* stmt = NULL;
-	int iUriId = 0;
-
-	if ( (G_DB == NULL) || (sUri == NULL) || (sUri[0] == '\0') ) {
-		return 0;
-	}
-
-	if ( sqlite3_prepare_v3(G_DB, "SELECT id FROM uris WHERE uri = ? LIMIT 1", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
-		return 0;
-	}
-
-	PS_StorageBindText(stmt, 1, sUri);
-	if ( sqlite3_step(stmt) == SQLITE_ROW ) {
-		iUriId = sqlite3_column_int(stmt, 0);
-	}
-
-	sqlite3_finalize(stmt);
-	return iUriId;
-}
-
-int PS_HostApplyUriAuthToken(PluginSystemUriAuthToken* pToken, bool bForce)
-{
-	sqlite3_stmt* stmt = NULL;
-	RouteInfo* pInfo;
-	char sRef[32];
-	int iUriId;
-	int iAuthId;
-	int64 iNow;
-
-	if ( (pToken == NULL) || (pToken->base.pGeneration == NULL) || (pToken->base.pGeneration->pPackage == NULL) || (pToken->sUri == NULL) || (pToken->sUri[0] == '\0') ) {
-		return -1;
-	}
-	if ( pToken->base.bPublished && !bForce ) {
-		return 0;
-	}
-
-	pInfo = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sUri, strlen(pToken->sUri));
-	if ( pInfo == NULL ) {
-		pInfo = FindDynamicRouteHTTP(pToken->sUri);
-	}
-	if ( pInfo == NULL ) {
-		return -1;
-	}
-
-	iAuthId = pToken->iAuthId;
-	if ( iAuthId < 0 ) {
-		iAuthId = PS_HostResolveAuthId(pToken->base.pGeneration, iAuthId);
-		if ( iAuthId <= 0 ) {
-			return -1;
-		}
-	}
-
-	iUriId = pToken->iUriId;
-	if ( (iUriId <= 0) || !PS_HostMatchOwnedRow("SELECT plugin_xid, plugin_generation FROM uris WHERE id = ?", iUriId, pToken->base.pGeneration) ) {
-		iUriId = PS_HostFindUriId(pToken->sUri);
-	}
-
-	iNow = xrtNow();
-	if ( iUriId > 0 ) {
-		if ( sqlite3_prepare_v3(G_DB, "UPDATE uris SET authID = ?, uri = ?, desc = ?, isBackend = ?, needAuth = ?, needLog = ?, keepActive = ?, sort = ?, updateTime = ?, plugin_xid = ?, plugin_generation = ?, isPersistent = 1, namespace = 'plugin' WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
-			return -1;
-		}
-		sqlite3_bind_int(stmt, 1, iAuthId);
-		PS_StorageBindText(stmt, 2, pToken->sUri);
-		PS_StorageBindText(stmt, 3, pToken->sDescription);
-		sqlite3_bind_int(stmt, 4, (pToken->iScope == XADMIN_AUTH_SCOPE_MEMBER) ? 0 : 1);
-		sqlite3_bind_int(stmt, 5, pToken->bNeedAuth ? 1 : 0);
-		sqlite3_bind_int(stmt, 6, pToken->bNeedLog ? 1 : 0);
-		sqlite3_bind_int(stmt, 7, pToken->bKeepActive ? 1 : 0);
-		sqlite3_bind_int(stmt, 8, pToken->iSort);
-		sqlite3_bind_int64(stmt, 9, iNow);
-		PS_StorageBindText(stmt, 10, PS_HostGenerationXid(pToken->base.pGeneration));
-		sqlite3_bind_int(stmt, 11, (int)pToken->base.pGeneration->iGeneration);
-		sqlite3_bind_int(stmt, 12, iUriId);
-	} else {
-		if ( sqlite3_prepare_v3(G_DB, "INSERT INTO uris (authID, uri, desc, isBackend, needAuth, needLog, keepActive, sort, createTime, updateTime, plugin_xid, plugin_generation, isPersistent, namespace) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 'plugin')", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) != SQLITE_OK ) {
-			return -1;
-		}
-		sqlite3_bind_int(stmt, 1, iAuthId);
-		PS_StorageBindText(stmt, 2, pToken->sUri);
-		PS_StorageBindText(stmt, 3, pToken->sDescription);
-		sqlite3_bind_int(stmt, 4, (pToken->iScope == XADMIN_AUTH_SCOPE_MEMBER) ? 0 : 1);
-		sqlite3_bind_int(stmt, 5, pToken->bNeedAuth ? 1 : 0);
-		sqlite3_bind_int(stmt, 6, pToken->bNeedLog ? 1 : 0);
-		sqlite3_bind_int(stmt, 7, pToken->bKeepActive ? 1 : 0);
-		sqlite3_bind_int(stmt, 8, pToken->iSort);
-		sqlite3_bind_int64(stmt, 9, iNow);
-		sqlite3_bind_int64(stmt, 10, iNow);
-		PS_StorageBindText(stmt, 11, PS_HostGenerationXid(pToken->base.pGeneration));
-		sqlite3_bind_int(stmt, 12, (int)pToken->base.pGeneration->iGeneration);
-	}
-
-	if ( sqlite3_step(stmt) != SQLITE_DONE ) {
-		sqlite3_finalize(stmt);
-		return -1;
-	}
-	if ( iUriId <= 0 ) {
-		iUriId = (int)sqlite3_last_insert_rowid(G_DB);
-	}
-	sqlite3_finalize(stmt);
-
-	pInfo->AuthID = iAuthId;
-	pInfo->bAdmin = (pToken->iScope == XADMIN_AUTH_SCOPE_MEMBER) ? FALSE : TRUE;
-	pInfo->bAuth = pToken->bNeedAuth;
-	pInfo->bPutLog = pToken->bNeedLog;
-	pInfo->bActive = pToken->bKeepActive;
-
-	pToken->iUriId = iUriId;
-	pToken->iAuthId = iAuthId;
-	PS_HostFormatRefInt(iUriId, sRef);
-	if ( pToken->base.iResourceId <= 0 ) {
-		pToken->base.iResourceId = PS_StorageTrackResource(pToken->base.pGeneration, "generation", PS_HostUriAuthResourceType(pToken->iScope), pToken->sKey ? pToken->sKey : pToken->sUri, sRef, "delete");
-	}
-	pToken->base.bPublished = TRUE;
-	PS_HostRefreshCachesByScope(pToken->iScope);
-	return 0;
-}
-
-int PS_HostPublishUriAuthToken(PluginSystemUriAuthToken* pToken)
-{
-	return PS_HostApplyUriAuthToken(pToken, FALSE);
-}
-
-int PS_HostRegisterUriAuth(void* plugin_handle, const XAdminUriAuthDecl* decl, int* out_uri_id, XAdminUriAuthToken* token)
-{
-	PluginSystemGeneration* pGeneration = PS_HostGetGeneration(plugin_handle);
-	PluginSystemUriAuthToken* pToken = NULL;
-	int iScope;
-
-	if ( (decl == NULL) || (decl->uri == NULL) || (decl->uri[0] == '\0') || (decl->auth_id == 0) || (pGeneration == NULL) || (pGeneration->pPackage == NULL) ) {
-		return -1;
-	}
-
-	iScope = (decl->scope == XADMIN_AUTH_SCOPE_MEMBER) ? XADMIN_AUTH_SCOPE_MEMBER : XADMIN_AUTH_SCOPE_ADMIN;
-	pToken = xrtMalloc(sizeof(PluginSystemUriAuthToken));
-	if ( pToken == NULL ) {
-		return -1;
-	}
-
-	memset(pToken, 0, sizeof(PluginSystemUriAuthToken));
-	pToken->base.pGeneration = pGeneration;
-	pToken->iScope = iScope;
-	pToken->iTempUriId = PS_HostAllocStagedId(pGeneration);
-	pToken->iAuthId = decl->auth_id;
-	pToken->sKey = PS_HostCopyOptionalText(decl->key);
-	pToken->sUri = PS_HostCopyOptionalText(decl->uri);
-	pToken->sDescription = PS_HostCopyOptionalText(decl->description);
-	pToken->iSort = decl->sort;
-	pToken->bNeedAuth = decl->need_auth;
-	pToken->bNeedLog = decl->need_log;
-	pToken->bKeepActive = decl->keep_active;
-	if ( pToken->sUri == NULL ) {
-		PS_HostFreeUriAuthToken(pToken);
-		return -1;
-	}
-
-	PS_HostAppendToken(pGeneration->lstUriAuthTokens, pToken);
-	if ( out_uri_id ) {
-		*out_uri_id = pToken->iTempUriId;
-	}
-	if ( token ) {
-		*token = (XAdminUriAuthToken)(uintptr_t)pToken;
-	}
-	return 0;
-}
-
-int PS_HostUnregisterUriAuth(XAdminUriAuthToken token)
-{
-	PluginSystemUriAuthToken* pToken = (PluginSystemUriAuthToken*)(uintptr_t)token;
-	sqlite3_stmt* stmt = NULL;
-	PluginSystemRouteToken* pRouteToken = NULL;
-	RouteInfo* pInfo;
-	bool bWasPublished;
-	int iScope;
-
-	if ( pToken == NULL ) {
-		return -1;
-	}
-	if ( pToken->base.bReleased ) {
-		return 0;
-	}
-
-	iScope = pToken->iScope;
-	bWasPublished = pToken->base.bPublished;
-	pToken->base.bReleased = TRUE;
-	if ( pToken->base.pGeneration ) {
-		PS_HostDetachToken(pToken->base.pGeneration->lstUriAuthTokens, pToken);
-	}
-
-	if ( bWasPublished && PS_HostMatchOwnedRow("SELECT plugin_xid, plugin_generation FROM uris WHERE id = ?", pToken->iUriId, pToken->base.pGeneration) ) {
-		if ( sqlite3_prepare_v3(G_DB, "DELETE FROM uris WHERE id = ?", -1, SQL_PREPARE_DEFAULT, &stmt, NULL) == SQLITE_OK ) {
-			sqlite3_bind_int(stmt, 1, pToken->iUriId);
-			sqlite3_step(stmt);
-			sqlite3_finalize(stmt);
-		}
-
-		if ( pToken->sUri ) {
-			pInfo = (RouteInfo*)xrtDictGet(G_StaticRouteTableHTTP, pToken->sUri, strlen(pToken->sUri));
-			if ( pInfo == NULL ) {
-				pInfo = FindDynamicRouteHTTP(pToken->sUri);
-			}
-			if ( pInfo && pInfo->pPluginRouteToken ) {
-				pRouteToken = (PluginSystemRouteToken*)pInfo->pPluginRouteToken;
-			}
-			if ( pInfo && ((pRouteToken == NULL) || (pRouteToken->base.pGeneration == pToken->base.pGeneration)) ) {
-				pInfo->AuthID = 0;
-				pInfo->bAuth = FALSE;
-				pInfo->bPutLog = FALSE;
-				pInfo->bActive = FALSE;
-			}
-		}
-	}
-
-	if ( pToken->base.iResourceId > 0 ) {
-		PS_StorageUpdateResourceStatus(pToken->base.iResourceId, "removed");
-	}
-	PS_HostFreeUriAuthToken(pToken);
-	if ( bWasPublished ) {
-		PS_HostRefreshCachesByScope(iScope);
-	}
-	return 0;
-}
-
 bool PS_HostApplyMenuGenerationTokens(PluginSystemGeneration* pGeneration, bool bForce)
 {
 	bool bProgress;
@@ -1801,18 +1693,13 @@ bool PS_HostApplyGenerationEntryPoints(PluginSystemGeneration* pGeneration, bool
 	}
 
 	if ( pGeneration->lstRouteTokens ) {
+		PS_HostMarkGenerationRouteUrisInactive(pGeneration);
+	}
+
+	if ( pGeneration->lstRouteTokens ) {
 		for ( int i = 0; i < xrtListCount(pGeneration->lstRouteTokens); i++ ) {
 			PluginSystemRouteToken* pToken = xrtListGetPtr(pGeneration->lstRouteTokens, i);
 			if ( pToken && !pToken->base.bReleased && PS_HostApplyRouteToken(pToken, bForce) != 0 ) {
-				return FALSE;
-			}
-		}
-	}
-
-	if ( pGeneration->lstUriAuthTokens ) {
-		for ( int i = 0; i < xrtListCount(pGeneration->lstUriAuthTokens); i++ ) {
-			PluginSystemUriAuthToken* pToken = xrtListGetPtr(pGeneration->lstUriAuthTokens, i);
-			if ( pToken && !pToken->base.bReleased && PS_HostApplyUriAuthToken(pToken, bForce) != 0 ) {
 				return FALSE;
 			}
 		}
@@ -1978,16 +1865,6 @@ int XAdmin_UnregisterAuth(XAdminAuthToken token)
 	return PS_HostUnregisterAuth(token);
 }
 
-int XAdmin_RegisterUriAuth(XAdminPluginHandle plugin_handle, const XAdminUriAuthDecl* decl, int* out_uri_id, XAdminUriAuthToken* token)
-{
-	return PS_HostRegisterUriAuth(plugin_handle, decl, out_uri_id, token);
-}
-
-int XAdmin_UnregisterUriAuth(XAdminUriAuthToken token)
-{
-	return PS_HostUnregisterUriAuth(token);
-}
-
 int XAdmin_ListenEvent(XAdminPluginHandle plugin_handle, const XAdminEventDecl* decl, XAdminEventToken* token)
 {
 	return PS_HostListenEvent(plugin_handle, decl, token);
@@ -2143,8 +2020,6 @@ void PS_TCCRegisterPluginSdkSymbols(TCCState* pTcc)
 	tcc_add_symbol(pTcc, "XAdmin_RegisterAuth", XAdmin_RegisterAuth);
 	tcc_add_symbol(pTcc, "XAdmin_UnregisterAuth", XAdmin_UnregisterAuth);
 	tcc_add_symbol(pTcc, "XAdmin_GrantDefaultAdminRoleAuth", XAdmin_GrantDefaultAdminRoleAuth);
-	tcc_add_symbol(pTcc, "XAdmin_RegisterUriAuth", XAdmin_RegisterUriAuth);
-	tcc_add_symbol(pTcc, "XAdmin_UnregisterUriAuth", XAdmin_UnregisterUriAuth);
 	tcc_add_symbol(pTcc, "XAdmin_ListenEvent", XAdmin_ListenEvent);
 	tcc_add_symbol(pTcc, "XAdmin_UnlistenEvent", XAdmin_UnlistenEvent);
 	tcc_add_symbol(pTcc, "XAdmin_EmitEvent", XAdmin_EmitEvent);
