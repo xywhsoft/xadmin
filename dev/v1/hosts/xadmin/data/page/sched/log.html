@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>计划任务日志</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+</head>
+<body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+<div style="flex: 1; overflow-y: auto; padding: 16px;">
+	<div class="layui-form" style="margin-bottom: 12px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+		<div class="layui-inline" style="margin-right: 0;">
+			<select id="sched_log_status" class="layui-select">
+				<option value="all">全部状态</option>
+				<option value="success">成功</option>
+				<option value="running">运行中</option>
+				<option value="failed">失败</option>
+				<option value="timeout">超时</option>
+			</select>
+		</div>
+		<div class="layui-inline" style="margin-right: 0;">
+			<input type="text" id="sched_log_start_from" placeholder="开始时间 YYYY-MM-DD HH:mm:ss" class="layui-input" style="width: 190px;">
+		</div>
+		<div class="layui-inline" style="margin-right: 0;">
+			<input type="text" id="sched_log_start_to" placeholder="结束时间 YYYY-MM-DD HH:mm:ss" class="layui-input" style="width: 190px;">
+		</div>
+		<div class="layui-inline" style="margin-right: 0;">
+			<input type="text" id="sched_log_keyword" placeholder="搜索任务名、结果说明或输出内容" class="layui-input" style="width: 320px;">
+		</div>
+		<div class="layui-inline" style="margin-right: 0;">
+			<button type="button" class="layui-btn layui-btn-sm" id="btn_sched_log_search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+			<button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="btn_sched_log_reset"><i class="layui-icon layui-icon-refresh"></i> 重置</button>
+			<button type="button" class="layui-btn layui-btn-sm layui-btn-primary" id="btn_sched_log_export"><i class="layui-icon layui-icon-export"></i> 导出当前结果</button>
+			<button type="button" class="layui-btn layui-btn-sm layui-btn-danger" id="btn_sched_log_clear"><i class="layui-icon layui-icon-delete"></i> 清空当前结果</button>
+		</div>
+	</div>
+	<table class="layui-hide" id="Table_Sched_Log" lay-filter="Table_Sched_Log"></table>
+</div>
+
+<script type="text/html" id="Tpl_Sched_Log_Status">
+	{{# if(d.status === 'success'){ }}
+		<span class="layui-badge layui-bg-green">成功</span>
+	{{# } else if(d.status === 'running'){ }}
+		<span class="layui-badge layui-bg-blue">运行中</span>
+	{{# } else if(d.status === 'timeout'){ }}
+		<span class="layui-badge layui-bg-orange">超时</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-red">失败</span>
+	{{# } }}
+</script>
+
+<script type="text/html" id="Tool_Sched_Log">
+	<a class="layui-btn layui-btn-xs" lay-event="detail">详情</a>
+</script>
+
+<script src="/layui/layui.js"></script>
+<script>
+layui.use(['table', 'layer', 'form', 'laydate'], function(){
+	var table = layui.table;
+	var layer = layui.layer;
+	var form = layui.form;
+	var laydate = layui.laydate;
+	var $ = layui.$;
+	var search = new URLSearchParams(location.search);
+	var taskId = Number(search.get('taskId') || 0);
+	var filters = {
+		status: 'all',
+		keyword: '',
+		startFrom: '',
+		startTo: ''
+	};
+
+	function escapeHtml(text) {
+		return String(text || '')
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#39;');
+	}
+
+	function formatTrigger(value) {
+		if ( value === 'scheduler' ) return '调度触发';
+		if ( value === 'manual' ) return '手动执行';
+		if ( value === 'queued' ) return '排队补跑';
+		return value || '-';
+	}
+
+	function buildParams() {
+		var params = new URLSearchParams();
+		if ( taskId > 0 ) {
+			params.set('taskId', taskId);
+		}
+		if ( filters.status && filters.status !== 'all' ) {
+			params.set('status', filters.status);
+		}
+		if ( filters.keyword ) {
+			params.set('keyword', filters.keyword);
+		}
+		if ( filters.startFrom ) {
+			params.set('startFrom', filters.startFrom);
+		}
+		if ( filters.startTo ) {
+			params.set('startTo', filters.startTo);
+		}
+		return params;
+	}
+
+	function buildUrl() {
+		return '/admin/sched/logs?' + buildParams().toString();
+	}
+
+	function reloadTable() {
+		table.reload('Table_Sched_Log', {
+			url: buildUrl(),
+			page: {
+				curr: 1
+			}
+		});
+	}
+
+	function showExportDialog(logs) {
+		var payload = {
+			logs: logs || []
+		};
+		var content = [
+			'<div style="padding:16px;">',
+			'<div style="margin-bottom:10px;color:#666;">将当前筛选结果导出为 JSON，便于留档或后续分析。</div>',
+			'<textarea id="sched_log_export_json" class="layui-textarea" style="min-height:460px;font-family:Consolas,monospace;">' + JSON.stringify(payload, null, 2) + '</textarea>',
+			'</div>'
+		].join('');
+		layer.open({
+			title: '导出执行日志',
+			type: 1,
+			shadeClose: true,
+			area: ['980px', '700px'],
+			content: content
+		});
+	}
+
+	function syncFiltersFromForm() {
+		filters.status = $('#sched_log_status').val() || 'all';
+		filters.keyword = $.trim($('#sched_log_keyword').val());
+		filters.startFrom = $.trim($('#sched_log_start_from').val());
+		filters.startTo = $.trim($('#sched_log_start_to').val());
+	}
+
+	table.render({
+		elem: '#Table_Sched_Log',
+		id: 'Table_Sched_Log',
+		url: buildUrl(),
+		height: 'full-122',
+		page: {
+			limit: 20,
+			layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+		},
+		skin: 'line',
+		cellMinWidth: 90,
+		parseData: function(res){
+			(res.data || []).forEach(function(item){
+				item.triggerSourceText = formatTrigger(item.triggerSource);
+			});
+			return res;
+		},
+		cols: [[
+			{field: 'id', title: 'ID', width: 80, sort: true},
+			{field: 'taskName', title: '任务', minWidth: 180},
+			{field: 'triggerSourceText', title: '触发方式', width: 120},
+			{field: 'status', title: '状态', width: 100, align: 'center', templet: '#Tpl_Sched_Log_Status'},
+			{field: 'startText', title: '开始时间', width: 180},
+			{field: 'finishText', title: '结束时间', width: 180},
+			{field: 'durationMs', title: '耗时(ms)', width: 120},
+			{field: 'exitCode', title: '退出码', width: 90},
+			{field: 'message', title: '结果说明', minWidth: 240},
+			{fixed: 'right', title: '操作', width: 90, toolbar: '#Tool_Sched_Log'}
+		]]
+	});
+
+	laydate.render({ elem: '#sched_log_start_from', type: 'datetime', trigger: 'click' });
+	laydate.render({ elem: '#sched_log_start_to', type: 'datetime', trigger: 'click' });
+	form.render('select');
+
+	$('#btn_sched_log_search').on('click', function(){
+		syncFiltersFromForm();
+		reloadTable();
+	});
+
+	$('#btn_sched_log_reset').on('click', function(){
+		filters.status = 'all';
+		filters.keyword = '';
+		filters.startFrom = '';
+		filters.startTo = '';
+		$('#sched_log_status').val('all');
+		$('#sched_log_keyword').val('');
+		$('#sched_log_start_from').val('');
+		$('#sched_log_start_to').val('');
+		form.render('select');
+		reloadTable();
+	});
+
+	$('#btn_sched_log_export').on('click', function(){
+		syncFiltersFromForm();
+		fetch('/admin/sched/logs/export?' + buildParams().toString())
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( !result.result ) {
+				layer.msg(result.message || '日志导出失败', {icon: 2});
+				return;
+			}
+			showExportDialog(result.data || []);
+		})
+		.catch(function(error){
+			layer.msg('日志导出失败', {icon: 2});
+			console.error(error);
+		});
+	});
+
+	$('#btn_sched_log_clear').on('click', function(){
+		syncFiltersFromForm();
+		var payload = {
+			taskId: taskId,
+			status: filters.status || 'all',
+			keyword: filters.keyword,
+			startFrom: filters.startFrom,
+			startTo: filters.startTo
+		};
+		var tips = taskId > 0 ? '将清空当前任务下符合筛选条件的执行日志，是否继续？' : '将清空当前筛选结果中的执行日志，是否继续？';
+		layer.confirm(tips, {icon: 3, title: '清空确认'}, function(index){
+			fetch('/admin/sched/logs/clear', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			})
+			.then(function(response){ return response.json(); })
+			.then(function(result){
+				layer.msg(result.message || (result.result ? '日志已清空' : '日志清空失败'), {icon: result.result ? 1 : 2});
+				if ( result.result ) {
+					reloadTable();
+				}
+			})
+			.catch(function(error){
+				layer.msg('日志清空失败', {icon: 2});
+				console.error(error);
+			});
+			layer.close(index);
+		});
+	});
+
+	$(document).on('keydown.sched_log_search', '#sched_log_keyword, #sched_log_start_from, #sched_log_start_to', function(event){
+		if ( event.keyCode === 13 ) {
+			$('#btn_sched_log_search').trigger('click');
+		}
+	});
+
+	table.on('tool(Table_Sched_Log)', function(obj){
+		var data = obj.data;
+		if ( obj.event === 'detail' ) {
+			var html = '';
+			html += '<div style="padding:16px;">';
+			html += '<h3 style="margin-bottom:12px;">执行记录 #' + escapeHtml(data.id) + '</h3>';
+			html += '<div style="margin-bottom:12px;"><strong>结果说明：</strong><div style="margin-top:6px;color:#666;">' + escapeHtml(data.message || '-') + '</div></div>';
+			html += '<div style="margin-bottom:12px;"><strong>标准输出：</strong><pre style="white-space:pre-wrap;background:#f7f7f7;padding:12px;border-radius:4px;max-height:220px;overflow:auto;">' + escapeHtml(data.stdoutText || '') + '</pre></div>';
+			html += '<div><strong>标准错误：</strong><pre style="white-space:pre-wrap;background:#fff5f5;padding:12px;border-radius:4px;max-height:220px;overflow:auto;">' + escapeHtml(data.stderrText || '') + '</pre></div>';
+			html += '</div>';
+			layer.open({
+				title: '执行详情',
+				type: 1,
+				shadeClose: true,
+				area: ['860px', '700px'],
+				content: html
+			});
+		}
+	});
+});
+</script>
+</body>
+</html>

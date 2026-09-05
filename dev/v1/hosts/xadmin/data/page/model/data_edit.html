@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>编辑数据</title>
+<meta name="renderer" content="webkit">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="/layui/css/layui.css" rel="stylesheet">
+<!-- 编辑器样式 -->
+<link rel="stylesheet" href="/lib/editormd/css/editormd.min.css">
+<link rel="stylesheet" href="/lib/wangEditor/css/style.css">
+<link rel="stylesheet" href="/lib/CodeMirror/lib/codemirror.css">
+<link rel="stylesheet" href="/lib/CodeMirror/theme/monokai.css">
+<style>
+.layui-form-label {
+	width: 100px;
+}
+.layui-input-block {
+	margin-left: 130px;
+}
+/* 富文本编辑器容器 */
+.editor-richtext {
+	border: 1px solid #e6e6e6;
+	min-height: 400px;
+}
+.editor-richtext .toolbar-container {
+	border-bottom: 1px solid #e6e6e6;
+}
+.editor-richtext .editor-container {
+	height: 350px;
+}
+/* Markdown编辑器容器 */
+.editor-markdown {
+	height: 450px;
+}
+/* 代码编辑器容器 */
+.editor-code {
+	border: 1px solid #e6e6e6;
+	height: 300px;
+}
+.editor-code .CodeMirror {
+	height: 100%;
+}
+/* 标签输入框 */
+.tags-input-container {
+	border: 1px solid #e6e6e6;
+	padding: 5px;
+	min-height: 34px;
+	border-radius: 2px;
+	background: #fff;
+}
+.tags-input-container .tag-item {
+	display: inline-block;
+	background: #1e9fff;
+	color: #fff;
+	padding: 2px 8px;
+	margin: 2px;
+	border-radius: 2px;
+	font-size: 12px;
+}
+.tags-input-container .tag-item .tag-remove {
+	margin-left: 5px;
+	cursor: pointer;
+}
+.tags-input-container input {
+	border: none;
+	outline: none;
+	padding: 5px;
+	width: 100px;
+}
+</style>
+</head>
+<body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+<form class="layui-form" lay-filter="Form_Model_Edit" id="Form_Model_Edit" style="height: 100%; display: flex; flex-direction: column;">
+<div style="flex: 1; overflow-y: auto; padding: 20px;">
+		<input type="hidden" name="id" id="dataId">
+		<!-- 表单字段将动态生成 -->
+		<div id="formFields"></div>
+</div>
+<div style="padding: 10px 20px; border-top: 1px solid #e6e6e6; text-align: right;">
+	<button class="layui-btn layui-bg-blue" lay-submit lay-filter="Model_Edit_Submit"><i class="layui-icon layui-icon-ok"></i> 保存</button>
+	<button type="button" class="layui-btn layui-btn-primary" id="btnCancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
+</div>
+</form>
+
+<script src="/layui/layui.js"></script>
+<script>
+// 全局编辑器实例存储
+var G_Editors = {};
+var G_Fields = [];
+var G_Data = {};
+var G_AccessControl = { enabled: false, defaultLevel: 0, enablePreview: true, enablePurchase: false, memberGroups: [] };
+
+layui.use(['form', 'layer', 'laydate', 'colorpicker', 'rate', 'upload'], function(){
+	var form = layui.form;
+	var layer = layui.layer;
+	var laydate = layui.laydate;
+	var colorpicker = layui.colorpicker;
+	var rate = layui.rate;
+	var upload = layui.upload;
+	var $ = layui.$;
+	
+	// 从 URL 路径解析模型信息
+	var sPath = window.location.pathname;
+	var urlParams = new URLSearchParams(window.location.search);
+	var iDataId = urlParams.get('id');
+	
+	if ( !iDataId ) {
+		layer.msg('缺少数据ID', {icon: 2});
+		return;
+	}
+	
+	document.getElementById('dataId').value = iDataId;
+	
+	var arrMatch = sPath.match(/\/admin\/view\/model\/data\/([^\/]+)\/([^\/]+)\/edit/);
+	var sNamespace = '';
+	var sModelName = '';
+	
+	if ( arrMatch && arrMatch.length >= 3 ) {
+		sNamespace = arrMatch[1];
+		sModelName = arrMatch[2];
+	} else {
+		arrMatch = sPath.match(/\/admin\/view\/model\/data\/([^\/]+)\/edit/);
+		if ( arrMatch && arrMatch.length >= 2 ) {
+			sModelName = arrMatch[1];
+		}
+	}
+	
+	var sApiPrefix = sNamespace ? ('/admin/' + sNamespace + '/' + sModelName) : ('/admin/' + sModelName);
+	
+	// 根据 formType 生成表单 HTML
+	function generateFieldHtml(tblField, sValue)
+	{
+		var sName = tblField.name;
+		var sTitle = tblField.title || sName;
+		var iFormType = tblField.formType || 0;
+		var sRequired = tblField.required ? ' lay-verify="required"' : '';
+		var sPlaceholder = tblField.desc || ('请输入' + sTitle);
+		var arrOptions = tblField.options || [];
+		
+		// 使用传入的值或默认值
+		if ( sValue === undefined || sValue === null ) sValue = tblField.defaultValue || '';
+		
+		switch ( iFormType ) {
+			case 0: // 单行文本
+				return '<input type="text" name="' + sName + '" value="' + escapeHtml(sValue) + '" placeholder="' + sPlaceholder + '" class="layui-input"' + sRequired + '>';
+			
+			case 1: // 多行文本
+				return '<textarea name="' + sName + '" placeholder="' + sPlaceholder + '" class="layui-textarea"' + sRequired + '>' + escapeHtml(sValue) + '</textarea>';
+			
+			case 2: // 数字输入
+				return '<input type="number" name="' + sName + '" value="' + sValue + '" placeholder="' + sPlaceholder + '" class="layui-input"' + sRequired + '>';
+			
+			case 3: // 密码输入
+				return '<input type="password" name="' + sName + '" placeholder="' + sPlaceholder + '" class="layui-input"' + sRequired + '>';
+			
+			case 4: // 下拉选择
+				var sHtml = '<select name="' + sName + '"' + sRequired + '>';
+				sHtml += '<option value="">请选择</option>';
+				for ( var i = 0; i < arrOptions.length; i++ ) {
+					var opt = arrOptions[i];
+					var sSelected = (String(opt.value) == String(sValue)) ? ' selected' : '';
+					sHtml += '<option value="' + opt.value + '"' + sSelected + '>' + opt.label + '</option>';
+				}
+				sHtml += '</select>';
+				return sHtml;
+			
+			case 5: // 单选
+				var sHtml = '';
+				for ( var i = 0; i < arrOptions.length; i++ ) {
+					var opt = arrOptions[i];
+					var sChecked = (String(opt.value) == String(sValue)) ? ' checked' : '';
+					sHtml += '<input type="radio" name="' + sName + '" value="' + opt.value + '" title="' + opt.label + '"' + sChecked + '>';
+				}
+				return sHtml || '<span style="color:#999">未配置选项</span>';
+			
+			case 6: // 复选
+				var sHtml = '';
+				var arrValues = sValue ? String(sValue).split(',') : [];
+				for ( var i = 0; i < arrOptions.length; i++ ) {
+					var opt = arrOptions[i];
+					var sChecked = (arrValues.indexOf(String(opt.value)) >= 0) ? ' checked' : '';
+					sHtml += '<input type="checkbox" name="' + sName + '" value="' + opt.value + '" title="' + opt.label + '"' + sChecked + '>';
+				}
+				return sHtml || '<span style="color:#999">未配置选项</span>';
+			
+			case 7: // 开关
+				var sChecked = (sValue === 1 || sValue === '1' || sValue === true || sValue === 'true') ? ' checked' : '';
+				return '<input type="checkbox" name="' + sName + '" lay-skin="switch" lay-text="是|否"' + sChecked + '>';
+			
+			case 8: // 日期
+				return '<input type="text" name="' + sName + '" id="field_' + sName + '" value="' + sValue + '" placeholder="' + sPlaceholder + '" class="layui-input" data-datetype="date"' + sRequired + '>';
+			
+			case 9: // 日期时间
+				return '<input type="text" name="' + sName + '" id="field_' + sName + '" value="' + sValue + '" placeholder="' + sPlaceholder + '" class="layui-input" data-datetype="datetime"' + sRequired + '>';
+			
+			case 10: // 颜色
+				var sColor = sValue || '#1e9fff';
+				return '<div style="display:flex;align-items:center;"><input type="text" name="' + sName + '" id="field_' + sName + '" value="' + sColor + '" class="layui-input" style="width:120px;margin-right:10px;"' + sRequired + '><div id="colorpicker_' + sName + '"></div></div>';
+			
+			case 11: // 图片上传
+				return '<div style="display:flex;align-items:center;"><input type="text" name="' + sName + '" id="field_' + sName + '" value="' + escapeHtml(sValue) + '" placeholder="图片URL" class="layui-input" style="flex:1;margin-right:10px;"' + sRequired + '><button type="button" class="layui-btn layui-btn-sm" id="upload_' + sName + '"><i class="layui-icon layui-icon-upload"></i> 上传</button></div>';
+			
+			case 12: // 文件上传
+				return '<div style="display:flex;align-items:center;"><input type="text" name="' + sName + '" id="field_' + sName + '" value="' + escapeHtml(sValue) + '" placeholder="文件URL" class="layui-input" style="flex:1;margin-right:10px;"' + sRequired + '><button type="button" class="layui-btn layui-btn-sm" id="upload_' + sName + '"><i class="layui-icon layui-icon-upload"></i> 上传</button></div>';
+			
+			case 13: // 富文本
+				return '<div class="editor-richtext" id="editor_' + sName + '"><div id="toolbar_' + sName + '" class="toolbar-container"></div><div id="content_' + sName + '" class="editor-container"></div></div><textarea name="' + sName + '" id="field_' + sName + '" style="display:none;"' + sRequired + '>' + escapeHtml(sValue) + '</textarea>';
+			
+			case 14: // Markdown
+				return '<div class="editor-markdown" id="editor_' + sName + '"></div><textarea name="' + sName + '" id="field_' + sName + '" style="display:none;"' + sRequired + '>' + escapeHtml(sValue) + '</textarea>';
+			
+			case 15: // 代码编辑
+				return '<div class="editor-code" id="editor_' + sName + '"></div><textarea name="' + sName + '" id="field_' + sName + '" style="display:none;"' + sRequired + '>' + escapeHtml(sValue) + '</textarea>';
+			
+			case 16: // 标签
+				return '<div class="tags-input-container" id="tags_' + sName + '"><input type="text" placeholder="输入标签后按回车" onkeydown="addTag(event, \'' + sName + '\')"></div><input type="hidden" name="' + sName + '" id="field_' + sName + '" value="' + escapeHtml(sValue) + '">';
+			
+			case 17: // 评分
+				return '<div id="rate_' + sName + '"></div><input type="hidden" name="' + sName + '" id="field_' + sName + '" value="' + (sValue || '0') + '">';
+			
+			case 18: // 隐藏
+				return '<input type="hidden" name="' + sName + '" value="' + escapeHtml(sValue) + '">';
+			
+			default:
+				return '<input type="text" name="' + sName + '" value="' + escapeHtml(sValue) + '" placeholder="' + sPlaceholder + '" class="layui-input"' + sRequired + '>';
+		}
+	}
+	
+	// HTML转义
+	function escapeHtml(str)
+	{
+		if ( str === null || str === undefined ) return '';
+		return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+	}
+	
+	// 初始化特殊表单控件
+	function initSpecialFields(arrFields, tblData)
+	{
+		for ( var i = 0; i < arrFields.length; i++ ) {
+			var tblField = arrFields[i];
+			var sName = tblField.name;
+			var iFormType = tblField.formType || 0;
+			var sValue = tblData[sName];
+			if ( sValue === undefined || sValue === null ) sValue = tblField.defaultValue || '';
+			
+			switch ( iFormType ) {
+				case 8: // 日期
+					laydate.render({ elem: '#field_' + sName, type: 'date' });
+					break;
+				
+				case 9: // 日期时间
+					laydate.render({ elem: '#field_' + sName, type: 'datetime' });
+					break;
+				
+				case 10: // 颜色
+					(function(fieldName){
+						colorpicker.render({
+							elem: '#colorpicker_' + fieldName,
+							color: $('#field_' + fieldName).val() || '#1e9fff',
+							done: function(color){ $('#field_' + fieldName).val(color); }
+						});
+					})(sName);
+					break;
+				
+				case 11: // 图片上传
+				case 12: // 文件上传
+					(function(fieldName, formType){
+						upload.render({
+							elem: '#upload_' + fieldName,
+							url: '/admin/attachments/upload',
+							acceptMime: formType === 11 ? 'image/*' : '*',
+							done: function(res){
+								if ( res.result ) {
+									$('#field_' + fieldName).val(res.data.url);
+									layer.msg('上传成功', {icon: 1});
+								} else {
+									layer.msg(res.message || '上传失败', {icon: 2});
+								}
+							}
+						});
+					})(sName, iFormType);
+					break;
+				
+				case 13: // 富文本 wangEditor
+					initRichTextEditor(sName, sValue);
+					break;
+				
+				case 14: // Markdown editor.md
+					initMarkdownEditor(sName, sValue);
+					break;
+				
+				case 15: // 代码编辑 CodeMirror
+					initCodeEditor(sName, sValue);
+					break;
+				
+				case 16: // 标签
+					initTagsInput(sName, sValue);
+					break;
+				
+				case 17: // 评分
+					(function(fieldName, val){
+						rate.render({
+							elem: '#rate_' + fieldName,
+							value: parseInt(val) || 0,
+							choose: function(value){ $('#field_' + fieldName).val(value); }
+						});
+					})(sName, sValue);
+					break;
+			}
+		}
+	}
+	
+	// 获取字段配置
+	fetch('/admin/model/fields?name=' + sModelName)
+	.then(function(response){ return response.json(); })
+	.then(function(result){
+		if ( !result || !result.result ) {
+			layer.msg('获取字段配置失败', {icon: 2});
+			return;
+		}
+		
+		G_Fields = result.data || [];
+		
+		// 访问控制配置
+		G_AccessControl.enabled = result.enableAccessControl || false;
+		G_AccessControl.defaultLevel = result.defaultAccessLevel || 0;
+		G_AccessControl.enablePreview = result.enablePreview !== false;
+		G_AccessControl.enablePurchase = result.enablePurchase || false;
+		G_AccessControl.memberGroups = result.memberGroups || [];
+		
+		// 获取现有数据
+		return fetch(sApiPrefix + '/get?id=' + iDataId);
+	})
+	.then(function(response){ return response.json(); })
+	.then(function(result){
+		if ( !result || !result.result ) {
+			layer.msg('获取数据失败', {icon: 2});
+			return;
+		}
+		
+		G_Data = result.data || {};
+		var sFormHtml = '';
+		
+		for ( var i = 0; i < G_Fields.length; i++ ) {
+			var tblField = G_Fields[i];
+			var iFormType = tblField.formType || 0;
+			var sValue = G_Data[tblField.name];
+			
+			// 隐藏字段不显示 label
+			if ( iFormType === 18 ) {
+				sFormHtml += generateFieldHtml(tblField, sValue);
+				continue;
+			}
+			
+			sFormHtml += '<div class="layui-form-item">';
+			sFormHtml += '<label class="layui-form-label">' + (tblField.title || tblField.name) + '</label>';
+			sFormHtml += '<div class="layui-input-block">' + generateFieldHtml(tblField, sValue) + '</div>';
+			sFormHtml += '</div>';
+		}
+		
+		// 访问控制字段（如果启用）
+		if ( G_AccessControl.enabled ) {
+			var iCurrLevel = G_Data.accessLevel !== undefined ? G_Data.accessLevel : G_AccessControl.defaultLevel;
+			sFormHtml += '<div class="layui-form-item" style="border-top: 1px dashed #e6e6e6; padding-top: 15px; margin-top: 15px;">';
+			sFormHtml += '<label class="layui-form-label">访问级别</label>';
+			sFormHtml += '<div class="layui-input-block">';
+			sFormHtml += '<select name="accessLevel">';
+			sFormHtml += '<option value="0"' + (iCurrLevel == 0 ? ' selected' : '') + '>公开访问</option>';
+			
+			// 使用会员组等级列表
+			var arrGroups = G_AccessControl.memberGroups;
+			for ( var gi = 0; gi < arrGroups.length; gi++ ) {
+				var grp = arrGroups[gi];
+				if ( grp.authLevel > 0 ) {
+					sFormHtml += '<option value="' + grp.authLevel + '"' + (iCurrLevel == grp.authLevel ? ' selected' : '') + '>' + grp.name + ' (Lv.' + grp.authLevel + ')</option>';
+				}
+			}
+			
+			if ( G_AccessControl.enablePurchase ) {
+				sFormHtml += '<option value="-1"' + (iCurrLevel == -1 ? ' selected' : '') + '>付费内容</option>';
+			}
+			sFormHtml += '<option value="-2"' + (iCurrLevel == -2 ? ' selected' : '') + '>仅作者可见</option>';
+			sFormHtml += '</select>';
+			sFormHtml += '</div></div>';
+			
+			if ( G_AccessControl.enablePurchase ) {
+				var fCurrPrice = G_Data.accessPrice || 0;
+				sFormHtml += '<div class="layui-form-item">';
+				sFormHtml += '<label class="layui-form-label">付费价格</label>';
+				sFormHtml += '<div class="layui-input-block">';
+				sFormHtml += '<input type="number" name="accessPrice" value="' + fCurrPrice + '" placeholder="付费内容的价格" class="layui-input" style="width: 200px;">';
+				sFormHtml += '</div></div>';
+			}
+			
+			if ( G_AccessControl.enablePreview ) {
+				var sCurrPreview = escapeHtml(G_Data.accessPreview || '');
+				sFormHtml += '<div class="layui-form-item layui-form-text">';
+				sFormHtml += '<label class="layui-form-label">预览内容</label>';
+				sFormHtml += '<div class="layui-input-block">';
+				sFormHtml += '<textarea name="accessPreview" placeholder="无权限用户可看到的预览内容" class="layui-textarea" style="min-height: 80px;">' + sCurrPreview + '</textarea>';
+				sFormHtml += '</div></div>';
+			}
+		}
+		
+		// 作者信息（只读显示）
+		if ( G_Data.authorName !== undefined ) {
+			var sAuthorType = '未知';
+			switch ( G_Data.authorType ) {
+				case 0: sAuthorType = '后台管理员'; break;
+				case 1: sAuthorType = '前台会员'; break;
+				case 2: sAuthorType = '游客'; break;
+			}
+			sFormHtml += '<div class="layui-form-item" style="border-top: 1px dashed #e6e6e6; padding-top: 15px; margin-top: 15px;">';
+			sFormHtml += '<label class="layui-form-label">作者信息</label>';
+			sFormHtml += '<div class="layui-input-block">';
+			sFormHtml += '<span class="layui-badge layui-bg-gray" style="margin-right: 10px;">' + sAuthorType + '</span>';
+			sFormHtml += '<span>' + escapeHtml(G_Data.authorName || '匿名') + '</span>';
+			if ( G_Data.authorId > 0 ) {
+				sFormHtml += '<span style="color: #999; margin-left: 10px;">(ID: ' + G_Data.authorId + ')</span>';
+			}
+			sFormHtml += '</div></div>';
+		}
+		
+		document.getElementById('formFields').innerHTML = sFormHtml;
+		form.render();
+		
+		// 初始化特殊控件
+		initSpecialFields(G_Fields, G_Data);
+	})
+	.catch(function(error){
+		layer.msg('获取数据出错', {icon: 2});
+		console.error('Error:', error);
+	});
+	
+	// 取消按钮
+	document.getElementById('btnCancel').onclick = function(){
+		var index = parent.layer.getFrameIndex(window.name);
+		parent.layer.close(index);
+	};
+	
+	// 表单提交
+	form.on('submit(Model_Edit_Submit)', function(data){
+		// 同步编辑器内容到表单
+		syncEditorsToForm();
+		
+		// 重新获取表单数据
+		var formData = layui.form.val('Form_Model_Edit');
+		
+		fetch(sApiPrefix + '/save', {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(formData)
+		})
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( result && result.result === true ) {
+				layer.msg(result.message || '保存成功', {icon: 1});
+				setTimeout(function(){
+					var parentLayer = parent.layer;
+					var index = parentLayer.getFrameIndex(window.name);
+					parentLayer.close(index);
+					if ( parent.layui && parent.layui.table ) {
+						parent.layui.table.reloadData('Table_Model_Data');
+					}
+				}, 500);
+			} else {
+				layer.msg(result.message || '保存失败', {icon: 2});
+			}
+		})
+		.catch(function(error){
+			layer.msg('请求出错', {icon: 2});
+			console.error('Error:', error);
+		});
+		
+		return false;
+	});
+});
+
+// ==================== 编辑器初始化函数 ====================
+
+// 同步编辑器内容到表单
+function syncEditorsToForm()
+{
+	for ( var sName in G_Editors ) {
+		var editor = G_Editors[sName];
+		if ( editor.type === 'richtext' && editor.instance ) {
+			document.getElementById('field_' + sName).value = editor.instance.getHtml();
+		} else if ( editor.type === 'markdown' && editor.instance ) {
+			document.getElementById('field_' + sName).value = editor.instance.getMarkdown();
+		} else if ( editor.type === 'code' && editor.instance ) {
+			document.getElementById('field_' + sName).value = editor.instance.getValue();
+		}
+	}
+}
+
+// 富文本编辑器 wangEditor
+function initRichTextEditor(sName, sDefault)
+{
+	var script = document.createElement('script');
+	script.src = '/lib/wangEditor/index.js';
+	script.onload = function(){
+		var E = window.wangEditor;
+		var editor = E.createEditor({
+			selector: '#content_' + sName,
+			html: sDefault || '',
+			config: {
+				placeholder: '请输入内容...',
+				onChange: function(ed){ document.getElementById('field_' + sName).value = ed.getHtml(); }
+			}
+		});
+		E.createToolbar({
+			editor: editor,
+			selector: '#toolbar_' + sName,
+			config: {}
+		});
+		G_Editors[sName] = { type: 'richtext', instance: editor };
+	};
+	if ( !window.wangEditor ) {
+		document.body.appendChild(script);
+	} else {
+		script.onload();
+	}
+}
+
+// Markdown编辑器 editor.md
+function initMarkdownEditor(sName, sDefault)
+{
+	var $ = layui.$;
+	window.Zepto = $;
+	window.jQuery = $;
+	window.$ = $;
+	
+	var script = document.createElement('script');
+	script.src = '/lib/editormd/editormd.min.js';
+	script.onload = function(){
+		var editor = editormd('editor_' + sName, {
+			path: '/lib/editormd/lib/',
+			jQuery: $,
+			markdown: sDefault || '',
+			height: 450,
+			autoHeight: false,
+			onchange: function(){ document.getElementById('field_' + sName).value = this.getMarkdown(); }
+		});
+		G_Editors[sName] = { type: 'markdown', instance: editor };
+	};
+	if ( !window.editormd ) {
+		document.body.appendChild(script);
+	} else {
+		script.onload();
+	}
+}
+
+// 代码编辑器 CodeMirror
+function initCodeEditor(sName, sDefault)
+{
+	var loadCodeMirror = function(){
+		var editor = CodeMirror(document.getElementById('editor_' + sName), {
+			value: sDefault || '',
+			mode: 'javascript',
+			theme: 'monokai',
+			lineNumbers: true,
+			lineWrapping: true,
+			tabSize: 4
+		});
+		editor.on('change', function(){ document.getElementById('field_' + sName).value = editor.getValue(); });
+		G_Editors[sName] = { type: 'code', instance: editor };
+	};
+	
+	if ( !window.CodeMirror ) {
+		var script1 = document.createElement('script');
+		script1.src = '/lib/CodeMirror/lib/codemirror.js';
+		script1.onload = function(){
+			var script2 = document.createElement('script');
+			script2.src = '/lib/CodeMirror/mode/javascript/javascript.js';
+			script2.onload = loadCodeMirror;
+			document.body.appendChild(script2);
+		};
+		document.body.appendChild(script1);
+	} else {
+		loadCodeMirror();
+	}
+}
+
+// 标签输入
+function initTagsInput(sName, sDefault)
+{
+	var arrTags = sDefault ? String(sDefault).split(',').filter(function(t){ return t.trim(); }) : [];
+	renderTags(sName, arrTags);
+}
+
+function renderTags(sName, arrTags)
+{
+	var container = document.getElementById('tags_' + sName);
+	var html = '';
+	for ( var i = 0; i < arrTags.length; i++ ) {
+		html += '<span class="tag-item">' + arrTags[i] + '<span class="tag-remove" onclick="removeTag(\'' + sName + '\', ' + i + ')">&times;</span></span>';
+	}
+	container.innerHTML = html + '<input type="text" placeholder="输入标签后按回车" onkeydown="addTag(event, \'' + sName + '\')">';
+	document.getElementById('field_' + sName).value = arrTags.join(',');
+}
+
+function addTag(event, sName)
+{
+	if ( event.keyCode !== 13 ) return;
+	event.preventDefault();
+	var input = event.target;
+	var sTag = input.value.trim();
+	if ( !sTag ) return;
+	
+	var arrTags = document.getElementById('field_' + sName).value.split(',').filter(function(t){ return t.trim(); });
+	if ( arrTags.indexOf(sTag) < 0 ) {
+		arrTags.push(sTag);
+	}
+	renderTags(sName, arrTags);
+}
+
+function removeTag(sName, idx)
+{
+	var arrTags = document.getElementById('field_' + sName).value.split(',').filter(function(t){ return t.trim(); });
+	arrTags.splice(idx, 1);
+	renderTags(sName, arrTags);
+}
+</script>
+</body>
+</html>

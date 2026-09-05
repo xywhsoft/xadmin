@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>XForm</title>
+<meta name="renderer" content="webkit">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/lib/editormd/images/logos/editormd-favicon-32x32.ico">
+<link href="/layui/css/layui.css" rel="stylesheet">
+<link rel="stylesheet" href="/lib/editormd/css/editormd.min.css">
+<link rel="stylesheet" href="/lib/wangEditor/css/style.css">
+<link rel="stylesheet" href="/lib/CodeMirror/lib/codemirror.css">
+<link rel="stylesheet" href="/lib/CodeMirror/theme/monokai.css">
+<style>
+html,body{height:100%;background:#f5f7fb}
+.xform-page{padding:20px;box-sizing:border-box}
+.xform-header,.xform-card{background:#fff;border-radius:8px;box-shadow:0 2px 10px rgba(15,35,95,.05)}
+.xform-header{padding:18px 20px;margin-bottom:16px}
+.xform-title{font-size:22px;font-weight:700;color:#243047;margin-bottom:8px}
+.xform-desc{color:#667085;line-height:1.7}
+.xform-card{margin-bottom:16px;overflow:hidden}
+.xform-toolbar{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid #eef2f7}
+.xform-footer-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-top:1px solid #eef2f7;background:#fff}
+.xform-toolbar .meta{margin-left:auto;color:#667085;font-size:12px}
+.xform-footer-bar .meta{color:#667085;font-size:12px}
+.xform-footer-actions{display:flex;align-items:center;gap:10px;justify-content:flex-end}
+.xform-body{padding:20px 20px 8px}
+.xform-group{border:1px solid #eef2f7;border-radius:8px;margin-bottom:18px;overflow:hidden}
+.xform-group-title{padding:12px 16px;font-size:16px;font-weight:700;color:#243047;background:linear-gradient(90deg,#f8fbff 0%,#fff 100%);border-bottom:1px solid #eef2f7}
+.xform-group-desc{padding:0 16px 12px;color:#667085;font-size:13px}
+.xform-group-fields{padding:16px 16px 1px}
+.xform-group-fields.xform-layout-two-column{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:16px}
+.xform-group-fields.xform-layout-two-column .layui-form-item{margin-bottom:18px}
+.xform-group-fields.xform-layout-two-column .xform-field-span-2{grid-column:1 / -1}
+.xform-field-desc{color:#98a2b3;font-size:12px;margin-top:6px;line-height:1.6}
+.xform-field-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.xform-required{color:#f56c6c;margin-left:4px}
+.xform-editor-shell{border:1px solid #d0d5dd;border-radius:6px;overflow:hidden}
+.xform-editor-shell .toolbar-container{border-bottom:1px solid #e4e7ec}
+.xform-editor-shell .editor-container{height:480px;min-height:480px}
+.xform-editor-md{min-height:420px}
+.xform-editor-code{border:1px solid #d0d5dd;border-radius:6px;overflow:hidden;height:320px}
+.xform-editor-code .CodeMirror{height:100%}
+.xform-icon-picker{border:1px solid #d0d5dd;border-radius:6px;padding:12px;background:#fff}
+.xform-icon-current{display:flex;align-items:center;gap:8px;margin-bottom:10px;color:#475467}
+.xform-icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:8px}
+.xform-icon-item{height:40px;display:flex;align-items:center;justify-content:center;border:1px solid #e4e7ec;border-radius:6px;cursor:pointer;transition:all .2s ease;font-size:18px;color:#344054;background:#fff}
+.xform-icon-item:hover,.xform-icon-item.active{border-color:#1677ff;color:#1677ff;background:#eff6ff}
+.xform-json{background:#101828;color:#d0d5dd;padding:16px 18px;border-radius:8px;white-space:pre-wrap;word-break:break-all;font-size:12px;line-height:1.7}
+.xform-loading,.xform-empty{padding:60px 20px;text-align:center;color:#667085}
+.xform-page.is-option{display:flex;flex-direction:column;height:100%;min-height:0;overflow:hidden}
+.xform-page.is-option .xform-main-card{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0}
+.xform-page.is-option .xform-body{flex:1;min-height:0;overflow-y:auto;padding-bottom:12px}
+.xform-page.is-option .xform-output-card{display:none}
+.xform-page.is-option .layui-form-label{width:140px;white-space:normal;line-height:1.5;padding-top:10px;padding-bottom:10px}
+.xform-page.is-option .layui-input-block{margin-left:170px}
+@media (max-width: 900px){.xform-group-fields.xform-layout-two-column{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="xform-page">
+	<div class="xform-header">
+		<div class="xform-title" id="xformTitle">XForm</div>
+		<div class="xform-desc" id="xformDesc">Loading schema...</div>
+	</div>
+	<div class="xform-card xform-main-card">
+		<div class="xform-body" id="xformContainer"><div class="xform-loading">Rendering form...</div></div>
+		<div class="xform-footer-bar">
+			<div class="meta" id="xformMeta">schema: -</div>
+			<div class="xform-footer-actions">
+				<button type="button" class="layui-btn layui-bg-blue" id="btnSave"><i class="layui-icon layui-icon-ok"></i> 保存配置</button>
+				<button type="button" class="layui-btn layui-btn-primary" id="btnReload"><i class="layui-icon layui-icon-refresh"></i> 重新加载</button>
+			</div>
+		</div>
+	</div>
+	<div class="xform-card xform-output-card" id="xformOutputCard">
+		<div class="xform-toolbar">
+			<div style="font-weight:700;color:#243047;">Collected Data</div>
+			<div class="meta">Useful for comparing control behavior and saved values.</div>
+		</div>
+		<div class="xform-body"><div class="xform-json" id="xformOutput">-</div></div>
+	</div>
+</div>
+<script src="/layui/layui.js"></script>
+<script>window.__xformDebug = false;</script>
+<script src="/lib/xform/xform.js?v=20260408_01"></script>
+<script>
+layui.use(['layer'], function(){
+	var layer = layui.layer;
+	var params = new URLSearchParams(window.location.search);
+	var fileName = params.get('file') || 'demo_form.json';
+	var source = params.get('source') || 'form';
+	var formInstance = null;
+
+	function updateOutput() {
+		if (!formInstance) {
+			document.getElementById('xformOutput').textContent = '-';
+			return;
+		}
+		try {
+			document.getElementById('xformOutput').textContent = JSON.stringify(formInstance.collect(), null, 2);
+		} catch (err) {
+			console.error('[XFormPage] updateOutput failed', err);
+			document.getElementById('xformOutput').textContent = '[collect preview failed] ' + ((err && err.message) ? err.message : err);
+		}
+	}
+
+	async function handleOptionAction(instance, field, action) {
+		if (action.key === 'generate_admin_entry') {
+			var response = await fetch('/admin/option/tool/admin-entry', { cache: 'no-store' });
+			var result = await response.json();
+			if (!result || !result.result) throw new Error((result && result.message) || 'Generate failed');
+			var path = result.data && result.data.path ? result.data.path : '';
+			instance.setValue(field.name, path);
+			updateOutput();
+			layer.msg('Generated successfully', { icon: 1 });
+			return;
+		}
+
+		if (action.key === 'test_smtp') {
+			var current = instance.collect();
+			var toEmail = current.smtp_username || current.smtp_from_email || current.mail_from_email || '';
+			if (!toEmail) {
+				layer.msg('Please fill SMTP username or sender email first', { icon: 0 });
+				return;
+			}
+			var response = await fetch('/admin/option/tool/test-smtp', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ toEmail: toEmail, data: current })
+			});
+			var result = await response.json();
+			layer.msg((result && result.message) || 'SMTP test done', { icon: result && result.result ? 1 : 2, time: 2500 });
+			return;
+		}
+
+		layer.msg('Unsupported action: ' + action.key, { icon: 0 });
+	}
+
+	async function loadForm() {
+		document.getElementById('xformContainer').innerHTML = '<div class="xform-loading">Rendering form...</div>';
+		try {
+if (!window.XForm || window.XForm.version !== '20260408_01') {
+  throw new Error('XForm script version mismatch: expected 20260408_01, got ' + ((window.XForm && window.XForm.version) || 'none'));
+}
+			var sApiGet = source === 'option'
+				? ('/admin/option?file=' + encodeURIComponent(fileName))
+				: ('/admin/form?source=' + encodeURIComponent(source) + '&file=' + encodeURIComponent(fileName));
+			var response = await fetch(sApiGet, { cache: 'no-store' });
+			var result = await response.json();
+			if (!result || !result.result) throw new Error((result && result.message) || 'Load failed');
+			var payload = result.data || {};
+			var schema = payload.schema || {};
+			var pageEl = document.querySelector('.xform-page');
+			document.getElementById('xformTitle').textContent = schema.title || 'XForm';
+			var descEl = document.getElementById('xformDesc');
+			if (schema.desc) {
+				descEl.textContent = schema.desc;
+				descEl.style.display = '';
+			} else {
+				descEl.textContent = '';
+				descEl.style.display = 'none';
+			}
+			document.getElementById('xformMeta').textContent = 'source: ' + source + ' / schema: ' + fileName + (schema.persistDemoData ? ' / demoData persisted' : ' / live preview');
+			if ( source === 'option' ) {
+				pageEl.classList.add('is-option');
+			} else {
+				pageEl.classList.remove('is-option');
+			}
+			formInstance = await window.XForm.render(
+				document.getElementById('xformContainer'),
+				schema,
+				payload.values || {},
+				payload.fieldTypes || {},
+				{
+					fileName: fileName,
+					source: source,
+					onAction: source === 'option' ? handleOptionAction : null
+				}
+			);
+			updateOutput();
+		} catch (err) {
+			document.getElementById('xformContainer').innerHTML = '<div class="xform-empty">Load failed: ' + (err && err.message ? err.message : err) + '</div>';
+		}
+	}
+
+	document.getElementById('btnReload').addEventListener('click', loadForm);
+	document.getElementById('btnSave').addEventListener('click', async function(){
+		if (!formInstance) {
+			layer.msg('Form is not ready', { icon: 2 });
+			return;
+		}
+		var check = formInstance.validate();
+		if (!check.result) {
+			layer.msg(check.message || 'Validation failed', { icon: 2 });
+			return;
+		}
+		updateOutput();
+		try {
+			var sApiPost = source === 'option' ? '/admin/option' : '/admin/form';
+			var response = await fetch(sApiPost, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ file: fileName, source: source, data: formInstance.collect() })
+			});
+			var result = await response.json();
+			if (result && result.result) {
+				layer.msg(result.message || 'Saved', { icon: 1 });
+				loadForm();
+			} else {
+				layer.msg((result && result.message) || 'Save failed', { icon: 2 });
+			}
+		} catch (err) {
+			layer.msg('Save failed: ' + (err && err.message ? err.message : err), { icon: 2 });
+		}
+	});
+
+	document.getElementById('xformContainer').addEventListener('input', updateOutput);
+	document.getElementById('xformContainer').addEventListener('change', updateOutput);
+	loadForm();
+});
+</script>
+</body>
+</html>

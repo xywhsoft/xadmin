@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+	<title>后台登录</title>
+	<link rel="stylesheet" href="/pear/css/pear.css" />
+	<link rel="stylesheet" href="/css/other/login.css" />
+	<link rel="stylesheet" href="/css/variables.css" />
+	<script>if (window.self != window.top) { top.location.reload();}</script>
+</head>
+
+<body>
+	<div class="login-page" style="background-image: url(/img/background.svg)">
+		<div class="layui-row">
+			<div class="layui-col-sm6 login-bg layui-hide-xs">
+				<img class="login-bg-img" src="/img/banner.png" alt="" />
+			</div>
+			<div class="layui-col-sm6 layui-col-xs12 login-form">
+				<div class="layui-form">
+					<div class="form-center">
+						<div class="form-center-box">
+							<div class="top-log-title">
+								<img class="top-log" src="/img/logo.png" alt="" />
+								<span id="adminBrandTitle">xAdmin</span>
+							</div>
+							<div class="top-desc" id="adminBrandDesc">
+								通 用 的 网 站 后 台 管 理 系 统
+							</div>
+		
+							<!-- 表单区域 -->
+							<form class="layui-form" action="#" lay-filter="install-form">
+								<div style="margin-top: 30px;">
+									<div class="layui-form-item">
+										<div class="layui-input-wrap">
+											<div class="layui-input-prefix">
+												<i class="layui-icon layui-icon-username"></i>
+											</div>
+											<input name="username" placeholder="账户" lay-verify="required" autocomplete="off" class="layui-input">
+										</div>
+									</div>
+									<div class="layui-form-item">
+										<div class="layui-input-wrap">
+											<div class="layui-input-prefix">
+												<i class="layui-icon layui-icon-password"></i>
+											</div>
+											<input type="password" name="password" placeholder="密码" lay-verify="required|confirmPassword" autocomplete="off" class="layui-input" lay-affix="eye">
+										</div>
+									</div>
+									<div class="layui-form-item">
+										<div class="remember-passsword">
+											<div class="remember-cehcked">
+												<input type="checkbox" name="remember" lay-skin="primary" title="记住登录状态">
+											</div>
+										</div>
+									</div>
+									<div class="login-btn">
+										<button id="loginBtn" class="layui-btn login" lay-submit lay-filter="login">登 录</button>
+									</div>
+								</div>
+							</form>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- 资 源 引 入 -->
+	<script src="/layui/layui.js"></script>
+	<script src="/pear/pear.js"></script>
+	<script>
+		// SHA-256 哈希函数（使用 Web Crypto API）
+		async function sha256(message) {
+			const msgBuffer = new TextEncoder().encode(message);
+			const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+			const hashArray = Array.from(new Uint8Array(hashBuffer));
+			const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+			return hashHex;
+		}
+
+		function loadAdminBranding() {
+			fetch('/brand/admin?_=' + Date.now(), {
+				cache: 'no-store'
+			})
+			.then(function(response){ return response.json(); })
+			.then(function(result){
+				if ( !result || !result.result || !result.data ) {
+					return;
+				}
+				var adminTitle = result.data.adminTitle || 'xAdmin';
+				document.title = adminTitle + ' - 登录';
+			})
+			.catch(function(error){
+				console.error('load admin brand failed:', error);
+			});
+		}
+		
+		layui.use(['form', 'button', 'popup'], function () {
+			var form = layui.form;
+			var button = layui.button;
+			var popup = layui.popup;
+
+			loadAdminBranding();
+
+			// 登 录 提 交
+			form.on('submit(login)', async function (data) {
+				const formData = data.field;
+				
+				// 禁用按钮
+				var btn = document.getElementById('loginBtn');
+				btn.classList.add('layui-btn-disabled');
+				btn.disabled = true;
+				
+				// 显示加载动画
+				layer.load(2);
+				
+				// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
+				const pwdHash = await sha256(formData.username + '_xywhsoft_' + formData.password);
+				
+				// 发送请求（传输哈希值而非明文）
+				fetch(window.location.pathname, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						username: formData.username,
+						password: pwdHash,
+						remember: formData.remember
+					})
+				})
+				.then(response => response.json())
+				.then(data => {
+					if ( data.result ) {
+						window.location.href = '/admin';
+					} else {
+						layer.msg(data.message, {icon: 2});
+						btn.classList.remove('layui-btn-disabled');
+						btn.disabled = false;
+					}
+				})
+				.catch(error => {
+					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
+					console.error('Error:', error)
+					btn.classList.remove('layui-btn-disabled');
+					btn.disabled = false;
+				});
+				
+				// 关闭加载动画
+				layer.closeAll('loading');
+				
+				// 阻止默认提交（由JS控制）
+				return false;
+			});
+		})
+	</script>
+</body>
+
+</html>

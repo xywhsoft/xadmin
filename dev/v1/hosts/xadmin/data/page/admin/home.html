@@ -1,0 +1,509 @@
+<style>
+	.home_wrapper {
+		height: calc(100vh - 106px);
+		overflow-y: auto;
+		background:
+			radial-gradient(circle at top right, rgba(29, 78, 216, 0.10), transparent 24%),
+			radial-gradient(circle at left bottom, rgba(15, 118, 110, 0.08), transparent 24%),
+			linear-gradient(180deg, #f8fafc 0%, #eef3f7 100%);
+	}
+
+	.home_container {
+		max-width: 1260px;
+		margin: 0 auto;
+		padding: 24px;
+	}
+
+	.home_welcome {
+		background: linear-gradient(135deg, #0f766e 0%, #155e75 45%, #1d4ed8 100%);
+		border-radius: 18px;
+		padding: 36px 40px;
+		margin-bottom: 22px;
+		color: #fff;
+		position: relative;
+		overflow: hidden;
+		box-shadow: 0 18px 48px rgba(15, 33, 55, 0.10);
+	}
+
+	.home_welcome:before {
+		content: "";
+		position: absolute;
+		top: -90px;
+		right: -30px;
+		width: 220px;
+		height: 220px;
+		border-radius: 50%;
+		background: rgba(255, 255, 255, 0.10);
+	}
+
+	.home_welcome h1 {
+		margin: 0 0 10px;
+		font-size: 32px;
+		font-weight: 700;
+	}
+
+	.home_welcome p {
+		margin: 0;
+		max-width: 760px;
+		font-size: 15px;
+		line-height: 1.9;
+		opacity: 0.92;
+	}
+
+	.home_welcome_actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		margin-top: 20px;
+	}
+
+	.home_welcome_actions .layui-btn {
+		height: 38px;
+		line-height: 38px;
+		padding: 0 18px;
+		border-radius: 999px;
+	}
+
+	.home_btn-primary {
+		background: #2d8cf0;
+		border-color: #2d8cf0;
+		color: #fff;
+	}
+
+	.home_btn-primary:hover {
+		background: #1f7ae0;
+		border-color: #1f7ae0;
+		color: #fff;
+	}
+
+	.home_btn-ghost {
+		background: rgba(255, 255, 255, 0.08);
+		border: 1px solid rgba(255, 255, 255, 0.72);
+		color: #fff;
+	}
+
+	.home_btn-ghost:hover {
+		background: rgba(255, 255, 255, 0.16);
+		color: #fff;
+		border-color: rgba(255, 255, 255, 0.9);
+	}
+
+	.home_stats {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 16px;
+		margin-bottom: 22px;
+	}
+
+	.home_stat_card {
+		background: rgba(255, 255, 255, 0.94);
+		border-radius: 16px;
+		padding: 20px 18px;
+		border: 1px solid rgba(15, 33, 55, 0.06);
+		box-shadow: 0 14px 34px rgba(15, 33, 55, 0.06);
+	}
+
+	.home_stat_card .number {
+		font-size: 32px;
+		font-weight: 700;
+		color: #0f172a;
+		margin-bottom: 8px;
+	}
+
+	.home_stat_card .label {
+		font-size: 14px;
+		color: #64748b;
+	}
+
+	.home_panel {
+		background: rgba(255, 255, 255, 0.94);
+		border: 1px solid rgba(15, 33, 55, 0.06);
+		border-radius: 18px;
+		box-shadow: 0 18px 48px rgba(15, 33, 55, 0.08);
+	}
+
+	.home_features {
+		padding: 24px;
+		margin-bottom: 22px;
+	}
+
+	.home_features h2,
+	.home_quick_links h3 {
+		margin: 0 0 18px;
+		font-size: 20px;
+		color: #0f172a;
+	}
+
+	.home_feature_list {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 14px;
+	}
+
+	.home_feature_item {
+		display: flex;
+		align-items: flex-start;
+		padding: 16px;
+		background: #f8fafc;
+		border-radius: 14px;
+		border: 1px solid rgba(148, 163, 184, 0.16);
+	}
+
+	.home_feature_item .icon {
+		font-size: 26px;
+		margin-right: 14px;
+		color: #1d4ed8;
+		flex-shrink: 0;
+	}
+
+	.home_feature_item h4 {
+		margin: 0 0 6px;
+		font-size: 15px;
+		color: #0f172a;
+		font-weight: 700;
+	}
+
+	.home_feature_item p {
+		margin: 0;
+		font-size: 13px;
+		color: #64748b;
+		line-height: 1.8;
+	}
+
+	.home_quick_links {
+		padding: 24px;
+	}
+
+	.home_quick_links_grid {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 14px;
+	}
+
+	.home_quick_link {
+		display: block;
+		padding: 18px 16px;
+		text-align: center;
+		background: #f8fafc;
+		border-radius: 14px;
+		text-decoration: none;
+		color: #0f172a;
+		border: 1px solid rgba(148, 163, 184, 0.16);
+		transition: all .2s ease;
+	}
+
+	.home_quick_link:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 10px 18px rgba(15, 33, 55, 0.08);
+	}
+
+	.home_quick_link i {
+		display: block;
+		font-size: 24px;
+		margin-bottom: 10px;
+	}
+
+	.home_quick_link div {
+		font-size: 14px;
+	}
+
+	.home_footer {
+		text-align: center;
+		color: #64748b;
+		margin-top: 22px;
+		padding: 18px 0 12px;
+		font-size: 12px;
+	}
+
+	@media (max-width: 1100px) {
+		.home_stats,
+		.home_quick_links_grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.home_feature_list {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (max-width: 640px) {
+		.home_container {
+			padding: 16px;
+		}
+
+		.home_stats,
+		.home_quick_links_grid {
+			grid-template-columns: 1fr;
+		}
+
+		.home_welcome {
+			padding: 28px 24px;
+		}
+	}
+</style>
+
+<div class="home_wrapper">
+	<div class="home_container">
+		<div class="home_welcome">
+			<h1 id="homeWelcomeTitle">欢迎使用 xAdmin</h1>
+			<p>基于 C 语言开发的高效网站后台管理系统，提供权限控制、插件扩展、计划任务、配置管理与日志追踪等能力，适合构建轻量且可持续演进的后台应用。</p>
+			<div class="home_welcome_actions">
+				<button class="layui-btn home_btn-primary" data-open-url="/admin/view/auth/user" data-open-title="用户管理">进入用户管理</button>
+				<button class="layui-btn home_btn-ghost" data-open-url="/admin/view/plugin" data-open-title="已安装插件">查看插件管理</button>
+				<button class="layui-btn home_btn-ghost" data-open-url="/admin/view/sched/dashboard" data-open-title="计划任务看板">打开计划任务看板</button>
+			</div>
+		</div>
+
+		<div class="home_stats">
+			<div class="home_stat_card">
+				<div class="number" id="userCount">0</div>
+				<div class="label">系统用户</div>
+			</div>
+			<div class="home_stat_card">
+				<div class="number" id="roleCount">0</div>
+				<div class="label">用户角色</div>
+			</div>
+			<div class="home_stat_card">
+				<div class="number" id="menuCount">0</div>
+				<div class="label">菜单项目</div>
+			</div>
+			<div class="home_stat_card">
+				<div class="number" id="pluginCount">0</div>
+				<div class="label">已安装插件</div>
+			</div>
+		</div>
+
+		<div class="home_panel home_features">
+			<h2>系统特性</h2>
+			<div class="home_feature_list">
+				<div class="home_feature_item">
+					<div class="icon">🔐</div>
+					<div>
+						<h4>权限管理系统</h4>
+						<p>分类、分组、接口三级结构，适合做细粒度后台授权与职责拆分。</p>
+					</div>
+				</div>
+				<div class="home_feature_item">
+					<div class="icon">⚡</div>
+					<div>
+						<h4>TCC 动态编译</h4>
+						<p>模块和脚本可快速迭代，适合持续开发和低成本功能扩展。</p>
+					</div>
+				</div>
+				<div class="home_feature_item">
+					<div class="icon">📦</div>
+					<div>
+						<h4>插件化扩展</h4>
+						<p>模型能力已外移到插件体系，核心后台更轻，扩展边界也更清晰。</p>
+					</div>
+				</div>
+				<div class="home_feature_item">
+					<div class="icon">🗄️</div>
+					<div>
+						<h4>轻量部署</h4>
+						<p>基于 SQLite 的本地存储体验仍然保留，上手快，维护成本低。</p>
+					</div>
+				</div>
+				<div class="home_feature_item">
+					<div class="icon">🖥️</div>
+					<div>
+						<h4>后台运维友好</h4>
+						<p>任务调度、日志、插件、配置都可以在后台完成，适合长期维护项目。</p>
+					</div>
+				</div>
+				<div class="home_feature_item">
+					<div class="icon">🌐</div>
+					<div>
+						<h4>跨平台支持</h4>
+						<p>继续支持 Windows / Linux 等环境，统一接口与运行体验。</p>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="home_panel home_quick_links">
+			<h3>快速访问</h3>
+			<div class="home_quick_links_grid">
+				<a href="javascript:;" data-url="/admin/view/auth/user" class="home_quick_link">
+					<i>👥</i>
+					<div>用户管理</div>
+				</a>
+				<a href="javascript:;" data-url="/admin/view/auth/role" class="home_quick_link">
+					<i>🎭</i>
+					<div>角色管理</div>
+				</a>
+				<a href="javascript:;" data-url="/admin/view/plugin/store" class="home_quick_link">
+					<i>🛍️</i>
+					<div>插件商店</div>
+				</a>
+				<a href="javascript:;" data-url="/admin/view/plugin" class="home_quick_link">
+					<i>🧩</i>
+					<div>已安装插件</div>
+				</a>
+				<a href="javascript:;" data-url="/admin/view/member/user" class="home_quick_link">
+					<i>👤</i>
+					<div>会员管理</div>
+				</a>
+				<a href="javascript:;" data-url="/admin/view/option" class="home_quick_link">
+					<i>⚙️</i>
+					<div>系统配置</div>
+				</a>
+				<a href="javascript:;" data-url="/admin/view/logs" class="home_quick_link">
+					<i>📝</i>
+					<div>系统日志</div>
+				</a>
+				<a href="javascript:;" data-url="/admin/view/sched/dashboard" class="home_quick_link">
+					<i>📈</i>
+					<div>计划任务看板</div>
+				</a>
+			</div>
+		</div>
+
+		<div class="home_footer" id="homeFooterText">
+			xAdmin v1.0 © 2025 - 2026
+		</div>
+	</div>
+</div>
+
+<script>
+layui.use(['jquery', 'admin'], function() {
+	var $ = layui.jquery;
+	var admin = layui.admin;
+
+	function loadAdminBranding() {
+		fetch('/brand/admin?_=' + Date.now(), {
+			cache: 'no-store'
+		})
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( !result || !result.result || !result.data ) {
+				return;
+			}
+			var adminTitle = result.data.adminTitle || 'xAdmin';
+			document.getElementById('homeWelcomeTitle').textContent = '欢迎使用 ' + adminTitle;
+			document.getElementById('homeFooterText').textContent = adminTitle + ' © 2025 - 2026';
+		})
+		.catch(function(error){
+			console.error('load admin brand failed:', error);
+		});
+	}
+
+	function openAdminPage(url, title, type) {
+		var root = null;
+		var openType = type || '_component';
+
+		if ( window.top && window.top.PearAdmin && typeof window.top.PearAdmin.changePage === 'function' ) {
+			root = window.top;
+		} else if ( window.parent && window.parent.PearAdmin && typeof window.parent.PearAdmin.changePage === 'function' ) {
+			root = window.parent;
+		}
+
+		if ( root ) {
+			root.PearAdmin.changePage({
+				id: url,
+				title: title,
+				url: url,
+				type: openType
+			});
+			return;
+		}
+
+		if ( admin && typeof admin.changePage === 'function' ) {
+			admin.changePage({
+				id: url,
+				title: title,
+				url: url,
+				type: openType
+			});
+			return;
+		}
+
+		window.location.href = url;
+	}
+
+	function loadStats() {
+		fetch('/admin/auth/user?page=1&limit=1')
+		.then(function(response){ return response.json(); })
+		.then(function(data){
+			if ( data && data.count !== undefined ) {
+				document.getElementById('userCount').setAttribute('data-value', data.count);
+			}
+		})
+		.catch(function(error){ console.error('用户数据加载失败:', error); });
+
+		fetch('/admin/auth/role?page=1&limit=1')
+		.then(function(response){ return response.json(); })
+		.then(function(data){
+			if ( data && data.count !== undefined ) {
+				document.getElementById('roleCount').setAttribute('data-value', data.count);
+			}
+		})
+		.catch(function(error){ console.error('角色数据加载失败:', error); });
+
+		fetch('/admin/option/menu?page=1&limit=1')
+		.then(function(response){ return response.json(); })
+		.then(function(data){
+			if ( data && data.count !== undefined ) {
+				document.getElementById('menuCount').setAttribute('data-value', data.count);
+			}
+		})
+		.catch(function(error){ console.error('菜单数据加载失败:', error); });
+
+		fetch('/admin/plugin/list?page=1&limit=1')
+		.then(function(response){ return response.json(); })
+		.then(function(data){
+			if ( data && data.count !== undefined ) {
+				document.getElementById('pluginCount').setAttribute('data-value', data.count);
+			}
+		})
+		.catch(function(error){ console.error('插件数据加载失败:', error); });
+	}
+
+	function animateCounter(element, start, end, duration) {
+		if ( start === end ) {
+			element.textContent = end;
+			return;
+		}
+
+		var range = end - start;
+		var increment = range > 0 ? Math.ceil(range / duration * 20) : Math.floor(range / duration * 20);
+		var timer = setInterval(function(){
+			start += increment;
+			if ( (increment > 0 && start >= end) || (increment < 0 && start <= end) ) {
+				start = end;
+				clearInterval(timer);
+			}
+			element.textContent = start;
+		}, 20);
+	}
+
+	var observer = new IntersectionObserver(function(entries) {
+		entries.forEach(function(entry){
+			if ( entry.isIntersecting ) {
+				var numberElement = entry.target.querySelector('.number');
+				var finalValue = parseInt(numberElement.getAttribute('data-value') || '0', 10);
+				if ( !isNaN(finalValue) ) {
+					animateCounter(numberElement, 0, finalValue, 1000);
+				}
+				observer.unobserve(entry.target);
+			}
+		});
+	}, { threshold: 0.4 });
+
+	document.querySelectorAll('.home_stat_card').forEach(function(card){
+		observer.observe(card);
+	});
+
+	$('.home_quick_link, .home_welcome_actions .layui-btn').on('click', function() {
+		var url = $(this).data('url') || $(this).attr('data-open-url');
+		var title = $(this).data('title') || $(this).attr('data-open-title') || $.trim($(this).text());
+		var type = $(this).attr('data-open-type') || $(this).data('open-type') || '_component';
+		if ( url && title ) {
+			openAdminPage(url, title, type);
+		}
+	});
+
+	loadStats();
+	loadAdminBranding();
+});
+</script>

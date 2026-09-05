@@ -1,0 +1,121 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Member_Auth" lay-filter="Table_Member_Auth"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Member_Auth">
+	<div class="layui-inline">
+		<input type="text" id="Search_Member_Auth" placeholder="搜索权限组名称或描述..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Member_Auth_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Member_Auth_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="Member_Auth_Add"><i class="layui-icon layui-icon-addition"></i> 添加分组</button>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Member_Auth">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		
+		table.render({
+			elem: '#Table_Member_Auth',
+			toolbar: '#Toolbar_Member_Auth',
+			url: '/admin/member/auth',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			cellMinWidth: 60,
+			skin: "line",
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'sort', width:80, title: '排序'},
+				{width:160, title: '权限分类', templet: '<span class="layui-badge member-auth-color-{{= ((d.groupID || 0) % 32 + 32) % 32 }}">{{= d.groupName || "未分类" }}</span>'},
+				{width:320, title: '分组名称', templet: '<code>{{= d.name }}</code>'},
+				{field:'desc', title: '描述'},
+				{field:'createTime', width:180, title: '创建时间'},
+				{field:'updateTime', width:180, title: '修改时间'},
+				{width:120, title: '操作', templet: '#Tool_Member_Auth'},
+			]],
+		});
+		
+		table.on('toolbar(Table_Member_Auth)', function(obj){
+			switch ( obj.event ) {
+				case 'Member_Auth_Search':
+					table.reloadData('Table_Member_Auth', {
+						where: { search: '%' + document.getElementById('Search_Member_Auth').value + '%' },
+					});
+				break;
+				case 'Member_Auth_Refresh':
+					table.reloadData('Table_Member_Auth');
+				break;
+				case 'Member_Auth_Add':
+					layer.open({
+						title: '添加权限分组',
+						type: 2,
+						shadeClose: true,
+						area: ['500px', '450px'],
+						content: '/admin/view/member/auth/add',
+					});
+				break;
+			};
+		});
+		
+		table.on('tool(Table_Member_Auth)', function(obj){
+			var data = obj.data;
+			if ( obj.event == 'edit' ) {
+				layer.open({
+					title: '编辑权限分组',
+					type: 2,
+					shadeClose: true,
+					area: ['500px', '450px'],
+					content: '/admin/view/member/auth/edit?id=' + data.id,
+				});
+			} else if ( obj.event == 'delete' ) {
+				if (data.id == 1) {
+					layer.msg('不能删除默认权限分组', {icon: 2});
+					return;
+				}
+				layer.confirm('确定要删除权限分组 "' + data.name + '" 吗？<br>其下的URI将移至默认分组', {
+					icon: 3,
+					title: '删除确认'
+				}, function(index){
+					fetch('/admin/member/auth?id=' + data.id, {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' }
+					})
+					.then(response => response.json())
+					.then(result => {
+						if (result && result.result === true) {
+							layer.msg(result.message || '删除成功', {icon: 1});
+							table.reloadData('Table_Member_Auth');
+						} else {
+							layer.msg(result.message || '删除失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+					layer.close(index);
+				});
+			}
+		});
+	});
+</script>

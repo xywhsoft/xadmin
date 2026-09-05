@@ -1,34 +1,18 @@
 {
-	"services": [
-		{
-			"enabled": true,
-			"class": "http",
-			"name": "xAdmin Server",
-			"desc": "xAdmin server",
-			"param": "",
-			"backlog": 128,
-			"recv_limit": 1048576,
-			"path_limit": 200,
-			"header_limit": 32,
-			"body_limit": 262144,
-			"ip": "0.0.0.0",
-			"port": 80,
-			"tls": false,
-			"port_tls": 443,
-			"host_default": {
-				"enabled": true,
-				"name": "xAdmin",
-				"desc": "xadmin host",
-				"param": "",
-				"debug": false,
-				"path": "hosts/xadmin/wwwroot",
-				"tls_ca": "hosts/xadmin/tls/ca.pem",
-				"tls_cert": "hosts/xadmin/tls/cert.pem",
-				"tls_key": "hosts/xadmin/tls/key.pem",
-				"devlang": "c",
-				"devfile": "hosts/xadmin/script/main.c"
-			},
-			"hosts": []
-		}
-	]
+  "services": [{
+    "enabled": true,
+    "class": "http",
+    "name": "xadmin",
+    "ip": "127.0.0.1",
+    "port": 9081,
+    "host_default": {
+      "enabled": true,
+      "name": "xadmin",
+      "path": "wwwroot",
+      "devlang": "c",
+      "devfile": "main.c",
+      "dev_inc": "includes",
+      "dev_lib": "librarys"
+    }
+  }]
 }

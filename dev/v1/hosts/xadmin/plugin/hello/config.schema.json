@@ -1,0 +1,14 @@
+{
+	"type": "object",
+	"properties": {
+		"showTime": {
+			"type": "boolean",
+			"title": "Show current time"
+		},
+		"welcomeMessage": {
+			"type": "string",
+			"title": "Welcome message"
+		}
+	},
+	"additionalProperties": false
+}

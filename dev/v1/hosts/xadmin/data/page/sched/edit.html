@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>计划任务编辑</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+	<link rel="stylesheet" href="/lib/CodeMirror/lib/codemirror.css">
+	<link rel="stylesheet" href="/lib/CodeMirror/theme/monokai.css">
+	<style>
+		body.sched-edit-body {
+			height: 100vh;
+			display: flex;
+			flex-direction: column;
+			overflow: hidden;
+			background: #fff;
+		}
+
+		.sched-edit-scroll {
+			flex: 1;
+			overflow-y: auto;
+			padding: 20px 20px 0 0;
+		}
+
+		.sched-edit-form {
+			padding-bottom: 12px;
+		}
+
+		.sched-edit-footer {
+			flex-shrink: 0;
+			padding: 12px 20px;
+			border-top: 1px solid #f2f2f2;
+			background: #fff;
+			text-align: right;
+		}
+
+		.sched-edit-footer .layui-btn {
+			min-width: 88px;
+		}
+
+		.sched-code-label {
+			margin-bottom: 8px;
+			color: #666;
+		}
+
+		.sched-code-editor {
+			height: 100%;
+			border: 1px solid #d2d2d2;
+			border-radius: 6px;
+			overflow: hidden;
+			background: #fff;
+		}
+
+		.sched-code-editor + .layui-word-aux {
+			margin-top: 8px;
+		}
+
+		.sched-code-editor .CodeMirror {
+			height: 100%;
+			font-size: 13px;
+			line-height: 1.6;
+		}
+
+		#sched_custom_editor {
+			height: 180px;
+		}
+
+		#sched_code_editor {
+			height: 360px;
+		}
+	</style>
+</head>
+<body class="sched-edit-body">
+<div class="sched-edit-scroll">
+	<form class="layui-form sched-edit-form" lay-filter="Form_Sched_Edit">
+		<div class="layui-form-item">
+			<label class="layui-form-label">任务名称</label>
+			<div class="layui-input-block">
+				<input type="text" name="name" required lay-verify="required" autocomplete="off" class="layui-input" placeholder="例如：每天清理临时文件">
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">启用状态</label>
+			<div class="layui-input-block">
+				<input type="checkbox" name="enabled" lay-skin="switch" lay-text="启用|停用" checked>
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">调度类型</label>
+			<div class="layui-input-block">
+				<select name="scheduleType" id="sched_schedule_type" lay-filter="sched_schedule_type">
+					<option value="once">单次执行</option>
+					<option value="interval">间隔执行</option>
+					<option value="cron">Cron 表达式</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="layui-form-item sched-block sched-once">
+			<label class="layui-form-label">执行时间</label>
+			<div class="layui-input-block">
+				<input type="text" name="onceAtText" id="sched_once_at" placeholder="YYYY-MM-DD HH:mm:ss" class="layui-input">
+				<div class="layui-word-aux">到达指定时间后仅执行一次。</div>
+			</div>
+		</div>
+
+		<div class="layui-form-item sched-block sched-interval" style="display:none;">
+			<label class="layui-form-label">执行间隔</label>
+			<div class="layui-input-inline" style="width: 120px;">
+				<input type="number" min="1" name="intervalValue" value="60" class="layui-input">
+			</div>
+			<div class="layui-input-inline" style="width: 140px;">
+				<select name="intervalUnit">
+					<option value="second">秒</option>
+					<option value="minute" selected>分钟</option>
+					<option value="hour">小时</option>
+					<option value="day">天</option>
+				</select>
+			</div>
+			<div class="layui-input-inline" style="width: 260px;">
+				<input type="text" name="startAtText" id="sched_start_at" placeholder="可选：起始时间" class="layui-input">
+			</div>
+			<div class="layui-input-block" style="clear: both; margin-top: 8px;">
+				<div class="layui-word-aux">适合固定频率的轮询、同步、清理类任务。</div>
+			</div>
+		</div>
+
+		<div class="layui-form-item sched-block sched-cron" style="display:none;">
+			<label class="layui-form-label">Cron 表达式</label>
+			<div class="layui-input-block">
+				<input type="text" name="cronExpr" placeholder="秒 分 时 日 月 周 [年]" class="layui-input">
+				<div class="layui-word-aux">例如：`0 */5 * * * *` 表示每 5 分钟一次；`0 0 2 1 * * 2027` 表示 2027 年每月 1 日 02:00:00 执行。</div>
+			</div>
+			<div class="layui-input-block" style="margin-top: 10px;">
+				<button type="button" class="layui-btn layui-btn-primary layui-btn-sm btn-sched-cron-template" data-cron="0 * * * * *">每分钟</button>
+				<button type="button" class="layui-btn layui-btn-primary layui-btn-sm btn-sched-cron-template" data-cron="0 */5 * * * *">每 5 分钟</button>
+				<button type="button" class="layui-btn layui-btn-primary layui-btn-sm btn-sched-cron-template" data-cron="0 0 * * * *">每小时整点</button>
+				<button type="button" class="layui-btn layui-btn-primary layui-btn-sm btn-sched-cron-template" data-cron="0 0 2 * * *">每天 02:00</button>
+				<button type="button" class="layui-btn layui-btn-primary layui-btn-sm btn-sched-cron-template" data-cron="0 0 9 * * 1-5">工作日 09:00</button>
+				<button type="button" class="layui-btn layui-btn-primary layui-btn-sm btn-sched-cron-template" data-cron="0 0 2 1 * *">每月 1 日 02:00</button>
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">执行预览</label>
+			<div class="layui-input-block">
+				<div id="sched_preview_box" style="padding: 12px 14px; background: #f8f8f8; border-radius: 6px; min-height: 72px; color: #666;">
+					请先填写调度配置
+				</div>
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">执行类型</label>
+			<div class="layui-input-inline" style="width: 160px;">
+				<select name="execType" id="sched_exec_type" lay-filter="sched_exec_type">
+					<option value="shell">Shell</option>
+					<option value="c">C</option>
+				</select>
+			</div>
+			<div class="layui-input-inline exec-shell" style="width: 180px;">
+				<select name="shellType" lay-filter="sched_shell_type">
+					<option value="powershell">PowerShell</option>
+					<option value="cmd">cmd</option>
+					<option value="bash">bash</option>
+					<option value="sh">sh</option>
+				</select>
+			</div>
+			<div class="layui-input-inline" style="width: 280px;">
+				<button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btn_sched_example_shell">填充 Shell 示例</button>
+				<button type="button" class="layui-btn layui-btn-primary layui-btn-sm" id="btn_sched_example_c">填充 C 示例</button>
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">超时 / 并发</label>
+			<div class="layui-input-inline" style="width: 160px;">
+				<input type="number" min="1" name="timeoutSec" value="300" class="layui-input" placeholder="超时秒数">
+			</div>
+			<div class="layui-input-inline" style="width: 220px;">
+				<select name="overlapPolicy">
+					<option value="skip">任务运行中则跳过</option>
+					<option value="queue_one">排队一次，当前完成后补跑</option>
+					<option value="parallel">允许并行执行</option>
+				</select>
+			</div>
+			<div class="layui-input-inline" style="width: 160px;">
+				<input type="number" min="0" name="parallelLimit" value="0" class="layui-input" placeholder="并行上限">
+			</div>
+			<div class="layui-input-block" style="clear: both; margin-top: 8px;">
+				<div class="layui-word-aux">超时后会终止当前任务进程，避免长期占用资源。并行上限仅在“允许并行执行”时生效，0 表示不限制。</div>
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">错过调度</label>
+			<div class="layui-input-inline" style="width: 260px;">
+				<select name="misfirePolicy">
+					<option value="skip">跳过错过的触发</option>
+					<option value="fire_once_now">启动后立即补跑一次</option>
+				</select>
+			</div>
+			<div class="layui-input-block" style="clear: both; margin-top: 8px;">
+				<div class="layui-word-aux">用于 xAdmin 重启或暂停期间错过执行点时的恢复策略。</div>
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">失败重试</label>
+			<div class="layui-input-inline" style="width: 160px;">
+				<input type="number" min="0" name="retryCount" value="0" class="layui-input" placeholder="重试次数">
+			</div>
+			<div class="layui-input-inline" style="width: 180px;">
+				<input type="number" min="0" name="retryDelaySec" value="60" class="layui-input" placeholder="重试延迟秒数">
+			</div>
+			<div class="layui-input-block" style="clear: both; margin-top: 8px;">
+				<div class="layui-word-aux">任务失败或超时后，会按延迟再次调度。当前仅对非并行模式生效。</div>
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">工作目录</label>
+			<div class="layui-input-block">
+				<input type="text" name="workDir" class="layui-input" placeholder="可选，不填则使用 xadmin 当前工作目录">
+			</div>
+		</div>
+
+		<div class="layui-form-item">
+			<label class="layui-form-label">任务代码</label>
+			<div class="layui-input-block">
+				<div style="margin-bottom: 8px; color: #666;">自定义参数 JSON</div>
+				<div id="sched_custom_editor" class="sched-code-editor"></div>
+				<textarea name="customText" style="display:none;" placeholder='{"message":"hello","count":1}'></textarea>
+				<div class="layui-word-aux" style="margin-bottom: 10px;">保存为 JSON 文本。C 任务里可通过 `pTaskInfo->custom_json` 读取原文，通过 `pTaskInfo->custom_data` 读取解析后的结构。</div>
+				<div style="margin-bottom: 8px; color: #666;">任务代码</div>
+				<div id="sched_code_editor" class="sched-code-editor"></div>
+				<textarea name="codeText" style="display:none;"></textarea>
+				<div class="layui-word-aux exec-shell">Shell 任务会在独立子进程中执行，标准输出和标准错误会写入执行日志。</div>
+				<div class="layui-word-aux exec-c" style="display:none;">C 任务只需要写一个裸函数 `int TaskProc(TaskInfo* pTaskInfo)`；模板会自动补齐运行入口和退出逻辑。</div>
+			</div>
+		</div>
+
+	</form>
+</div>
+<div class="sched-edit-footer">
+	<button type="button" class="layui-btn layui-bg-blue" id="btn_sched_save"><i class="layui-icon layui-icon-ok"></i> 保存</button>
+	<button type="button" class="layui-btn layui-btn-primary" id="btn_sched_cancel"><i class="layui-icon layui-icon-close"></i> 取消</button>
+</div>
+
+<script src="/layui/layui.js"></script>
+<script src="/lib/CodeMirror/lib/codemirror.js"></script>
+<script src="/lib/CodeMirror/addon/mode/simple.js"></script>
+<script src="/lib/CodeMirror/mode/javascript/javascript.js"></script>
+<script src="/lib/CodeMirror/mode/clike/clike.js"></script>
+<script src="/lib/CodeMirror/mode/shell/shell.js"></script>
+<script src="/lib/CodeMirror/mode/powershell/powershell.js"></script>
+<script>
+layui.use(['form', 'layer', 'laydate'], function(){
+	var form = layui.form;
+	var layer = layui.layer;
+	var laydate = layui.laydate;
+	var $ = layui.$;
+	var search = new URLSearchParams(location.search);
+	var taskId = Number(search.get('id') || 0);
+	var customTextarea = document.querySelector('textarea[name=customText]');
+	var codeTextarea = document.querySelector('textarea[name=codeText]');
+	var customEditor = null;
+	var codeEditor = null;
+
+	function ensureCmdMode() {
+		if ( !window.CodeMirror || window.CodeMirror.modes['xadmin-cmd'] ) {
+			return;
+		}
+		window.CodeMirror.defineSimpleMode('xadmin-cmd', {
+			start: [
+				{ regex: /(?:^|\s)(?:::?[A-Za-z0-9_]+|goto|call|set|setlocal|endlocal|if|else|for|in|do|echo|cd|chdir|dir|copy|move|del|erase|ren|rename|type|start|exit|shift|pause|rem|title|pushd|popd|mkdir|md|rmdir|rd|cls)\b/i, token: 'keyword' },
+				{ regex: /%\w+%|%%[A-Za-z]/, token: 'variable-2' },
+				{ regex: /![^!]+!/, token: 'variable-2' },
+				{ regex: /"(?:[^\\"]|\\.)*"/, token: 'string' },
+				{ regex: /\b\d+\b/, token: 'number' },
+				{ regex: /(?:^|\s)rem\b.*/i, token: 'comment' },
+				{ regex: /::.*/, token: 'comment' }
+			],
+			meta: {
+				lineComment: 'rem'
+			}
+		});
+	}
+
+	function initCodeEditor(el, textarea, options) {
+		if ( !window.CodeMirror || !el || !textarea ) {
+			return null;
+		}
+		var editor = window.CodeMirror(el, {
+			value: textarea.value || '',
+			mode: options.mode,
+			theme: 'monokai',
+			lineNumbers: true,
+			lineWrapping: true,
+			indentUnit: 4,
+			tabSize: 4
+		});
+		editor.on('change', function(cm){
+			textarea.value = cm.getValue();
+		});
+		return editor;
+	}
+
+	function syncEditorTextareas() {
+		if ( customEditor ) {
+			customTextarea.value = customEditor.getValue();
+		}
+		if ( codeEditor ) {
+			codeTextarea.value = codeEditor.getValue();
+		}
+	}
+
+	function getCodeEditorMode(execType, shellType) {
+		if ( execType === 'c' ) {
+			return 'text/x-csrc';
+		}
+		if ( shellType === 'powershell' ) {
+			return 'powershell';
+		}
+		if ( shellType === 'cmd' ) {
+			return 'xadmin-cmd';
+		}
+		return 'shell';
+	}
+
+	function refreshEditors() {
+		if ( customEditor ) {
+			customEditor.refresh();
+		}
+		if ( codeEditor ) {
+			codeEditor.refresh();
+		}
+	}
+
+	function setEditorValue(editor, textarea, value) {
+		var nextValue = value || '';
+		if ( !textarea ) {
+			return;
+		}
+		textarea.value = nextValue;
+		if ( editor && editor.getValue() !== nextValue ) {
+			editor.setValue(nextValue);
+		}
+	}
+
+	function updateCodeEditorMode() {
+		var execType = $('select[name=execType]').val() || 'shell';
+		var shellType = $('select[name=shellType]').val() || 'powershell';
+		if ( codeEditor ) {
+			codeEditor.setOption('mode', getCodeEditorMode(execType, shellType));
+			codeEditor.refresh();
+		}
+	}
+
+	function initEditors() {
+		ensureCmdMode();
+		customEditor = initCodeEditor(document.getElementById('sched_custom_editor'), customTextarea, {
+			mode: { name: 'javascript', json: true }
+		});
+		codeEditor = initCodeEditor(document.getElementById('sched_code_editor'), codeTextarea, {
+			mode: getCodeEditorMode('shell', 'powershell')
+		});
+		updateCodeEditorMode();
+		setTimeout(refreshEditors, 0);
+	}
+
+	function escapeHtml(text) {
+		return String(text || '')
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#39;');
+	}
+
+	function toggleScheduleBlock(value) {
+		$('.sched-block').hide();
+		$('.sched-' + value).show();
+	}
+
+	function toggleExecBlock(value) {
+		if ( value === 'c' ) {
+			$('.exec-shell').hide();
+			$('.exec-c').show();
+		} else {
+			$('.exec-shell').show();
+			$('.exec-c').hide();
+		}
+		updateCodeEditorMode();
+		setTimeout(refreshEditors, 0);
+	}
+
+	function fillShellExample() {
+		var current = $.trim(codeEditor ? codeEditor.getValue() : codeTextarea.value);
+		var sample = [
+			'$now = Get-Date -Format "yyyy-MM-dd HH:mm:ss"',
+			'Write-Output ("[sched] shell task start: " + $now)',
+			'Write-Output "hello from xadmin scheduler"',
+			'Write-Output ("workdir=" + (Get-Location).Path)'
+		].join('\n');
+		if ( current ) {
+			layer.confirm('当前代码区已有内容，是否覆盖为 Shell 示例？', {icon: 3, title: '提示'}, function(index){
+				$('select[name=execType]').val('shell');
+				$('select[name=shellType]').val('powershell');
+				setEditorValue(codeEditor, codeTextarea, sample);
+				toggleExecBlock('shell');
+				form.render('select');
+				layer.close(index);
+			});
+			return;
+		}
+		$('select[name=execType]').val('shell');
+		$('select[name=shellType]').val('powershell');
+		setEditorValue(codeEditor, codeTextarea, sample);
+		toggleExecBlock('shell');
+		form.render('select');
+	}
+
+	function fillCExample() {
+		var current = $.trim(codeEditor ? codeEditor.getValue() : codeTextarea.value);
+		var sample = [
+			'int TaskProc(TaskInfo* pTaskInfo)',
+			'{',
+			'\tif ( pTaskInfo == NULL ) {',
+			'\t\treturn 1;',
+			'\t}',
+			'\tsnprintf(pTaskInfo->output, sizeof(pTaskInfo->output),',
+			'\t\t"task_id=%lld\\nschedule=%s\\ntrigger=%s\\nwork_dir=%s\\ncustom=%s",',
+			'\t\t(long long)pTaskInfo->task_id,',
+			'\t\tpTaskInfo->schedule_type ? pTaskInfo->schedule_type : "unknown",',
+			'\t\tpTaskInfo->trigger_source ? pTaskInfo->trigger_source : "unknown",',
+			'\t\tpTaskInfo->work_dir ? pTaskInfo->work_dir : "",',
+			'\t\tpTaskInfo->custom_json ? pTaskInfo->custom_json : "{}");',
+			'\treturn 0;',
+			'}'
+		].join('\n');
+		if ( current ) {
+			layer.confirm('当前代码区已有内容，是否覆盖为 C 示例？', {icon: 3, title: '提示'}, function(index){
+				$('select[name=execType]').val('c');
+				setEditorValue(customEditor, customTextarea, '{\n  "message": "hello from custom params",\n  "count": 1\n}');
+				setEditorValue(codeEditor, codeTextarea, sample);
+				toggleExecBlock('c');
+				form.render('select');
+				layer.close(index);
+			});
+			return;
+		}
+		$('select[name=execType]').val('c');
+		setEditorValue(customEditor, customTextarea, '{\n  "message": "hello from custom params",\n  "count": 1\n}');
+		setEditorValue(codeEditor, codeTextarea, sample);
+		toggleExecBlock('c');
+		form.render('select');
+	}
+
+	function applyCronTemplate(expr) {
+		$('select[name=scheduleType]').val('cron');
+		$('input[name=cronExpr]').val(expr);
+		toggleScheduleBlock('cron');
+		form.render('select');
+		refreshPreview();
+	}
+
+	function loadTask() {
+		if ( !taskId ) {
+			refreshPreview();
+			return;
+		}
+		fetch('/admin/sched/task?id=' + taskId)
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( !result.result ) {
+				layer.msg(result.message || '加载失败', {icon: 2});
+				return;
+			}
+			form.val('Form_Sched_Edit', {
+				name: result.data.name || '',
+				enabled: result.data.enabled ? 'on' : '',
+				scheduleType: result.data.scheduleType || 'once',
+				onceAtText: result.data.onceAtText || '',
+				intervalValue: result.data.intervalValue || 60,
+				intervalUnit: result.data.intervalUnit || 'minute',
+				startAtText: result.data.startAtText || '',
+				cronExpr: result.data.cronExpr || '',
+				execType: result.data.execType || 'shell',
+				shellType: result.data.shellType || 'powershell',
+				timeoutSec: result.data.timeoutSec || 300,
+				overlapPolicy: result.data.overlapPolicy || 'skip',
+				parallelLimit: result.data.parallelLimit || 0,
+				misfirePolicy: result.data.misfirePolicy || 'skip',
+				retryCount: result.data.retryCount || 0,
+				retryDelaySec: result.data.retryDelaySec || 60,
+				workDir: result.data.workDir || '',
+				customText: result.data.customText || '',
+				codeText: result.data.codeText || ''
+			});
+			setEditorValue(customEditor, customTextarea, result.data.customText || '');
+			setEditorValue(codeEditor, codeTextarea, result.data.codeText || '');
+			toggleScheduleBlock(result.data.scheduleType || 'once');
+			toggleExecBlock(result.data.execType || 'shell');
+			form.render();
+			refreshPreview();
+		})
+		.catch(function(error){
+			layer.msg('加载失败', {icon: 2});
+			console.error(error);
+		});
+	}
+
+	function collectForm() {
+		syncEditorTextareas();
+		var data = form.val('Form_Sched_Edit');
+		data.enabled = data.enabled ? 1 : 0;
+		data.intervalValue = Number(data.intervalValue || 0);
+		data.timeoutSec = Number(data.timeoutSec || 0);
+		data.parallelLimit = Number(data.parallelLimit || 0);
+		data.retryCount = Number(data.retryCount || 0);
+		data.retryDelaySec = Number(data.retryDelaySec || 0);
+		if ( taskId ) {
+			data.id = taskId;
+		}
+		return data;
+	}
+
+	function renderPreview(result) {
+		var list = (result && result.data) || [];
+		var html = '';
+
+		if ( result && result.message ) {
+			html += '<div style="margin-bottom:8px;color:#999;">' + escapeHtml(result.message) + '</div>';
+		}
+		if ( !list.length ) {
+			html += '<div style="color:#999;">暂无可预览的执行时间</div>';
+		} else {
+			html += '<ol style="margin:0;padding-left:18px;">';
+			list.forEach(function(item){
+				html += '<li style="line-height:1.9;">' + escapeHtml(item.text || '-') + '</li>';
+			});
+			html += '</ol>';
+		}
+		$('#sched_preview_box').html(html);
+	}
+
+	function refreshPreview() {
+		var data = collectForm();
+		fetch('/admin/sched/preview', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data)
+		})
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			renderPreview(result || {});
+		})
+		.catch(function(){
+			$('#sched_preview_box').html('<div style="color:#999;">预览获取失败</div>');
+		});
+	}
+
+	laydate.render({ elem: '#sched_once_at', type: 'datetime', trigger: 'click' });
+	laydate.render({ elem: '#sched_start_at', type: 'datetime', trigger: 'click' });
+
+	form.on('select(sched_schedule_type)', function(data){
+		toggleScheduleBlock(data.value);
+		refreshPreview();
+	});
+	form.on('select(sched_exec_type)', function(data){
+		toggleExecBlock(data.value);
+	});
+	form.on('select(sched_shell_type)', function(){
+		updateCodeEditorMode();
+	});
+
+	$('#btn_sched_example_shell').on('click', fillShellExample);
+	$('#btn_sched_example_c').on('click', fillCExample);
+	$(document).on('click', '.btn-sched-cron-template', function(){
+		applyCronTemplate($(this).data('cron'));
+	});
+	$(document).on('input change', 'input[name=onceAtText], input[name=intervalValue], input[name=startAtText], input[name=cronExpr], input[name=parallelLimit], input[name=retryCount], input[name=retryDelaySec], select[name=intervalUnit], select[name=scheduleType]', function(){
+		refreshPreview();
+	});
+
+	$('#btn_sched_save').on('click', function(){
+		var data = collectForm();
+		var method = taskId ? 'PUT' : 'POST';
+
+		fetch('/admin/sched/task', {
+			method: method,
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data)
+		})
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( result.result ) {
+				layer.msg(result.message || '保存成功', {icon: 1});
+				var frameIndex = parent.layer.getFrameIndex(window.name);
+				parent.layer.close(frameIndex);
+			} else {
+				layer.msg(result.message || '保存失败', {icon: 2});
+			}
+		})
+		.catch(function(error){
+			layer.msg('保存失败', {icon: 2});
+			console.error(error);
+		});
+	});
+
+	$('#btn_sched_cancel').on('click', function(){
+		var frameIndex = parent.layer.getFrameIndex(window.name);
+		parent.layer.close(frameIndex);
+	});
+
+	initEditors();
+	form.render();
+	toggleScheduleBlock('once');
+	toggleExecBlock('shell');
+	loadTask();
+});
+</script>
+</body>
+</html>

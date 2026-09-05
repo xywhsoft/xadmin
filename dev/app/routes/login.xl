@@ -1,0 +1,60 @@
+// ============================================================
+// xAdmin 路由 - 登录/登出
+// ============================================================
+import "../../../xs2/src/framework.xl"
+
+// 显示登录页面
+export func show(point reqHandle, point respHandle, var ctx) as bool
+    HttpResponse resp = HttpResponse(respHandle)
+    string html = "<!DOCTYPE html><html><head><title>xAdmin Login</title></head>" +
+        "<body><h2>Admin Login</h2>" +
+        "<form method='POST' action='/admin/login'>" +
+        "<p><label>User: <input name='userName'></label></p>" +
+        "<p><label>Pass: <input name='password' type='password'></label></p>" +
+        "<p><button type='submit'>Login</button></p>" +
+        "</form></body></html>"
+    return resp.text(html, "text/html; charset=utf-8")
+end
+
+// 处理登录提交
+export func submit(point reqHandle, point respHandle, var ctx) as bool
+    HttpRequest req = HttpRequest(reqHandle)
+    HttpResponse resp = HttpResponse(respHandle)
+
+    string userName = req.formValue("userName")
+    string password = req.formValue("password")
+
+    if userName == "" or password == "" then
+        resp.status(400)
+        return resp.jsonText("{\"code\":1,\"msg\":\"userName and password required\"}")
+    end
+
+    // TODO: 查询数据库验证用户
+    // 目前使用硬编码演示
+    if userName == "admin" and password == "admin123" then
+        // 创建 session
+        string sid = src.session.create()
+        var sessData = {}
+        sessData["userId"] = 1
+        sessData["userName"] = userName
+        sessData["roleID"] = 1
+        src.session.setData(sid, sessData)
+        // 设置 cookie
+        resp.cookie(src.session.cookieName(), sid, "/", 7200, http.server.sameSiteLax, http.server.cookieHttpOnly)
+        return resp.jsonText("{\"code\":0,\"msg\":\"login ok\"}")
+    end
+
+    resp.status(401)
+    return resp.jsonText("{\"code\":1,\"msg\":\"invalid credentials\"}")
+end
+
+// 登出
+export func logout(point reqHandle, point respHandle, var ctx) as bool
+    HttpResponse resp = HttpResponse(respHandle)
+    string sid = string(ctx["sid"])
+    if sid != "" then
+        src.session.destroy(sid)
+    end
+    resp.cookie(src.session.cookieName(), "", "/", 0, http.server.sameSiteLax, http.server.cookieHttpOnly)
+    return resp.redirect("/admin/login", 302)
+end

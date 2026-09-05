@@ -1,0 +1,64 @@
+/* 仅测试配置使用此入口。测试 URI 不编入正式 main.c，也不写入 URI 权限库。 */
+#define ServiceInit XAdmin_ServiceInit
+#include "../main.c"
+#undef ServiceInit
+
+static void ProbeGet(XS_ServerObject s, XS_HostObject h, XS_RequestObject req, XS_ResponseObject resp, xvalue* session)
+{
+	xstrview id = {0}; (void)s; (void)h; (void)session;
+	if (xsReqRouteValue(req, "id", &id)) xsHttpReplyFormat(resp, 200, HTTP_CT_TEXT, "get:%.*s", (int)id.Size, id.Data);
+	else xsHttpReplyAuto(resp, 200, HTTP_CT_TEXT, "get:static", 0);
+}
+static void ProbePost(XS_ServerObject s, XS_HostObject h, XS_RequestObject req, XS_ResponseObject resp, xvalue* session)
+{
+	(void)s; (void)h; (void)req; (void)session;
+	xsHttpReplyAuto(resp, 200, HTTP_CT_TEXT, "post", 0);
+}
+static void ProbeReplacement(XS_ServerObject s, XS_HostObject h, XS_RequestObject req, XS_ResponseObject resp, xvalue* session)
+{
+	(void)s; (void)h; (void)req; (void)session;
+	xsHttpReplyAuto(resp, 200, HTTP_CT_TEXT, "replacement", 0);
+}
+static void ProbeExpire(XS_ServerObject s, XS_HostObject h, XS_RequestObject req, XS_ResponseObject resp, xvalue* session)
+{
+	char id[128]; xvalue* value; (void)s; (void)h; (void)session;
+	xsReqCookieValue(req, "XSID", id, sizeof(id));
+	value = Session_Acquire(true, id);
+	xvoTableSetInt(value, "_expireTime", 11, XA_Now() - 1);
+	xrtValueRelease(value);
+	Session_Prune(G_AdminSessions);
+	xsHttpReplyAuto(resp, 200, HTTP_CT_TEXT, "expired", 0);
+}
+static void ProbeReload(XS_ServerObject s, XS_HostObject h, XS_RequestObject req, XS_ResponseObject resp, xvalue* session)
+{
+	XS_ReloadId id; (void)s; (void)req; (void)session;
+	id = xsReloadHostSubmit((XS_HostInfo*)h);
+	xsHttpReplyFormat(resp, id ? 202 : 500, HTTP_CT_JSON, "{\"id\":%llu}", (unsigned long long)id);
+}
+static void ProbeEcho(XS_ServerObject s, XS_HostObject h, XS_RequestObject req, XS_ResponseObject resp, xvalue* session)
+{
+	(void)s; (void)h; (void)session;
+	xsHttpReplyAuto(resp, 200, HTTP_CT_TEXT, req->body, req->body_size);
+}
+static void Public(RouteInfo* route)
+{
+	if (route) { route->bAuth = false; route->bAdmin = false; }
+}
+void ServiceInit(XS_HostInfo* host)
+{
+	XAdmin_ServiceInit(host);
+	if (!G_Ready) return;
+	G_Ready = false; /* 正式运行前增加测试节点。运行中的注册被拒绝。 */
+	Public(AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_GET, ProbeGet));
+	AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_POST, ProbePost);
+	AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_GET, ProbeReplacement);
+	Public(AddStaticRouteHTTP("/__test/item/new", XHTTP_METHOD_GET, ProbeGet));
+	Public(AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_GET, ProbeGet));
+	AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_POST, ProbePost);
+	AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_POST, ProbeReplacement);
+	Public(AddStaticRouteHTTP("/__test/crud", XHTTP_METHOD_CRUD, ProbeGet));
+	Public(AddStaticRouteHTTP("/__test/expire", XHTTP_METHOD_POST, ProbeExpire));
+	Public(AddStaticRouteHTTP("/__test/reload", XHTTP_METHOD_POST, ProbeReload));
+	Public(AddStaticRouteHTTP("/__test/echo", XHTTP_METHOD_POST, ProbeEcho));
+	G_Ready = RouteHTTP_Compile();
+}

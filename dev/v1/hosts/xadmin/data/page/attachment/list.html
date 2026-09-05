@@ -1,0 +1,475 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Attachment_List" lay-filter="Table_Attachment_List"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Attachment_List">
+	<div class="layui-inline">
+		<input type="text" id="Search_Attachment_Filename" placeholder="搜索文件名..." class="layui-input" style="width: 160px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<select id="Search_Attachment_AccessType" style="width: 100px; height: 32px; line-height: 32px; padding: 0 10px; box-sizing: border-box;">
+			<option value="">全部类型</option>
+			<option value="0">公开</option>
+			<option value="1">登录可见</option>
+			<option value="2">付费下载</option>
+			<option value="3">权限级别</option>
+		</select>
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Attachment_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Attachment_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="Attachment_Upload"><i class="layui-icon layui-icon-upload"></i> 上传附件</button>
+		<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="Attachment_BatchDelete"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Attachment_List">
+	<div class="layui-clear-space">
+		{{# var ext = (d.ext || '').toLowerCase(); }}
+		{{# var imageExts = ['jpg','jpeg','png','gif','bmp','webp','svg','ico']; }}
+		{{# var textExts = ['txt','md','json','xml','html','css','js','c','h','py','log','ini','yml','yaml','csv','sh','bat','sql','java','go','rs','ts','vue']; }}
+		{{# if(imageExts.indexOf(ext) >= 0 || textExts.indexOf(ext) >= 0) { }}
+			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="view">查看</a>
+		{{# } else { }}
+			<a class="layui-btn layui-btn-xs layui-bg-cyan" lay-event="download">下载</a>
+		{{# } }}
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<!-- 文件名模板 -->
+<script type="text/html" id="Tpl_Attachment_Filename">
+	{{# var icon = window.getFileIcon(d.ext); }}
+	<i class="layui-icon {{= icon.cls }}" style="color:{{= icon.color }}; margin-right:5px;"></i>
+	{{# if(icon.viewable) { }}
+		<a href="javascript:;" lay-event="view" style="color:#1E9FFF;">{{d.filename}}</a>
+	{{# } else { }}
+		<a href="javascript:;" lay-event="download" style="color:#1E9FFF;">{{d.filename}}</a>
+	{{# } }}
+</script>
+
+<!-- 文件大小模板 -->
+<script type="text/html" id="Tpl_Attachment_Size">
+	{{# if(d.size >= 1073741824) { }}
+		{{ (d.size / 1073741824).toFixed(2) }} GB
+	{{# } else if(d.size >= 1048576) { }}
+		{{ (d.size / 1048576).toFixed(2) }} MB
+	{{# } else if(d.size >= 1024) { }}
+		{{ (d.size / 1024).toFixed(2) }} KB
+	{{# } else { }}
+		{{ d.size }} B
+	{{# } }}
+</script>
+
+<!-- 访问类型模板 -->
+<script type="text/html" id="Tpl_Attachment_AccessType">
+	{{# if(d.accessType == 0) { }}
+		<span class="layui-badge layui-bg-green">公开</span>
+	{{# } else if(d.accessType == 1) { }}
+		<span class="layui-badge layui-bg-blue">登录可见</span>
+	{{# } else if(d.accessType == 2) { }}
+		<span class="layui-badge layui-bg-orange">付费 ¥{{d.price/100}}</span>
+	{{# } else if(d.accessType == 3) { }}
+		<span class="layui-badge layui-bg-cyan">Lv.{{d.accessLevel}}</span>
+	{{# } }}
+</script>
+
+<!-- 图片查看器样式 -->
+<style>
+.image-viewer-container {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	position: relative;
+	background: #1a1a1a;
+	cursor: grab;
+	user-select: none;
+}
+.image-viewer-container:active {
+	cursor: grabbing;
+}
+.image-viewer-container img {
+	position: absolute;
+	transition: none;
+	max-width: none;
+	max-height: none;
+}
+.image-viewer-toolbar {
+	position: absolute;
+	bottom: 15px;
+	left: 50%;
+	transform: translateX(-50%);
+	background: rgba(0,0,0,0.6);
+	border-radius: 20px;
+	padding: 8px 15px;
+	display: flex;
+	gap: 10px;
+	z-index: 10;
+}
+.image-viewer-toolbar button {
+	background: none;
+	border: none;
+	color: #fff;
+	font-size: 18px;
+	cursor: pointer;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	transition: background 0.2s;
+}
+.image-viewer-toolbar button:hover {
+	background: rgba(255,255,255,0.2);
+}
+.image-viewer-toolbar .zoom-text {
+	color: #fff;
+	font-size: 14px;
+	line-height: 32px;
+	min-width: 50px;
+	text-align: center;
+}
+.text-viewer-container {
+	width: 100%;
+	height: 100%;
+	overflow: auto;
+	background: #282c34;
+}
+.text-viewer-container pre {
+	margin: 0;
+	padding: 15px;
+	color: #abb2bf;
+	font-family: Consolas, Monaco, 'Courier New', monospace;
+	font-size: 14px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	word-wrap: break-word;
+}
+</style>
+
+<!-- 页面逻辑处理 -->
+<script>
+// 文件类型分类（全局，供模板调用）
+var FILE_TYPES = {
+	image: ['jpg','jpeg','png','gif','bmp','webp','svg','ico'],
+	text: ['txt','md','json','xml','html','css','js','c','h','py','log','ini','yml','yaml','csv','sh','bat','sql','java','go','rs','ts','vue'],
+	video: ['mp4','avi','mkv','mov','wmv','flv','webm','m4v'],
+	audio: ['mp3','wav','ogg','flac','aac','wma','m4a'],
+	archive: ['zip','rar','7z','tar','gz','bz2','xz'],
+	doc: ['doc','docx','odt','rtf'],
+	excel: ['xls','xlsx','ods'],
+	ppt: ['ppt','pptx','odp']
+};
+
+// 获取文件图标信息
+window.getFileIcon = function(ext)
+{
+	ext = (ext || '').toLowerCase();
+	if ( FILE_TYPES.image.indexOf(ext) >= 0 ) return {cls: 'layui-icon-picture', color: '#52c41a', viewable: true};
+	if ( FILE_TYPES.video.indexOf(ext) >= 0 ) return {cls: 'layui-icon-video', color: '#f5222d', viewable: false};
+	if ( FILE_TYPES.audio.indexOf(ext) >= 0 ) return {cls: 'layui-icon-speaker', color: '#fa8c16', viewable: false};
+	if ( FILE_TYPES.archive.indexOf(ext) >= 0 ) return {cls: 'layui-icon-file-b', color: '#722ed1', viewable: false};
+	if ( ext === 'pdf' ) return {cls: 'layui-icon-file', color: '#f5222d', viewable: false};
+	if ( FILE_TYPES.doc.indexOf(ext) >= 0 ) return {cls: 'layui-icon-file', color: '#1890ff', viewable: false};
+	if ( FILE_TYPES.excel.indexOf(ext) >= 0 ) return {cls: 'layui-icon-table', color: '#52c41a', viewable: false};
+	if ( FILE_TYPES.ppt.indexOf(ext) >= 0 ) return {cls: 'layui-icon-file', color: '#fa541c', viewable: false};
+	if ( FILE_TYPES.text.indexOf(ext) >= 0 ) return {cls: 'layui-icon-code-circle', color: '#13c2c2', viewable: true};
+	return {cls: 'layui-icon-file', color: '#999', viewable: false};
+};
+
+layui.use(['table'], function(){
+	var table = layui.table;
+	var layer = layui.layer;
+	var $ = layui.$;
+	
+	// 创建渲染实例
+	table.render({
+		elem: '#Table_Attachment_List',
+		toolbar: '#Toolbar_Attachment_List',
+		url: '/admin/attachment/list',
+		defaultToolbar: ['filter', 'exports', 'print'],
+		height: 'full-135',
+		cellMinWidth: 60,
+		skin: 'line',
+		page: {
+			limit: 20,
+			groups: 11,
+			layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+		},
+		cols: [[
+			{type: 'checkbox', width: 50},
+			{field: 'xid', title: 'XID', width: 200, hide: true},
+			{field: 'filename', title: '文件名', minWidth: 200, templet: '#Tpl_Attachment_Filename'},
+			{field: 'ext', title: '类型', width: 70, align: 'center'},
+			{field: 'size', title: '大小', width: 100, templet: '#Tpl_Attachment_Size'},
+			{field: 'modelName', title: '模型', width: 100},
+			{field: 'accessType', title: '访问类型', width: 100, templet: '#Tpl_Attachment_AccessType'},
+			{field: 'downloadCount', title: '下载', width: 70, align: 'center'},
+			{field: 'salesCount', title: '销量', width: 70, align: 'center'},
+			{field: 'createTime', title: '上传时间', width: 170},
+			{title: '操作', width: 160, align: 'center', templet: '#Tool_Attachment_List'}
+		]],
+		parseData: function(res){
+			return {
+				"code": res.result ? 0 : 1,
+				"msg": res.message || '',
+				"count": res.count || 0,
+				"data": res.data || []
+			};
+		},
+		done: function(){
+		},
+		error: function(res, msg){
+			console.log(res, msg);
+		}
+	});
+	
+	// 工具栏事件
+	table.on('toolbar(Table_Attachment_List)', function(obj){
+		switch ( obj.event ) {
+			case 'Attachment_Search':
+				table.reloadData('Table_Attachment_List', {
+					where: {
+						filename: '%' + document.getElementById('Search_Attachment_Filename').value + '%',
+						accessType: document.getElementById('Search_Attachment_AccessType').value
+					}
+				});
+				break;
+			case 'Attachment_Refresh':
+				table.reloadData('Table_Attachment_List');
+				break;
+			case 'Attachment_Upload':
+				layer.open({
+					title: '上传附件',
+					type: 2,
+					shadeClose: true,
+					area: ['500px', '480px'],
+					content: '/admin/view/attachment/upload'
+				});
+				break;
+			case 'Attachment_BatchDelete':
+				var checkData = table.checkStatus('Table_Attachment_List').data;
+				if ( checkData.length === 0 ) {
+					layer.msg('请选择要删除的附件');
+					return;
+				}
+				layer.confirm('确定删除选中的 ' + checkData.length + ' 个附件？', {
+					icon: 3,
+					title: '删除确认'
+				}, function(index){
+					var iDeleted = 0;
+					checkData.forEach(function(item){
+						fetch('/admin/attachment/delete?xid=' + item.xid, { method: 'POST' })
+						.then(function(r){ return r.json(); })
+						.then(function(res){
+							iDeleted++;
+							if ( iDeleted === checkData.length ) {
+								layer.msg('删除完成', {icon: 1});
+								table.reloadData('Table_Attachment_List');
+							}
+						});
+					});
+					layer.close(index);
+				});
+				break;
+		}
+	});
+	
+	// 图片查看器
+	function openImageViewer(url, filename)
+	{
+		var iLayerIndex = layer.open({
+			type: 1,
+			title: filename,
+			shadeClose: true,
+			area: ['80%', '80%'],
+			maxmin: true,
+			content: '<div class="image-viewer-container" id="imageViewerBox">' +
+				'<img id="viewerImage" src="' + url + '" draggable="false">' +
+				'<div class="image-viewer-toolbar">' +
+					'<button type="button" id="btnZoomOut" title="缩小"><i class="layui-icon layui-icon-subtraction"></i></button>' +
+					'<span class="zoom-text" id="zoomText">100%</span>' +
+					'<button type="button" id="btnZoomIn" title="放大"><i class="layui-icon layui-icon-addition"></i></button>' +
+					'<button type="button" id="btnZoomFit" title="适应窗口"><i class="layui-icon layui-icon-screen-full"></i></button>' +
+					'<button type="button" id="btnZoomReal" title="原始大小"><i class="layui-icon layui-icon-picture"></i></button>' +
+				'</div>' +
+			'</div>',
+			success: function(layero, index){
+				var $box = $('#imageViewerBox');
+				var $img = $('#viewerImage');
+				var $zoomText = $('#zoomText');
+				var fScale = 1;
+				var fPosX = 0, fPosY = 0;
+				var bDragging = false;
+				var iStartX, iStartY, iStartPosX, iStartPosY;
+				
+				// 更新图片位置和缩放
+				function updateImage() {
+					$img.css({
+						transform: 'translate(' + fPosX + 'px, ' + fPosY + 'px) scale(' + fScale + ')'
+					});
+					$zoomText.text(Math.round(fScale * 100) + '%');
+				}
+				
+				// 图片加载完成后自动适应
+				$img.on('load', function(){
+					var iBoxW = $box.width();
+					var iBoxH = $box.height();
+					var iImgW = this.naturalWidth;
+					var iImgH = this.naturalHeight;
+					
+					// 计算适应缩放比例
+					var fScaleX = (iBoxW - 40) / iImgW;
+					var fScaleY = (iBoxH - 80) / iImgH;
+					fScale = Math.min(fScaleX, fScaleY, 1);
+					
+					// 居中显示
+					fPosX = (iBoxW - iImgW * fScale) / 2;
+					fPosY = (iBoxH - iImgH * fScale) / 2;
+					
+					$img.css({ left: 0, top: 0, transformOrigin: '0 0' });
+					updateImage();
+				});
+				
+				// 滚轮缩放
+				$box.on('wheel', function(e){
+					e.preventDefault();
+					var delta = e.originalEvent.deltaY > 0 ? -0.1 : 0.1;
+					var fNewScale = Math.max(0.1, Math.min(5, fScale + delta));
+					
+					// 以鼠标位置为中心缩放
+					var rect = $box[0].getBoundingClientRect();
+					var iMouseX = e.clientX - rect.left;
+					var iMouseY = e.clientY - rect.top;
+					
+					fPosX = iMouseX - (iMouseX - fPosX) * (fNewScale / fScale);
+					fPosY = iMouseY - (iMouseY - fPosY) * (fNewScale / fScale);
+					fScale = fNewScale;
+					updateImage();
+				});
+				
+				// 拖动查看
+				$box.on('mousedown', function(e){
+					if ( e.button !== 0 ) return;
+					e.preventDefault(); // 阻止浏览器默认拖拽行为
+					bDragging = true;
+					iStartX = e.clientX;
+					iStartY = e.clientY;
+					iStartPosX = fPosX;
+					iStartPosY = fPosY;
+				});
+				
+				$(document).on('mousemove.imageviewer', function(e){
+					if ( !bDragging ) return;
+					fPosX = iStartPosX + (e.clientX - iStartX);
+					fPosY = iStartPosY + (e.clientY - iStartY);
+					updateImage();
+				});
+				
+				$(document).on('mouseup.imageviewer', function(){
+					bDragging = false;
+				});
+				
+				// 工具栏按钮
+				$('#btnZoomIn').on('click', function(){
+					fScale = Math.min(5, fScale + 0.2);
+					updateImage();
+				});
+				$('#btnZoomOut').on('click', function(){
+					fScale = Math.max(0.1, fScale - 0.2);
+					updateImage();
+				});
+				$('#btnZoomFit').on('click', function(){
+					$img.trigger('load');
+				});
+				$('#btnZoomReal').on('click', function(){
+					fScale = 1;
+					var iBoxW = $box.width();
+					var iBoxH = $box.height();
+					fPosX = (iBoxW - $img[0].naturalWidth) / 2;
+					fPosY = (iBoxH - $img[0].naturalHeight) / 2;
+					updateImage();
+				});
+			},
+			end: function(){
+				$(document).off('.imageviewer');
+			}
+		});
+	}
+	
+	// 文本查看器
+	function openTextViewer(url, filename)
+	{
+		layer.open({
+			type: 1,
+			title: filename,
+			shadeClose: true,
+			area: ['70%', '70%'],
+			maxmin: true,
+			content: '<div class="text-viewer-container"><pre id="textContent">加载中...</pre></div>',
+			success: function(){
+				fetch(url)
+				.then(function(r){ return r.text(); })
+				.then(function(text){
+					// 转义 HTML 实体
+					var escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+					$('#textContent').text(text);
+				})
+				.catch(function(){
+					$('#textContent').text('无法加载文件内容');
+				});
+			}
+		});
+	}
+	
+	// 触发单元格工具事件
+	table.on('tool(Table_Attachment_List)', function(obj){
+		var data = obj.data;
+		var ext = (data.ext || '').toLowerCase();
+		
+		if ( obj.event === 'view' ) {
+			var url = '/attachment?xid=' + data.xid;
+			if ( FILE_TYPES.image.indexOf(ext) >= 0 ) {
+				openImageViewer(url, data.filename);
+			} else if ( FILE_TYPES.text.indexOf(ext) >= 0 ) {
+				openTextViewer(url, data.filename);
+			}
+		} else if ( obj.event === 'download' ) {
+			window.open('/attachment?xid=' + data.xid);
+		} else if ( obj.event === 'edit' ) {
+			layer.open({
+				title: '编辑附件',
+				type: 2,
+				shadeClose: true,
+				area: ['500px', '520px'],
+				content: '/admin/view/attachment/edit?xid=' + data.xid
+			});
+		} else if ( obj.event === 'delete' ) {
+			layer.confirm('确定删除附件 "' + data.filename + '" 吗？', {
+				icon: 3,
+				title: '删除确认'
+			}, function(index){
+				fetch('/admin/attachment/delete?xid=' + data.xid, { method: 'POST' })
+				.then(function(r){ return r.json(); })
+				.then(function(res){
+					if ( res.result ) {
+						layer.msg('删除成功', {icon: 1});
+						table.reloadData('Table_Attachment_List');
+					} else {
+						layer.msg(res.message || '删除失败', {icon: 2});
+					}
+				})
+				.catch(function(err){
+					layer.msg('请求出错', {icon: 2});
+					console.error(err);
+				});
+				layer.close(index);
+			});
+		}
+	});
+});
+</script>

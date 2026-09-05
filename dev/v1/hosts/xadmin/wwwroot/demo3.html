@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>CodeMirror 快速DEMO（Markdown编辑）</title>
+    <!-- 1. 引入CodeMirror核心样式 -->
+    <link rel="stylesheet" href="/lib/CodeMirror/lib/codemirror.css">
+    <!-- 2. 引入主题样式（monokai） -->
+    <link rel="stylesheet" href="/lib/CodeMirror/theme/monokai.css">
+    <!-- 可选：引入addon扩展样式（示例：代码折叠），不用可注释 -->
+    <!-- <link rel="stylesheet" href="/lib/CodeMirror/addon/fold/foldgutter.css"> -->
+    <!-- 页面基础样式：避免编辑器样式错乱 -->
+    <style>
+        body {
+            margin: 20px;
+            padding: 0;
+            font-family: "Microsoft Yahei", sans-serif;
+            background-color: #f8f8f8;
+        }
+        /* 编辑器容器：固定宽高，加边框更美观 */
+        #editor-container {
+            width: 800px;
+            height: 600px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: content-box; /* 适配Layui，避免高度压缩 */
+            overflow: hidden; /* 防止内部元素溢出 */
+        }
+        /* 优化Monokai主题样式一致性 */
+        .CodeMirror {
+            height: 100% !important; /* 强制铺满容器高度 */
+            font-size: 14px; /* 优化字体大小 */
+            line-height: 1.5; /* 优化行高 */
+        }
+        /* 代码行号样式优化（匹配Monokai主题） */
+        .CodeMirror-linenumbers {
+            background: #272822 !important;
+            color: #8f908a !important;
+            border-right: 1px solid #383830 !important;
+        }
+        /* 选中行样式优化 */
+        .CodeMirror-activeline-background {
+            background: #373831 !important;
+        }
+    </style>
+</head>
+<body>
+    <h3>CodeMirror Markdown编辑器 DEMO</h3>
+    <!-- 编辑器容器 -->
+    <div id="editor-container"></div>
+
+    <!-- 3. 引入CodeMirror核心JS -->
+    <script src="/lib/CodeMirror/lib/codemirror.js"></script>
+    <!-- 4. 引入Markdown语法高亮模式 -->
+    <script src="/lib/CodeMirror/mode/markdown/markdown.js"></script>
+    <!-- 可选：引入addon扩展JS（示例：代码折叠），不用可注释 -->
+    <!-- <script src="/lib/CodeMirror/addon/fold/foldcode.js"></script> -->
+    <!-- <script src="/lib/CodeMirror/addon/fold/foldgutter.js"></script> -->
+    <!-- <script src="/lib/CodeMirror/addon/fold/markdown-fold.js"></script> -->
+    
+    <!-- 5. 初始化CodeMirror -->
+    <script>
+        // 确保DOM加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化编辑器核心配置
+            var editor = CodeMirror(document.getElementById("editor-container"), {
+                // 初始Markdown内容（可自定义）
+                value: `# CodeMirror Markdown DEMO
+> 这是基于CodeMirror的Markdown编辑器
+
+## 1. 基础语法测试
+- 列表项1
+- 列表项2
+  - 子列表项
+
+## 2. 代码块测试
+\`\`\`javascript
+// JS代码高亮
+const msg = "CodeMirror 测试";
+console.log(msg);
+\`\`\`
+
+## 3. 链接/图片
+[百度](https://www.baidu.com)
+![测试图片](https://picsum.photos/200/100)
+`,
+                // 核心配置
+                mode: "markdown",          // 启用Markdown语法高亮
+                theme: "monokai",          // 使用monokai主题（和Editor.md风格一致）
+                lineNumbers: true,         // 显示行号
+                lineWrapping: true,        // 自动换行（Markdown推荐开启）
+                tabSize: 4,                // Tab缩进大小
+                indentUnit: 4,             // 缩进单位
+                autofocus: true,           // 自动聚焦编辑器
+                cursorHeight: 1,           // 光标高度适配
+                // 可选：启用代码折叠（需引入对应addon）
+                // foldGutter: true,
+                // gutters: ["CodeMirror-linenumbers", "CodeMirror-foldgutter"],
+            });
+
+            // 可选：监听内容变化（调试用）
+            editor.on("change", function() {
+                // console.log("编辑器内容已更新：", editor.getValue());
+            });
+
+            // 可选：获取编辑器内容（提交表单时用）
+            // function getEditorContent() {
+            //     return editor.getValue();
+            // }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+{
+	"persistDemoData":	true,
+	"groups":	[
+		{
+			"key":	"basic",
+			"title":	"Basic Controls",
+			"desc":	"Validate common text, switch, select and icon picker controls.",
+			"fields":	[
+				{
+					"label":	"Title",
+					"type":	"text",
+					"name":	"title",
+					"props":	{
+						"placeholder":	"Enter a title"
+					},
+					"required":	true
+				}, {
+					"label":	"Summary",
+					"type":	"textarea",
+					"name":	"summary",
+					"props":	{
+						"height":	"120px",
+						"placeholder":	"Enter a summary"
+					}
+				}, {
+					"label":	"Priority",
+					"type":	"number",
+					"name":	"priority",
+					"props":	{
+						"min":	0,
+						"max":	10,
+						"step":	1
+					}
+				}, {
+					"label":	"Enabled",
+					"type":	"switch",
+					"desc":	"Used to test boolean value collection.",
+					"name":	"enabled"
+				}, {
+					"label":	"Default Editor Mode",
+					"list":	[
+						{
+							"value":	"editor_html",
+							"label":	"Rich Text"
+						}, {
+							"value":	"editor_md",
+							"label":	"Markdown"
+						}, {
+							"value":	"editor_code",
+							"label":	"Code Editor"
+						}
+					],
+					"type":	"select",
+					"name":	"editor_mode",
+					"required":	true
+				}, {
+					"label":	"Theme Icon",
+					"type":	"icon_picker",
+					"desc":	"A built-in example of a custom control type.",
+					"name":	"theme_icon"
+				}, {
+					"label":	"Theme Badge",
+					"type":	"badge_picker",
+					"desc":	"This one is loaded from an external field type script, not built into the core.",
+					"name":	"theme_badge"
+				}
+			]
+		}, {
+			"key":	"editors",
+			"title":	"Three Editors",
+			"desc":	"Observe how three different editor controls work inside the same schema renderer.",
+			"fields":	[
+				{
+					"label":	"Rich Text Content",
+					"type":	"editor_html",
+					"name":	"content_html",
+					"props":	{
+						"height":	"480px"
+					}
+				}, {
+					"label":	"Markdown Content",
+					"type":	"editor_md",
+					"name":	"content_md"
+				}, {
+					"label":	"Code Content",
+					"type":	"editor_code",
+					"name":	"content_code",
+					"props":	{
+						"theme":	"monokai",
+						"mode":	"javascript"
+					}
+				}
+			]
+		}
+	],
+	"title":	"XForm Demo",
+	"desc":	"A lightweight schema-driven form rendering demo. Saving the form will write demoData back into this JSON file so you can immediately see the effect.",
+	"demoData":	{
+		"priority":	5,
+		"theme_icon":	"layui-icon-component",
+		"theme_badge":	"growth",
+		"title":	"xadmin generic form",
+		"content_html":	"<p>This is the default <strong>rich text</strong> content.</p><p>Later it can be reused by content plugins, option-like pages and profile forms.</p>",
+		"content_code":	"function helloXForm() {\\n  console.log('xadmin xform demo');\\n}\\n\n\nfdsaf\nif",
+		"content_md":	"## Markdown Demo\\n\\n- Unified schema\\n- Unified rendering\\n- Extensible control registry",
+		"editor_mode":	"editor_html",
+		"summary":	"This first version does not add a backend designer. It focuses on schema, rendering, value collection and extensibility.",
+		"enabled":	true
+	}
+}

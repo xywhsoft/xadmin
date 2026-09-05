@@ -1,0 +1,10 @@
+{
+	"type": "object",
+	"properties": {
+		"autoApplyOnStart": {
+			"type": "boolean",
+			"description": "Automatically apply firewall rules from database on plugin start"
+		}
+	},
+	"additionalProperties": false
+}

@@ -1,0 +1,70 @@
+/* v1 URI 清单。ANY 保留旧回调内部的方法判断及原有 404 行为。
+ * 新接口可以注册单独的方法槽位；迁移不改变既有业务契约。 */
+static void RouteHTTP_Init(void)
+{
+    RouteInfo* brand;
+    G_StaticRouteTableHTTP = xrtMapCreate(sizeof(RouteInfo));
+	AddStaticRouteHTTP("/", XHTTP_METHOD_ANY, Request_Index);
+	AddStaticRouteHTTP("/admin", XHTTP_METHOD_ANY, Request_Index);
+	AddStaticRouteHTTP("/admin/login", XHTTP_METHOD_ANY, Request_Login);
+	AddStaticRouteHTTP("/admin/logout", XHTTP_METHOD_ANY, Request_Logout);
+	AddStaticRouteHTTP("/brand/admin", XHTTP_METHOD_ANY, Request_Admin_Brand);
+	AddStaticRouteHTTP("/admin/menu", XHTTP_METHOD_ANY, Request_Menu);
+	AddStaticRouteHTTP("/admin/view/home", XHTTP_METHOD_ANY, Request_View_Home);
+	AddStaticRouteHTTP("/admin/view/logs", XHTTP_METHOD_ANY, Request_View_Logs);
+	AddStaticRouteHTTP("/admin/logs", XHTTP_METHOD_ANY, Request_Logs);
+	AddStaticRouteHTTP("/admin/logs/clear", XHTTP_METHOD_ANY, Request_Logs_Clear);
+	AddStaticRouteHTTP("/admin/auth/user", XHTTP_METHOD_ANY, Request_Auth_User);
+	AddStaticRouteHTTP("/admin/auth/user/repwd", XHTTP_METHOD_ANY, Request_Auth_User_Repwd);
+	AddStaticRouteHTTP("/admin/view/auth/user", XHTTP_METHOD_ANY, Request_View_Auth_User);
+	AddStaticRouteHTTP("/admin/view/auth/user/add", XHTTP_METHOD_ANY, Request_View_Auth_User_Add);
+	AddStaticRouteHTTP("/admin/view/auth/user/edit", XHTTP_METHOD_ANY, Request_View_Auth_User_Edit);
+	AddStaticRouteHTTP("/admin/auth/role", XHTTP_METHOD_ANY, Request_Auth_Role);
+	AddStaticRouteHTTP("/admin/view/auth/role", XHTTP_METHOD_ANY, Request_View_Auth_Role);
+	AddStaticRouteHTTP("/admin/view/auth/role/add", XHTTP_METHOD_ANY, Request_View_Auth_Role_Add);
+	AddStaticRouteHTTP("/admin/view/auth/role/edit", XHTTP_METHOD_ANY, Request_View_Auth_Role_Edit);
+	AddStaticRouteHTTP("/admin/auth/group", XHTTP_METHOD_ANY, Request_Auth_Group);
+	AddStaticRouteHTTP("/admin/view/auth/group", XHTTP_METHOD_ANY, Request_View_Auth_Group);
+	AddStaticRouteHTTP("/admin/view/auth/group/add", XHTTP_METHOD_ANY, Request_View_Auth_Group_Add);
+	AddStaticRouteHTTP("/admin/view/auth/group/edit", XHTTP_METHOD_ANY, Request_View_Auth_Group_Edit);
+	AddStaticRouteHTTP("/admin/auth/auth", XHTTP_METHOD_ANY, Request_Auth_Auth);
+	AddStaticRouteHTTP("/admin/view/auth/auth", XHTTP_METHOD_ANY, Request_View_Auth_Auth);
+	AddStaticRouteHTTP("/admin/view/auth/auth/add", XHTTP_METHOD_ANY, Request_View_Auth_Auth_Add);
+	AddStaticRouteHTTP("/admin/view/auth/auth/edit", XHTTP_METHOD_ANY, Request_View_Auth_Auth_Edit);
+	AddStaticRouteHTTP("/admin/auth/uris", XHTTP_METHOD_ANY, Request_Auth_URIs);
+	AddStaticRouteHTTP("/admin/view/auth/uris", XHTTP_METHOD_ANY, Request_View_Auth_URIs);
+	AddStaticRouteHTTP("/admin/view/auth/uris/edit", XHTTP_METHOD_ANY, Request_View_Auth_URIs_Edit);
+	AddStaticRouteHTTP("/admin/option/menu", XHTTP_METHOD_ANY, Request_Option_Menu);
+	AddStaticRouteHTTP("/admin/view/option/menu", XHTTP_METHOD_ANY, Request_View_Option_Menu);
+	AddStaticRouteHTTP("/admin/view/option/menu/add", XHTTP_METHOD_ANY, Request_View_Option_Menu_Add);
+	AddStaticRouteHTTP("/admin/view/option/menu/add/category", XHTTP_METHOD_ANY, Request_View_Option_Menu_Add_Category);
+	AddStaticRouteHTTP("/admin/view/option/menu/edit", XHTTP_METHOD_ANY, Request_View_Option_Menu_Edit);
+	AddStaticRouteHTTP("/admin/member/user", XHTTP_METHOD_ANY, Request_Member_User);
+	AddStaticRouteHTTP("/admin/member/user/repwd", XHTTP_METHOD_ANY, Request_Member_User_Repwd);
+	AddStaticRouteHTTP("/admin/member/user/balance", XHTTP_METHOD_ANY, Request_Member_User_Balance);
+	AddStaticRouteHTTP("/admin/view/member/user", XHTTP_METHOD_ANY, Request_View_Member_User);
+	AddStaticRouteHTTP("/admin/view/member/user/add", XHTTP_METHOD_ANY, Request_View_Member_User_Add);
+	AddStaticRouteHTTP("/admin/view/member/user/edit", XHTTP_METHOD_ANY, Request_View_Member_User_Edit);
+	AddStaticRouteHTTP("/admin/view/member/user/balance", XHTTP_METHOD_ANY, Request_View_Member_User_Balance);
+	AddStaticRouteHTTP("/admin/member/group", XHTTP_METHOD_ANY, Request_Member_Group);
+	AddStaticRouteHTTP("/admin/view/member/group", XHTTP_METHOD_ANY, Request_View_Member_Group);
+	AddStaticRouteHTTP("/admin/view/member/group/add", XHTTP_METHOD_ANY, Request_View_Member_Group_Add);
+	AddStaticRouteHTTP("/admin/view/member/group/edit", XHTTP_METHOD_ANY, Request_View_Member_Group_Edit);
+	AddStaticRouteHTTP("/admin/member/authgroup", XHTTP_METHOD_ANY, Request_Member_AuthGroup);
+	AddStaticRouteHTTP("/admin/view/member/authgroup", XHTTP_METHOD_ANY, Request_View_Member_AuthGroup);
+	AddStaticRouteHTTP("/admin/view/member/authgroup/add", XHTTP_METHOD_ANY, Request_View_Member_AuthGroup_Add);
+	AddStaticRouteHTTP("/admin/view/member/authgroup/edit", XHTTP_METHOD_ANY, Request_View_Member_AuthGroup_Edit);
+	AddStaticRouteHTTP("/admin/member/auth", XHTTP_METHOD_ANY, Request_Member_Auth);
+	AddStaticRouteHTTP("/admin/view/member/auth", XHTTP_METHOD_ANY, Request_View_Member_Auth);
+	AddStaticRouteHTTP("/admin/view/member/auth/add", XHTTP_METHOD_ANY, Request_View_Member_Auth_Add);
+	AddStaticRouteHTTP("/admin/view/member/auth/edit", XHTTP_METHOD_ANY, Request_View_Member_Auth_Edit);
+	AddStaticRouteHTTP("/api/v1/login", XHTTP_METHOD_ANY, API_Login);
+	AddStaticRouteHTTP("/api/v1/register", XHTTP_METHOD_ANY, API_Register);
+	AddStaticRouteHTTP("/api/v1/logout", XHTTP_METHOD_ANY, API_Logout);
+	AddStaticRouteHTTP("/api/v1/profile", XHTTP_METHOD_ANY, API_Profile);
+	AddStaticRouteHTTP("/api/v1/profile/password", XHTTP_METHOD_ANY, API_Password);
+	AddStaticRouteHTTP("/api/v1/balance", XHTTP_METHOD_ANY, API_Balance);
+	AddStaticRouteHTTP("/api/v1/balance/log", XHTTP_METHOD_ANY, API_BalanceLog);
+    brand = XA_DictGet(G_StaticRouteTableHTTP, "/brand/admin", 12);
+    if (brand) { brand->bAuth = false; brand->bAdmin = false; }
+}

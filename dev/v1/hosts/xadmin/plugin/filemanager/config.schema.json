@@ -1,0 +1,14 @@
+{
+	"type": "object",
+	"properties": {
+		"rootPath": {
+			"type": "string",
+			"description": "Root directory for file browsing. Use * to browse the full filesystem."
+		},
+		"toolPath": {
+			"type": "string",
+			"description": "Path to external tools like 7z (relative to plugin root)"
+		}
+	},
+	"additionalProperties": false
+}

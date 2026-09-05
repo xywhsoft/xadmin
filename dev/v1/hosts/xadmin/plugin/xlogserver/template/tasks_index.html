@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Tasks - {$serviceName}</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+	<style>
+		body { margin: 0; padding: 0; background: #f5f5f5; }
+	</style>
+</head>
+<body>
+	<div style="padding: 16px;">
+		<table class="layui-hide" id="Table_Tasks" lay-filter="Table_Tasks"></table>
+	</div>
+
+	<script type="text/html" id="Toolbar_Tasks">
+		<div class="layui-inline">
+			<span style="font-weight: bold; margin-right: 10px;">Service: {$serviceName}</span>
+		</div>
+		<div class="layui-inline">
+			<input type="text" id="searchTasks" placeholder="Search tasks..." class="layui-input" style="width: 200px; height: 32px; margin-right: 10px;">
+		</div>
+		<div class="layui-inline">
+			<button class="layui-btn layui-btn-sm" lay-event="Tasks_Search"><i class="layui-icon layui-icon-search"></i> Search</button>
+			<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Tasks_Refresh"><i class="layui-icon layui-icon-refresh"></i> Refresh</button>
+		</div>
+		<div class="layui-inline" style="float: right;">
+			<button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="Tasks_Add"><i class="layui-icon layui-icon-add-1"></i> New Task</button>
+			<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="Tasks_Del"><i class="layui-icon layui-icon-delete"></i> Delete</button>
+		</div>
+	</script>
+
+	<script type="text/html" id="Tool_Tasks">
+		<div class="layui-clear-space">
+			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="logs">Logs</a>
+			<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">Edit</a>
+			<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="delete">Delete</a>
+		</div>
+	</script>
+
+	<script src="/layui/layui.js"></script>
+	<script>
+		var G_ServiceId = {$serviceId};
+
+		layui.use(['table'], function(){
+			var table = layui.table;
+			var layer = layui.layer;
+			var $ = layui.$;
+
+			table.render({
+				elem: '#Table_Tasks',
+				toolbar: '#Toolbar_Tasks',
+				url: '/admin/api/plugin/xlogserver/tasks?serviceId=' + G_ServiceId,
+				defaultToolbar: ['filter', 'exports', 'print'],
+				height: 'full-50',
+				cellMinWidth: 60,
+				skin: "line",
+				totalRow: false,
+				page: {
+					limit: 20,
+					groups: 11,
+					layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+				},
+				cols: [[
+					{type: 'checkbox', fixed: 'left'},
+					{field:'id', width:80, title: 'ID'},
+					{field:'name', width:200, title: 'Task Name'},
+					{field:'desc', title: 'Description'},
+					{field:'tableName', width:320, title: 'Table'},
+					{field:'createTime', width:180, title: 'Created'},
+					{field:'updateTime', width:180, title: 'Updated'},
+					{width:200, title: 'Actions', templet: '#Tool_Tasks'},
+				]],
+				done: function(){},
+				error: function(res, msg){ console.log(res, msg) }
+			});
+
+			table.on('toolbar(Table_Tasks)', function(obj){
+				switch ( obj.event ) {
+					case 'Tasks_Search':
+						table.reloadData('Table_Tasks', {
+							where: { search: document.getElementById('searchTasks').value },
+						});
+					break;
+					case 'Tasks_Refresh':
+						table.reloadData('Table_Tasks');
+					break;
+					case 'Tasks_Add':
+						layer.open({
+							title: 'New Task',
+							type: 2,
+							shadeClose: true,
+							area: ['500px', '320px'],
+							content: '/admin/view/plugin/xlogserver/tasks/add?serviceId=' + G_ServiceId,
+						});
+					break;
+					case 'Tasks_Del':
+						var checkStatus = table.checkStatus('Table_Tasks');
+						var data = checkStatus.data;
+						var count = data.length;
+						if ( count === 0 ) {
+							layer.msg('Please select tasks to delete', {icon: 2});
+							return;
+						}
+						var ids = [];
+						var names = [];
+						for ( var i = 0; i < count; i++ ) {
+							ids.push(data[i].id);
+							names.push(data[i].name);
+						}
+						layer.confirm('Delete ' + count + ' tasks?<br>' + names.join(', ') + '<br><span style="color: red;">This cannot be undone!</span>', {icon: 3, title: 'Confirm Delete'}, function(index){
+							$.ajax({
+								url: '/admin/api/plugin/xlogserver/tasks?serviceId=' + G_ServiceId,
+								type: 'DELETE',
+								data: JSON.stringify(ids),
+								contentType: 'application/json',
+								dataType: 'json',
+								success: function(res){
+									if ( res.result ) {
+										layer.msg(res.message, {icon: 1});
+										table.reloadData('Table_Tasks');
+									} else {
+										layer.msg(res.message, {icon: 2});
+									}
+								}
+							});
+							layer.close(index);
+						});
+					break;
+				};
+			});
+
+			table.on('tool(Table_Tasks)', function(obj){
+				var data = obj.data;
+				if ( obj.event == 'logs' ) {
+					layer.open({
+						title: 'Logs - ' + data.name,
+						type: 2,
+						shade: 0,
+						maxmin: true,
+						moveOut: true,
+						area: ['900px', '600px'],
+						content: '/admin/view/plugin/xlogserver/tasks/logs?serviceId=' + G_ServiceId + '&taskId=' + data.id,
+					});
+				} else if ( obj.event == 'edit' ) {
+					layer.open({
+						title: 'Edit Task',
+						type: 2,
+						shadeClose: true,
+						area: ['500px', '366px'],
+						content: '/admin/view/plugin/xlogserver/tasks/edit?serviceId=' + G_ServiceId + '&id=' + data.id,
+					});
+				} else if ( obj.event == 'delete' ) {
+					layer.confirm('Delete task "' + data.name + '"?<br>The log table will not be deleted.', {icon: 3, title: 'Confirm Delete'}, function(index){
+						$.ajax({
+							url: '/admin/api/plugin/xlogserver/tasks?serviceId=' + G_ServiceId,
+							type: 'DELETE',
+							data: JSON.stringify([data.id]),
+							contentType: 'application/json',
+							dataType: 'json',
+							success: function(res){
+								if ( res.result ) {
+									layer.msg(res.message, {icon: 1});
+									table.reloadData('Table_Tasks');
+								} else {
+									layer.msg(res.message, {icon: 2});
+								}
+							}
+						});
+						layer.close(index);
+					});
+				}
+			});
+		});
+	</script>
+</body>
+</html>

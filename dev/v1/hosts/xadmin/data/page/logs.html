@@ -1,0 +1,106 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Logs" lay-filter="Table_Logs"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Logs">
+	<div class="layui-inline">
+		<input type="text" id="searchLogs" placeholder="搜索URI..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Logs_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Logs_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="Logs_Clear"><i class="layui-icon layui-icon-delete"></i> 清空7天前日志</button>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		var $ = layui.$;
+		
+		// 创建渲染实例
+		table.render({
+			elem: '#Table_Logs',
+			toolbar: '#Toolbar_Logs',
+			url: '/admin/logs',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',			// 最大高度减去其他容器已占有的高度差
+			css: "",					// 重设当前表格样式
+			cellMinWidth: 60,			// 最小列宽度
+			skin: "line",				// 表格样式
+			totalRow: false,			// 开启合计行
+			page: {
+				limit: 20,				// 每页显示数量
+				groups: 11,				// 显示分页数量
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'user', width:120, title: '用户'},
+				{field:'ip', width:120, title: 'IP地址'},
+				{field:'method', width:80, title: '方法'},
+				{field:'uri', width:200, title: 'URI'},
+				{field:'param', width:200, title: 'URL参数'},
+				{field:'body', title: '请求体'},
+				{field:'createTime', width:180, title: '访问时间'},
+			]],
+			done: function(){
+			},
+			error: function(res, msg){
+				console.log(res, msg)
+			}
+		});
+		
+		// 工具栏事件
+		table.on('toolbar(Table_Logs)', function(obj){
+			switch ( obj.event ) {
+				case 'Logs_Search':
+					// 搜索
+					table.reloadData('Table_Logs', {
+						where: {
+							search: "%" + document.getElementById('searchLogs').value + "%",
+						},
+					});
+				break;
+				case 'Logs_Refresh':
+					// 刷新
+					table.reloadData('Table_Logs');
+				break;
+				case 'Logs_Clear':
+					// 清空7天前日志
+					layer.confirm('确定要清空7天前的操作日志吗？此操作不可恢复！', {
+						icon: 3,
+						title: '清空日志'
+					}, function(index) {
+						var loading = layer.load(2);
+						fetch('/admin/logs/clear', {
+							method: 'POST'
+						})
+						.then(response => response.json())
+						.then(result => {
+							layer.close(loading);
+							if ( result.result ) {
+								layer.msg('已清理 7 天前的日志记录', {icon: 1});
+								table.reloadData('Table_Logs');
+							} else {
+								layer.msg('清空失败: ' + (result.message || '未知错误'), {icon: 2});
+							}
+							layer.close(index);
+						})
+						.catch(error => {
+							layer.close(loading);
+							console.error('Error:', error);
+							layer.msg('请求失败', {icon: 2});
+						});
+					});
+				break;
+			};
+		});
+	
+	});
+</script>

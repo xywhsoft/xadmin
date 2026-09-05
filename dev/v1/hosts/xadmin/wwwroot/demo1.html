@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Editor.md 测试</title>
+    <link rel="stylesheet" href="/layui/css/layui.css">
+    <link rel="stylesheet" href="/lib/editormd/css/editormd.min.css">
+</head>
+<body>
+    <div id="md-editor" style="width: 800px; height: 600px; margin: 20px auto;"></div>
+	
+    <!-- 只引入Layui，不提前引入editormd -->
+    <script src="/layui/layui.js"></script>
+    
+    <script>
+        // 第一步：先拿到Layui的jQuery，提前挂载Zepto/jQuery到全局
+        layui.use(function(){
+            var $ = layui.$;
+            
+            // 关键：在加载editormd之前，就挂载Zepto/jQuery到window
+            window.Zepto = $;   // 让Editor.md检测到Zepto存在
+            window.jQuery = $;  // 兜底jQuery
+            window.$ = $;       // 全局$
+            
+            // 第二步：动态加载editormd.min.js（仅加载这一次！）
+            var script = document.createElement('script');
+            script.src = "/lib/editormd/editormd.min.js";
+            script.onload = function() {
+                // 第三步：初始化编辑器
+                var editor = editormd("md-editor", {
+                    path: "/lib/editormd/lib/",
+                    jQuery: $,          // 显式指定用Layui的jQuery
+                    useZepto: false,    // 强制禁用Zepto
+                    theme: "default",
+                    previewTheme: "default",
+                    editorTheme: "monokai",
+                    markdown: "# 测试Editor.md\n> 这是测试内容",
+                    flowChart: true,
+                    mermaid: true,
+                    // 核心修复：显式指定高度（数值/百分比都可）
+                    height: 600, // 推荐用数值（px），也可写"600px"/"80%"
+                    // 可选：强制重置样式，避免Layui干扰
+                    cssPrefix: "/lib/editormd/css/",
+                    autoHeight: false // 关闭自动高度，强制使用指定height
+                });
+            };
+            document.body.appendChild(script);
+        });
+    </script>
+</body>
+</html>

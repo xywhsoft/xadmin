@@ -1,0 +1,140 @@
+.pear-container {
+    position: relative;
+    margin: 0 auto;
+    padding: 20px;
+    height: 100%;
+}
+
+.card {
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, .05);
+    box-sizing: border-box;
+    transition: all 0.3s;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+.btn {
+    display: inline-block;
+    font-weight: 400;
+    text-align: center;
+    white-space: nowrap;
+    vertical-align: middle;
+    user-select: none;
+    border: 1px solid transparent;
+    padding: 5px 15px;
+    font-size: 14px;
+    line-height: 1.5;
+    border-radius: 4px;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    cursor: pointer;
+    margin: 0 5px;
+}
+
+.btn-sm {
+    padding: 3px 10px;
+    font-size: 12px;
+    line-height: 1.5;
+    border-radius: 3px;
+}
+
+.btn-primary {
+    color: #fff;
+    background-color: #1890ff;
+    border-color: #1890ff;
+}
+
+.btn-primary:hover {
+    color: #fff;
+    background-color: #40a9ff;
+    border-color: #40a9ff;
+}
+
+.btn-default {
+    color: #666;
+    background-color: #fff;
+    border-color: #d9d9d9;
+}
+
+.btn-default:hover {
+    color: #666;
+    background-color: #f5f5f5;
+    border-color: #c0c0c0;
+}
+
+/* Exception pages styles (403, 404, 500, developing) */
+.pear-exception {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    text-align: center;
+    box-sizing: border-box;
+    padding: 70px 40px;
+}
+
+.pear-exception .title {
+    margin-top: 20px;
+}
+
+.pear-exception .title p {
+    color: rgb(0, 0, 0);
+    font-size: 20px;
+}
+
+.pear-exception .description {
+    margin-top: 10px;
+    color: #8D9095;
+    font-size: 14px;
+}
+
+.pear-exception .extra {
+    margin: 30px;
+}
+
+/* Result pages styles (error, success) */
+.pear-result {
+    text-align: center;
+}
+
+.pear-result .success svg {
+    color: #32C682;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.pear-result .error svg {
+    color: #f56c6c;
+    text-align: center;
+    margin-top: 40px;
+}
+
+.pear-result .title {
+    margin-top: 25px;
+}
+
+.pear-result .description {
+    margin-top: 25px;
+    width: 60%;
+    margin-left: 20%;
+    color: rgba(0, 0, 0, .45);
+}
+
+.pear-result .content {
+    margin-top: 20px;
+    width: 80%;
+    border-radius: 4px;
+    background-color: whitesmoke;
+    padding: 20px 32px;
+    margin-left: 10%;
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+.pear-result .extra {
+    padding-top: 10px;
+    margin-top: 25px;
+}

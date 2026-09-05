@@ -1,1 +1,6 @@
-/tools/init/backup
+/logs/
+/temp/
+*.db-wal
+*.db-shm
+__pycache__/
+/tests/.runtime/

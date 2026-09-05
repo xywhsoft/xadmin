@@ -1,0 +1,10 @@
+{
+	"boardTitle": "Message Board",
+	"boardSubtitle": "Share your thoughts with us",
+	"pageSize": 15,
+	"maxContentLength": 500,
+	"maxNicknameLength": 32,
+	"allowReactions": true,
+	"requireApproval": false,
+	"categories": "General,Feedback,Question,Bug Report,Feature Request"
+}

@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Comment Admin</title>
+  <style>
+    :root {
+      --bg: #f6efe7;
+      --panel: rgba(255,255,255,.84);
+      --ink: #1f2937;
+      --muted: #64748b;
+      --line: rgba(148,163,184,.24);
+      --accent: #0f766e;
+      --danger: #b91c1c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Segoe UI", "PingFang SC", sans-serif;
+      background: linear-gradient(180deg, #fff7ed 0%, #f4ede1 100%);
+    }
+    .shell { max-width: 1240px; margin: 0 auto; padding: 22px 18px 40px; }
+    .hero, .panel {
+      border-radius: 24px;
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,.4);
+      box-shadow: 0 16px 40px rgba(15,23,42,.08);
+    }
+    .hero {
+      padding: 28px;
+      margin-bottom: 18px;
+      color: #ecfeff;
+      background: linear-gradient(135deg, #0f172a, #115e59 58%, #2dd4bf);
+    }
+    .hero h1 { margin: 0 0 8px; font-size: 34px; }
+    .hero p { margin: 0; color: rgba(236,254,255,.84); line-height: 1.7; }
+    .context-note {
+      display: inline-flex;
+      margin-top: 14px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.14);
+      color: #ecfeff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .chip-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.12);
+      color: #ecfeff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .chip.warn {
+      background: rgba(251,191,36,.16);
+      color: #fef3c7;
+    }
+    .chip.danger {
+      background: rgba(248,113,113,.16);
+      color: #fee2e2;
+    }
+    .toolbar, .toolbar-between { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .toolbar-between { justify-content: space-between; }
+    .button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .button.primary { background: var(--accent); color: #fff; }
+    .button.ghost { background: #e2e8f0; color: #0f172a; }
+    .button.danger { background: #ef4444; color: #fff; }
+    .panel { padding: 18px; }
+    .status { min-height: 18px; font-size: 13px; color: var(--accent); }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin: 14px 0 18px;
+    }
+    .summary-card {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(15,23,42,.04);
+      border: 1px solid var(--line);
+    }
+    .summary-card strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 6px;
+      color: #0f172a;
+    }
+    .summary-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .filter-button {
+      border: 0;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #e2e8f0;
+      color: #334155;
+    }
+    .filter-button.active {
+      background: #0f766e;
+      color: #fff;
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .card {
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(255,255,255,.76);
+      border: 1px solid var(--line);
+    }
+    .card strong { display: block; margin-bottom: 6px; font-size: 15px; }
+    .card span { display: block; color: var(--muted); font-size: 12px; line-height: 1.55; }
+    .pill { display: inline-flex; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .pill.pending { background: #fef3c7; color: #92400e; }
+    .pill.live { background: #dcfce7; color: #166534; }
+    @media (max-width: 880px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 620px) {
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <h1 id="ca_title">Comment System</h1>
+      <p>审核、清理并跟踪评论记录。这个页面同时也是 capability provider 的 admin mount 入口。</p>
+      <div class="context-note" id="ca_context">Global comments</div>
+      <div class="chip-row" id="ca_policy"></div>
+    </section>
+    <section class="panel">
+      <div class="toolbar-between">
+        <div class="toolbar">
+          <button class="button ghost" onclick="caRefresh()">Refresh</button>
+          <button class="button ghost" id="ca_public_btn" style="display:none;" onclick="caOpenPublicThread()">Open Public Thread</button>
+        </div>
+        <div class="status" id="ca_status"></div>
+      </div>
+      <div class="summary-grid" id="ca_summary"></div>
+      <div class="toolbar" style="margin-bottom:14px;">
+        <button class="filter-button active" id="ca_filter_all" type="button" onclick="caSetFilter('all')">All</button>
+        <button class="filter-button" id="ca_filter_pending" type="button" onclick="caSetFilter('pending')">Pending</button>
+        <button class="filter-button" id="ca_filter_live" type="button" onclick="caSetFilter('live')">Approved</button>
+      </div>
+      <div class="grid" id="ca_list"><div class="card"><strong>Loading...</strong><span>Fetching comments.</span></div></div>
+    </section>
+  </div>
+  <script>
+    const ca = {
+      items: [],
+      meta: null,
+      context: { contentPlugin: "", contentId: 0, partial: false },
+      mountSlotKey: "",
+      mountOptions: {},
+      filterStatus: "all",
+      queryWarnings: []
+    };
+    function caEscape(value) {
+      return String(value || "").replace(/[&<>\"']/g, (ch) => ch === "&" ? "&amp;" : ch === "<" ? "&lt;" : ch === ">" ? "&gt;" : ch === "\"" ? "&quot;" : "&#39;");
+    }
+    function caReadContext() {
+      const params = new URLSearchParams(window.location.search);
+      const contentPlugin = String(params.get("contentPlugin") || "").trim();
+      const contentIdText = String(params.get("contentId") || "").trim();
+      const rawContentId = Number(contentIdText || 0);
+      const contentId = Number.isFinite(rawContentId) && rawContentId > 0 ? rawContentId : 0;
+      const mountSlotKey = String(params.get("mountSlotKey") || "").trim();
+      let mountOptions = {};
+      ca.queryWarnings = [];
+      const mountOptionsText = String(params.get("mountOptions") || "").trim();
+      if (mountOptionsText) {
+        try {
+          const parsed = JSON.parse(mountOptionsText);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            mountOptions = parsed;
+          }
+        } catch (err) {
+          mountOptions = {};
+          ca.queryWarnings.push("Mount options in URL were invalid and have been ignored.");
+        }
+      }
+      ca.context = {
+        contentPlugin,
+        contentId,
+        partial: (!!contentPlugin && contentId <= 0) || (!contentPlugin && contentIdText !== "")
+      };
+      ca.mountSlotKey = mountSlotKey;
+      ca.mountOptions = mountOptions;
+    }
+    function caHasBoundContext() {
+      return !!ca.context.contentPlugin && Number(ca.context.contentId) > 0;
+    }
+    function caContextLabel() {
+      const slotText = ca.mountSlotKey ? ` | Slot ${ca.mountSlotKey}` : "";
+      if (caHasBoundContext()) return `Bound to ${ca.context.contentPlugin} #${ca.context.contentId}${slotText}`;
+      if (ca.context.partial) return "Incomplete content context in URL. Using global scope.";
+      return `Global comments${slotText}`;
+    }
+    function caThreadTitle() {
+      return String((ca.mountOptions || {}).threadTitle || "").trim();
+    }
+    function caPageSize() {
+      const raw = Number((ca.mountOptions || {}).pageSize || 200);
+      if (!Number.isFinite(raw)) return 200;
+      return Math.max(20, Math.min(200, Math.round(raw)));
+    }
+    function caAllowPublicPost() {
+      return (ca.mountOptions || {}).allowPublicPost !== false;
+    }
+    function caSortOrder() {
+      return String((ca.mountOptions || {}).sortOrder || "newest");
+    }
+    function caModerationMode() {
+      return String((ca.mountOptions || {}).moderationMode || "inherit");
+    }
+    function caResolvedModerationMode() {
+      const mode = caModerationMode();
+      if (mode === "require-review" || mode === "auto-publish") return mode;
+      return ((ca.meta || {}).moderationEnabled) === false ? "auto-publish" : "require-review";
+    }
+    function caModerationLabel() {
+      const mode = caResolvedModerationMode();
+      if (mode === "auto-publish") return "Auto Publish";
+      if (mode === "require-review") return "Require Review";
+      return "Inherited";
+    }
+    function caSortLabel() {
+      return caSortOrder() === "oldest" ? "Oldest First" : "Newest First";
+    }
+    function caCounts() {
+      const counts = { all: ca.items.length, pending: 0, live: 0 };
+      for (const item of ca.items) {
+        if (Number((item || {}).status) > 0) counts.live += 1;
+        else counts.pending += 1;
+      }
+      return counts;
+    }
+    function caVisibleItems() {
+      if (ca.filterStatus === "pending") return ca.items.filter((item) => Number(item.status) <= 0);
+      if (ca.filterStatus === "live") return ca.items.filter((item) => Number(item.status) > 0);
+      return ca.items;
+    }
+    function caRenderSummary() {
+      const host = document.getElementById("ca_summary");
+      if (!host) return;
+      const counts = caCounts();
+      const summary = [
+        { value: counts.all, label: "Current Scope", desc: caContextLabel() },
+        { value: counts.pending, label: "Pending Review", desc: "Awaiting approval in this mounted thread." },
+        { value: counts.live, label: "Approved", desc: "Visible comments in the current scope." },
+        { value: caAllowPublicPost() ? "On" : "Off", label: "Public Post", desc: `${caModerationLabel()} / ${caSortLabel()}` }
+      ];
+      host.innerHTML = summary.map((item) => (
+        `<article class="summary-card"><strong>${caEscape(item.value)}</strong><span>${caEscape(item.label)}</span><span>${caEscape(item.desc)}</span></article>`
+      )).join("");
+    }
+    function caRenderPolicy() {
+      const host = document.getElementById("ca_policy");
+      if (!host) return;
+      const chips = [
+        `<span class="chip">${caEscape(caSortLabel())}</span>`,
+        `<span class="chip">${caEscape(caModerationLabel())}</span>`,
+        `<span class="chip${caAllowPublicPost() ? "" : " danger"}">${caEscape(caAllowPublicPost() ? "Public Posting Enabled" : "Public Posting Disabled")}</span>`
+      ];
+      if (ca.mountSlotKey) {
+        chips.push(`<span class="chip warn">${caEscape(`Slot ${ca.mountSlotKey}`)}</span>`);
+      }
+      for (const warning of ca.queryWarnings) {
+        chips.push(`<span class="chip warn">${caEscape(warning)}</span>`);
+      }
+      host.innerHTML = chips.join("");
+    }
+    function caSyncFilterButtons() {
+      const keys = ["all", "pending", "live"];
+      for (const key of keys) {
+        const el = document.getElementById(`ca_filter_${key}`);
+        if (!el) continue;
+        el.classList.toggle("active", ca.filterStatus === key);
+      }
+    }
+    function caSyncMountPresentation() {
+      const title = caThreadTitle() || ((ca.meta || {}).title) || "Comment System";
+      document.getElementById("ca_title").innerText = title;
+      document.title = title;
+      const btn = document.getElementById("ca_public_btn");
+      if (btn && caHasBoundContext()) {
+        btn.style.display = "inline-flex";
+      } else if (btn) {
+        btn.style.display = "none";
+      }
+      caRenderPolicy();
+      caRenderSummary();
+      caSyncFilterButtons();
+    }
+    function caOpenPublicThread() {
+      const query = window.location.search || "";
+      window.open(`/plugin/comment-system${query}`, "_blank", "noopener,noreferrer");
+    }
+    function caApi(path) {
+      const url = new URL(path, window.location.origin);
+      if (caHasBoundContext()) {
+        url.searchParams.set("contentPlugin", ca.context.contentPlugin);
+        url.searchParams.set("contentId", String(ca.context.contentId));
+      }
+      if (ca.mountSlotKey) url.searchParams.set("mountSlotKey", ca.mountSlotKey);
+      if (ca.mountOptions && Object.keys(ca.mountOptions).length) {
+        url.searchParams.set("mountOptions", JSON.stringify(ca.mountOptions));
+      }
+      return `${url.pathname}${url.search}${url.hash}`;
+    }
+    function caPayload(payload) {
+      const next = caHasBoundContext()
+        ? { ...payload, contentPlugin: ca.context.contentPlugin, contentId: ca.context.contentId }
+        : { ...payload };
+      if (ca.mountOptions && Object.keys(ca.mountOptions).length) {
+        next.mountOptions = ca.mountOptions;
+      }
+      return next;
+    }
+    function caRenderContext() {
+      document.getElementById("ca_context").innerText = caContextLabel();
+    }
+    function caSetStatus(message, color) {
+      const el = document.getElementById("ca_status");
+      el.innerText = message || "";
+      el.style.color = color || "#0f766e";
+    }
+    function caRender() {
+      const host = document.getElementById("ca_list");
+      const items = caVisibleItems();
+      if (!items.length) {
+        const emptyText = ca.filterStatus === "pending"
+          ? "No pending comments in this scope."
+          : (ca.filterStatus === "live"
+            ? "No approved comments in this scope."
+            : "Public submissions will appear here.");
+        host.innerHTML = `<div class='card'><strong>No comments yet</strong><span>${caEscape(emptyText)}</span></div>`;
+        return;
+      }
+      host.innerHTML = items.map((item) => {
+        const status = Number(item.status) > 0
+          ? "<span class='pill live'>Approved</span>"
+          : "<span class='pill pending'>Pending</span>";
+        const contextLine = item.contentPlugin && Number(item.contentItemId) > 0
+          ? `<span>${caEscape(`Context: ${item.contentPlugin} #${item.contentItemId}`)}</span>`
+          : "<span>Context: Global</span>";
+        const approveBtn = Number(item.status) > 0 ? "" : `<button class="button primary" onclick="caApprove(${item.id})">Approve</button>`;
+        return `<article class="card"><div class="toolbar-between"><strong>${caEscape(item.author || "Guest")}</strong>${status}</div><span>${caEscape(item.body || "")}</span>${contextLine}<span>${caEscape(item.createTimeText || "")}</span><div class="toolbar" style="margin-top:10px;">${approveBtn}<button class="button danger" onclick="caDelete(${item.id})">Delete</button></div></article>`;
+      }).join("");
+    }
+    async function caLoadMeta() {
+      const response = await fetch(caApi("/admin/api/plugin/comment-system/meta"), { cache: "no-store" });
+      const result = await response.json();
+      if (!result || !result.result) throw new Error((result && result.message) || "Meta load failed");
+      ca.meta = result.data || {};
+      ca.mountSlotKey = String((ca.meta || {}).mountSlotKey || ca.mountSlotKey || "").trim();
+      ca.mountOptions = ((ca.meta || {}).mountOptions && typeof ca.meta.mountOptions === "object") ? ca.meta.mountOptions : ca.mountOptions;
+      caSyncMountPresentation();
+      caRenderContext();
+    }
+    async function caLoadList() {
+      const response = await fetch(caApi(`/admin/api/plugin/comment-system/list?page=1&limit=${encodeURIComponent(caPageSize())}`), { cache: "no-store" });
+      const result = await response.json();
+      if (!result || !result.result) throw new Error((result && result.message) || "List load failed");
+      ca.items = result.data || [];
+      if (result.mountOptions && typeof result.mountOptions === "object") {
+        ca.mountOptions = result.mountOptions;
+      }
+      caSyncMountPresentation();
+      caRender();
+      caSetStatus(`${ca.items.length} comment(s) loaded. ${caContextLabel()} | pageSize=${result.pageSize || caPageSize()} | sort=${caSortLabel()} | post=${caAllowPublicPost() ? "enabled" : "disabled"} | moderation=${caModerationLabel()}`);
+    }
+    async function caApprove(id) {
+      const response = await fetch("/admin/api/plugin/comment-system/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(caPayload({ id }))
+      });
+      const result = await response.json();
+      if (!result || !result.result) throw new Error((result && result.message) || "Approve failed");
+      await caLoadList();
+    }
+    async function caDelete(id) {
+      if (!window.confirm(`Delete comment #${id}?`)) return;
+      const response = await fetch("/admin/api/plugin/comment-system/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(caPayload({ id }))
+      });
+      const result = await response.json();
+      if (!result || !result.result) throw new Error((result && result.message) || "Delete failed");
+      await caLoadList();
+    }
+    async function caRefresh() {
+      await caLoadMeta();
+      await caLoadList();
+    }
+    function caSetFilter(status) {
+      ca.filterStatus = status || "all";
+      caSyncFilterButtons();
+      caRender();
+      const counts = caCounts();
+      caSetStatus(`${caVisibleItems().length}/${counts.all} comment(s) visible under ${ca.filterStatus}. ${caContextLabel()} | sort=${caSortLabel()} | moderation=${caModerationLabel()}`);
+    }
+    window.addEventListener("unhandledrejection", (event) => {
+      caSetStatus(event.reason && event.reason.message ? event.reason.message : String(event.reason), "#b91c1c");
+      event.preventDefault();
+    });
+    (async function boot() {
+      caReadContext();
+      await caLoadMeta();
+      await caLoadList();
+    })();
+  </script>
+</body>
+</html>

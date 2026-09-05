@@ -1,0 +1,36 @@
+// ============================================================
+// xAdmin xlang 应用入口
+// 由 xs2 框架 import 并调用 register()
+// ============================================================
+import "../../xs2/src/framework.xl"
+import "./routes/index.xl"
+import "./routes/login.xl"
+
+// 应用注册（由 xs2.xl main 调用）
+export func register()
+    // 注册中间件
+    // src.middleware.use("logger", middleware_logger)
+
+    // 注册路由
+    src.router.get("/", routes.index.home)
+    src.router.get("/admin", routes.index.home)
+    src.router.get("/admin/login", routes.login.show)
+    src.router.post("/admin/login", routes.login.submit)
+    src.router.get("/admin/logout", routes.login.logout)
+    src.router.get("/health", routes.index.health)
+
+    // 注册生命周期
+    src.lifecycle.onInit(appInit)
+    src.lifecycle.onShutdown(appShutdown)
+end
+
+// 应用初始化回调
+func appInit() as bool
+    // 可在此执行数据库迁移、缓存预热等
+    return true
+end
+
+// 应用关闭回调
+func appShutdown() as bool
+    return true
+end

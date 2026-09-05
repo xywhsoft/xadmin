@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>字段管理</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+	<style>
+		.field-list { padding: 15px; }
+		.field-item { 
+			background: #f8f8f8; 
+			border: 1px solid #e6e6e6; 
+			border-radius: 4px; 
+			padding: 15px; 
+			margin-bottom: 10px; 
+			position: relative;
+		}
+		.field-item:hover { border-color: #1e9fff; }
+		.field-item .field-actions {
+			position: absolute;
+			right: 10px;
+			top: 10px;
+		}
+		.field-row { display: flex; gap: 15px; margin-bottom: 10px; }
+		.field-col { flex: 1; }
+		.field-col-sm { width: 120px; flex: none; }
+		.system-field { background: #f0f5ff; border-color: #adc6ff; }
+		.system-field .field-name { color: #1890ff; }
+		/* 选项配置区域 */
+		.options-section {
+			background: #fff;
+			border: 1px dashed #d9d9d9;
+			border-radius: 4px;
+			padding: 10px;
+			margin-top: 10px;
+		}
+		.options-section-title {
+			font-size: 12px;
+			color: #666;
+			margin-bottom: 8px;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.option-item {
+			display: flex;
+			gap: 10px;
+			margin-bottom: 5px;
+			align-items: center;
+		}
+		.option-item input {
+			height: 28px;
+			line-height: 28px;
+		}
+		.option-item .opt-value { width: 100px; }
+		.option-item .opt-label { flex: 1; }
+		.option-item .opt-remove {
+			color: #ff5722;
+			cursor: pointer;
+			font-size: 16px;
+		}
+	</style>
+</head>
+<body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
+	<!-- 工具栏（固定顶部） -->
+	<div style="padding: 15px; border-bottom: 1px solid #e6e6e6; background: #fff;">
+		<div style="display: flex; justify-content: space-between; align-items: center;">
+			<div>
+				<span class="layui-badge layui-bg-blue" id="fieldCount">0</span> 个字段
+			</div>
+			<div>
+				<button class="layui-btn layui-btn-sm" id="btnAddField"><i class="layui-icon layui-icon-addition"></i> 添加字段</button>
+				<button class="layui-btn layui-btn-sm layui-btn-normal" id="btnSave"><i class="layui-icon layui-icon-ok"></i> 保存</button>
+			</div>
+		</div>
+		<div style="margin-top: 10px; color: #999; font-size: 13px;">
+			<i class="layui-icon layui-icon-about" style="color: #1e9fff;"></i> 系统字段不可编辑，开关模型功能时会自动增删部分系统字段
+		</div>
+	</div>
+	
+	<!-- 字段列表（可滚动） -->
+	<div class="field-list" style="flex: 1; overflow-y: auto;">
+		<!-- 系统字段 -->
+		<div id="systemFields"></div>
+		
+		<!-- 自定义字段 -->
+		<div id="customFields"></div>
+	</div>
+	
+	<!-- 字段编辑模板 -->
+	<script type="text/html" id="tpl_field_item">
+		<div class="field-item {{= d.isSystem ? 'system-field' : '' }}" data-index="{{= d.index }}">
+			<div class="field-actions">
+				{{# if(!d.isSystem){ }}
+					<a class="layui-btn layui-btn-xs" onclick="moveUp({{= d.index }})"><i class="layui-icon layui-icon-up"></i></a>
+					<a class="layui-btn layui-btn-xs" onclick="moveDown({{= d.index }})"><i class="layui-icon layui-icon-down"></i></a>
+					<a class="layui-btn layui-btn-xs layui-bg-orange" onclick="removeField({{= d.index }})"><i class="layui-icon layui-icon-delete"></i></a>
+				{{# } }}
+			</div>
+			<div class="field-row">
+				<div class="field-col-sm">
+					<label style="font-size: 12px; color: #999;">字段名称</label>
+					<input type="text" class="layui-input" value="{{= d.name }}" data-field="name" {{= d.isSystem ? 'disabled' : '' }} placeholder="英文字段名">
+				</div>
+				<div class="field-col-sm">
+					<label style="font-size: 12px; color: #999;">显示名称</label>
+					<input type="text" class="layui-input" value="{{= d.title || '' }}" data-field="title" {{= d.isSystem ? 'disabled' : '' }} placeholder="中文名称">
+				</div>
+				<div class="field-col-sm">
+					<label style="font-size: 12px; color: #999;">数据类型</label>
+					<select class="layui-input" data-field="dataType" {{= d.isSystem ? 'disabled' : '' }}>
+						<option value="0" {{= d.dataType == 0 ? 'selected' : '' }}>TEXT</option>
+						<option value="1" {{= d.dataType == 1 ? 'selected' : '' }}>INTEGER</option>
+						<option value="2" {{= d.dataType == 2 ? 'selected' : '' }}>FLOAT</option>
+						<option value="3" {{= d.dataType == 3 ? 'selected' : '' }}>BLOB</option>
+						<option value="4" {{= d.dataType == 4 ? 'selected' : '' }}>JSON</option>
+					</select>
+				</div>
+				<div class="field-col-sm">
+					<label style="font-size: 12px; color: #999;">表单类型</label>
+					<select class="layui-input" data-field="formType" {{= d.isSystem ? 'disabled' : '' }} onchange="onFormTypeChange({{= d.index }}, this.value)">
+						<option value="0" {{= d.formType == 0 ? 'selected' : '' }}>单行文本</option>
+						<option value="1" {{= d.formType == 1 ? 'selected' : '' }}>多行文本</option>
+						<option value="2" {{= d.formType == 2 ? 'selected' : '' }}>数字输入</option>
+						<option value="3" {{= d.formType == 3 ? 'selected' : '' }}>密码输入</option>
+						<option value="4" {{= d.formType == 4 ? 'selected' : '' }}>下拉选择</option>
+						<option value="5" {{= d.formType == 5 ? 'selected' : '' }}>单选</option>
+						<option value="6" {{= d.formType == 6 ? 'selected' : '' }}>复选</option>
+						<option value="7" {{= d.formType == 7 ? 'selected' : '' }}>开关</option>
+						<option value="8" {{= d.formType == 8 ? 'selected' : '' }}>日期</option>
+						<option value="9" {{= d.formType == 9 ? 'selected' : '' }}>日期时间</option>
+						<option value="10" {{= d.formType == 10 ? 'selected' : '' }}>颜色</option>
+						<option value="11" {{= d.formType == 11 ? 'selected' : '' }}>图片上传</option>
+						<option value="12" {{= d.formType == 12 ? 'selected' : '' }}>文件上传</option>
+						<option value="13" {{= d.formType == 13 ? 'selected' : '' }}>富文本</option>
+						<option value="14" {{= d.formType == 14 ? 'selected' : '' }}>Markdown</option>
+						<option value="15" {{= d.formType == 15 ? 'selected' : '' }}>代码编辑</option>
+						<option value="16" {{= d.formType == 16 ? 'selected' : '' }}>标签</option>
+						<option value="17" {{= d.formType == 17 ? 'selected' : '' }}>评分</option>
+						<option value="18" {{= d.formType == 18 ? 'selected' : '' }}>隐藏</option>
+					</select>
+				</div>
+				<div class="field-col">
+					<label style="font-size: 12px; color: #999;">默认值</label>
+					<input type="text" class="layui-input" value="{{= d.defaultValue || '' }}" data-field="defaultValue" {{= d.isSystem ? 'disabled' : '' }} placeholder="默认值（可选）">
+				</div>
+			</div>
+			<div class="field-row">
+				<div class="field-col">
+					<label style="font-size: 12px; color: #999;">描述/提示</label>
+					<input type="text" class="layui-input" value="{{= d.desc || '' }}" data-field="desc" {{= d.isSystem ? 'disabled' : '' }} placeholder="字段描述或输入提示">
+				</div>
+				<div class="field-col-sm">
+					<label style="font-size: 12px; color: #999;">列表显示</label>
+					<select class="layui-input" data-field="showInList" {{= d.isSystem ? 'disabled' : '' }}>
+						<option value="1" {{= d.showInList ? 'selected' : '' }}>显示</option>
+						<option value="0" {{= !d.showInList ? 'selected' : '' }}>隐藏</option>
+					</select>
+				</div>
+				<div class="field-col-sm">
+					<label style="font-size: 12px; color: #999;">必填</label>
+					<select class="layui-input" data-field="required" {{= d.isSystem ? 'disabled' : '' }}>
+						<option value="1" {{= d.required ? 'selected' : '' }}>是</option>
+						<option value="0" {{= !d.required ? 'selected' : '' }}>否</option>
+					</select>
+				</div>
+			</div>
+			{{# if(!d.isSystem && (d.formType == 4 || d.formType == 5 || d.formType == 6)){ }}
+			<div class="options-section" data-options-for="{{= d.index }}">
+				<div class="options-section-title">
+					<span><i class="layui-icon layui-icon-list"></i> 选项配置</span>
+					<a class="layui-btn layui-btn-xs layui-btn-normal" onclick="addOption({{= d.index }})"><i class="layui-icon layui-icon-add-1"></i> 添加选项</a>
+				</div>
+				<div class="options-list" id="options_{{= d.index }}">
+					{{# var opts = d.options || []; }}
+					{{# for(var i = 0; i < opts.length; i++){ }}
+					<div class="option-item">
+						<input type="text" class="layui-input opt-value" value="{{= opts[i].value || '' }}" placeholder="值">
+						<input type="text" class="layui-input opt-label" value="{{= opts[i].label || '' }}" placeholder="显示文本">
+						<i class="layui-icon layui-icon-close-fill opt-remove" onclick="removeOption({{= d.index }}, this)"></i>
+					</div>
+					{{# } }}
+					{{# if(opts.length === 0){ }}
+					<div style="color: #999; font-size: 12px; text-align: center; padding: 10px;">暂无选项，请点击"添加选项"</div>
+					{{# } }}
+				</div>
+			</div>
+			{{# } }}
+		</div>
+	</script>
+	
+	<script src="/layui/layui.js"></script>
+	<script>
+		var arrFields = [];
+		var arrSystemFields = [
+			{ name: 'id', title: 'ID', dataType: 1, formType: 18, isSystem: true, showInList: true },
+			{ name: 'createTime', title: '创建时间', dataType: 1, formType: 18, isSystem: true, showInList: true },
+			{ name: 'updateTime', title: '更新时间', dataType: 1, formType: 18, isSystem: true, showInList: true },
+			{ name: 'isDelete', title: '删除标记', dataType: 1, formType: 18, isSystem: true, showInList: false },
+		];
+		var sModelName = '';
+		
+		layui.use(['laytpl', 'layer'], function(){
+			var laytpl = layui.laytpl;
+			var layer = layui.layer;
+			
+			var urlParams = new URLSearchParams(window.location.search);
+			sModelName = urlParams.get('name');
+			
+			if ( !sModelName ) {
+				layer.msg('缺少模型名称参数', {icon: 2});
+				return;
+			}
+			
+			fetch('/admin/model/fields?name=' + sModelName)
+			.then(response => response.json())
+			.then(data => {
+				if ( data.result && data.data ) {
+					arrFields = data.data || [];
+					renderFields();
+				} else {
+					layer.msg('加载字段数据失败', {icon: 2});
+				}
+			})
+			.catch(error => {
+				layer.msg('请求出错', {icon: 2});
+				console.error('Error:', error);
+			});
+			
+			// 收集字段的选项
+			window.collectOptions = function(idx) {
+				var optContainer = document.getElementById('options_' + idx);
+				if ( !optContainer ) return [];
+				var options = [];
+				var optItems = optContainer.querySelectorAll('.option-item');
+				optItems.forEach(function(optItem){
+					var sValue = optItem.querySelector('.opt-value').value.trim();
+					var sLabel = optItem.querySelector('.opt-label').value.trim();
+					if ( sValue || sLabel ) {
+						options.push({ value: sValue, label: sLabel || sValue });
+					}
+				});
+				return options;
+			};
+			
+			window.collectFields = function() {
+				var items = document.querySelectorAll('#customFields .field-item');
+				if ( items.length === 0 ) return;
+				items.forEach(function(item, idx){
+					if ( idx < arrFields.length ) {
+						arrFields[idx].name = item.querySelector('[data-field="name"]').value;
+						arrFields[idx].title = item.querySelector('[data-field="title"]').value;
+						arrFields[idx].dataType = parseInt(item.querySelector('[data-field="dataType"]').value);
+						arrFields[idx].formType = parseInt(item.querySelector('[data-field="formType"]').value);
+						arrFields[idx].defaultValue = item.querySelector('[data-field="defaultValue"]').value;
+						arrFields[idx].desc = item.querySelector('[data-field="desc"]').value;
+						arrFields[idx].showInList = item.querySelector('[data-field="showInList"]').value === '1';
+						arrFields[idx].required = item.querySelector('[data-field="required"]').value === '1';
+						arrFields[idx].options = collectOptions(idx);
+					}
+				});
+			};
+			
+			window.renderFields = function() {
+				var getTpl = document.getElementById('tpl_field_item').innerHTML;
+				var systemHtml = '';
+				arrSystemFields.forEach(function(field, idx){
+					field.index = 's' + idx;
+					laytpl(getTpl).render(field, function(html){ systemHtml += html; });
+				});
+				document.getElementById('systemFields').innerHTML = systemHtml;
+				
+				var customHtml = '';
+				arrFields.forEach(function(field, idx){
+					field.index = idx;
+					field.isSystem = false;
+					laytpl(getTpl).render(field, function(html){ customHtml += html; });
+				});
+				document.getElementById('customFields').innerHTML = customHtml;
+				document.getElementById('fieldCount').textContent = arrSystemFields.length + arrFields.length;
+			};
+			
+			document.getElementById('btnAddField').onclick = function(){
+				collectFields();
+				arrFields.push({ name: '', title: '', dataType: 0, formType: 0, defaultValue: '', desc: '', showInList: true, required: false, options: [] });
+				renderFields();
+			};
+			
+			window.removeField = function(idx){ collectFields(); arrFields.splice(idx, 1); renderFields(); };
+			window.moveUp = function(idx){ if(idx > 0){ collectFields(); var tmp = arrFields[idx]; arrFields[idx] = arrFields[idx-1]; arrFields[idx-1] = tmp; renderFields(); } };
+			window.moveDown = function(idx){ if(idx < arrFields.length-1){ collectFields(); var tmp = arrFields[idx]; arrFields[idx] = arrFields[idx+1]; arrFields[idx+1] = tmp; renderFields(); } };
+			
+			window.onFormTypeChange = function(idx, value){ collectFields(); arrFields[idx].formType = parseInt(value); renderFields(); };
+			
+			window.addOption = function(idx){
+				var optContainer = document.getElementById('options_' + idx);
+				if ( !optContainer ) return;
+				var emptyTip = optContainer.querySelector('div[style*="text-align: center"]');
+				if ( emptyTip ) emptyTip.remove();
+				var optHtml = '<div class="option-item"><input type="text" class="layui-input opt-value" placeholder="值"><input type="text" class="layui-input opt-label" placeholder="显示文本"><i class="layui-icon layui-icon-close-fill opt-remove" onclick="removeOption(' + idx + ', this)"></i></div>';
+				optContainer.insertAdjacentHTML('beforeend', optHtml);
+			};
+			
+			window.removeOption = function(idx, elem){ var optItem = elem.closest('.option-item'); if(optItem) optItem.remove(); };
+			
+			document.getElementById('btnSave').onclick = function(){
+				var items = document.querySelectorAll('#customFields .field-item');
+				arrFields = [];
+				items.forEach(function(item, idx){
+					var field = {
+						name: item.querySelector('[data-field="name"]').value,
+						title: item.querySelector('[data-field="title"]').value,
+						dataType: parseInt(item.querySelector('[data-field="dataType"]').value),
+						formType: parseInt(item.querySelector('[data-field="formType"]').value),
+						defaultValue: item.querySelector('[data-field="defaultValue"]').value,
+						desc: item.querySelector('[data-field="desc"]').value,
+						showInList: item.querySelector('[data-field="showInList"]').value === '1',
+						required: item.querySelector('[data-field="required"]').value === '1',
+						options: collectOptions(idx),
+					};
+					if ( field.name ) arrFields.push(field);
+				});
+				
+				var names = {};
+				for ( var i = 0; i < arrFields.length; i++ ) {
+					if ( names[arrFields[i].name] ) { layer.msg('字段名 "' + arrFields[i].name + '" 重复', {icon: 2}); return; }
+					names[arrFields[i].name] = true;
+				}
+				
+				fetch('/admin/model/fields/save', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name: sModelName, fields: arrFields }),
+				})
+				.then(response => response.json())
+				.then(data => {
+					if ( data.result ) {
+						layer.msg(data.message || '保存成功', {icon: 1});
+						if ( parent.layui && parent.layui.table ) parent.layui.table.reloadData('Table_Model_List');
+					} else {
+						layer.msg('保存失败：' + data.message, {icon: 2});
+					}
+				})
+				.catch(error => { layer.msg('请求出错', {icon: 2}); console.error('Error:', error); });
+			};
+		});
+	</script>
+</body>
+</html>

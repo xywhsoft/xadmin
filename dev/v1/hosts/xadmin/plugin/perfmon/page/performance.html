@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>性能监控</title>
+  <style>
+    .perf-card {
+      background: #fff;
+      border-radius: 2px;
+      padding: 20px;
+      margin-bottom: 15px;
+      box-shadow: 0 1px 2px 0 rgba(0,0,0,.05);
+    }
+    .perf-card-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-bottom: 15px;
+      color: #333;
+      border-left: 3px solid #009688;
+      padding-left: 10px;
+    }
+    .perf-stats {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+    .perf-stat-item {
+      flex: 1;
+      text-align: center;
+      padding: 15px;
+      background: #f8f8f8;
+      border-radius: 2px;
+      margin: 0 5px;
+    }
+    .perf-gauge-chart {
+      width: 100%;
+      height: 200px;
+    }
+    .perf-stat-label {
+      font-size: 14px;
+      color: #666;
+      margin-top: 10px;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 24px;
+      background: #f0f0f0;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+      margin: 10px 0;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(to right, #009688, #00bcd4);
+      transition: width 0.5s ease;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 10px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .progress-fill.danger {
+      background: linear-gradient(to right, #ff5722, #f44336);
+    }
+    .progress-fill.warning {
+      background: linear-gradient(to right, #ff9800, #ffc107);
+    }
+    .disk-item {
+      margin-bottom: 15px;
+      padding: 10px;
+      background: #fafafa;
+      border-radius: 2px;
+    }
+    .disk-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .disk-name {
+      font-weight: bold;
+      color: #333;
+    }
+    .disk-info {
+      color: #666;
+      font-size: 12px;
+    }
+    .chart-container {
+      width: 100%;
+      height: 300px;
+      margin-top: 15px;
+    }
+    .refresh-btn {
+      float: right;
+      margin-bottom: 10px;
+    }
+    .color-0 { background: linear-gradient(to right, #009688, #00bcd4) !important; }
+    .color-1 { background: linear-gradient(to right, #2196f3, #03a9f4) !important; }
+    .color-2 { background: linear-gradient(to right, #9c27b0, #e91e63) !important; }
+    .color-3 { background: linear-gradient(to right, #ff5722, #ff9800) !important; }
+    .net-traffic-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 200px;
+      padding: 20px;
+    }
+    .net-traffic-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .net-traffic-item:last-child {
+      border-bottom: none;
+    }
+    .net-traffic-label {
+      font-size: 14px;
+      color: #666;
+      display: flex;
+      align-items: center;
+    }
+    .net-traffic-icon {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .net-traffic-icon.rx {
+      background: #9c27b0;
+    }
+    .net-traffic-icon.tx {
+      background: #ff9800;
+    }
+    .net-traffic-value {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+    }
+    .net-traffic-unit {
+      font-size: 14px;
+      color: #999;
+      margin-left: 5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="perf-card">
+    <button class="layui-btn layui-btn-sm refresh-btn" id="refreshBtn">
+      <i class="layui-icon layui-icon-refresh"></i> 刷新数据
+    </button>
+    <div class="perf-card-title">实时性能监控</div>
+    <div class="perf-stats">
+      <div class="perf-stat-item">
+        <div class="perf-gauge-chart" id="cpuGauge"></div>
+        <div class="perf-stat-label">CPU 使用率</div>
+        <div id="cpuInfo" style="margin-top: 10px; color: #666; font-size: 12px; text-align: center;"></div>
+      </div>
+      <div class="perf-stat-item">
+        <div class="perf-gauge-chart" id="memGauge"></div>
+        <div class="perf-stat-label">内存使用率</div>
+        <div id="memInfoGauge" style="margin-top: 10px; color: #666; font-size: 12px; text-align: center;"></div>
+      </div>
+      <div class="perf-stat-item">
+        <div class="net-traffic-panel">
+          <div class="net-traffic-item">
+            <div class="net-traffic-label">
+              <span class="net-traffic-icon rx"></span><span>接收</span>
+            </div>
+            <div>
+              <span class="net-traffic-value" id="netRxValue">0.00</span>
+              <span class="net-traffic-unit" id="netRxUnit">KB/s</span>
+            </div>
+          </div>
+          <div class="net-traffic-item">
+            <div class="net-traffic-label">
+              <span class="net-traffic-icon tx"></span><span>发送</span>
+            </div>
+            <div>
+              <span class="net-traffic-value" id="netTxValue">0.00</span>
+              <span class="net-traffic-unit" id="netTxUnit">KB/s</span>
+            </div>
+          </div>
+        </div>
+        <div class="perf-stat-label">网络流量</div>
+      </div>
+      <div class="perf-stat-item">
+        <div class="perf-gauge-chart" id="diskGauge"></div>
+        <div class="perf-stat-label">磁盘空间</div>
+        <div id="diskInfo" style="margin-top: 10px; color: #666; font-size: 12px; text-align: center;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-title">CPU 使用情况</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="cpuProgress" style="width: 0%;">0%</div>
+    </div>
+    <div class="chart-container" id="cpuChart"></div>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-title">内存使用情况</div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="memProgress" style="width: 0%;">0%</div>
+    </div>
+    <div id="memInfo" style="margin-top: 10px; color: #666; font-size: 12px;"></div>
+    <div class="chart-container" id="memChart"></div>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-title">网络流量</div>
+    <div class="chart-container" id="netChart"></div>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-title">磁盘 IO</div>
+    <div class="chart-container" id="diskIOChart"></div>
+  </div>
+
+  <div class="perf-card">
+    <div class="perf-card-title">磁盘空间使用率</div>
+    <div id="diskList"></div>
+  </div>
+
+  <script src="/static/layui/layui.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script>
+    layui.use(['layer', 'jquery'], function(){
+      var layer = layui.layer;
+      var $ = layui.jquery;
+      var echarts = window.echarts;
+      var cpuChart, memChart, netChart, diskIOChart;
+      var cpuGauge, memGauge, diskGauge;
+      var cpuCores = 0;
+      var cpuHistory = [];
+      var memHistory = [];
+      var netHistory = [];
+      var diskIOHistory = [];
+      var timeLabels = [];
+      var maxPoints = 60;
+
+      function initGauges() {
+        cpuGauge = echarts.init(document.getElementById('cpuGauge'));
+        memGauge = echarts.init(document.getElementById('memGauge'));
+        diskGauge = echarts.init(document.getElementById('diskGauge'));
+        var gaugeOption = {
+          series: [{
+            type: 'gauge', startAngle: 90, endAngle: -270, radius: '80%',
+            pointer: { show: false },
+            progress: { show: true, overlap: false, roundCap: true, clip: false, itemStyle: { borderWidth: 0 } },
+            axisLine: { lineStyle: { width: 12 } },
+            splitLine: { show: false }, axisTick: { show: false }, axisLabel: { show: false },
+            data: [{ value: 0, detail: { valueAnimation: true, offsetCenter: [0, '5%'] } }],
+            title: { show: false },
+            detail: { width: 50, height: 14, fontSize: 20, fontWeight: 'bold', color: 'auto', formatter: '{value}%', offsetCenter: [0, '5%'] }
+          }]
+        };
+        var cpuGaugeOption = JSON.parse(JSON.stringify(gaugeOption));
+        cpuGaugeOption.series[0].progress.itemStyle.color = '#009688';
+        cpuGaugeOption.series[0].axisLine.lineStyle.color = [[1, '#e0e0e0']];
+        cpuGauge.setOption(cpuGaugeOption);
+        var memGaugeOption = JSON.parse(JSON.stringify(gaugeOption));
+        memGaugeOption.series[0].progress.itemStyle.color = '#2196f3';
+        memGaugeOption.series[0].axisLine.lineStyle.color = [[1, '#e0e0e0']];
+        memGauge.setOption(memGaugeOption);
+        var diskGaugeOption = JSON.parse(JSON.stringify(gaugeOption));
+        diskGaugeOption.series[0].progress.itemStyle.color = '#f44336';
+        diskGaugeOption.series[0].axisLine.lineStyle.color = [[1, '#e0e0e0']];
+        diskGauge.setOption(diskGaugeOption);
+      }
+
+      function initCharts() {
+        cpuChart = echarts.init(document.getElementById('cpuChart'));
+        memChart = echarts.init(document.getElementById('memChart'));
+        netChart = echarts.init(document.getElementById('netChart'));
+        diskIOChart = echarts.init(document.getElementById('diskIOChart'));
+        var commonOption = {
+          tooltip: { trigger: 'axis', axisPointer: { type: 'cross', label: { backgroundColor: '#6a7985' } } },
+          grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+          xAxis: { type: 'category', boundaryGap: false, data: [] },
+          yAxis: { type: 'value', min: 0, max: 100 },
+          series: [{ type: 'line', smooth: true, areaStyle: { opacity: 0.3 }, data: [] }]
+        };
+        var cpuOption = JSON.parse(JSON.stringify(commonOption));
+        cpuOption.tooltip.formatter = function(params) { return params[0].axisValue + '<br/>CPU 使用率: ' + params[0].data.toFixed(1) + '%'; };
+        cpuOption.series[0].itemStyle = { color: '#009688' };
+        cpuChart.setOption(cpuOption);
+        var memOption = JSON.parse(JSON.stringify(commonOption));
+        memOption.tooltip.formatter = function(params) { return params[0].axisValue + '<br/>内存使用率: ' + params[0].data.toFixed(1) + '%'; };
+        memOption.series[0].itemStyle = { color: '#2196f3' };
+        memChart.setOption(memOption);
+        var netOption = JSON.parse(JSON.stringify(commonOption));
+        netOption.tooltip.formatter = function(params) {
+          var result = params[0].axisValue + '<br/>';
+          for (var i = 0; i < params.length; i++) { var speed = formatSpeed(params[i].data); result += params[i].seriesName + ': ' + speed.value + ' ' + speed.unit + '<br/>'; }
+          return result;
+        };
+        netOption.yAxis = { type: 'value', min: 0 };
+        netOption.series = [
+          { name: '上传', type: 'line', smooth: true, itemStyle: { color: '#ff9800' }, data: [] },
+          { name: '下载', type: 'line', smooth: true, itemStyle: { color: '#9c27b0' }, data: [] }
+        ];
+        netChart.setOption(netOption);
+        var diskIOOption = JSON.parse(JSON.stringify(commonOption));
+        diskIOOption.tooltip.formatter = function(params) {
+          var result = params[0].axisValue + '<br/>';
+          for (var i = 0; i < params.length; i++) { var speed = formatSpeed(params[i].data); result += params[i].seriesName + ': ' + speed.value + ' ' + speed.unit + '<br/>'; }
+          return result;
+        };
+        diskIOOption.yAxis = { type: 'value', min: 0 };
+        diskIOOption.series = [
+          { name: '读取', type: 'line', smooth: true, itemStyle: { color: '#4caf50' }, data: [] },
+          { name: '写入', type: 'line', smooth: true, itemStyle: { color: '#f44336' }, data: [] }
+        ];
+        diskIOChart.setOption(diskIOOption);
+      }
+
+      function updateChart(chart, data, labels, seriesCount) {
+        seriesCount = seriesCount || 1;
+        if (seriesCount === 1) {
+          chart.setOption({ xAxis: { data: labels }, series: [{ data: data }] });
+        } else {
+          var seriesData = [];
+          for (var i = 0; i < data.length; i++) seriesData.push({ data: data[i] });
+          chart.setOption({ xAxis: { data: labels }, series: seriesData });
+        }
+      }
+
+      function formatTime(date) {
+        return String(date.getHours()).padStart(2, '0') + ':' + String(date.getMinutes()).padStart(2, '0') + ':' + String(date.getSeconds()).padStart(2, '0');
+      }
+
+      function getProgressClass(percent) {
+        if (percent >= 90) return 'danger';
+        if (percent >= 70) return 'warning';
+        return '';
+      }
+
+      function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        var k = 1024;
+        var sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+        var i = Math.floor(Math.log(bytes) / Math.log(k));
+        return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+      }
+
+      function formatSpeed(mbps) {
+        var bytesPerSec = mbps * 1024 * 1024;
+        if (bytesPerSec < 1024) return { value: bytesPerSec.toFixed(2), unit: 'B/s' };
+        else if (bytesPerSec < 1024 * 1024) return { value: (bytesPerSec / 1024).toFixed(2), unit: 'KB/s' };
+        else if (bytesPerSec < 1024 * 1024 * 1024) return { value: (bytesPerSec / 1024 / 1024).toFixed(2), unit: 'MB/s' };
+        else return { value: (bytesPerSec / 1024 / 1024 / 1024).toFixed(2), unit: 'GB/s' };
+      }
+
+      function fetchPerformanceData() {
+        fetch('/admin/api/plugin/perfmon/current')
+          .then(function(response) {
+            var contentType = response.headers.get('content-type');
+            if (!contentType || contentType.indexOf('application/json') === -1) return null;
+            return response.json();
+          })
+          .then(function(result) {
+            if (!result || !result.result || !result.data) return;
+            var data = result.data;
+            cpuGauge.setOption({ series: [{ data: [{ value: parseFloat(data.cpu.toFixed(1)) }] }] });
+            memGauge.setOption({ series: [{ data: [{ value: parseFloat(data.memory.toFixed(1)) }] }] });
+            if (data.memory_total && data.memory_used) {
+              $('#memInfoGauge').html('已用: ' + formatBytes(data.memory_used) + ' / 总量: ' + formatBytes(data.memory_total) + ' / 可用: ' + formatBytes(data.memory_total - data.memory_used));
+            }
+            var netRx = parseFloat(data.network_rx.toFixed(2));
+            var netRxSpeed = formatSpeed(netRx);
+            $('#netRxValue').text(netRxSpeed.value);
+            $('#netRxUnit').text(netRxSpeed.unit);
+            var netTx = parseFloat(data.network_tx.toFixed(2));
+            var netTxSpeed = formatSpeed(netTx);
+            $('#netTxValue').text(netTxSpeed.value);
+            $('#netTxUnit').text(netTxSpeed.unit);
+            var cpuPercent = data.cpu;
+            $('#cpuProgress').css('width', cpuPercent + '%').text(cpuPercent.toFixed(1) + '%').removeClass('warning danger').addClass(getProgressClass(cpuPercent));
+            var memPercent = data.memory;
+            $('#memProgress').css('width', memPercent + '%').text(memPercent.toFixed(1) + '%').removeClass('warning danger').addClass(getProgressClass(memPercent));
+            if (data.memory_total && data.memory_used) {
+              $('#memInfo').html('已用: ' + formatBytes(data.memory_used) + ' / 总量: ' + formatBytes(data.memory_total) + ' / 可用: ' + formatBytes(data.memory_total - data.memory_used));
+            }
+            var now = new Date();
+            timeLabels.push(formatTime(now));
+            cpuHistory.push(cpuPercent);
+            memHistory.push(memPercent);
+            netHistory.push([data.network_tx, data.network_rx]);
+            diskIOHistory.push([data.disk_read, data.disk_write]);
+            if (timeLabels.length > maxPoints) { timeLabels.shift(); cpuHistory.shift(); memHistory.shift(); netHistory.shift(); diskIOHistory.shift(); }
+            updateChart(cpuChart, cpuHistory, timeLabels);
+            updateChart(memChart, memHistory, timeLabels);
+            var netTxData = [], netRxData = [];
+            for (var i = 0; i < netHistory.length; i++) { netTxData.push(netHistory[i][0]); netRxData.push(netHistory[i][1]); }
+            updateChart(netChart, [netTxData, netRxData], timeLabels, 2);
+            var diskReadData = [], diskWriteData = [];
+            for (var j = 0; j < diskIOHistory.length; j++) { diskReadData.push(diskIOHistory[j][0]); diskWriteData.push(diskIOHistory[j][1]); }
+            updateChart(diskIOChart, [diskReadData, diskWriteData], timeLabels, 2);
+          })
+          .catch(function(error) { console.error('获取性能数据失败:', error); });
+      }
+
+      function fetchDiskInfo() {
+        fetch('/admin/api/plugin/perfmon/disk')
+          .then(function(response) {
+            var contentType = response.headers.get('content-type');
+            if (!contentType || contentType.indexOf('application/json') === -1) return null;
+            return response.json();
+          })
+          .then(function(result) {
+            if (!result || !result.result || !result.data) return;
+            var totalSize = 0, totalUsed = 0;
+            result.data.forEach(function(disk) { totalSize += disk.total; totalUsed += disk.used; });
+            var totalPercent = totalSize > 0 ? (totalUsed / totalSize * 100).toFixed(1) : 0;
+            diskGauge.setOption({ series: [{ data: [{ value: parseFloat(totalPercent) }] }] });
+            if (totalSize > 0) {
+              $('#diskInfo').html('已用: ' + formatBytes(totalUsed) + ' / 总量: ' + formatBytes(totalSize) + ' / 可用: ' + formatBytes(totalSize - totalUsed));
+            }
+            var html = '';
+            result.data.forEach(function(disk, index) {
+              var percent = (disk.used / disk.total * 100).toFixed(1);
+              var colorClass = 'color-' + (index % 4);
+              html += '<div class="disk-item">';
+              html += '  <div class="disk-header">';
+              html += '    <div class="disk-name">' + disk.mount + '</div>';
+              html += '    <div class="disk-info">' + formatBytes(disk.used) + ' / ' + formatBytes(disk.total) + '</div>';
+              html += '  </div>';
+              html += '  <div class="progress-bar">';
+              html += '    <div class="progress-fill ' + colorClass + '" style="width: ' + percent + '%;">' + percent + '%</div>';
+              html += '  </div>';
+              html += '</div>';
+            });
+            $('#diskList').html(html);
+          })
+          .catch(function(error) { console.error('获取磁盘信息失败:', error); });
+      }
+
+      function formatUptime(seconds) {
+        var days = Math.floor(seconds / 86400);
+        var hours = Math.floor((seconds % 86400) / 3600);
+        var minutes = Math.floor((seconds % 3600) / 60);
+        var result = '';
+        if (days > 0) result += days + ' 天 ';
+        if (hours > 0) result += hours + ' 小时 ';
+        result += minutes + ' 分钟';
+        return result;
+      }
+
+      function fetchServerInfo() {
+        fetch('/admin/api/plugin/perfmon/serverinfo')
+          .then(function(response) {
+            var contentType = response.headers.get('content-type');
+            if (!contentType || contentType.indexOf('application/json') === -1) return null;
+            return response.json();
+          })
+          .then(function(result) {
+            if (!result || !result.result || !result.data) return;
+            var data = result.data;
+            cpuCores = data.cpu_cores || 0;
+            if (cpuCores > 0) $('#cpuInfo').text(cpuCores + ' 核心');
+          })
+          .catch(function(error) { console.error('获取服务器信息失败:', error); });
+      }
+
+      initGauges();
+      initCharts();
+      fetchPerformanceData();
+      fetchDiskInfo();
+      fetchServerInfo();
+      setTimeout(function() {
+        if (cpuGauge) cpuGauge.resize();
+        if (memGauge) memGauge.resize();
+        if (diskGauge) diskGauge.resize();
+        if (cpuChart) cpuChart.resize();
+        if (memChart) memChart.resize();
+        if (netChart) netChart.resize();
+        if (diskIOChart) diskIOChart.resize();
+      }, 100);
+      setInterval(function() { fetchPerformanceData(); }, 3000);
+      setInterval(function() { fetchDiskInfo(); }, 30000);
+      $('#refreshBtn').on('click', function() {
+        fetchPerformanceData();
+        fetchDiskInfo();
+        fetchServerInfo();
+        layer.msg('已刷新', { icon: 1, time: 1000 });
+      });
+      window.addEventListener('resize', function() {
+        if (cpuGauge) cpuGauge.resize();
+        if (memGauge) memGauge.resize();
+        if (diskGauge) diskGauge.resize();
+        if (cpuChart) cpuChart.resize();
+        if (memChart) memChart.resize();
+        if (netChart) netChart.resize();
+        if (diskIOChart) diskIOChart.resize();
+      });
+    });
+  </script>
+</body>
+</html>

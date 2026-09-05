@@ -1,0 +1,121 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Member_AuthGroup" lay-filter="Table_Member_AuthGroup"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Member_AuthGroup">
+	<div class="layui-inline">
+		<input type="text" id="Search_Member_AuthGroup" placeholder="搜索权限分类名称或描述..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Member_AuthGroup_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Member_AuthGroup_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="Member_AuthGroup_Add"><i class="layui-icon layui-icon-addition"></i> 添加分类</button>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Member_AuthGroup">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		
+		table.render({
+			elem: '#Table_Member_AuthGroup',
+			toolbar: '#Toolbar_Member_AuthGroup',
+			url: '/admin/member/authgroup',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			cellMinWidth: 60,
+			skin: "line",
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'sort', width:80, title: '排序'},
+				{width:320, title: '分类名称', templet: '<code>{{= d.name }}</code>'},
+				{field:'desc', title: '描述'},
+				{width:100, title: '分组数量', field:'authCount', templet: '<span class="layui-badge layui-bg-blue">{{= d.authCount || 0 }} 个分组</span>'},
+				{field:'createTime', width:180, title: '创建时间'},
+				{field:'updateTime', width:180, title: '修改时间'},
+				{width:120, title: '操作', templet: '#Tool_Member_AuthGroup'},
+			]],
+		});
+		
+		table.on('toolbar(Table_Member_AuthGroup)', function(obj){
+			switch ( obj.event ) {
+				case 'Member_AuthGroup_Search':
+					table.reloadData('Table_Member_AuthGroup', {
+						where: { search: '%' + document.getElementById('Search_Member_AuthGroup').value + '%' },
+					});
+				break;
+				case 'Member_AuthGroup_Refresh':
+					table.reloadData('Table_Member_AuthGroup');
+				break;
+				case 'Member_AuthGroup_Add':
+					layer.open({
+						title: '添加权限分类',
+						type: 2,
+						shadeClose: true,
+						area: ['500px', '400px'],
+						content: '/admin/view/member/authgroup/add',
+					});
+				break;
+			};
+		});
+		
+		table.on('tool(Table_Member_AuthGroup)', function(obj){
+			var data = obj.data;
+			if ( obj.event == 'edit' ) {
+				layer.open({
+					title: '编辑权限分类',
+					type: 2,
+					shadeClose: true,
+					area: ['500px', '400px'],
+					content: '/admin/view/member/authgroup/edit?id=' + data.id,
+				});
+			} else if ( obj.event == 'delete' ) {
+				if (data.id == 1) {
+					layer.msg('不能删除默认分类', {icon: 2});
+					return;
+				}
+				layer.confirm('确定要删除权限分类 "' + data.name + '" 吗？<br>其下的权限分组将移至默认分类', {
+					icon: 3,
+					title: '删除确认'
+				}, function(index){
+					fetch('/admin/member/authgroup?id=' + data.id, {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' }
+					})
+					.then(response => response.json())
+					.then(result => {
+						if (result && result.result === true) {
+							layer.msg(result.message || '删除成功', {icon: 1});
+							table.reloadData('Table_Member_AuthGroup');
+						} else {
+							layer.msg(result.message || '删除失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+					layer.close(index);
+				});
+			}
+		});
+	});
+</script>

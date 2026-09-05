@@ -1,0 +1,126 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Auth_URIs" lay-filter="Table_Auth_URIs"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Auth_URIs">
+	<div class="layui-inline">
+		<input type="text" id="searchUris" placeholder="搜索URI或描述..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Auth_URIs_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Auth_URIs_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Auth_URIs">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		var $ = layui.$;
+		
+		function escapeHtml(sText)
+		{
+			return $('<div/>').text(sText == null ? '' : String(sText)).html();
+		}
+		
+		function renderAuthGroup(d)
+		{
+			var iAuthID = Number(d.authID) || 0;
+			var bBackend = Number(d.isBackend) === 1;
+			var sName = bBackend ? d.authName : d.memberAuthName;
+			
+			if ( Number(d.needAuth) !== 1 ) {
+				return '<span class="layui-badge layui-bg-green">公开</span>';
+			}
+			
+			if ( iAuthID <= 0 ) {
+				return '<span class="layui-badge layui-bg-gray">未分配</span>';
+			}
+			
+			if ( !sName ) {
+				sName = 'ID ' + iAuthID;
+			}
+			
+			return '<span class="layui-badge ' + (bBackend ? ('backend-auth-color-' + iAuthID) : ('member-auth-color-' + iAuthID)) + '">' + escapeHtml(sName) + '</span>';
+		}
+		
+		// 创建渲染实例
+		table.render({
+			elem: '#Table_Auth_URIs',
+			toolbar: '#Toolbar_Auth_URIs',
+			url: '/admin/auth/uris',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',			// 最大高度减去其他容器已占有的高度差
+			css: "",					// 重设当前表格样式
+			cellMinWidth: 60,			// 最小列宽度
+			skin: "line",				// 表格样式
+			totalRow: false,			// 开启合计行
+			page: {
+				limit: 20,				// 每页显示数量
+				groups: 11,				// 显示分页数量
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'sort', width:100, title: '排序'},
+				{field:'needAuth', width:80, title: '鉴权', align:'center', templet: '<span class="{{# if(d.needAuth){ }}layui-badge layui-bg-green{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.needAuth){ }}需要{{# } else { }}否{{# } }}</span>'},
+				{field:'isBackend', width:80, title: '类型', align:'center', templet: '<span class="{{# if(d.isBackend){ }}layui-badge layui-bg-blue{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.isBackend){ }}后台{{# } else { }}前台{{# } }}</span>'},
+				{width:140, title: '权限组', templet: renderAuthGroup},
+				{width:320, title: 'URI', templet: '<code>{{= d.uri }}</code>'},
+				{field:'desc', title: '描述', minWidth:150},
+				{field:'needLog', width:80, title: '日志', align:'center', templet: '<span class="{{# if(d.needLog){ }}layui-badge layui-bg-orange{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.needLog){ }}记录{{# } else { }}否{{# } }}</span>'},
+				{field:'keepActive', width:80, title: '活跃', align:'center', templet: '<span class="{{# if(d.keepActive){ }}layui-badge layui-bg-cyan{{# } else { }}layui-badge layui-bg-gray{{# } }}">{{# if(d.keepActive){ }}保持{{# } else { }}否{{# } }}</span>'},
+				{field:'updateTime', width:180, title: '修改时间'},
+				{width:70, title: '操作', templet: '#Tool_Auth_URIs'},
+			]],
+			done: function(){
+			},
+			error: function(res, msg){
+				console.log(res, msg)
+			}
+		});
+		
+		// 工具栏事件
+		table.on('toolbar(Table_Auth_URIs)', function(obj){
+			switch ( obj.event ) {
+				case 'Auth_URIs_Search':
+					// 搜索
+					table.reloadData('Table_Auth_URIs', {
+						where: {
+							search: "%" + document.getElementById('searchUris').value + "%",
+						},
+					});
+				break;
+				case 'Auth_URIs_Refresh':
+					// 刷新
+					table.reloadData('Table_Auth_URIs');
+				break;
+			};
+		});
+		
+		// 触发单元格工具事件
+		table.on('tool(Table_Auth_URIs)', function(obj){
+			var data = obj.data; // 获得当前行数据
+			if ( obj.event == 'edit' ) {
+				// 编辑
+				var layerIndex = layer.open({
+					title: '编辑 URI 权限',
+					type: 2,
+					shadeClose: true,
+					area: ['560px', '620px'],
+					content: '/admin/view/auth/uris/edit?id=' + data.id,
+				});
+			}
+		});
+	
+	});
+</script>

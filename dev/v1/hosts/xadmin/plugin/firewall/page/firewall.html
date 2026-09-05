@@ -1,0 +1,276 @@
+
+  <div class="layui-card">
+    <div class="layui-card-body">
+      <div class="layui-form-item" style="margin-bottom: 15px;">
+        <div class="layui-inline">
+          <button class="layui-btn" id="btnAddRule"><i class="layui-icon layui-icon-add-1"></i> 添加规则</button>
+          <button class="layui-btn layui-btn-primary" id="btnRefresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+        </div>
+        <div class="layui-inline" style="float: right;">
+          <div class="layui-badge layui-bg-blue" style="font-size: 12px; padding: 5px 10px;">仅支持Linux系统</div>
+        </div>
+      </div>
+
+      <table class="layui-table" lay-skin="line">
+        <thead>
+          <tr>
+            <th width="80">规则ID</th>
+            <th width="100">协议</th>
+            <th width="150">端口</th>
+            <th width="200">源IP地址</th>
+            <th width="100">动作</th>
+            <th width="150">备注</th>
+            <th width="120">数据包数</th>
+            <th width="120">流量</th>
+            <th width="80">状态</th>
+            <th width="200">操作</th>
+          </tr>
+        </thead>
+        <tbody id="firewallTableBody">
+          <tr>
+            <td colspan="10" style="text-align: center; padding: 20px;">
+              <i class="layui-icon layui-icon-loading layui-icon layui-anim layui-anim-rotate layui-anim-loop"></i>
+              加载中...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+layui.use(['layer', 'form'], function(){
+  var layer = layui.layer;
+  var form = layui.form;
+
+  var rulesData = [];
+  var liveStatsMap = {};
+
+  function fetchRules() {
+    fetch('/admin/api/plugin/firewall/list')
+      .then(response => response.json())
+      .then(result => {
+        if ( result.result && result.rules ) {
+          rulesData = result.rules;
+          liveStatsMap = {};
+          if ( result.liveStats && result.liveStats.length ) {
+            for ( var i = 0; i < result.liveStats.length; i++ ) {
+              var stat = result.liveStats[i];
+              liveStatsMap[stat.id] = stat;
+            }
+          }
+          renderTable();
+        } else {
+          layer.msg(result.message || '数据加载失败', {icon: 2});
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        layer.msg('请求失败: ' + error.message, {icon: 2});
+      });
+  }
+
+  function renderTable() {
+    var tbody = document.getElementById('firewallTableBody');
+    var html = '';
+
+    if ( rulesData.length === 0 ) {
+      html = '<tr><td colspan="10" style="text-align: center; padding: 20px;">暂无防火墙规则</td></tr>';
+    } else {
+      for ( var i = 0; i < rulesData.length; i++ ) {
+        var rule = rulesData[i];
+        var live = liveStatsMap[rule.id] || {};
+
+        var protocolClass = '';
+        switch(rule.protocol) {
+          case 'tcp': protocolClass = 'layui-bg-blue'; break;
+          case 'udp': protocolClass = 'layui-bg-green'; break;
+          case 'icmp': protocolClass = 'layui-bg-orange'; break;
+          default: protocolClass = 'layui-bg-gray'; break;
+        }
+
+        var actionClass = '';
+        switch(rule.action) {
+          case 'ACCEPT': actionClass = 'layui-bg-green'; break;
+          case 'DROP': actionClass = 'layui-bg-red'; break;
+          case 'REJECT': actionClass = 'layui-bg-orange'; break;
+          default: actionClass = 'layui-bg-gray'; break;
+        }
+
+        var statusHtml = rule.enabled ?
+          '<span class="layui-badge layui-bg-green">已启用</span>' :
+          '<span class="layui-badge layui-bg-gray">已禁用</span>';
+
+        html += '<tr>';
+        html += '<td>' + rule.id + '</td>';
+        html += '<td><span class="layui-badge ' + protocolClass + '">' + rule.protocol + '</span></td>';
+        html += '<td>' + (rule.port || '-') + '</td>';
+        html += '<td>' + (rule.source_ip || '任意') + '</td>';
+        html += '<td><span class="layui-badge ' + actionClass + '">' + rule.action + '</span></td>';
+        html += '<td>' + (rule.comment || '-') + '</td>';
+        html += '<td>' + (live.packets || '0') + '</td>';
+        html += '<td>' + (live.bytes || '0') + '</td>';
+        html += '<td>' + statusHtml + '</td>';
+        html += '<td>';
+        html += '<button class="layui-btn layui-btn-xs" onclick="toggleRule(' + rule.id + ', ' + (rule.enabled ? 0 : 1) + ')">' + (rule.enabled ? '禁用' : '启用') + '</button>';
+        html += '<button class="layui-btn layui-btn-xs layui-btn-danger" onclick="deleteRule(' + rule.id + ')"><i class="layui-icon layui-icon-delete"></i> 删除</button>';
+        html += '</td>';
+        html += '</tr>';
+      }
+    }
+
+    tbody.innerHTML = html;
+  }
+
+  function addRule() {
+    layer.open({
+      type: 1,
+      title: '添加防火墙规则',
+      area: ['500px', '480px'],
+      content: '<div style="padding: 20px;">' +
+        '<form class="layui-form" id="addRuleForm">' +
+          '<div class="layui-form-item">' +
+            '<label class="layui-form-label">协议</label>' +
+            '<div class="layui-input-block">' +
+              '<select name="protocol" lay-verify="required">' +
+                '<option value="">请选择</option>' +
+                '<option value="tcp">TCP</option>' +
+                '<option value="udp">UDP</option>' +
+                '<option value="icmp">ICMP</option>' +
+                '<option value="all">全部</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          '<div class="layui-form-item">' +
+            '<label class="layui-form-label">端口</label>' +
+            '<div class="layui-input-block">' +
+              '<input type="text" name="port" placeholder="例: 80 或 8000:9000" class="layui-input">' +
+            '</div>' +
+          '</div>' +
+          '<div class="layui-form-item">' +
+            '<label class="layui-form-label">源IP地址</label>' +
+            '<div class="layui-input-block">' +
+              '<input type="text" name="source_ip" placeholder="留空表示任意IP" class="layui-input">' +
+            '</div>' +
+          '</div>' +
+          '<div class="layui-form-item">' +
+            '<label class="layui-form-label">动作</label>' +
+            '<div class="layui-input-block">' +
+              '<select name="action" lay-verify="required">' +
+                '<option value="">请选择</option>' +
+                '<option value="ACCEPT">ACCEPT (允许)</option>' +
+                '<option value="DROP">DROP (丢弃)</option>' +
+                '<option value="REJECT">REJECT (拒绝)</option>' +
+              '</select>' +
+            '</div>' +
+          '</div>' +
+          '<div class="layui-form-item">' +
+            '<label class="layui-form-label">备注</label>' +
+            '<div class="layui-input-block">' +
+              '<input type="text" name="comment" placeholder="规则说明" class="layui-input">' +
+            '</div>' +
+          '</div>' +
+          '<div class="layui-form-item">' +
+            '<div class="layui-input-block">' +
+              '<button type="submit" class="layui-btn" lay-submit lay-filter="addRuleSubmit">提交</button>' +
+              '<button type="reset" class="layui-btn layui-btn-primary">重置</button>' +
+            '</div>' +
+          '</div>' +
+        '</form>' +
+      '</div>',
+      success: function(layero, index) {
+        form.render();
+
+        form.on('submit(addRuleSubmit)', function(data) {
+          var loading = layer.load(2);
+
+          fetch('/admin/api/plugin/firewall/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data.field)
+          })
+          .then(response => response.json())
+          .then(result => {
+            layer.close(loading);
+            if ( result.result ) {
+              layer.msg('添加成功', {icon: 1});
+              layer.close(index);
+              fetchRules();
+            } else {
+              layer.msg(result.message || '添加失败', {icon: 2});
+            }
+          })
+          .catch(error => {
+            layer.close(loading);
+            console.error('Error:', error);
+            layer.msg('请求失败', {icon: 2});
+          });
+
+          return false;
+        });
+      }
+    });
+  }
+
+  window.deleteRule = function(id) {
+    layer.confirm('确定要删除此防火墙规则吗？', {
+      icon: 3,
+      title: '删除确认'
+    }, function(index) {
+      var loading = layer.load(2);
+
+      fetch('/admin/api/plugin/firewall/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id })
+      })
+      .then(response => response.json())
+      .then(result => {
+        layer.close(loading);
+        if ( result.result ) {
+          layer.msg('删除成功', {icon: 1});
+          layer.close(index);
+          fetchRules();
+        } else {
+          layer.msg(result.message || '删除失败', {icon: 2});
+        }
+      })
+      .catch(error => {
+        layer.close(loading);
+        console.error('Error:', error);
+        layer.msg('请求失败', {icon: 2});
+      });
+    });
+  };
+
+  window.toggleRule = function(id, enabled) {
+    var loading = layer.load(2);
+
+    fetch('/admin/api/plugin/firewall/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: id, enabled: enabled })
+    })
+    .then(response => response.json())
+    .then(result => {
+      layer.close(loading);
+      if ( result.result ) {
+        layer.msg(result.message, {icon: 1});
+        fetchRules();
+      } else {
+        layer.msg(result.message || '操作失败', {icon: 2});
+      }
+    })
+    .catch(error => {
+      layer.close(loading);
+      console.error('Error:', error);
+      layer.msg('请求失败', {icon: 2});
+    });
+  };
+
+  document.getElementById('btnAddRule').addEventListener('click', addRule);
+  document.getElementById('btnRefresh').addEventListener('click', fetchRules);
+
+  fetchRules();
+});
+</script>

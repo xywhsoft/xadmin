@@ -1,0 +1,266 @@
+<div style="padding: 16px;">
+	<div id="Mail_Queue_Status" class="layui-card" style="margin-bottom: 12px;">
+		<div class="layui-card-body" style="padding: 10px 14px;">
+			<div class="layui-row layui-col-space10" style="font-size: 13px; color: #666;">
+				<div class="layui-col-md2">队列状态：<span id="Mail_Queue_Running">读取中...</span></div>
+				<div class="layui-col-md2">当前并发：<span id="Mail_Queue_Concurrency">-</span></div>
+				<div class="layui-col-md2">当前批量：<span id="Mail_Queue_Batch">-</span></div>
+				<div class="layui-col-md2">待发数量：<span id="Mail_Queue_Pending">-</span></div>
+				<div class="layui-col-md2">每分钟限速：<span id="Mail_Queue_Rate">-</span></div>
+				<div class="layui-col-md2">最近执行：<span id="Mail_Queue_Last">-</span></div>
+			</div>
+		</div>
+	</div>
+	<table class="layui-hide" id="Table_Member_Mail" lay-filter="Table_Member_Mail"></table>
+</div>
+
+<script type="text/html" id="Toolbar_Member_Mail">
+	<div class="layui-inline">
+		<input type="text" id="Search_Member_Mail" placeholder="搜索邮箱、主题或错误信息..." class="layui-input" style="width: 260px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+		<button class="layui-btn layui-btn-sm layui-btn-warm" lay-event="run"><i class="layui-icon layui-icon-play"></i> 执行待发送</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="send"><i class="layui-icon layui-icon-addition"></i> 创建邮件任务</button>
+	</div>
+</script>
+
+<script type="text/html" id="Bar_Member_Mail_Row">
+	{{# if(d.status === 'fail' || (d.status === 'pending' && d.errorMessage)){ }}
+	<a class="layui-btn layui-btn-xs layui-btn-warm" lay-event="retry">重试一次</a>
+	{{# } }}
+	<a class="layui-btn layui-btn-xs layui-btn-danger" lay-event="delete">删除</a>
+</script>
+
+<script>
+layui.use(['table', 'layer'], function(){
+	var table = layui.table;
+	var layer = layui.layer;
+
+	function requestJSON(url, options) {
+		var opts = options || {};
+		opts.credentials = 'same-origin';
+		opts.headers = opts.headers || {};
+		if (!opts.headers['Accept']) {
+			opts.headers['Accept'] = 'application/json';
+		}
+		return fetch(url, opts).then(function(resp){
+			return resp.text().then(function(text){
+				var data = {};
+				try {
+					data = text ? JSON.parse(text) : {};
+				} catch (err) {
+					throw new Error(text || resp.statusText || 'invalid json');
+				}
+				if (!resp.ok) {
+					throw new Error((data && data.message) || resp.statusText || 'request failed');
+				}
+				return data;
+			});
+		});
+	}
+
+	function currentSearch() {
+		var input = document.getElementById('Search_Member_Mail');
+		return input ? (input.value || '') : '';
+	}
+
+	function formatTime(ts) {
+		var date;
+		if (!ts) return '-';
+		date = new Date(ts * 1000);
+		if (isNaN(date.getTime())) return '-';
+		return date.getFullYear() + '-' +
+			String(date.getMonth() + 1).padStart(2, '0') + '-' +
+			String(date.getDate()).padStart(2, '0') + ' ' +
+			String(date.getHours()).padStart(2, '0') + ':' +
+			String(date.getMinutes()).padStart(2, '0') + ':' +
+			String(date.getSeconds()).padStart(2, '0');
+	}
+
+	function renderStatus(status) {
+		var map = {
+			pending: 'layui-bg-orange',
+			sending: 'layui-bg-blue',
+			success: 'layui-bg-green',
+			fail: 'layui-bg-red'
+		};
+		var textMap = {
+			pending: '待发送',
+			sending: '发送中',
+			success: '成功',
+			fail: '失败'
+		};
+		var cls = map[status] || 'layui-bg-gray';
+		var text = textMap[status] || (status || '-');
+		return '<span class="layui-badge ' + cls + '">' + text + '</span>';
+	}
+
+	function renderTaskStatus(row) {
+		if (row && row.status === 'pending' && row.errorMessage) {
+			return '<span class="layui-badge layui-bg-orange">待重试</span>';
+		}
+		return renderStatus(row ? row.status : '');
+	}
+
+	function reloadTable(searchText) {
+		table.reload('Table_Member_Mail', {
+			page: {curr: 1},
+			where: {
+				search: searchText ? ('%' + searchText + '%') : ''
+			}
+		});
+	}
+
+	function loadQueueStatus() {
+		requestJSON('/admin/member/mail/status').then(function(res){
+			var data = (res && res.data) || {};
+			var lastText = '-';
+			if (data.lastRunTime) {
+				lastText = formatTime(data.lastRunTime) + ' / 成功 ' + (data.lastSuccess || 0) + ' / 失败 ' + (data.lastFail || 0);
+			}
+			document.getElementById('Mail_Queue_Running').innerText = data.running ? '执行中' : '空闲';
+			document.getElementById('Mail_Queue_Concurrency').innerText = (data.concurrency || 0) + '（最近 ' + (data.lastConcurrency || 0) + '）';
+			document.getElementById('Mail_Queue_Batch').innerText = (data.batchLimit || 0) + '（最近 ' + (data.lastLimit || 0) + '）';
+			document.getElementById('Mail_Queue_Pending').innerText = data.pendingCount || 0;
+			document.getElementById('Mail_Queue_Rate').innerText = (data.ratePerMinute || 0) + ' / 分钟';
+			document.getElementById('Mail_Queue_Last').innerText = lastText;
+		}).catch(function(){
+			document.getElementById('Mail_Queue_Running').innerText = '读取失败';
+		});
+	}
+
+	function afterAsyncAction(message) {
+		layer.msg(message || '操作已提交');
+		setTimeout(function(){
+			reloadTable(currentSearch());
+			loadQueueStatus();
+		}, 800);
+	}
+
+	function doRetry(taskId) {
+		layer.confirm('将该失败任务重新加入待发送队列，是否继续？', function(index){
+			layer.close(index);
+			layer.load(1, {shade: 0.15});
+			requestJSON('/admin/member/mail/retry?id=' + encodeURIComponent(taskId || 0), {
+				method: 'POST'
+			}).then(function(res){
+				if (res && res.result) {
+					afterAsyncAction(res.message || '已重新加入待发送队列');
+				} else {
+					layer.alert((res && res.message) || '重试失败');
+				}
+			}).catch(function(err){
+				layer.alert(err.message || '请求失败');
+			}).finally(function(){
+				layer.closeAll('loading');
+			});
+		});
+	}
+
+	function doDelete(taskId) {
+		layer.confirm('删除后不可恢复，是否继续？', function(index){
+			layer.close(index);
+			layer.load(1, {shade: 0.15});
+			requestJSON('/admin/member/mail/delete?id=' + encodeURIComponent(taskId || 0), {
+				method: 'POST'
+			}).then(function(res){
+				if (res && res.result) {
+					afterAsyncAction(res.message || '邮件任务已删除');
+				} else {
+					layer.alert((res && res.message) || '删除失败');
+				}
+			}).catch(function(err){
+				layer.alert(err.message || '请求失败');
+			}).finally(function(){
+				layer.closeAll('loading');
+			});
+		});
+	}
+
+	table.render({
+		elem: '#Table_Member_Mail',
+		id: 'Table_Member_Mail',
+		toolbar: '#Toolbar_Member_Mail',
+		url: '/admin/member/mail',
+		defaultToolbar: ['filter', 'exports', 'print'],
+		height: 'full-135',
+		skin: 'line',
+		cellMinWidth: 100,
+		page: {
+			limit: 20,
+			groups: 11,
+			layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+		},
+		cols: [[
+			{field: 'id', width: 80, title: 'ID'},
+			{field: 'memberId', width: 100, title: '用户 ID'},
+			{field: 'toEmail', minWidth: 220, title: '收件邮箱'},
+			{field: 'subject', minWidth: 240, title: '邮件主题'},
+			{field: 'status', width: 110, title: '状态', templet: function(d){ return renderTaskStatus(d); }},
+			{field: 'createTime', width: 180, title: '创建时间'},
+			{field: 'sendTime', width: 180, title: '发送时间'},
+			{field: 'errorMessage', minWidth: 260, title: '错误信息', templet: function(d){ return d.errorMessage || '-'; }},
+			{fixed: 'right', width: 180, title: '操作', toolbar: '#Bar_Member_Mail_Row'}
+		]]
+	});
+
+	table.on('toolbar(Table_Member_Mail)', function(obj){
+		if (obj.event === 'search') {
+			reloadTable(currentSearch());
+			return;
+		}
+		if (obj.event === 'refresh') {
+			document.getElementById('Search_Member_Mail').value = '';
+			reloadTable('');
+			loadQueueStatus();
+			return;
+		}
+		if (obj.event === 'run') {
+			layer.load(1, {shade: 0.15});
+			requestJSON('/admin/member/mail/run_pending', {
+				method: 'POST'
+			}).then(function(res){
+				if (res && res.result) {
+					afterAsyncAction(res.message || '已触发邮件队列执行');
+				} else {
+					layer.alert((res && res.message) || '执行失败');
+				}
+			}).catch(function(err){
+				layer.alert(err.message || '请求失败');
+			}).finally(function(){
+				layer.closeAll('loading');
+			});
+			return;
+		}
+		if (obj.event === 'send') {
+			layer.open({
+				title: '创建邮件任务',
+				type: 2,
+				shadeClose: true,
+				area: ['720px', '720px'],
+				content: '/admin/view/member/mail/send',
+				end: function(){
+					reloadTable(currentSearch());
+					loadQueueStatus();
+				}
+			});
+		}
+	});
+
+	table.on('tool(Table_Member_Mail)', function(obj){
+		if (obj.event === 'retry') {
+			doRetry(obj.data.id || 0);
+			return;
+		}
+		if (obj.event === 'delete') {
+			doDelete(obj.data.id || 0);
+		}
+	});
+
+	loadQueueStatus();
+});
+</script>

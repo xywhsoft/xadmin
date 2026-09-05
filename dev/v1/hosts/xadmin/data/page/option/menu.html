@@ -1,0 +1,342 @@
+<!-- 主体表格 -->
+<style>
+.menu-tree-cell {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 22px;
+}
+
+.menu-tree-indent {
+	display: inline-block;
+	width: 24px;
+	flex: 0 0 24px;
+}
+
+.menu-tree-toggle,
+.menu-tree-toggle-placeholder {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+}
+
+.menu-tree-toggle {
+	color: #666;
+	cursor: pointer;
+}
+
+.menu-tree-icon {
+	width: 18px;
+	text-align: center;
+	flex: 0 0 18px;
+}
+
+.menu-tree-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+</style>
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Menu" lay-filter="Table_Menu"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Menu">
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Menu_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="Menu_AddCategory"><i class="layui-icon layui-icon-addition"></i> 添加分类</button>
+		<button class="layui-btn layui-btn-sm" lay-event="Menu_AddMenu"><i class="layui-icon layui-icon-addition"></i> 添加菜单</button>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Menu">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<!-- 类型模板 -->
+<script type="text/html" id="typeTpl">
+	{{# if(d.type === 0){ }}
+		<span class="layui-badge layui-bg-blue"><i class="layui-icon layui-icon-folder"></i> 目录</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-green"><i class="layui-icon layui-icon-file"></i> 菜单</span>
+	{{# } }}
+</script>
+
+<!-- 状态模板 -->
+<script type="text/html" id="statusTpl">
+	{{# if(d.visible === 1){ }}
+		<span class="layui-badge layui-bg-green">显示</span>
+	{{# } else { }}
+		<span class="layui-badge layui-bg-gray">隐藏</span>
+	{{# } }}
+</script>
+
+<script>
+layui.use(['table', 'layer'], function(){
+	var table = layui.table;
+	var layer = layui.layer;
+	var $ = layui.$;
+	
+	var arrMenuTree = [];
+	var tblExpandedState = {};
+	
+	function toNumber(value, iDefault)
+	{
+		var iValue = Number(value);
+		if ( isNaN(iValue) ) {
+			return iDefault || 0;
+		}
+		return iValue;
+	}
+	
+	function compareMenuNode(a, b)
+	{
+		var iSortDiff = toNumber(a.sort, 0) - toNumber(b.sort, 0);
+		if ( iSortDiff !== 0 ) {
+			return iSortDiff;
+		}
+		return toNumber(a.id, 0) - toNumber(b.id, 0);
+	}
+	
+	function sortMenuTree(arrTree)
+	{
+		arrTree.sort(compareMenuNode);
+		for ( var i = 0; i < arrTree.length; i++ ) {
+			if ( arrTree[i].children && arrTree[i].children.length > 0 ) {
+				sortMenuTree(arrTree[i].children);
+			}
+		}
+	}
+	
+	function buildTreeData(arrFlatData)
+	{
+		var tblMap = {};
+		var arrTree = [];
+		
+		for ( var i = 0; i < arrFlatData.length; i++ ) {
+			var item = $.extend({}, arrFlatData[i], {
+				children: []
+			});
+			tblMap[item.id] = item;
+		}
+		
+		for ( var i = 0; i < arrFlatData.length; i++ ) {
+			var item = tblMap[arrFlatData[i].id];
+			var iParent = toNumber(item.parent, 0);
+			var tblParent = tblMap[iParent];
+			if ( iParent > 0 && tblParent ) {
+				tblParent.children.push(item);
+			} else {
+				arrTree.push(item);
+			}
+		}
+		
+		sortMenuTree(arrTree);
+		return arrTree;
+	}
+	
+	function flattenTreeData(arrTree, iDepth, arrResult)
+	{
+		arrResult = arrResult || [];
+		iDepth = iDepth || 0;
+		for ( var i = 0; i < arrTree.length; i++ ) {
+			var item = arrTree[i];
+			var bExpanded = tblExpandedState[item.id] !== false;
+			item._depth = iDepth;
+			item._hasChildren = item.children && item.children.length > 0;
+			item._expanded = bExpanded;
+			arrResult.push(item);
+			if ( item._hasChildren && bExpanded ) {
+				flattenTreeData(item.children, iDepth + 1, arrResult);
+			}
+		}
+		return arrResult;
+	}
+	
+	function escapeHtml(sText)
+	{
+		return $('<div/>').text(sText == null ? '' : String(sText)).html();
+	}
+	
+	function renderTitleCell(d)
+	{
+		var arrParts = [];
+		var sToggleIcon = d._expanded ? 'layui-icon-down' : 'layui-icon-right';
+		var sDefaultIcon = (d.type === 0) ? 'layui-icon layui-icon-folder' : 'layui-icon layui-icon-file';
+		var sIconClass = d.icon ? escapeHtml(d.icon) : sDefaultIcon;
+		
+		arrParts.push('<div class="menu-tree-cell">');
+		for ( var i = 0; i < d._depth; i++ ) {
+			arrParts.push('<span class="menu-tree-indent"></span>');
+		}
+		if ( d._hasChildren ) {
+			arrParts.push('<span class="menu-tree-toggle" data-id="' + d.id + '"><i class="layui-icon ' + sToggleIcon + '"></i></span>');
+		} else {
+			arrParts.push('<span class="menu-tree-toggle-placeholder"></span>');
+		}
+		arrParts.push('<span class="menu-tree-icon"><i class="' + sIconClass + '"></i></span>');
+		arrParts.push('<span class="menu-tree-title">' + escapeHtml(d.title || '') + '</span>');
+		arrParts.push('</div>');
+		return arrParts.join('');
+	}
+	
+	// 加载菜单数据
+	function loadMenuData()
+	{
+		var loading = layer.load(2);
+		
+		fetch('/admin/option/menu')
+		.then(response => response.json())
+		.then(result => {
+			layer.close(loading);
+			if ( result.result ) {
+				arrMenuTree = buildTreeData(result.data || []);
+				renderMenuTable();
+			} else {
+				layer.msg(result.message || '加载失败', {icon: 2});
+			}
+		})
+		.catch(error => {
+			layer.close(loading);
+			layer.msg('请求失败', {icon: 2});
+			console.error('Error:', error);
+		});
+	}
+	
+	// 渲染菜单表格
+	function renderMenuTable()
+	{
+		table.render({
+			elem: '#Table_Menu',
+			id: 'Table_Menu',
+			toolbar: '#Toolbar_Menu',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			skin: 'line',
+			cellMinWidth: 60,
+			data: flattenTreeData(arrMenuTree),
+			cols: [[
+				{field: 'title', title: '菜单标题', minWidth: 260, templet: renderTitleCell},
+				{field: 'type', title: '类型', width: 80, align: 'center', templet: '#typeTpl'},
+				{field: 'sort', title: '排序', width: 80, align: 'center'},
+				{field: 'href', title: '链接地址', minWidth: 150, templet: function(d){
+					return d.href || '-';
+				}},
+				{field: 'remark', title: '备注', minWidth: 120, templet: function(d){
+					return d.remark || '-';
+				}},
+				{field: 'visible', title: '状态', width: 80, align: 'center', templet: '#statusTpl'},
+				{fixed: 'right', title: '操作', width: 120, align: 'center', toolbar: '#Tool_Menu'}
+			]],
+			done: function(){
+				$('.menu-tree-toggle').off('click').on('click', function(event){
+					event.stopPropagation();
+					var iID = toNumber($(this).data('id'), 0);
+					tblExpandedState[iID] = !(tblExpandedState[iID] !== false);
+					renderMenuTable();
+				});
+			}
+		});
+	}
+	
+	// 工具栏事件
+	table.on('toolbar(Table_Menu)', function(obj){
+		switch ( obj.event ) {
+			case 'Menu_Refresh':
+				// 刷新
+				loadMenuData();
+			break;
+			case 'Menu_AddCategory':
+				// 添加分类（顶级目录）
+				layer.open({
+					title: '添加分类',
+					type: 2,
+					shadeClose: true,
+					area: ['600px', '500px'],
+					content: '/admin/view/option/menu/add/category',
+					end: function(){
+						loadMenuData();
+					}
+				});
+			break;
+			case 'Menu_AddMenu':
+				// 添加菜单
+				layer.open({
+					title: '添加菜单',
+					type: 2,
+					shadeClose: true,
+					area: ['600px', '640px'],
+					content: '/admin/view/option/menu/add',
+					end: function(){
+						loadMenuData();
+					}
+				});
+			break;
+		};
+	});
+	
+	// 触发单元格工具事件
+	table.on('tool(Table_Menu)', function(obj){
+		var data = obj.data;
+		if ( obj.event == 'edit' ) {
+			// 编辑
+			var sTitle = (data.type === 0) ? '编辑分类' : '编辑菜单';
+			var sArea = (data.type === 0) ? ['600px', '500px'] : ['600px', '640px'];
+			layer.open({
+				title: sTitle,
+				type: 2,
+				shadeClose: true,
+				area: sArea,
+				content: '/admin/view/option/menu/edit?id=' + data.id,
+				end: function(){
+					loadMenuData();
+				}
+			});
+		} else if ( obj.event == 'delete' ) {
+			// 删除
+			var sConfirmMsg = '确定要删除菜单 "' + data.title + '" 吗？';
+			if ( data.children && data.children.length > 0 ) {
+				sConfirmMsg = '【' + data.title + '】包含 ' + data.children.length + ' 个子菜单，确定要删除吗？';
+			}
+			layer.confirm(sConfirmMsg, {
+				icon: 3,
+				title: '删除确认'
+			}, function(index){
+				fetch('/admin/option/menu?id=' + data.id, {
+					method: 'DELETE',
+					headers: {
+						'Content-Type': 'application/json'
+					}
+				})
+				.then(response => response.json())
+				.then(result => {
+					if ( result.result ) {
+						layer.msg(result.message || '删除成功', {icon: 1});
+						loadMenuData();
+					} else {
+						layer.msg(result.message || '删除失败', {icon: 2});
+					}
+				})
+				.catch(error => {
+					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
+					console.error('Error:', error);
+				});
+				layer.close(index);
+			});
+		}
+	});
+	
+	// 初始化加载
+	loadMenuData();
+});
+</script>

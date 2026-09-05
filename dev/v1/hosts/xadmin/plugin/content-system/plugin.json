@@ -1,0 +1,49 @@
+{
+  "formatVersion": 4,
+  "xid": "content-system",
+  "name": "content-system",
+  "title": "Content System",
+  "description": "Managed content plugin generator for xAdmin",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "kind": "singleton",
+  "sort": 990100,
+  "runtime": {
+    "compiler": "tcc",
+    "language": "c"
+  },
+  "build": {
+    "entry": "main.c",
+    "sources": [
+      "main.c"
+    ],
+    "includeDirs": [],
+    "libraryDirs": [],
+    "libraries": [],
+    "defines": [
+      "XADMIN_PLUGIN=1"
+    ]
+  },
+  "compat": {
+    "minHostVersion": "4.0.0",
+    "maxHostVersion": "5.0.0",
+    "abiVersion": 4
+  },
+  "capabilities": [
+    "route.admin",
+    "generator"
+  ],
+  "dependencies": {
+    "plugins": [],
+    "services": [],
+    "features": []
+  },
+  "contributes": {
+    "menus": [],
+    "routes": [],
+    "hooks": [],
+    "events": []
+  },
+  "defaultConfig": "config.defaults.json",
+  "configSchema": "config.schema.json"
+}

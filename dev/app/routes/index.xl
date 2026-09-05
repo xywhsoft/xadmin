@@ -1,0 +1,22 @@
+// ============================================================
+// xAdmin 路由 - 首页/仪表盘
+// ============================================================
+
+// 首页
+export func home(point reqHandle, point respHandle, var ctx) as bool
+    HttpResponse resp = HttpResponse(respHandle)
+    string html = "<!DOCTYPE html><html><head><title>xAdmin</title></head>" +
+        "<body><h1>xAdmin xlang</h1>" +
+        "<p>Framework: xs2</p>" +
+        "<ul>" +
+        "<li><a href='/admin/login'>Login</a></li>" +
+        "<li><a href='/health'>Health Check</a></li>" +
+        "</ul></body></html>"
+    return resp.text(html, "text/html; charset=utf-8")
+end
+
+// 健康检查
+export func health(point reqHandle, point respHandle, var ctx) as bool
+    HttpResponse resp = HttpResponse(respHandle)
+    return resp.jsonText("{\"ok\":true,\"framework\":\"xs2\",\"app\":\"xadmin\"}")
+end

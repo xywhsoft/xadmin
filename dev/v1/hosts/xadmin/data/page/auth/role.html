@@ -1,0 +1,144 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Auth_Role" lay-filter="Table_Auth_Role"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Auth_Role">
+	<div class="layui-inline">
+		<input type="text" id="searchAuthRole" placeholder="搜索角色名称或描述..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Auth_Role_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Auth_Role_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="Auth_Role_Add"><i class="layui-icon layui-icon-addition"></i> 添加角色</button>
+	</div>
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Auth_Role">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		var $ = layui.$;
+		
+		// 创建渲染实例
+		table.render({
+			elem: '#Table_Auth_Role',
+			toolbar: '#Toolbar_Auth_Role',
+			url: '/admin/auth/role',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',			// 最大高度减去其他容器已占有的高度差
+			css: "",					// 重设当前表格样式
+			cellMinWidth: 60,			// 最小列宽度
+			skin: "line",				// 表格样式
+			totalRow: false,			// 开启合计行
+			page: {
+				limit: 20,				// 每页显示数量
+				groups: 11,				// 显示分页数量
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'id', width:80, title: 'ID'},
+				{width:200, title: '角色名称', templet: '<code>{{= d.name }}</code>'},
+				{field:'desc', title: '描述'},
+				{width:100, title: '权限级别', field:'authLevel', templet: '<span class="layui-badge layui-bg-orange">{{= d.authLevel }}</span>'},
+				{width:100, title: '权限数量', field:'authCount', templet: '<span class="layui-badge layui-bg-blue">{{= d.authCount }} 个</span>'},
+				{width:100, title: '用户数量', field:'userCount', templet: '<span class="layui-badge layui-bg-green">{{= d.userCount }} 人</span>'},
+				{field:'createTime', width:180, title: '创建时间'},
+				{field:'updateTime', width:180, title: '修改时间'},
+				{width:120, title: '操作', templet: '#Tool_Auth_Role'},
+			]],
+			done: function(){
+			},
+			error: function(res, msg){
+				console.log(res, msg)
+			}
+		});
+		
+		// 工具栏事件
+		table.on('toolbar(Table_Auth_Role)', function(obj){
+			switch ( obj.event ) {
+				case 'Auth_Role_Search':
+					// 搜索
+					table.reloadData('Table_Auth_Role', {
+						where: {
+							search: "%" + document.getElementById('searchAuthRole').value + "%",
+						},
+					});
+				break;
+				case 'Auth_Role_Refresh':
+					// 刷新
+					table.reloadData('Table_Auth_Role');
+				break;
+				case 'Auth_Role_Add':
+					// 添加角色
+					var layerIndex = layer.open({
+						title: '添加角色',
+						type: 2,
+						shadeClose: true,
+						area: ['680px', '688px'],
+						content: '/admin/view/auth/role/add',
+					});
+				break;
+			};
+		});
+		
+		// 触发单元格工具事件
+		table.on('tool(Table_Auth_Role)', function(obj){
+			var data = obj.data; // 获得当前行数据
+			if ( obj.event == 'edit' ) {
+				// 编辑
+				var layerIndex = layer.open({
+					title: '编辑角色',
+					type: 2,
+					shadeClose: true,
+					area: ['680px', '688px'],
+					content: '/admin/view/auth/role/edit?id=' + data.id,
+				});
+			} else if ( obj.event == 'delete' ) {
+				// 删除
+				layer.confirm('确定要删除角色 "' + data.name + '" 吗？', {
+					icon: 3,
+					title: '删除确认'
+				}, function(index){
+					// 确认删除
+					fetch('/admin/auth/role?id=' + data.id, {
+						method: 'DELETE',
+						headers: {
+							'Content-Type': 'application/json'
+						}
+					})
+					.then(response => response.json())
+					.then(result => {
+						if (result && result.result === true) {
+							layer.msg(result.message || '删除成功', {icon: 1});
+							// 重新加载表格
+							table.reloadData('Table_Auth_Role');
+						} else {
+							layer.msg(result.message || '删除失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
+						console.error('Error:', error);
+					});
+					
+					layer.close(index);
+				});
+			}
+		});
+	
+	});
+
+</script>

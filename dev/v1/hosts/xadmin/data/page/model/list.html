@@ -1,0 +1,226 @@
+<!-- 主体表格 -->
+<div style="padding: 16px;">
+	<table class="layui-hide" id="Table_Model_List" lay-filter="Table_Model_List"></table>
+</div>
+
+<!-- 表格工具栏 -->
+<script type="text/html" id="Toolbar_Model_List">
+	<div class="layui-inline">
+		<input type="text" id="searchModel" placeholder="搜索模型名称..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+	</div>
+	<div class="layui-inline">
+		<button class="layui-btn layui-btn-sm" lay-event="Model_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Model_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+	</div>
+	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm" lay-event="Model_Add"><i class="layui-icon layui-icon-addition"></i> 创建模型</button>
+	</div>
+</script>
+
+<!-- 状态列模板 -->
+<script type="text/html" id="Tpl_Model_Status">
+	{{# if(d.enabled){ }}
+		{{# if(d.needUpdate){ }}
+			<span class="layui-badge layui-bg-green">运行中</span>
+			<span class="layui-badge layui-bg-red" title="配置已更新，需要重新启用">!</span>
+		{{# } else { }}
+			<span class="layui-badge layui-bg-green">运行中</span>
+		{{# } }}
+	{{# } else { }}
+		<span class="layui-badge layui-bg-gray">已禁用</span>
+	{{# } }}
+</script>
+
+<!-- 操作列 -->
+<script type="text/html" id="Tool_Model_List">
+	<div class="layui-clear-space">
+		<a class="layui-btn layui-btn-xs" lay-event="fields">字段</a>
+		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+		{{# if(d.enabled){ }}
+			{{# if(d.needUpdate){ }}
+				<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="update">更新</a>
+			{{# } else { }}
+				<a class="layui-btn layui-btn-xs layui-bg-gray" lay-event="disable">禁用</a>
+			{{# } }}
+		{{# } else { }}
+			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="enable">启用</a>
+		{{# } }}
+		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
+	</div>
+</script>
+
+<!-- 页面逻辑处理 -->
+<script>
+	layui.use(['table'], function(){
+		var table = layui.table;
+		var layer = layui.layer;
+		var $ = layui.$;
+		
+		// 创建渲染实例
+		table.render({
+			elem: '#Table_Model_List',
+			toolbar: '#Toolbar_Model_List',
+			url: '/admin/model/list',
+			defaultToolbar: ['filter', 'exports', 'print'],
+			height: 'full-135',
+			cellMinWidth: 60,
+			skin: "line",
+			page: {
+				limit: 20,
+				groups: 11,
+				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
+			},
+			cols: [[
+				{field:'sort', width:80, title: '排序', sort: true, edit: 'text'},
+				{field:'name', width:150, title: '模型标识', templet: '<code>{{= d.name }}</code>'},
+				{field:'title', width:200, title: '模型名称'},
+				{field:'namespace', width:150, title: '命名空间'},
+				{field:'desc', title: '描述'},
+				{width:100, title: '状态', templet: '#Tpl_Model_Status'},
+				{field:'updateTime', width:180, title: '修改时间'},
+				{width:220, title: '操作', templet: '#Tool_Model_List'},
+			]],
+			done: function(){
+			},
+			error: function(res, msg){
+				console.log(res, msg)
+			}
+		});
+		
+		// 单元格编辑事件（排序值）
+		table.on('edit(Table_Model_List)', function(obj){
+			if ( obj.field === 'sort' ) {
+				var iSort = parseInt(obj.value) || 0;
+				fetch('/admin/model/sort', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ name: obj.data.name, sort: iSort })
+				})
+				.then(response => response.json())
+				.then(result => {
+					if ( result && result.result ) {
+						layer.msg('排序已更新', {icon: 1, time: 1000});
+					} else {
+						layer.msg(result.message || '更新失败', {icon: 2});
+						table.reloadData('Table_Model_List');
+					}
+				});
+			}
+		});
+		
+		// 工具栏事件
+		table.on('toolbar(Table_Model_List)', function(obj){
+			switch ( obj.event ) {
+				case 'Model_Search':
+					table.reloadData('Table_Model_List', {
+						where: {
+							search: "%" + document.getElementById('searchModel').value + "%",
+						},
+					});
+				break;
+				case 'Model_Refresh':
+					table.reloadData('Table_Model_List');
+				break;
+				case 'Model_Add':
+					var layerIndex = layer.open({
+						title: '创建模型',
+						type: 2,
+						shadeClose: true,
+						area: ['600px', '550px'],
+						content: '/admin/view/model/add',
+					});
+				break;
+			};
+		});
+		
+		// 触发单元格工具事件
+		table.on('tool(Table_Model_List)', function(obj){
+			var data = obj.data;
+			if ( obj.event == 'fields' ) {
+				// 字段管理
+				var layerIndex = layer.open({
+					title: '字段管理 - ' + data.title,
+					type: 2,
+					shadeClose: true,
+					area: ['900px', '600px'],
+					content: '/admin/view/model/fields?name=' + data.name,
+				});
+			} else if ( obj.event == 'edit' ) {
+				// 编辑
+				var layerIndex = layer.open({
+					title: '编辑模型',
+					type: 2,
+					shadeClose: true,
+					area: ['600px', '720px'],
+					content: '/admin/view/model/edit?name=' + data.name,
+				});
+			} else if ( (obj.event == 'enable') || (obj.event == 'update') ) {
+				// 启用或更新（自动编译+启用）
+				var sActionText = obj.event == 'update' ? '更新' : '启用';
+				fetch('/admin/model/enable?name=' + data.name, {
+					method: 'POST'
+				})
+				.then(response => response.json())
+				.then(result => {
+					if ( result && result.result === true ) {
+						layer.msg('已' + sActionText, {icon: 1});
+						table.reloadData('Table_Model_List');
+						// 刷新后台页面以显示模型菜单
+						if ( parent && parent.location ) {
+							parent.location.reload();
+						}
+					} else {
+						layer.msg(result.message || sActionText + '失败', {icon: 2});
+					}
+				});
+			} else if ( obj.event == 'disable' ) {
+				// 禁用
+				fetch('/admin/model/disable?name=' + data.name, {
+					method: 'POST'
+				})
+				.then(response => response.json())
+				.then(result => {
+					if ( result && result.result === true ) {
+						layer.msg('已禁用', {icon: 1});
+						table.reloadData('Table_Model_List');
+						// 刷新后台页面以隐藏模型菜单
+						if ( parent && parent.location ) {
+							parent.location.reload();
+						}
+					} else {
+						layer.msg(result.message || '禁用失败', {icon: 2});
+					}
+				});
+			} else if ( obj.event == 'delete' ) {
+				// 删除
+				layer.confirm('确定要删除模型 "' + data.title + '" 吗？<br><span style="color:#ff5722;">此操作将删除模型的所有配置和数据！</span>', {
+					icon: 3,
+					title: '删除确认'
+				}, function(index){
+					fetch('/admin/model/delete?name=' + data.name, {
+						method: 'DELETE',
+						headers: {
+							'Content-Type': 'application/json'
+						}
+					})
+					.then(response => response.json())
+					.then(result => {
+						if ( result && result.result === true ) {
+							layer.msg(result.message || '删除成功', {icon: 1});
+							table.reloadData('Table_Model_List');
+						} else {
+							layer.msg(result.message || '删除失败', {icon: 2});
+						}
+					})
+					.catch(error => {
+						layer.msg('请求出错', {icon: 2});
+						console.error('Error:', error);
+					});
+					layer.close(index);
+				});
+			}
+		});
+	
+	});
+
+</script>
