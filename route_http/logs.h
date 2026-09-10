@@ -116,8 +116,7 @@ void Request_Logs_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		// 清理数据�?
 		xtime tDay7 = XA_Now() - (7 * 24 * 60 * 60);
 		sqlite3_bind_int64(stmt_logs_clear, 1, tDay7);
-		sqlite3_step(stmt_logs_clear);
-		sqlite3_reset(stmt_logs_clear);
+		if (ReplyIfWriteFailed(objResp, DB_Write(stmt_logs_clear, false))) return;
 		
 		// 返回结果
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"7��ǰ����־����գ�\"}", 0);

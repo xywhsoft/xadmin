@@ -178,10 +178,10 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int(stmt_member_add, 11, status);
 		sqlite3_bind_int64(stmt_member_add, 12, now);
 		sqlite3_bind_int64(stmt_member_add, 13, now);
-		sqlite3_step(stmt_member_add);
-		int64 newId = sqlite3_last_insert_rowid(G_DB);
-		sqlite3_reset(stmt_member_add);
+		bool written = DB_Write(stmt_member_add, true);
+		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
 		xrtFree(sSalt); xrtFree(sPwdHash); xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"前台用户添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		
 	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
@@ -206,7 +206,9 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int(stmt_member_put, 7, status);
 		sqlite3_bind_int64(stmt_member_put, 8, now);
 		sqlite3_bind_int64(stmt_member_put, 9, id);
-		sqlite3_step(stmt_member_put); sqlite3_reset(stmt_member_put); xvoUnref(tblForm);
+		bool written = DB_Write(stmt_member_put, true);
+		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"前台用户更新成功！\"}", 0);
 		
 	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
@@ -217,7 +219,9 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			xtime now = XA_Now();
 			sqlite3_bind_int64(stmt_member_del, 1, now);
 			sqlite3_bind_int64(stmt_member_del, 2, id);
-			sqlite3_step(stmt_member_del); sqlite3_reset(stmt_member_del);
+			bool written = DB_Write(stmt_member_del, true);
+			if (ReplyIfWriteFailed(objResp, written)) return;
+			Session_RevokeAccount(false, id);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"前台用户删除成功！\"}", 0);
 		} else {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的用户ID\"}", 0);
@@ -244,8 +248,9 @@ void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost,
 		sqlite3_bind_text(stmt_member_pwd, 2, sPwdHash, -1, NULL);
 		sqlite3_bind_int64(stmt_member_pwd, 3, now);
 		sqlite3_bind_int64(stmt_member_pwd, 4, id);
-		sqlite3_step(stmt_member_pwd); sqlite3_reset(stmt_member_pwd);
+		bool written = DB_Write(stmt_member_pwd, true);
 		xrtFree(sSalt); xrtFree(sPwdHash); xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"密码重置成功！\"}", 0);
 	} else {
 		LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -446,9 +451,10 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		sqlite3_bind_int64(stmt_mgroup_add, 4, authLevel);
 		sqlite3_bind_int64(stmt_mgroup_add, 5, now);
 		sqlite3_bind_int64(stmt_mgroup_add, 6, now);
-		sqlite3_step(stmt_mgroup_add);
-		int64 newId = sqlite3_last_insert_rowid(G_DB);
-		sqlite3_reset(stmt_mgroup_add); xvoUnref(tblForm);
+		bool written = DB_Write(stmt_mgroup_add, true);
+		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
+		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户组添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		MemberAuth_ReloadCache();
 	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
@@ -467,7 +473,9 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		sqlite3_bind_int64(stmt_mgroup_put, 4, authLevel);
 		sqlite3_bind_int64(stmt_mgroup_put, 5, now);
 		sqlite3_bind_int64(stmt_mgroup_put, 6, id);
-		sqlite3_step(stmt_mgroup_put); sqlite3_reset(stmt_mgroup_put); xvoUnref(tblForm);
+		bool written = DB_Write(stmt_mgroup_put, true);
+		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户组更新成功！\"}", 0);
 		MemberAuth_ReloadCache();
 	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
@@ -485,7 +493,8 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 				xtime now = XA_Now();
 				sqlite3_bind_int64(stmt_mgroup_del, 1, now);
 				sqlite3_bind_int64(stmt_mgroup_del, 2, id);
-				sqlite3_step(stmt_mgroup_del); sqlite3_reset(stmt_mgroup_del);
+				bool written = DB_Write(stmt_mgroup_del, true);
+				if (ReplyIfWriteFailed(objResp, written)) return;
 				xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户组删除成功！\"}", 0);
 				MemberAuth_ReloadCache();
 			}
@@ -584,7 +593,10 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 		str name = xvoTableGetText(tblForm, "name", 4); str desc = xvoTableGetText(tblForm, "desc", 4); int64 sort = xvoTableGetInt(tblForm, "sort", 4);
 		xtime now = XA_Now(); sqlite3_bind_text(stmt_magroup_add, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_add, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_int64(stmt_magroup_add, 3, sort); sqlite3_bind_int64(stmt_magroup_add, 4, now); sqlite3_bind_int64(stmt_magroup_add, 5, now);
-		sqlite3_step(stmt_magroup_add); int64 newId = sqlite3_last_insert_rowid(G_DB); sqlite3_reset(stmt_magroup_add); xvoUnref(tblForm);
+		bool written = DB_Write(stmt_magroup_add, true);
+		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
+		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		ReloadCache_MemberAuthGroup();
 	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
@@ -593,15 +605,20 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 		int64 id = xvoTableGetInt(tblForm, "id", 2); str name = xvoTableGetText(tblForm, "name", 4); str desc = xvoTableGetText(tblForm, "desc", 4); int64 sort = xvoTableGetInt(tblForm, "sort", 4);
 		xtime now = XA_Now(); sqlite3_bind_text(stmt_magroup_put, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_put, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_int64(stmt_magroup_put, 3, sort); sqlite3_bind_int64(stmt_magroup_put, 4, now); sqlite3_bind_int64(stmt_magroup_put, 5, id);
-		sqlite3_step(stmt_magroup_put); sqlite3_reset(stmt_magroup_put); xvoUnref(tblForm);
+		bool written = DB_Write(stmt_magroup_put, true);
+		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类更新成功！\"}", 0); ReloadCache_MemberAuthGroup();
 	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
 		char sID[24]; xsReqQueryValue(objReq, "id", sID, sizeof(sID)); int64 id = xrtStrToI64(sID);
 		if ( id > 1 ) {
-			sqlite3_bind_int64(stmt_magroup_sum, 1, id); int64 authCount = 0;
-			if ( sqlite3_step(stmt_magroup_sum) == SQLITE_ROW ) authCount = sqlite3_column_int64(stmt_magroup_sum, 0); sqlite3_reset(stmt_magroup_sum);
-			if ( authCount > 0 ) { xtime now = XA_Now(); sqlite3_bind_int64(stmt_magroup_mov, 1, now); sqlite3_bind_int64(stmt_magroup_mov, 2, id); sqlite3_step(stmt_magroup_mov); sqlite3_reset(stmt_magroup_mov); }
-			xtime now = XA_Now(); sqlite3_bind_int64(stmt_magroup_del, 1, now); sqlite3_bind_int64(stmt_magroup_del, 2, id); sqlite3_step(stmt_magroup_del); sqlite3_reset(stmt_magroup_del);
+			xtime now = XA_Now();
+			sqlite3_bind_int64(stmt_magroup_mov, 1, now);
+			sqlite3_bind_int64(stmt_magroup_mov, 2, id);
+			sqlite3_bind_int64(stmt_magroup_del, 1, now);
+			sqlite3_bind_int64(stmt_magroup_del, 2, id);
+			bool written = DB_MoveAndDelete(stmt_magroup_mov, stmt_magroup_del);
+			if (ReplyIfWriteFailed(objResp, written)) return;
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类删除成功！\"}", 0); ReloadCache_MemberAuthGroup();
 		} else if ( id == 1 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能删除默认权限分类！\"}", 0); }
 		else { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的权限分类ID\"}", 0); }
@@ -706,7 +723,10 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		xtime now = XA_Now(); sqlite3_bind_int64(stmt_mauth_add, 1, groupID); sqlite3_bind_text(stmt_mauth_add, 2, name, -1, NULL);
 		sqlite3_bind_text(stmt_mauth_add, 3, desc ? desc : (str)"", -1, NULL); sqlite3_bind_int64(stmt_mauth_add, 4, sort);
 		sqlite3_bind_int64(stmt_mauth_add, 5, now); sqlite3_bind_int64(stmt_mauth_add, 6, now);
-		sqlite3_step(stmt_mauth_add); int64 newId = sqlite3_last_insert_rowid(G_DB); sqlite3_reset(stmt_mauth_add); xvoUnref(tblForm);
+		bool written = DB_Write(stmt_mauth_add, true);
+		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
+		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分组添加成功！\", \"data\": {\"id\": %lld}}", newId);
 		ReloadCache_MemberAuth(); ReloadCache_MemberAuthGroup(); MemberAuth_ReloadCache();
 	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
@@ -717,16 +737,21 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		xtime now = XA_Now(); sqlite3_bind_int64(stmt_mauth_put, 1, groupID); sqlite3_bind_text(stmt_mauth_put, 2, name, -1, NULL);
 		sqlite3_bind_text(stmt_mauth_put, 3, desc ? desc : (str)"", -1, NULL); sqlite3_bind_int64(stmt_mauth_put, 4, sort);
 		sqlite3_bind_int64(stmt_mauth_put, 5, now); sqlite3_bind_int64(stmt_mauth_put, 6, id);
-		sqlite3_step(stmt_mauth_put); sqlite3_reset(stmt_mauth_put); xvoUnref(tblForm);
+		bool written = DB_Write(stmt_mauth_put, true);
+		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分组更新成功！\"}", 0);
 		ReloadCache_MemberAuth(); ReloadCache_MemberAuthGroup(); MemberAuth_ReloadCache();
 	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
 		char sID[24]; xsReqQueryValue(objReq, "id", sID, sizeof(sID)); int64 id = xrtStrToI64(sID);
 		if ( id > 1 ) {
-			sqlite3_bind_int64(stmt_mauth_sum, 1, id); int64 urisCount = 0;
-			if ( sqlite3_step(stmt_mauth_sum) == SQLITE_ROW ) urisCount = sqlite3_column_int64(stmt_mauth_sum, 0); sqlite3_reset(stmt_mauth_sum);
-			if ( urisCount > 0 ) { xtime now = XA_Now(); sqlite3_bind_int64(stmt_mauth_mov, 1, now); sqlite3_bind_int64(stmt_mauth_mov, 2, id); sqlite3_step(stmt_mauth_mov); sqlite3_reset(stmt_mauth_mov); }
-			xtime now = XA_Now(); sqlite3_bind_int64(stmt_mauth_del, 1, now); sqlite3_bind_int64(stmt_mauth_del, 2, id); sqlite3_step(stmt_mauth_del); sqlite3_reset(stmt_mauth_del);
+			xtime now = XA_Now();
+			sqlite3_bind_int64(stmt_mauth_mov, 1, now);
+			sqlite3_bind_int64(stmt_mauth_mov, 2, id);
+			sqlite3_bind_int64(stmt_mauth_del, 1, now);
+			sqlite3_bind_int64(stmt_mauth_del, 2, id);
+			bool written = DB_MoveAndDelete(stmt_mauth_mov, stmt_mauth_del);
+			if (ReplyIfWriteFailed(objResp, written)) return;
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分组删除成功！\"}", 0);
 			ReloadCache_MemberAuth(); ReloadCache_MemberAuthGroup(); MemberAuth_ReloadCache();
 		} else if ( id == 1 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能删除默认权限分组！\"}", 0); }

@@ -58,6 +58,22 @@ static void Session_Prune(xvalue* sessions)
 	}
 	xrtValueRelease(expired);
 }
+/* 删除账号成功后撤销该账号的所有登录。先标记再清理，避免遍历时删除键；
+ * 即使清理临时分配失败，Acquire 也会拒绝已标记会话。当前请求仍持有引用。 */
+static void Session_RevokeAccount(bool admin, int64 account_id)
+{
+	xvalue* sessions = admin ? G_AdminSessions : G_MemberSessions;
+	xvalueiter it = {0}; xvaluekey key; xvalue* session;
+	if (account_id <= 0) return;
+	if (xrtValueIterBegin(sessions, &it)) {
+		while ((session = xrtValueIterNext(&it, &key))) {
+			if (xvoTableGetInt(session, "id", 2) == account_id)
+				xvoTableSetInt(session, "_expireTime", 11, -1);
+		}
+		xrtValueIterEnd(&it);
+	}
+	Session_Prune(sessions);
+}
 static void Session_Tick(void* unused)
 {
 	(void)unused;

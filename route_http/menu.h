@@ -186,11 +186,10 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int64(stmt_menu_add, 10, now);
 		sqlite3_bind_int64(stmt_menu_add, 11, now);
 		
-		int iRet = sqlite3_step(stmt_menu_add);
-		sqlite3_reset(stmt_menu_add);
+		bool written = DB_Write(stmt_menu_add, true);
 		xvoUnref(tblBody);
 		
-		if ( iRet == SQLITE_DONE ) {
+		if ( written ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单添加成功\"}", 0);
 		} else {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单添加失败\"}", 0);
@@ -251,11 +250,10 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int64(stmt_menu_put, 10, now);
 		sqlite3_bind_int(stmt_menu_put, 11, iID);
 		
-		int iRet = sqlite3_step(stmt_menu_put);
-		sqlite3_reset(stmt_menu_put);
+		bool written = DB_Write(stmt_menu_put, true);
 		xvoUnref(tblBody);
 		
-		if ( iRet == SQLITE_DONE ) {
+		if ( written ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单更新成功\"}", 0);
 		} else {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单更新失败\"}", 0);
@@ -285,10 +283,9 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int64(stmt_menu_del, 1, now);
 		sqlite3_bind_int(stmt_menu_del, 2, iID);
 		
-		int iRet = sqlite3_step(stmt_menu_del);
-		sqlite3_reset(stmt_menu_del);
+		bool written = DB_Write(stmt_menu_del, true);
 		
-		if ( iRet == SQLITE_DONE ) {
+		if ( written ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单删除成功\"}", 0);
 		} else {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单删除失败\"}", 0);

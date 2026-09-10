@@ -53,6 +53,8 @@ python tests/smoke.py --protected-entry
 
 测试默认监听 `127.0.0.1:19081`，使用 `tests/.runtime/` 下的独立数据库副本和临时账号，不写入根目录主库。也会校验 832 个 v1 页面、模板、静态资源及插件资产的 SHA-256。测试专用 URI 只存在于 `tests/host.c`，正式入口不包含它们。
 
+`tests/write_regression.py` 随上述测试自动执行，覆盖管理端写入失败、零影响行、失败后重试、删除账号撤销所有会话，以及权限关联迁移和余额流水的事务回滚；故障注入仅作用于测试库。
+
 `--port` 可换端口；`--keep-running` 可保留隔离预览实例，并输出 PID 和路径。预览账号仅属于测试库：`migration_smoke` / `Temporary-test-only-9081`；不要把测试入口或测试目录用于部署。默认测试结束会停止自己启动的 xs，保留日志便于排错。
 
 详细的范围、兼容约定和后续接入顺序见 [迁移记录](docs/migration.md)。

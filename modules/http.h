@@ -140,3 +140,12 @@ static int xsHttpReplyFormat(XS_ResponseObject req, int code, const char* header
 	xrtFree(text);
 	return result;
 }
+
+/* 管理端沿用 HTTP 200 + result/message 契约；失败时不返回旧记录 ID。 */
+static bool ReplyIfWriteFailed(XS_ResponseObject resp, bool written)
+{
+	if (written) return false;
+	xsHttpReplyAuto(resp, 200, "Content-Type: application/json; charset=utf-8\r\n",
+		"{\"result\":false,\"message\":\"数据库写入失败或记录不存在！\"}", 0);
+	return true;
+}

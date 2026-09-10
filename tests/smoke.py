@@ -17,6 +17,7 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from write_regression import checks as write_checks
 
 ROOT = Path(__file__).resolve().parents[1]
 USER = 'migration_smoke'
@@ -232,6 +233,7 @@ def checks(port, target, protected=False):
     with ThreadPoolExecutor(max_workers=8) as pool:
         list(pool.map(parallel_read, range(40)))
     print('PASS concurrent reads with shared legacy SQL statements')
+    write_checks(port, target, cookie, login_path, request, client_hash, PASSWORD)
     status, headers, body = request(port, 'GET', '/admin/logout', cookie=cookie)
     assert status == 302 and 'Max-Age=0' in headers.get('Set-Cookie', ''), (status, headers)
     status, headers, body = request(port, 'GET', '/admin', cookie=cookie)

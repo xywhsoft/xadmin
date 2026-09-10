@@ -232,13 +232,12 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	sqlite3_bind_int64(stmt_member_add, 12, now);
 	sqlite3_bind_int64(stmt_member_add, 13, now);
 	
-	int rc = sqlite3_step(stmt_member_add);
-	sqlite3_reset(stmt_member_add);
+	bool written = DB_Write(stmt_member_add, true);
 	
 	xrtFree(sSalt);
 	xrtFree(sPwdHash);
 	
-	if ( rc == SQLITE_DONE ) {
+	if ( written ) {
 		int64 newId = sqlite3_last_insert_rowid(G_DB);
 		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"注册成功\",\"data\":{\"id\":%lld}}", newId);
 	} else {
@@ -343,10 +342,9 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 		sqlite3_bind_int64(stmt_member_put, 8, now);
 		sqlite3_bind_int64(stmt_member_put, 9, iMemberId);
 		
-		int rc = sqlite3_step(stmt_member_put);
-		sqlite3_reset(stmt_member_put);
+		bool written = DB_Write(stmt_member_put, true);
 		
-		if ( rc == SQLITE_DONE ) {
+		if ( written ) {
 			// 更新 Session 中的昵称
 			if ( sNickname ) {
 				xvoTableSetText(objSession, "nickname", 8, sNickname, 0, FALSE);
@@ -430,13 +428,12 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	sqlite3_bind_int64(stmt_member_pwd, 3, now);
 	sqlite3_bind_int64(stmt_member_pwd, 4, iMemberId);
 	
-	int rc = sqlite3_step(stmt_member_pwd);
-	sqlite3_reset(stmt_member_pwd);
+	bool written = DB_Write(stmt_member_pwd, true);
 	
 	xrtFree(sNewSalt);
 	xrtFree(sNewPwdHash);
 	
-	if ( rc == SQLITE_DONE ) {
+	if ( written ) {
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"密码修改成功\"}", 0);
 	} else {
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":500,\"msg\":\"密码修改失败\"}", 0);

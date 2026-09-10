@@ -219,12 +219,12 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_user_add, 5, 0); // authLevel 默认�?0
 		sqlite3_bind_int64(stmt_user_add, 6, now);
 		sqlite3_bind_int64(stmt_user_add, 7, now);
-		sqlite3_step(stmt_user_add);
-		int64 newId = sqlite3_last_insert_rowid(G_DB);
-		sqlite3_reset(stmt_user_add);
+		bool written = DB_Write(stmt_user_add, true);
+		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
 		xrtFree(sSalt);
 		xrtFree(sPwdHash);
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息和新创建的ID
 		xvalue* tblRet = xvoCreateTable();
@@ -261,9 +261,9 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_user_put, 2, authLevel);
 		sqlite3_bind_int64(stmt_user_put, 3, now);
 		sqlite3_bind_int64(stmt_user_put, 4, id);
-		sqlite3_step(stmt_user_put);
-		sqlite3_reset(stmt_user_put);
+		bool written = DB_Write(stmt_user_put, true);
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户更新成功！\"}", 0);
@@ -278,8 +278,9 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		if ( id > 0 ) {
 			// 执行软删�?
 			sqlite3_bind_int64(stmt_user_del, 1, id);
-			sqlite3_step(stmt_user_del);
-			sqlite3_reset(stmt_user_del);
+			bool written = DB_Write(stmt_user_del, true);
+			if (ReplyIfWriteFailed(objResp, written)) return;
+			Session_RevokeAccount(true, id);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户删除成功！\"}", 0);
 		} else {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的用户ID\"}", 0);
@@ -333,12 +334,12 @@ void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, X
 		sqlite3_bind_text(stmt_user_pwd, 2, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_user_pwd, 3, now);
 		sqlite3_bind_int64(stmt_user_pwd, 4, id);
-		sqlite3_step(stmt_user_pwd);
-		sqlite3_reset(stmt_user_pwd);
+		bool written = DB_Write(stmt_user_pwd, true);
 		
 		xrtFree(sSalt);
 		xrtFree(sPwdHash);
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"密码重置成功！\"}", 0);
@@ -576,10 +577,10 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_role_add, 4, authLevel);
 		sqlite3_bind_int64(stmt_role_add, 5, now);
 		sqlite3_bind_int64(stmt_role_add, 6, now);
-		sqlite3_step(stmt_role_add);
-		int64 newId = sqlite3_last_insert_rowid(G_DB);
-		sqlite3_reset(stmt_role_add);
+		bool written = DB_Write(stmt_role_add, true);
+		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息和新创建的ID
 		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"角色添加成功！\", \"data\": {\"id\": %lld}}", newId);
@@ -613,9 +614,9 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_role_put, 4, authLevel);
 		sqlite3_bind_int64(stmt_role_put, 5, now);
 		sqlite3_bind_int64(stmt_role_put, 6, id);
-		sqlite3_step(stmt_role_put);
-		sqlite3_reset(stmt_role_put);
+		bool written = DB_Write(stmt_role_put, true);
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"角色更新成功！\"}", 0);
@@ -644,8 +645,8 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			} else {
 				// 没有关联的用户，可以删除
 				sqlite3_bind_int64(stmt_role_del, 1, id);
-				sqlite3_step(stmt_role_del);
-				sqlite3_reset(stmt_role_del);
+				bool written = DB_Write(stmt_role_del, true);
+				if (ReplyIfWriteFailed(objResp, written)) return;
 				xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"角色删除成功！\"}", 0);
 			}
 			
@@ -840,10 +841,10 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		sqlite3_bind_int64(stmt_group_add, 3, sort);
 		sqlite3_bind_int64(stmt_group_add, 4, now);
 		sqlite3_bind_int64(stmt_group_add, 5, now);
-		sqlite3_step(stmt_group_add);
-		int64 newId = sqlite3_last_insert_rowid(G_DB);
-		sqlite3_reset(stmt_group_add);
+		bool written = DB_Write(stmt_group_add, true);
+		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息和新创建的ID
 		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类添加成功！\", \"data\": {\"id\": %lld}}", newId);
@@ -871,9 +872,9 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		sqlite3_bind_int64(stmt_group_put, 3, sort);
 		sqlite3_bind_int64(stmt_group_put, 4, now);
 		sqlite3_bind_int64(stmt_group_put, 5, id);
-		sqlite3_step(stmt_group_put);
-		sqlite3_reset(stmt_group_put);
+		bool written = DB_Write(stmt_group_put, true);
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类更新成功！\"}", 0);
@@ -890,22 +891,10 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		if ( id > 1 ) {
 			
 			// 有关联的URI权限，将他们移入未分�?
-			int64 iCount = 0;
-			sqlite3_bind_int64(stmt_group_sum, 1, id);
-			while ( sqlite3_step(stmt_group_sum) == SQLITE_ROW ) {
-				iCount = sqlite3_column_int64(stmt_group_sum, 0);
-			}
-			sqlite3_reset(stmt_group_sum);
-			if ( iCount > 0 ) {
-				sqlite3_bind_int64(stmt_group_mov, 1, id);
-				sqlite3_step(stmt_group_mov);
-				sqlite3_reset(stmt_group_mov);
-			}
-			
-			// 删除权限分类
+			sqlite3_bind_int64(stmt_group_mov, 1, id);
 			sqlite3_bind_int64(stmt_group_del, 1, id);
-			sqlite3_step(stmt_group_del);
-			sqlite3_reset(stmt_group_del);
+			bool written = DB_MoveAndDelete(stmt_group_mov, stmt_group_del);
+			if (ReplyIfWriteFailed(objResp, written)) return;
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限分类删除成功！\"}", 0);
 			
 			// 刷新权限分类缓存
@@ -1114,10 +1103,10 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_auth_add, 4, sort);
 		sqlite3_bind_int64(stmt_auth_add, 5, now);
 		sqlite3_bind_int64(stmt_auth_add, 6, now);
-		sqlite3_step(stmt_auth_add);
-		int64 newId = sqlite3_last_insert_rowid(G_DB);
-		sqlite3_reset(stmt_auth_add);
+		bool written = DB_Write(stmt_auth_add, true);
+		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息和新创建的ID
 		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限组添加成功！\", \"data\": {\"id\": %lld}}", newId);
@@ -1148,9 +1137,9 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_auth_put, 4, sort);
 		sqlite3_bind_int64(stmt_auth_put, 5, now);
 		sqlite3_bind_int64(stmt_auth_put, 6, id);
-		sqlite3_step(stmt_auth_put);
-		sqlite3_reset(stmt_auth_put);
+		bool written = DB_Write(stmt_auth_put, true);
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限组更新成功！\"}", 0);
@@ -1168,22 +1157,10 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		if ( id > 1 ) {
 			
 			// 有关联的URI权限，将他们移入未分�?
-			int64 iCount = 0;
-			sqlite3_bind_int64(stmt_auth_sum, 1, id);
-			while ( sqlite3_step(stmt_auth_sum) == SQLITE_ROW ) {
-				iCount = sqlite3_column_int64(stmt_auth_sum, 0);
-			}
-			sqlite3_reset(stmt_auth_sum);
-			if ( iCount > 0 ) {
-				sqlite3_bind_int64(stmt_auth_mov, 1, id);
-				sqlite3_step(stmt_auth_mov);
-				sqlite3_reset(stmt_auth_mov);
-			}
-			
-			// 删除权限�?
+			sqlite3_bind_int64(stmt_auth_mov, 1, id);
 			sqlite3_bind_int64(stmt_auth_del, 1, id);
-			sqlite3_step(stmt_auth_del);
-			sqlite3_reset(stmt_auth_del);
+			bool written = DB_MoveAndDelete(stmt_auth_mov, stmt_auth_del);
+			if (ReplyIfWriteFailed(objResp, written)) return;
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"权限组删除成功！\"}", 0);
 			
 			// 刷新权限分组 + 权限分类缓存
@@ -1377,7 +1354,6 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		}
 		int64 id = xvoTableGetInt(tblForm, "id", 2);
 		int64 authID = xvoTableGetInt(tblForm, "authID", 6);
-		str uri = xvoTableGetText(tblForm, "uri", 3);
 		str desc = xvoTableGetText(tblForm, "desc", 4);
 		int64 sort = xvoTableGetInt(tblForm, "sort", 4);
 		// �?个字�?
@@ -1396,20 +1372,14 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_uris_put, 7, keepActive);
 		sqlite3_bind_int64(stmt_uris_put, 8, XA_Now());
 		sqlite3_bind_int64(stmt_uris_put, 9, id);
-		sqlite3_step(stmt_uris_put);
-		sqlite3_reset(stmt_uris_put);
+		bool written = DB_Write(stmt_uris_put, true);
 		xvoUnref(tblForm);
+		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 更新路由表和权限缓存
-		RouteInfo* pInfo = XA_DictGet(G_StaticRouteTableHTTP, uri, 0);
-		if ( pInfo ) {
-			pInfo->AuthID = authID;
-			pInfo->bAdmin = isBackend ? TRUE : FALSE;
-			pInfo->bAuth = needAuth ? TRUE : FALSE;
-			pInfo->bPutLog = needLog ? TRUE : FALSE;
-			pInfo->bActive = keepActive ? TRUE : FALSE;
-		}
+		Auth_UpdateURIS();
 		Auth_ReloadCache();
+		MemberAuth_ReloadCache();
 		
 		// 响应请求
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"接口信息修改成功！\"}", 0);

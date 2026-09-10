@@ -300,11 +300,12 @@ void Member_Unit()
 // 返回: TRUE=成功, FALSE=失败
 bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, str operator)
 {
+	if (!DB_BeginWrite()) return FALSE;
 	// 获取当前余额
 	sqlite3_bind_int64(stmt_member_get, 1, memberId);
 	if (sqlite3_step(stmt_member_get) != SQLITE_ROW) {
 		sqlite3_reset(stmt_member_get);
-		return FALSE;
+		return DB_EndWrite(false);
 	}
 	int64 currentBalance = sqlite3_column_int64(stmt_member_get, 4); // balance 字段
 	sqlite3_reset(stmt_member_get);
@@ -312,7 +313,7 @@ bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, st
 	// 计算新余�?
 	int64 newBalance = currentBalance + amount;
 	if (newBalance < 0) {
-		return FALSE; // 余额不足
+		return DB_EndWrite(false); // 余额不足
 	}
 	
 	int64 now = XA_Now();
@@ -321,12 +322,7 @@ bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, st
 	sqlite3_bind_int64(stmt_member_balance, 1, newBalance);
 	sqlite3_bind_int64(stmt_member_balance, 2, now);
 	sqlite3_bind_int64(stmt_member_balance, 3, memberId);
-	int rc = sqlite3_step(stmt_member_balance);
-	sqlite3_reset(stmt_member_balance);
-	
-	if (rc != SQLITE_DONE) {
-		return FALSE;
-	}
+	if (!DB_Write(stmt_member_balance, true)) return DB_EndWrite(false);
 	
 	// 添加余额变动日志
 	sqlite3_bind_int64(stmt_mbalance_add, 1, memberId);
@@ -336,10 +332,7 @@ bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, st
 	sqlite3_bind_text(stmt_mbalance_add, 5, remark ? remark : (str)"", -1, NULL);
 	sqlite3_bind_text(stmt_mbalance_add, 6, operator ? operator : (str)"", -1, NULL);
 	sqlite3_bind_int64(stmt_mbalance_add, 7, now);
-	rc = sqlite3_step(stmt_mbalance_add);
-	sqlite3_reset(stmt_mbalance_add);
-	
-	return rc == SQLITE_DONE;
+	return DB_EndWrite(DB_Write(stmt_mbalance_add, true));
 }
 
 
