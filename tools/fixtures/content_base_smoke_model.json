@@ -1,0 +1,24 @@
+{
+  "xid": "qa.content_base_smoke",
+  "name": "qa.content_base_smoke",
+  "title": "QA Content Base Smoke",
+  "namespace": "qa",
+  "description": "Base-only model used by generated content runtime smoke.",
+  "tableName": "qa_content_base_smoke",
+  "generatedPluginXid": "cms.qa_content_base_smoke",
+  "fields": [
+    {"name": "title", "title": "Title", "type": "text", "required": true, "showInList": true},
+    {"name": "summary", "title": "Summary", "type": "textarea", "showInList": true},
+    {"name": "body", "title": "Body", "type": "editor_md", "showInList": false},
+    {"name": "status", "title": "Status", "type": "select", "options": "0:Draft,1:Published", "showInList": true}
+  ],
+  "capabilities": [],
+  "pages": {
+    "displayGroups": [],
+    "fieldGroups": []
+  },
+  "policies": {
+    "smoke": true,
+    "baseOnly": true
+  }
+}

@@ -1,0 +1,878 @@
+{
+	"abilityPacks":	[
+		{
+			"instanceConfig":	{
+				"moderation":	"manual",
+				"enabled":	true
+			},
+			"mount":	{},
+			"description":	"提供公开评论、评论审核、回复树、评论计数和后台评论管理能力。",
+			"title":	"评论管理",
+			"version":	"1.0.0",
+			"packId":	"content.comment",
+			"manifest":	{
+				"hooks":	"hooks.json",
+				"sort":	100,
+				"symbols":	"symbols.json",
+				"acceptanceApiPath":	"/api/plugin/{pluginXid}/comment/list?contentId=1",
+				"contracts":	"contracts.json",
+				"patches":	"patches.json",
+				"advisorMessage":	"能力包 content.comment：会启用评论存储、公开提交和审核路由，请确认审核方式和反垃圾策略。",
+				"description":	"提供公开评论、评论审核、回复树、评论计数和后台评论管理能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_comment",
+				"title":	"评论管理",
+				"status":	"active",
+				"update":	{
+					"canUpdate":	true,
+					"packageId":	"content.comment",
+					"canUninstall":	false,
+					"channel":	"official"
+				},
+				"requires":	{
+					"features":	[],
+					"plugins":	[],
+					"packs":	[]
+				},
+				"config":	{
+					"instanceForm":	"instance.xform.json",
+					"globalForm":	"global.xform.json"
+				},
+				"effects":	"effects.json",
+				"name":	"comment",
+				"version":	"1.0.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.comment",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{},
+			"mount":	{},
+			"description":	"提供标签管理、内容标签绑定、标签查询接口和后台标签页面能力。",
+			"title":	"标签管理",
+			"version":	"1.0.0",
+			"packId":	"content.tag",
+			"manifest":	{
+				"hooks":	"hooks.json",
+				"sort":	200,
+				"symbols":	"symbols.json",
+				"acceptanceApiPath":	"/api/plugin/{pluginXid}/tag/list",
+				"contracts":	"contracts.json",
+				"patches":	"patches.json",
+				"advisorMessage":	"能力包 content.tag：会启用标签分类和绑定路由，请确认标签规范化和重复处理策略。",
+				"description":	"提供标签管理、内容标签绑定、标签查询接口和后台标签页面能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_tag",
+				"title":	"标签管理",
+				"status":	"active",
+				"update":	{
+					"canUpdate":	true,
+					"packageId":	"content.tag",
+					"canUninstall":	false,
+					"channel":	"official"
+				},
+				"requires":	{
+					"features":	[],
+					"plugins":	[],
+					"packs":	[]
+				},
+				"config":	{
+					"instanceForm":	"instance.xform.json",
+					"globalForm":	"global.xform.json"
+				},
+				"effects":	"effects.json",
+				"name":	"tag",
+				"version":	"1.0.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.tag",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{},
+			"mount":	{},
+			"description":	"提供专题管理、内容编排、专题公开接口和后台专题页面能力。",
+			"title":	"专题管理",
+			"version":	"1.0.0",
+			"packId":	"content.topic",
+			"manifest":	{
+				"hooks":	"hooks.json",
+				"sort":	300,
+				"symbols":	"symbols.json",
+				"acceptanceApiPath":	"/api/plugin/{pluginXid}/topic/list",
+				"contracts":	"contracts.json",
+				"patches":	"patches.json",
+				"advisorMessage":	"能力包 content.topic：会启用专题聚合能力，请确认专题 URL、排序和归属规则。",
+				"description":	"提供专题管理、内容编排、专题公开接口和后台专题页面能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_topic",
+				"title":	"专题管理",
+				"status":	"active",
+				"update":	{
+					"canUpdate":	true,
+					"packageId":	"content.topic",
+					"canUninstall":	false,
+					"channel":	"official"
+				},
+				"requires":	{
+					"features":	[],
+					"plugins":	[],
+					"packs":	[]
+				},
+				"config":	{
+					"instanceForm":	"instance.xform.json",
+					"globalForm":	"global.xform.json"
+				},
+				"effects":	"effects.json",
+				"name":	"topic",
+				"version":	"1.0.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.topic",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{},
+			"mount":	{},
+			"description":	"提供敏感词词库、过滤日志，以及内容保存、发布和评论提交过滤能力。",
+			"title":	"敏感词管理",
+			"version":	"1.0.0",
+			"packId":	"content.sensitive",
+			"manifest":	{
+				"hooks":	"hooks.json",
+				"sort":	400,
+				"symbols":	"symbols.json",
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/pack/list?pack=content.sensitive",
+				"contracts":	"contracts.json",
+				"patches":	"patches.json",
+				"advisorMessage":	"能力包 content.sensitive：会扫描写入内容，请确认过滤字段、误判处理和审计策略。",
+				"description":	"提供敏感词词库、过滤日志，以及内容保存、发布和评论提交过滤能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_sensitive",
+				"title":	"敏感词管理",
+				"status":	"active",
+				"update":	{
+					"canUpdate":	true,
+					"packageId":	"content.sensitive",
+					"canUninstall":	false,
+					"channel":	"official"
+				},
+				"requires":	{
+					"features":	[],
+					"plugins":	[],
+					"packs":	[]
+				},
+				"config":	{
+					"instanceForm":	"instance.xform.json",
+					"globalForm":	"global.xform.json"
+				},
+				"effects":	"effects.json",
+				"name":	"sensitive",
+				"version":	"1.0.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.sensitive",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{},
+			"mount":	{},
+			"description":	"提供静态输出规则、生成任务、增量生成、访问受限壳页面和清理能力。",
+			"title":	"静态化管理",
+			"version":	"1.0.0",
+			"packId":	"content.static",
+			"manifest":	{
+				"hooks":	"hooks.json",
+				"sort":	500,
+				"symbols":	"symbols.json",
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/static/rule/list",
+				"contracts":	"contracts.json",
+				"patches":	"patches.json",
+				"advisorMessage":	"能力包 content.static：会写入静态化产物，请确认输出目录、清理策略和刷新触发条件。",
+				"description":	"提供静态输出规则、生成任务、增量生成、访问受限壳页面和清理能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_static",
+				"title":	"静态化管理",
+				"status":	"active",
+				"update":	{
+					"canUpdate":	true,
+					"packageId":	"content.static",
+					"canUninstall":	false,
+					"channel":	"official"
+				},
+				"requires":	{
+					"features":	["task"],
+					"plugins":	[],
+					"packs":	[]
+				},
+				"config":	{
+					"instanceForm":	"instance.xform.json",
+					"globalForm":	"global.xform.json"
+				},
+				"effects":	"effects.json",
+				"name":	"static",
+				"version":	"1.0.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.static",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{},
+			"mount":	{},
+			"description":	"提供点赞、取消点赞、去重计数、状态查询和后台点赞统计能力。",
+			"title":	"点赞管理",
+			"version":	"1.0.0",
+			"packId":	"content.like",
+			"manifest":	{
+				"hooks":	"hooks.json",
+				"sort":	600,
+				"symbols":	"symbols.json",
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/like/counter/list",
+				"contracts":	"contracts.json",
+				"patches":	"patches.json",
+				"advisorMessage":	"能力包 content.like：会记录互动计数，请确认去重策略、访客标识和滥用边界。",
+				"description":	"提供点赞、取消点赞、去重计数、状态查询和后台点赞统计能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_like",
+				"title":	"点赞管理",
+				"status":	"active",
+				"update":	{
+					"canUpdate":	true,
+					"packageId":	"content.like",
+					"canUninstall":	false,
+					"channel":	"official"
+				},
+				"requires":	{
+					"features":	[],
+					"plugins":	[],
+					"packs":	[]
+				},
+				"config":	{
+					"instanceForm":	"instance.xform.json",
+					"globalForm":	"global.xform.json"
+				},
+				"effects":	"effects.json",
+				"sourceFiles":	["source/content_like_pack.c"],
+				"name":	"like",
+				"version":	"1.0.0",
+				"includeFiles":	["include/content_like_pack.h"],
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.like",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{},
+			"mount":	{},
+			"description":	"提供访问计数、访问日志、排行接口、日趋势和后台统计看板能力。",
+			"title":	"访问统计",
+			"version":	"1.0.0",
+			"packId":	"content.view-stat",
+			"manifest":	{
+				"hooks":	"hooks.json",
+				"sort":	700,
+				"symbols":	"symbols.json",
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/view/counter/list",
+				"contracts":	"contracts.json",
+				"patches":	"patches.json",
+				"advisorMessage":	"能力包 content.view-stat：会记录访问日志和计数，请确认访客标识、隐私边界和日志保留策略。",
+				"description":	"提供访问计数、访问日志、排行接口、日趋势和后台统计看板能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_view_stat",
+				"title":	"访问统计",
+				"status":	"active",
+				"update":	{
+					"canUpdate":	true,
+					"packageId":	"content.view-stat",
+					"canUninstall":	false,
+					"channel":	"official"
+				},
+				"requires":	{
+					"features":	["task"],
+					"plugins":	[],
+					"packs":	[]
+				},
+				"config":	{
+					"instanceForm":	"instance.xform.json",
+					"globalForm":	"global.xform.json"
+				},
+				"effects":	"effects.json",
+				"name":	"view-stat",
+				"version":	"1.0.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.view-stat",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"descriptionTemplate":	"",
+				"maxRequestBytes":	65536,
+				"categoryDescriptionTemplate":	"{categoryDescription}",
+				"maxListRows":	500,
+				"titleTemplate":	"",
+				"canonicalTemplate":	"",
+				"categoryCanonicalTemplate":	"/plugin/{pluginXid}?categoryId={categoryId}",
+				"keywordsTemplate":	"",
+				"categoryKeywordsTemplate":	"{categoryTitle},{siteName}",
+				"categoryTitleTemplate":	"{categoryTitle} - {siteName}"
+			},
+			"mount":	{},
+			"description":	"为内容、列表、栏目和详情页提供 SEO 元信息能力。",
+			"title":	"搜索引擎优化 SEO",
+			"version":	"0.1.0",
+			"packId":	"content.seo",
+			"manifest":	{
+				"sort":	200,
+				"acceptanceApiPath":	"/api/plugin/{pluginXid}/seo/meta?id=1",
+				"advisorMessage":	"能力包 content.seo：会启用 SEO 字段和公开 meta 接口，请确认标题、关键词、描述与主题的职责边界。",
+				"description":	"为内容、列表、栏目和详情页提供 SEO 元信息能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_seo",
+				"title":	"搜索引擎优化 SEO",
+				"status":	"active",
+				"name":	"seo",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.seo",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRepairRows":	500,
+				"maxPublicLookupRows":	5000,
+				"maxRequestBytes":	65536,
+				"maxHistoryRows":	200,
+				"enablePrettySlugRoute":	true,
+				"slugRoutePrefix":	"/{pluginXid}"
+			},
+			"mount":	{},
+			"description":	"提供内容 slug、URL 规则、唯一性检查和公开 URL 解析能力。",
+			"title":	"固定链接",
+			"version":	"0.1.0",
+			"packId":	"content.slug",
+			"manifest":	{
+				"sort":	210,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/slug/check?slug=demo",
+				"advisorMessage":	"能力包 content.slug：会启用 slug 查询和漂亮 URL，请在公开上线前确认唯一性和 URL 冲突规则。",
+				"description":	"提供内容 slug、URL 规则、唯一性检查和公开 URL 解析能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_slug",
+				"title":	"固定链接",
+				"status":	"active",
+				"sourceFiles":	["source/content_slug_pack.c"],
+				"name":	"slug",
+				"version":	"0.1.0",
+				"includeFiles":	["include/content_slug_pack.h"],
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.slug",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxImportRows":	200,
+				"maxRequestBytes":	262144,
+				"maxListRows":	200,
+				"enablePrettyRedirectRoute":	true,
+				"redirectRoutePrefix":	"/{pluginXid}/r"
+			},
+			"mount":	{},
+			"description":	"提供 301/302 跳转、历史 URL 兼容和跳转命中统计能力。",
+			"title":	"跳转规则",
+			"version":	"0.1.0",
+			"packId":	"content.redirect",
+			"manifest":	{
+				"sort":	220,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/redirect/list",
+				"advisorMessage":	"能力包 content.redirect：会启用跳转规则和命中统计，请在规则提交时检查跳转环和静态资源路径冲突。",
+				"description":	"提供 301/302 跳转、历史 URL 兼容和跳转命中统计能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_redirect",
+				"title":	"跳转规则",
+				"status":	"active",
+				"name":	"redirect",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.redirect",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRequestBytes":	65536,
+				"maxSortRows":	500,
+				"maxAdminTreeRows":	1000,
+				"maxDepth":	8,
+				"maxPublicContentRows":	200,
+				"maxPublicTreeRows":	1000,
+				"maxDriftSampleRows":	10
+			},
+			"mount":	{},
+			"description":	"提供栏目树、栏目排序、栏目模板、栏目 SEO 和栏目权限能力。",
+			"title":	"栏目",
+			"version":	"0.1.0",
+			"packId":	"content.category",
+			"manifest":	{
+				"sort":	230,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/category/list",
+				"advisorMessage":	"能力包 content.category：会注册栏目路由、菜单和编辑字段，请确认该内容模型确实需要栏目树。",
+				"description":	"提供栏目树、栏目排序、栏目模板、栏目 SEO 和栏目权限能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/categories",
+				"title":	"栏目",
+				"status":	"active",
+				"name":	"category",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.category",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRequestBytes":	262144,
+				"allowedMimeTypes":	"",
+				"maxRefListRows":	300,
+				"maxListRows":	500,
+				"maxPublicRefCheckRows":	100,
+				"maxDetailMediaRows":	50,
+				"maxAssetSizeBytes":	0,
+				"serverDetectImageSize":	true,
+				"maxImageDimension":	100000,
+				"maxBatchRows":	200
+			},
+			"mount":	{},
+			"description":	"提供封面图、正文资源、资源反查和删除保护能力。",
+			"title":	"媒体资源",
+			"version":	"0.1.0",
+			"packId":	"content.media",
+			"manifest":	{
+				"sort":	240,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/media/ref/list",
+				"advisorMessage":	"能力包 content.media：会跟踪媒体资源和内容引用，请规划上传存储、删除保护和图片处理策略。",
+				"description":	"提供封面图、正文资源、资源反查和删除保护能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_media",
+				"title":	"媒体资源",
+				"status":	"active",
+				"name":	"media",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.media",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRequestBytes":	65536,
+				"maxListRows":	200,
+				"maxSnapshotsPerContent":	100
+			},
+			"mount":	{},
+			"description":	"提供版本列表、字段级差异对比和版本恢复能力。",
+			"title":	"内容版本",
+			"version":	"0.1.0",
+			"packId":	"content.revision",
+			"manifest":	{
+				"sort":	250,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/revision/list",
+				"advisorMessage":	"能力包 content.revision：会在写入时保存内容快照，请评估数据库增长和版本保留策略。",
+				"description":	"提供版本列表、字段级差异对比和版本恢复能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_revision",
+				"title":	"内容版本",
+				"status":	"active",
+				"name":	"revision",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.revision",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRequestBytes":	65536,
+				"requiredApprovals":	1,
+				"maxListRows":	200,
+				"requireDistinctApprovers":	false,
+				"defaultScheduledLimit":	100,
+				"maxReasonLength":	1000
+			},
+			"mount":	{},
+			"description":	"提供提交、审核、驳回、发布、下线和定时发布能力。",
+			"title":	"审核流程",
+			"version":	"0.1.0",
+			"packId":	"content.workflow",
+			"manifest":	{
+				"sort":	260,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/workflow/log/list",
+				"advisorMessage":	"能力包 content.workflow：会改变发布流和状态流转，请确认角色、审核动作和回滚策略。",
+				"description":	"提供提交、审核、驳回、发布、下线和定时发布能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_workflow",
+				"title":	"审核流程",
+				"status":	"active",
+				"name":	"workflow",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.workflow",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"cjkBigramWeight":	12,
+				"maxResultLimit":	100,
+				"freshnessWeight":	15,
+				"bodyWeight":	10,
+				"freshnessWindowDays":	30,
+				"termCoverageWeight":	20,
+				"maxRebuildRows":	1000,
+				"titleWeight":	100,
+				"minQueryLength":	1,
+				"exactTitleWeight":	200,
+				"prefixTitleWeight":	120,
+				"summaryWeight":	35,
+				"keywordWeight":	60,
+				"exactPhraseWeight":	50
+			},
+			"mount":	{},
+			"description":	"提供后台搜索和前台搜索能力。",
+			"title":	"内容搜索",
+			"version":	"0.1.0",
+			"packId":	"content.search",
+			"manifest":	{
+				"sort":	270,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/search/stats",
+				"advisorMessage":	"能力包 content.search：会启用前台和后台搜索，请确认可搜索字段、索引重建成本和结果可见性。",
+				"description":	"提供后台搜索和前台搜索能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_search",
+				"title":	"内容搜索",
+				"status":	"active",
+				"name":	"search",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.search",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRefreshRows":	5000,
+				"maxRssRows":	100,
+				"maxEntryListRows":	500,
+				"cacheTtlSeconds":	3600,
+				"siteUrl":	""
+			},
+			"mount":	{},
+			"description":	"提供 sitemap、RSS、robots 和增量生成能力。",
+			"title":	"站点地图",
+			"version":	"0.1.0",
+			"packId":	"content.sitemap",
+			"manifest":	{
+				"sort":	280,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/sitemap/stats",
+				"advisorMessage":	"能力包 content.sitemap：会启用 sitemap、RSS 和 robots 输出，请确认公开站点根地址和缓存策略。",
+				"description":	"提供 sitemap、RSS、robots 和增量生成能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_sitemap",
+				"title":	"站点地图",
+				"status":	"active",
+				"name":	"sitemap",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.sitemap",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxPublicRelated":	20,
+				"maxAdminListRows":	500,
+				"maxRequestBytes":	65536,
+				"tagWeight":	30,
+				"maxRebuildSources":	1000,
+				"ruleLimit":	5,
+				"topicWeight":	20,
+				"publishRefreshLimit":	20,
+				"categoryWeight":	10
+			},
+			"mount":	{},
+			"description":	"提供手工关联、规则关联和相关内容推荐能力。",
+			"title":	"相关推荐",
+			"version":	"0.1.0",
+			"packId":	"content.related",
+			"manifest":	{
+				"sort":	290,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/related/list",
+				"advisorMessage":	"能力包 content.related：会启用相关内容关系，请确认重复处理和推荐权重语义。",
+				"description":	"提供手工关联、规则关联和相关内容推荐能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_related",
+				"title":	"相关推荐",
+				"status":	"active",
+				"name":	"related",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.related",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRequestBytes":	262144,
+				"maxNotificationStatEvents":	50,
+				"ipWindowSeconds":	60,
+				"maxListRows":	500,
+				"minSubmitSeconds":	2,
+				"ipWindowLimit":	20,
+				"maxExportRows":	5000,
+				"maxSubmissionBytes":	262144,
+				"maxFields":	100
+			},
+			"mount":	{},
+			"description":	"提供内容附属表单和表单提交管理能力。",
+			"title":	"内容表单",
+			"version":	"0.1.0",
+			"packId":	"content.form",
+			"manifest":	{
+				"sort":	300,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/form/submission/list",
+				"advisorMessage":	"能力包 content.form：会接收公开提交，请配置校验、通知、保留周期和防刷策略。",
+				"description":	"提供内容附属表单和表单提交管理能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_form",
+				"title":	"内容表单",
+				"status":	"active",
+				"name":	"form",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.form",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRequestBytes":	65536,
+				"maxListRows":	500,
+				"passwordHashIterations":	200,
+				"allowQueryReadLevel":	false,
+				"maxPasswordInputBytes":	128,
+				"paidSessionKey":	"paidContentIds",
+				"maxReadLevel":	100
+			},
+			"mount":	{},
+			"description":	"提供阅读等级、会员组、付费、密码和私有内容访问控制能力。",
+			"title":	"阅读权限",
+			"version":	"0.1.0",
+			"packId":	"content.access",
+			"manifest":	{
+				"sort":	310,
+				"acceptanceApiPath":	"/api/plugin/{pluginXid}/access/check?contentId=1",
+				"advisorMessage":	"能力包 content.access：会拦截公开读取，请确认阅读等级、会员身份来源和静态页访问策略。",
+				"description":	"提供阅读等级、会员组、付费、密码和私有内容访问控制能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_access",
+				"title":	"阅读权限",
+				"status":	"active",
+				"name":	"access",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.access",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRequestBytes":	65536,
+				"defaultKeepDays":	90,
+				"maxListRows":	500,
+				"maxCleanupRows":	1000
+			},
+			"mount":	{},
+			"description":	"提供敏感内容操作审计、追踪和查询能力。",
+			"title":	"操作审计",
+			"version":	"0.1.0",
+			"packId":	"content.audit-log",
+			"manifest":	{
+				"sort":	320,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/audit-log/list",
+				"advisorMessage":	"能力包 content.audit-log：会记录敏感操作，请确认日志保留周期、隐私边界和清理策略。",
+				"description":	"提供敏感内容操作审计、追踪和查询能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_audit_log",
+				"title":	"操作审计",
+				"status":	"active",
+				"name":	"audit-log",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.audit-log",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}, {
+			"instanceConfig":	{
+				"maxRequestBytes":	1048576,
+				"maxExportRows":	1000,
+				"maxBatchRows":	200,
+				"maxJobRows":	200
+			},
+			"mount":	{},
+			"description":	"提供导入预检、失败行报告、字段选择和内容导出能力。",
+			"title":	"导入导出",
+			"version":	"0.1.0",
+			"packId":	"content.import-export",
+			"manifest":	{
+				"sort":	330,
+				"acceptanceApiPath":	"/admin/api/plugin/{pluginXid}/import-export/import/jobs",
+				"advisorMessage":	"能力包 content.import-export：会启用批量数据进出，请使用预检、字段白名单和显式确认后再导入。",
+				"description":	"提供导入预检、失败行报告、字段选择和内容导出能力。",
+				"acceptanceViewPath":	"/admin/view/plugin/{pluginXid}/pack/content_import_export",
+				"title":	"导入导出",
+				"status":	"active",
+				"name":	"import-export",
+				"version":	"0.1.0",
+				"installType":	"bundled",
+				"source":	"xadmin",
+				"formatVersion":	1,
+				"packId":	"content.import-export",
+				"protection":	{
+					"system":	true,
+					"deleteAllowed":	false,
+					"readonly":	true,
+					"disableAllowed":	true
+				},
+				"author":	"xAdmin"
+			}
+		}
+	],
+	"loadPolicy":	"enabled-packs-only",
+	"revision":	6,
+	"formatVersion":	1,
+	"model":	"cms.article"
+}

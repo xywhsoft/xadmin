@@ -5,7 +5,7 @@
 			"type": "integer",
 			"minimum": 100,
 			"maximum": 1000000,
-			"description": "Maximum log lines per task before auto-trim"
+			"description": "Maximum log lines per task before trimming"
 		},
 		"defaultRefreshInterval": {
 			"type": "integer",

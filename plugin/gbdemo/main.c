@@ -860,7 +860,6 @@ int Gb_OnStart(XAdminPluginHandle handle)
 	XAdminRouteDecl route;
 	XAdminAuthGroupDecl authGroup;
 	XAdminAuthDecl auth;
-	XAdminUriAuthDecl uriAuth;
 	XAdminEventDecl eventDecl;
 	XAdminHookDecl hookDecl;
 	int iAuthGroupId = 0;
@@ -966,16 +965,9 @@ int Gb_OnStart(XAdminPluginHandle handle)
 	route.need_auth = TRUE;
 	route.admin_only = TRUE;
 	route.auth_id = iAuthId;
+	route.description = "gbdemo admin page";
+	route.sort = 990021;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
-
-	memset(&uriAuth, 0, sizeof(uriAuth));
-	uriAuth.scope = XADMIN_AUTH_SCOPE_ADMIN;
-	uriAuth.auth_id = iAuthId;
-	uriAuth.uri = "/admin/view/plugin/gbdemo";
-	uriAuth.description = "gbdemo admin page";
-	uriAuth.sort = 990021;
-	uriAuth.need_auth = TRUE;
-	if ( XAdmin_RegisterUriAuth(handle, &uriAuth, NULL, NULL) != 0 ) return -1;
 
 	memset(&menu, 0, sizeof(menu));
 	menu.title = "Message Board";
