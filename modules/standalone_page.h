@@ -318,11 +318,13 @@ void StandalonePage_Init(void)
 	G_SitePagePath = xrtPathJoin(AppPath, "site");
 	Notify_ExecSQLIgnore("UPDATE uris SET isBackend = 0, needAuth = 0 WHERE uri = '/'");
 	{
-		static const char* siteUris[] = {"/features", "/plugins", "/capabilities", "/content-system", "/docs", "/download", "/demo"};
+		/* v1 全部 10 条公开站点 URI（含 3 条 docs 别名）；%s 两侧必须带引号 */
+		static const char* siteUris[] = {"/features", "/plugins", "/capabilities", "/content-system", "/docs",
+			"/docs/plugin", "/docs/content", "/docs/capability", "/download", "/demo"};
 		int si;
-		for (si = 0; si < 7; si++) {
+		for (si = 0; si < 10; si++) {
 			char sql[256];
-			snprintf(sql, sizeof(sql), "UPDATE uris SET isBackend = 0, needAuth = 0 WHERE uri = %s", siteUris[si]);
+			snprintf(sql, sizeof(sql), "UPDATE uris SET isBackend = 0, needAuth = 0 WHERE uri = '%s'", siteUris[si]);
 			Notify_ExecSQLIgnore(sql);
 		}
 	}

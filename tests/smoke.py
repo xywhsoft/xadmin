@@ -48,7 +48,7 @@ def fixture(port, protected=False, register_interval=0):
     base = ROOT / 'tests/.runtime'
     base.mkdir(parents=True, exist_ok=True)
     target = Path(tempfile.mkdtemp(prefix='smoke-', dir=base))
-    for name in ('wwwroot', 'page', 'template', 'options', 'forms', 'plugin_sdk', 'install', 'capability-pack', 'content'):
+    for name in ('wwwroot', 'page', 'template', 'options', 'forms', 'plugin_sdk', 'install', 'capability-pack', 'content', 'site'):
         shutil.copytree(ROOT / name, target / name)
     shutil.copytree(ROOT / 'plugin', target / 'plugin')
     shutil.copytree(ROOT / 'tests/plugins/hello-sdk', target / 'plugin/hello-sdk')

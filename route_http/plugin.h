@@ -122,7 +122,10 @@ void Request_Plugin_Enable(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		PluginRoute_SendResult(objResp, false, "缺少插件 xid");
 		return;
 	}
-	PluginRoute_SendResult(objResp, PluginHost_SetEnabled(sName, true), "插件已启用");
+	{ /* 启用含编译+启动，失败原因已打到服务端日志；消息须与结果一致 */
+		bool bOk = PluginHost_SetEnabled(sName, true);
+		PluginRoute_SendResult(objResp, bOk, bOk ? "插件已启用" : "插件启用失败（详见服务端日志）");
+	}
 }
 
 void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
@@ -144,7 +147,10 @@ void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS
 		PluginRoute_SendResult(objResp, false, "缺少插件 xid");
 		return;
 	}
-	PluginRoute_SendResult(objResp, PluginHost_SetEnabled(sName, false), "插件已禁用");
+	{ /* 禁用失败（插件不存在/启动窗口）时消息须与结果一致 */
+		bool bOk = PluginHost_SetEnabled(sName, false);
+		PluginRoute_SendResult(objResp, bOk, bOk ? "插件已禁用" : "插件禁用失败");
+	}
 }
 
 void Request_Plugin_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)

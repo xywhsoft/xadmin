@@ -190,11 +190,12 @@ static void RouteHTTP_Init(void)
 	AddStaticRouteHTTP("/admin/view/member/mail", XHTTP_METHOD_ANY, Request_View_Member_Mail, false);
 	AddStaticRouteHTTP("/admin/view/member/mail/send", XHTTP_METHOD_ANY, Request_View_Member_Mail_Send, false);
 #endif
-    { /* 前台站点路由免鉴权（覆盖 uris 表 isBackend=1 的种子默认） */
+    { /* 前台站点路由免鉴权（覆盖 uris 表 isBackend=1 的种子默认）；含 v1 的 3 条 docs 别名 */
         RouteInfo* sr;
-        const char* sp[] = {"/", "/features", "/plugins", "/capabilities", "/content-system", "/docs", "/download", "/demo"};
+        const char* sp[] = {"/", "/features", "/plugins", "/capabilities", "/content-system", "/docs",
+                            "/docs/plugin", "/docs/content", "/docs/capability", "/download", "/demo"};
         int si;
-        for (si = 0; si < 8; si++) {
+        for (si = 0; si < 11; si++) {
             sr = xrtMapGet(G_StaticRouteTableHTTP, KeyView(sp[si]));
             if (sr) { sr->bAuth = false; sr->bAdmin = false; }
         }
