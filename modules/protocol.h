@@ -49,7 +49,7 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 {
 	XAdminRequest req = {0}; char* target; char* query; RouteInfo route; RouteInfo* found;
 	bool alias; const char* lookup; xnetaddr addr; xnetstream* stream;
-	if (!G_Ready) { ReplyText(raw, 503, "xadmin initialization failed"); return XS_OK; }
+	if (!G_Ready && !G_InstallMode) { ReplyText(raw, 503, "xadmin initialization failed"); return XS_OK; }
 	req.raw = raw;
 	target = xrtStrDupView(raw->head->Target);
 	if (!target) { ReplyText(raw, 500, "out of memory"); return XS_OK; }
@@ -61,6 +61,13 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 	if (xrtNetStreamRemote(stream, &addr)) xrtNetAddrText(&addr, req.remote, sizeof(req.remote));
 	req.body = ReqBodyText(raw, &req.body_size);
 	xrtMutexLock(G_RequestLock);
+	if (G_InstallMode) {
+		/* 安装向导接管（v1 http.h 语义）：建库+业务段启动在锁内完成 */
+		Install_RequestWizard(raw->host, &req);
+		xrtMutexUnlock(G_RequestLock);
+		xrtFree(req.body); xrtFree(target);
+		return XS_OK;
+	}
 	alias = Option_AdminEntryIsMatch(req.path);
 	lookup = alias ? "/admin/login" : req.path;
 	found = RouteHTTP_Match(lookup, &req);
@@ -69,6 +76,14 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 		if (!req.replied) xsHttpReplyAuto(&req, 500, HTTP_CT_TEXT, "handler did not produce a response", 0);
 	}
 	xrtMutexUnlock(G_RequestLock);
+	if (!found) {
+		/* 路由未命中：独立页面按 URI 兜底，其次插件静态资源（均免鉴权）。
+		 * req.path 指向 target，须在两处兜底都放弃后才能释放。 */
+		bool handled = StandalonePage_Dispatch(req.path, &req)
+			|| Plugin_TryServeStatic(req.path, &req);
+		xrtFree(req.body); xrtFree(target);
+		return handled ? XS_OK : XS_FALLBACK;
+	}
 	xrtFree(req.body); xrtFree(target);
-	return found ? XS_OK : XS_FALLBACK;
+	return XS_OK;
 }

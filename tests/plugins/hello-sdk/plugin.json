@@ -1,35 +1,54 @@
 {
-	"formatVersion": 4,
-	"xid": "hello-sdk",
-	"name": "hello-sdk",
-	"title": "Hello SDK Conformance Plugin",
-	"description": "Full-capability conformance plugin for the xs3 plugin host (routes/menu/auth/event/hook/service/config/health)",
-	"version": "1.0.0",
-	"author": "xAdmin",
-	"kind": "singleton",
-	"sort": 998,
-	"runtime": {
-		"compiler": "tcc",
-		"language": "c"
-	},
-	"build": {
-		"entry": "main.c",
-		"sources": ["main.c"],
-		"includeDirs": [],
-		"libraryDirs": [],
-		"libraries": [],
-		"defines": ["XADMIN_PLUGIN=1"]
-	},
-	"compat": {
-		"minHostVersion": "4.0.0",
-		"maxHostVersion": "5.0.0",
-		"abiVersion": 4
-	},
-	"capabilities": ["route.public", "route.admin", "service", "hook", "event", "menu", "auth"],
-	"dependencies": {
-		"plugins": [],
-		"services": [],
-		"features": []
-	},
-	"defaultConfig": "config.defaults.json"
+  "formatVersion": 4,
+  "xid": "hello-sdk",
+  "name": "hello-sdk",
+  "title": "Hello SDK Conformance Plugin",
+  "description": "Full-capability conformance plugin for the xs3 plugin host (routes/menu/auth/event/hook/service/config/health)",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "kind": "singleton",
+  "sort": 998,
+  "runtime": {
+    "compiler": "tcc",
+    "language": "c",
+    "resources": {
+      "page": "page",
+      "template": "template",
+      "option": "option",
+      "static": "static",
+      "allowSourceMap": false
+    }
+  },
+  "build": {
+    "entry": "main.c",
+    "sources": [
+      "main.c"
+    ],
+    "includeDirs": [],
+    "libraryDirs": [],
+    "libraries": [],
+    "defines": [
+      "XADMIN_PLUGIN=1"
+    ]
+  },
+  "compat": {
+    "minHostVersion": "4.0.0",
+    "maxHostVersion": "5.0.0",
+    "abiVersion": 4
+  },
+  "capabilities": [
+    "route.public",
+    "route.admin",
+    "service",
+    "hook",
+    "event",
+    "menu",
+    "auth"
+  ],
+  "dependencies": {
+    "plugins": [],
+    "services": [],
+    "features": []
+  },
+  "defaultConfig": "config.defaults.json"
 }

@@ -1,9 +1,17 @@
 #include <xs_plugin.h>
+#include <sqlite3.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include "value_util.h"
+#include "util.h"
+
 #include "hello_page.h"
 
 static XAdminPluginHandle G_HelloHandle = NULL;
 static sqlite3* G_HelloMainDb = NULL;
-static xvalue G_HelloOptionTable = NULL;
+static xvalue* G_HelloOptionTable = NULL;
 static const char* G_HelloXid = NULL;
 static const char* G_HelloRootPath = NULL;
 static const char* G_HelloDataPath = NULL;
@@ -31,7 +39,7 @@ typedef struct {
 
 static HelloConfigState G_HelloConfig = {
 	"Hello from xAdmin plugin system",
-	FALSE
+	false
 };
 static int G_HelloEventCount = 0;
 static int G_HelloHookCount = 0;
@@ -52,11 +60,11 @@ bool Hello_IsValidGeneratedXid(const char* sXid)
 	size_t iLen;
 
 	if ( (sXid == NULL) || (sXid[0] == '\0') ) {
-		return FALSE;
+		return false;
 	}
 	iLen = strlen(sXid);
 	if ( (iLen <= 0) || (iLen > 96) ) {
-		return FALSE;
+		return false;
 	}
 
 	for ( size_t i = 0; i < iLen; i++ ) {
@@ -69,9 +77,9 @@ bool Hello_IsValidGeneratedXid(const char* sXid)
 			|| (ch == '-') ) {
 			continue;
 		}
-		return FALSE;
+		return false;
 	}
-	return TRUE;
+	return true;
 }
 
 str Hello_BuildGeneratedMainSource(const char* sXid)
@@ -83,13 +91,13 @@ str Hello_BuildGeneratedMainSource(const char* sXid)
 		"\n"
 		"void Generated_SendJson(XS_ResponseObject objResp)\n"
 		"{\n"
-		"\txvalue tblRet = xvoCreateTable();\n"
+		"\txvalue tblRet = ValueObject();\n"
 		"\tsize_t iSize = 0;\n"
 		"\tstr sJson;\n"
-		"\txvoTableSetBool(tblRet, \"result\", 6, TRUE);\n"
-		"\txvoTableSetText(tblRet, \"xid\", 3, \"%s\", 0, FALSE);\n"
-		"\txvoTableSetText(tblRet, \"message\", 7, G_Message, 0, FALSE);\n"
-		"\tsJson = xrtStringifyJSON(tblRet, FALSE, &iSize);\n"
+		"\txvoTableSetBool(tblRet, \"result\", 6, true);\n"
+		"\txvoTableSetText(tblRet, \"xid\", 3, \"%s\", 0, false);\n"
+		"\txvoTableSetText(tblRet, \"message\", 7, G_Message, 0, false);\n"
+		"\tsJson = xrtJsonStringify(tblRet, false, &iSize);\n"
 		"\tif ( sJson ) {\n"
 		"\t\txsHttpReplyAuto(objResp, 200, \"Content-Type: application/json\\r\\n\", sJson, iSize);\n"
 		"\t\txrtFree(sJson);\n"
@@ -97,12 +105,12 @@ str Hello_BuildGeneratedMainSource(const char* sXid)
 		"\txvoUnref(tblRet);\n"
 		"}\n"
 		"\n"
-		"void Generated_RequestPing(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)\n"
+		"void Generated_RequestPing(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)\n"
 		"{\n"
 		"\t(void)objServer;\n"
 		"\t(void)objHost;\n"
 		"\t(void)objSession;\n"
-		"\tif ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {\n"
+		"\tif ( !(xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {\n"
 		"\t\txsHttpReplyAuto(objResp, 405, \"Content-Type: application/json\\r\\n\", \"{\\\"result\\\":false,\\\"message\\\":\\\"method not allowed\\\"}\", 0);\n"
 		"\t\treturn;\n"
 		"\t}\n"
@@ -124,13 +132,13 @@ str Hello_BuildGeneratedMainSource(const char* sXid)
 		"\treturn XAdmin_RegisterRoute(handle, &route, NULL);\n"
 		"}\n"
 		"\n"
-		"int Generated_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)\n"
+		"int Generated_OnConfigChanged(XAdminPluginHandle handle, xvalue* new_cfg)\n"
 		"{\n"
 		"\tstr sMessage = NULL;\n"
 		"\t(void)handle;\n"
 		"\tsnprintf(G_Message, sizeof(G_Message), \"Hello from generated plugin %s\");\n"
 		"\tif ( new_cfg ) {\n"
-		"\t\tsMessage = xvoTableGetText(new_cfg, \"message\", 7);\n"
+		"\t\tsMessage = ValueText(new_cfg, \"message\");\n"
 		"\t\tif ( sMessage && sMessage[0] ) {\n"
 		"\t\t\tsnprintf(G_Message, sizeof(G_Message), \"%%s\", sMessage);\n"
 		"\t\t}\n"
@@ -199,7 +207,7 @@ XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr)
 	if ( idx == XADMIN_GLOBAL_MAIN_DB ) {
 		G_HelloMainDb = (sqlite3*)ptr;
 	} else if ( idx == XADMIN_GLOBAL_OPTION_TABLE ) {
-		G_HelloOptionTable = (xvalue)ptr;
+		G_HelloOptionTable = (xvalue*)ptr;
 	} else if ( idx == XADMIN_GLOBAL_PLUGIN_XID ) {
 		G_HelloXid = (const char*)ptr;
 	} else if ( idx == XADMIN_GLOBAL_PLUGIN_ROOT_PATH ) {
@@ -211,23 +219,23 @@ XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr)
 	}
 }
 
-void Hello_SendTableJson(XS_ResponseObject objResp, xvalue tblData)
+void Hello_SendTableJson(XS_ResponseObject objResp, xvalue* tblData)
 {
 	size_t iSize = 0;
-	str sJson = xrtStringifyJSON(tblData, FALSE, &iSize);
+	str sJson = xrtJsonStringify(tblData, false, &iSize);
 	if ( sJson ) {
 		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
 		xrtFree(sJson);
 	}
-	xvoUnref(tblData);
+	xrtValueRelease(tblData);
 }
 
-void Hello_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Hello_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	XAdminGeneratedFile files[3];
 	XAdminGeneratedPluginSpec spec;
-	xvalue tblForm = NULL;
-	xvalue tblRet;
+	xvalue* tblForm = NULL;
+	xvalue* tblRet;
 	str sXid = NULL;
 	str sTitle = NULL;
 	str sMainSource = NULL;
@@ -237,41 +245,41 @@ void Hello_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	(void)objHost;
 	(void)objSession;
 
-	tblRet = xvoCreateTable();
-	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
-		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "method not allowed", 0, FALSE);
+	tblRet = ValueObject();
+	if ( !(xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
+		ValueSetBool(tblRet, "result", false);
+		ValueSetText(tblRet, "message", "method not allowed");
 		Hello_SendTableJson(objResp, tblRet);
 		return;
 	}
 
-	tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-	if ( (tblForm == NULL) || (xvoType(tblForm) != XVO_DT_TABLE) ) {
+	tblForm = JsonParseN((str)XAdmin_ReqBody(objReq), XAdmin_ReqBodyLen(objReq));
+	if ( (tblForm == NULL) || (xrtValueType(tblForm) != XVALUE_OBJECT) ) {
 		if ( tblForm ) {
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 		}
-		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "invalid json body", 0, FALSE);
+		ValueSetBool(tblRet, "result", false);
+		ValueSetText(tblRet, "message", "invalid json body");
 		Hello_SendTableJson(objResp, tblRet);
 		return;
 	}
 
-	if ( xvoTableGetText(tblForm, "xid", 3) ) {
-		sXid = xrtCopyStr(xvoTableGetText(tblForm, "xid", 3), 0);
+	if ( ValueText(tblForm, "xid") ) {
+		sXid = xrtStrDup(ValueText(tblForm, "xid"));
 	}
-	if ( xvoTableGetText(tblForm, "title", 5) ) {
-		sTitle = xrtCopyStr(xvoTableGetText(tblForm, "title", 5), 0);
+	if ( ValueText(tblForm, "title") ) {
+		sTitle = xrtStrDup(ValueText(tblForm, "title"));
 	}
 	if ( !Hello_IsValidGeneratedXid(sXid) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if ( sXid ) {
 			xrtFree(sXid);
 		}
 		if ( sTitle ) {
 			xrtFree(sTitle);
 		}
-		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "invalid xid", 0, FALSE);
+		ValueSetBool(tblRet, "result", false);
+		ValueSetText(tblRet, "message", "invalid xid");
 		Hello_SendTableJson(objResp, tblRet);
 		return;
 	}
@@ -279,13 +287,13 @@ void Hello_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	sMainSource = Hello_BuildGeneratedMainSource(sXid);
 	sDefaultConfig = xrtFormat("{\n\t\"message\": \"Hello from generated plugin %s\"\n}\n", sXid);
 	if ( (sMainSource == NULL) || (sDefaultConfig == NULL) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if ( sXid ) xrtFree(sXid);
 		if ( sTitle ) xrtFree(sTitle);
 		if ( sMainSource ) xrtFree(sMainSource);
 		if ( sDefaultConfig ) xrtFree(sDefaultConfig);
-		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "generate source failed", 0, FALSE);
+		ValueSetBool(tblRet, "result", false);
+		ValueSetText(tblRet, "message", "generate source failed");
 		Hello_SendTableJson(objResp, tblRet);
 		return;
 	}
@@ -308,16 +316,16 @@ void Hello_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	spec.files = files;
 
 	if ( XAdmin_GeneratePlugin(G_HelloHandle, &spec) != 0 ) {
-		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "generate plugin failed", 0, FALSE);
+		ValueSetBool(tblRet, "result", false);
+		ValueSetText(tblRet, "message", "generate plugin failed");
 	} else {
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetText(tblRet, "message", 7, "plugin generated", 0, FALSE);
-		xvoTableSetText(tblRet, "xid", 3, sXid, 0, FALSE);
-		xvoTableSetText(tblRet, "route", 5, xrtFormat("/api/plugin/generated/%s/ping", sXid), 0, TRUE);
+		ValueSetBool(tblRet, "result", true);
+		ValueSetText(tblRet, "message", "plugin generated");
+		ValueSetText(tblRet, "xid", sXid);
+		ValueSetOwnedText(tblRet, "route", xrtFormat("/api/plugin/generated/%s/ping", sXid));
 	}
 
-	xvoUnref(tblForm);
+	xrtValueRelease(tblForm);
 	if ( sXid ) xrtFree(sXid);
 	if ( sTitle ) xrtFree(sTitle);
 	if ( sMainSource ) xrtFree(sMainSource);
@@ -325,14 +333,14 @@ void Hello_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	Hello_SendTableJson(objResp, tblRet);
 }
 
-void Hello_RequestGreeting(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Hello_RequestGreeting(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	XAdminServiceLease hLease = NULL;
 	const HelloGreeterServiceVTable* pGreeter = NULL;
 	HelloGreetingData data;
 	HelloGreetingEvent eventData;
 	int iHookResult;
-	xvalue tblRet;
+	xvalue* tblRet;
 
 	(void)objServer;
 	(void)objHost;
@@ -341,15 +349,15 @@ void Hello_RequestGreeting(XS_ServerObject objServer, XS_HostObject objHost, XS_
 
 	memset(&data, 0, sizeof(data));
 	memset(&eventData, 0, sizeof(eventData));
-	tblRet = xvoCreateTable();
+	tblRet = ValueObject();
 	if ( (G_HelloHandle == NULL)
 		|| (XAdmin_AcquireService(G_HelloHandle, "hello.greeter", 1, &hLease, (const void**)&pGreeter) != 0)
 		|| (pGreeter == NULL) ) {
 		if ( hLease ) {
 			XAdmin_ReleaseService(hLease);
 		}
-		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "hello.greeter unavailable", 0, FALSE);
+		ValueSetBool(tblRet, "result", false);
+		ValueSetText(tblRet, "message", "hello.greeter unavailable");
 		Hello_SendTableJson(objResp, tblRet);
 		return;
 	}
@@ -357,25 +365,25 @@ void Hello_RequestGreeting(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	pGreeter->fill_data(&data);
 	XAdmin_ReleaseService(hLease);
 	iHookResult = XAdmin_InvokeHook(G_HelloHandle, "hello.greeting.decorate", &data, sizeof(data));
-	xvoTableSetBool(tblRet, "result", 6, TRUE);
+	ValueSetBool(tblRet, "result", true);
 	if ( iHookResult == XADMIN_HOOK_STOP ) {
-		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "greeting stopped by hook", 0, FALSE);
+		ValueSetBool(tblRet, "result", false);
+		ValueSetText(tblRet, "message", "greeting stopped by hook");
 		Hello_SendTableJson(objResp, tblRet);
 		return;
 	}
 	if ( iHookResult == XADMIN_HOOK_ERROR ) {
-		xvoTableSetBool(tblRet, "result", 6, FALSE);
-		xvoTableSetText(tblRet, "message", 7, "greeting hook failed", 0, FALSE);
+		ValueSetBool(tblRet, "result", false);
+		ValueSetText(tblRet, "message", "greeting hook failed");
 		Hello_SendTableJson(objResp, tblRet);
 		return;
 	}
 
-	xvoTableSetText(tblRet, "message", 7, data.sMessage, 0, FALSE);
-	xvoTableSetText(tblRet, "service", 7, "hello.greeter", 0, FALSE);
-	xvoTableSetInt(tblRet, "hookCount", 9, G_HelloHookCount);
+	ValueSetText(tblRet, "message", data.sMessage);
+	ValueSetText(tblRet, "service", "hello.greeter");
+	ValueSetInt(tblRet, "hookCount", G_HelloHookCount);
 	if ( data.bShowTime ) {
-		xvoTableSetInt(tblRet, "time", 4, xrtNow());
+		ValueSetInt(tblRet, "time", xrtNow());
 	}
 
 	eventData.sRoute = "/api/plugin/hello/greeting";
@@ -384,39 +392,39 @@ void Hello_RequestGreeting(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	Hello_SendTableJson(objResp, tblRet);
 }
 
-void Hello_RequestInfo(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Hello_RequestInfo(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblRet;
-	xvalue tblGlobal = NULL;
+	xvalue* tblRet;
+	xvalue* tblGlobal = NULL;
 
 	(void)objServer;
 	(void)objHost;
 	(void)objReq;
 	(void)objSession;
 
-	tblRet = xvoCreateTable();
-	xvoTableSetBool(tblRet, "result", 6, TRUE);
-	xvoTableSetText(tblRet, "xid", 3, (str)(G_HelloXid ? G_HelloXid : "hello"), 0, FALSE);
-	xvoTableSetText(tblRet, "title", 5, "Hello World Demo Plugin", 0, FALSE);
-	xvoTableSetText(tblRet, "version", 7, "4.0.0", 0, FALSE);
-	xvoTableSetBool(tblRet, "dbInjected", 10, G_HelloMainDb != NULL);
-	xvoTableSetBool(tblRet, "optionsInjected", 15, G_HelloOptionTable != NULL);
-	xvoTableSetText(tblRet, "rootPath", 8, (str)(G_HelloRootPath ? G_HelloRootPath : ""), 0, FALSE);
-	xvoTableSetText(tblRet, "dataPath", 8, (str)(G_HelloDataPath ? G_HelloDataPath : ""), 0, FALSE);
-	xvoTableSetText(tblRet, "privateDbPath", 13, (str)(G_HelloPrivateDbPath ? G_HelloPrivateDbPath : ""), 0, FALSE);
-	xvoTableSetInt(tblRet, "eventCount", 10, G_HelloEventCount);
-	xvoTableSetInt(tblRet, "hookCount", 9, G_HelloHookCount);
-	xvoTableSetText(tblRet, "lastEventMessage", 16, G_HelloLastEventMessage, 0, FALSE);
+	tblRet = ValueObject();
+	ValueSetBool(tblRet, "result", true);
+	ValueSetText(tblRet, "xid", (str)(G_HelloXid ? G_HelloXid : "hello"));
+	ValueSetText(tblRet, "title", "Hello World Demo Plugin");
+	ValueSetText(tblRet, "version", "4.0.0");
+	ValueSetBool(tblRet, "dbInjected", G_HelloMainDb != NULL);
+	ValueSetBool(tblRet, "optionsInjected", G_HelloOptionTable != NULL);
+	ValueSetText(tblRet, "rootPath", (str)(G_HelloRootPath ? G_HelloRootPath : ""));
+	ValueSetText(tblRet, "dataPath", (str)(G_HelloDataPath ? G_HelloDataPath : ""));
+	ValueSetText(tblRet, "privateDbPath", (str)(G_HelloPrivateDbPath ? G_HelloPrivateDbPath : ""));
+	ValueSetInt(tblRet, "eventCount", G_HelloEventCount);
+	ValueSetInt(tblRet, "hookCount", G_HelloHookCount);
+	ValueSetText(tblRet, "lastEventMessage", G_HelloLastEventMessage);
 	if ( G_HelloOptionTable ) {
-		tblGlobal = xvoTableGetValue(G_HelloOptionTable, "global", 6);
+		tblGlobal = ValueGet(G_HelloOptionTable, "global");
 		if ( tblGlobal ) {
-			xvoTableSetValue(tblRet, "globalOptions", 13, tblGlobal, FALSE);
+			ValueSetRef(tblRet, "globalOptions", tblGlobal);
 		}
 	}
 	Hello_SendTableJson(objResp, tblRet);
 }
 
-void Hello_RequestView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Hello_RequestView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	(void)objServer;
 	(void)objHost;
@@ -544,12 +552,9 @@ int Hello_OnStart(XAdminPluginHandle handle)
 	memset(&route, 0, sizeof(route));
 	route.path = "/api/plugin/hello/generate";
 	route.proc = Hello_RequestGenerate;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
-	route.description = "Hello plugin generator api";
-	route.sort = 990002;
-	route.need_log = TRUE;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
 		return -1;
 	}
@@ -557,11 +562,9 @@ int Hello_OnStart(XAdminPluginHandle handle)
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/view/plugin/hello";
 	route.proc = Hello_RequestView;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
-	route.description = "Hello plugin admin page";
-	route.sort = 990001;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
 		return -1;
 	}
@@ -573,7 +576,7 @@ int Hello_OnStart(XAdminPluginHandle handle)
 	menu.open_type = "_iframe";
 	menu.href = "/admin/view/plugin/hello";
 	menu.sort = 990001;
-	menu.visible = TRUE;
+	menu.visible = true;
 	menu.remark = "Hello demo plugin";
 	if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {
 		return -1;
@@ -583,7 +586,7 @@ int Hello_OnStart(XAdminPluginHandle handle)
 	return 0;
 }
 
-int Hello_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)
+int Hello_OnConfigChanged(XAdminPluginHandle handle, xvalue* new_cfg)
 {
 	str sCustomMessage = NULL;
 
@@ -593,11 +596,11 @@ int Hello_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)
 	snprintf(G_HelloConfig.sWelcomeMessage, sizeof(G_HelloConfig.sWelcomeMessage), "%s", "Hello from xAdmin plugin system");
 
 	if ( new_cfg ) {
-		sCustomMessage = xvoTableGetText(new_cfg, "welcomeMessage", 14);
+		sCustomMessage = ValueText(new_cfg, "welcomeMessage");
 		if ( sCustomMessage && sCustomMessage[0] ) {
 			snprintf(G_HelloConfig.sWelcomeMessage, sizeof(G_HelloConfig.sWelcomeMessage), "%s", sCustomMessage);
 		}
-		G_HelloConfig.bShowTime = xvoTableGetBool(new_cfg, "showTime", 8);
+		G_HelloConfig.bShowTime = ValueBool(new_cfg, "showTime");
 	}
 
 	return 0;

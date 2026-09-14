@@ -1,0 +1,21 @@
+{
+  "storage": "table+payload",
+  "tables": ["content_seo_meta"],
+  "fields": [
+    {"name": "seo_title", "title": "SEO 标题", "storage": {"type": "text"}, "showInList": false},
+    {"name": "seo_keywords", "title": "SEO 关键词", "storage": {"type": "text"}, "showInList": false},
+    {"name": "seo_description", "title": "SEO 描述", "storage": {"type": "text"}, "showInList": false}
+  ],
+  "adminPages": ["seo"],
+  "publicApis": ["seo.meta"],
+  "adminApis": ["seo.list", "seo.save", "seo.delete"],
+  "permissions": ["seo.view", "seo.manage"],
+  "events": ["content.beforeRender", "content.afterPublish", "category.beforeRender"],
+  "runtime": {
+    "publicHeadInjection": true,
+    "categorySeoFields": true,
+    "listMetaOutput": true,
+    "categoryHeadInjection": true
+  },
+  "tasks": []
+}

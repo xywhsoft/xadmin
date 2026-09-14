@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "packId": "content.audit-log",
+  "name": "audit-log",
+  "title": "操作审计",
+  "description": "提供敏感内容操作审计、追踪和查询能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 320,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "advisorMessage": "能力包 content.audit-log：会记录敏感操作，请确认日志保留周期、隐私边界和清理策略。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/audit-log/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_audit_log",
+  "sourceFiles": [
+    "source/content_audit_log_pack.c"
+  ],
+  "includeFiles": [
+    "include/content_audit_log_pack.h"
+  ]
+}

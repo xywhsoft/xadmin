@@ -1,0 +1,74 @@
+{
+  "groups": [
+    {
+      "key": "related-rule",
+      "title": "相关推荐规则",
+      "fields": [
+        {
+          "name": "ruleLimit",
+          "type": "number",
+          "label": "单篇推荐数量",
+          "value": 5
+        },
+        {
+          "name": "publishRefreshLimit",
+          "type": "number",
+          "label": "发布时回刷同类数量",
+          "value": 20
+        },
+        {
+          "name": "maxPublicRelated",
+          "type": "number",
+          "label": "公开最大推荐数量",
+          "value": 20,
+          "min": 1,
+          "max": 50
+        },
+        {
+          "name": "maxAdminListRows",
+          "type": "number",
+          "label": "后台列表最大行数",
+          "value": 500,
+          "min": 50,
+          "max": 1000
+        },
+        {
+          "name": "maxRebuildSources",
+          "type": "number",
+          "label": "全量重建内容上限",
+          "value": 1000,
+          "min": 1,
+          "max": 10000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "后台请求体字节上限",
+          "value": 65536,
+          "min": 512,
+          "max": 262144,
+          "step": 512
+        },
+        {
+          "name": "categoryWeight",
+          "type": "number",
+          "label": "栏目权重",
+          "value": 10
+        },
+        {
+          "name": "tagWeight",
+          "type": "number",
+          "label": "标签权重",
+          "value": 30
+        },
+        {
+          "name": "topicWeight",
+          "type": "number",
+          "label": "专题权重",
+          "value": 20
+        }
+      ]
+    }
+  ]
+}

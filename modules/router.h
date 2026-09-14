@@ -7,6 +7,11 @@
 static xpattern* G_DynamicPattern;
 static RouteInfo G_DynamicRoutes[ROUTE_DYNAMIC_MAX];
 static size_t G_DynamicCount;
+/* 当前请求的动态路由参数镜像（XAdmin_RouteParam ABI 用；请求锁内读写）。
+ * v1 的 RouteParam 无请求参数，依赖当前请求上下文——v3 分发全程持
+ * G_RequestLock，等价安全。 */
+static xstrview G_PluginRouteParams[ROUTE_PARAM_MAX];
+static size_t G_PluginRouteParamCount;
 static const char* G_MethodNames[10] = {
 	"GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH", "OTHER"
 };
@@ -53,10 +58,13 @@ static RouteInfo* AddDynamicRouteHTTP(const char* pattern, xhttpmethod methods, 
 	RouteSetMethods(route, methods, proc);
 	return route;
 }
-static bool RouteHTTP_Compile(void)
+static bool RouteHTTP_RecompileDynamic(void)
 {
 	xpatternspec specs[ROUTE_DYNAMIC_MAX]; xpattern* pattern; size_t i;
-	if (!G_DynamicCount) return true;
+	if (!G_DynamicCount) {
+		xrtPatternRelease(G_DynamicPattern); G_DynamicPattern = NULL;
+		return true;
+	}
 	/* Priority/Flags 未使用，必须显式清零：重载线程的栈上是垃圾值。 */
 	memset(specs, 0, sizeof(specs));
 	for (i = 0; i < G_DynamicCount; i++) {
@@ -74,6 +82,10 @@ static bool RouteHTTP_Compile(void)
 	xrtPatternRelease(G_DynamicPattern); G_DynamicPattern = pattern;
 	return true;
 }
+static bool RouteHTTP_Compile(void)
+{
+	return RouteHTTP_RecompileDynamic();
+}
 /* 读取配置时查注册键，不把 pattern 当一次真实 HTTP 请求来匹配。 */
 static RouteInfo* RouteHTTP_Registered(const char* path)
 {
@@ -86,10 +98,15 @@ static RouteInfo* RouteHTTP_Match(const char* path, XAdminRequest* req)
 {
 	RouteInfo* route = xrtMapGet(G_StaticRouteTableHTTP, KeyView(path));
 	xpatternmatch match; size_t i;
+	G_PluginRouteParamCount = 0; /* 静态命中/未命中都不得残留上一请求参数 */
 	if (route || !G_DynamicPattern) return route;
 	if (xrtPatternMatch(G_DynamicPattern, xrtStrView(path), req->param_value, ROUTE_PARAM_MAX, &match) != XPATTERN_MATCH) return NULL;
 	req->param_count = match.CaptureCount;
-	for (i = 0; i < req->param_count; i++) xrtPatternCaptureName(G_DynamicPattern, match.PatternIndex, i, &req->param_name[i]);
+	for (i = 0; i < req->param_count; i++) {
+		xrtPatternCaptureName(G_DynamicPattern, match.PatternIndex, i, &req->param_name[i]);
+		G_PluginRouteParams[i] = req->param_value[i];
+	}
+	G_PluginRouteParamCount = req->param_count;
 	return (RouteInfo*)match.Value;
 }
 static void RouteHTTP_Reply405(XAdminRequest* req, const RouteInfo* route)

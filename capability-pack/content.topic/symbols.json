@@ -1,0 +1,8 @@
+{
+  "prefix": "cms_topic",
+  "tables": [
+    "topic",
+    "topic_content"
+  ],
+  "counters": []
+}

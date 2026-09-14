@@ -1,0 +1,49 @@
+{
+  "groups": [
+    {
+      "key": "sitemap",
+      "title": "站点地图选项",
+      "fields": [
+        {
+          "name": "siteUrl",
+          "type": "input",
+          "label": "站点根地址",
+          "value": ""
+        },
+        {
+          "name": "cacheTtlSeconds",
+          "type": "number",
+          "label": "缓存 TTL 秒数",
+          "value": 3600
+        },
+        {
+          "name": "maxEntryListRows",
+          "type": "number",
+          "label": "后台条目列表上限",
+          "value": 500,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxRefreshRows",
+          "type": "number",
+          "label": "单次刷新内容上限",
+          "value": 5000,
+          "min": 1,
+          "max": 20000,
+          "step": 1
+        },
+        {
+          "name": "maxRssRows",
+          "type": "number",
+          "label": "订阅 RSS 输出上限",
+          "value": 100,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        }
+      ]
+    }
+  ]
+}

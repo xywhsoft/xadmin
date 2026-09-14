@@ -1,0 +1,39 @@
+{
+  "permissions": ["search.view", "search.manage"],
+  "adminPages": ["search"],
+  "publicApis": ["search.query"],
+  "adminApis": ["search.query", "search.rebuild", "search.stats"],
+  "tables": ["content_search_index"],
+  "events": ["content.afterSave", "content.afterDelete"],
+  "runtime": {
+    "publicSearchEndpoint": true,
+    "publicSnippetOutput": true,
+    "publicHighlight": true,
+    "weightedRanking": "exactTitleWeight:200,prefixTitleWeight:120,titleWeight:100,keywordWeight:60,summaryWeight:35,bodyWeight:10,exactPhraseWeight:50,termCoverageWeight:20,cjkBigramWeight:12,freshnessWeight:15",
+    "configurableWeights": ["exactTitleWeight", "prefixTitleWeight", "titleWeight", "keywordWeight", "summaryWeight", "bodyWeight", "exactPhraseWeight", "termCoverageWeight", "cjkBigramWeight", "freshnessWeight"],
+    "rankingExplain": "ability page explains normalized query, query guards, ranking weights, exact phrase score, term coverage score, CJK bigram score, freshness score and top result scores",
+    "rankingExplainUi": "ability page renders search ranking explanation as guard, weight, and top-result score tables while retaining raw JSON diagnostics",
+    "probeResultUi": "ability page renders search probe results as bounded score breakdown tables instead of only raw JSON",
+    "rebuildResultUi": "ability page renders search.rebuild execution result as a bounded offset/limit operation table while retaining raw JSON diagnostics",
+    "rebuildBackgroundTask": "search.rebuild writes a completed content.search.rebuild row into content_background_task with bounded offset/limit payload and result metadata",
+    "rebuildTaskUi": "ability page shows backgroundTaskId and queued state for each bounded search index rebuild batch",
+    "adminStatsUi": "ability page renders search.stats as an index health table while retaining raw JSON diagnostics",
+    "configKeys": ["titleWeight", "exactTitleWeight", "prefixTitleWeight", "keywordWeight", "summaryWeight", "bodyWeight", "exactPhraseWeight", "termCoverageWeight", "cjkBigramWeight", "freshnessWeight", "freshnessWindowDays", "minQueryLength", "maxResultLimit", "maxRebuildRows"],
+    "queryGuards": {
+      "minQueryLength": "rejectBelowConfiguredLength",
+      "maxResultLimit": "clampLimitBeforeQuery"
+    },
+    "adminListFilters": ["q"],
+    "categoryFilter": "when content.category is enabled, search.query accepts categoryId and applies a bounded EXISTS filter on content_category_bind; normal searches keep the existing SQL path",
+    "queryNormalization": ["space", "tab", "comma", "semicolon", "pipe", "slash", "plus", "dash", "brackets", "cjkPunctuation", "cjkLooseLike"],
+    "cjkLooseLike": "continuous CJK query characters insert bounded LIKE wildcards between adjacent ideographs to improve Chinese recall without changing SQL shape",
+    "exactPhraseScore": "normalized full query phrase adds a bounded in-memory score inside the already matched candidate set; title phrase hits receive double weight",
+    "cjkBigramScore": "continuous CJK query characters are scored by adjacent two-character coverage in indexed title/keywords/summary/body without adding a tokenizer service",
+    "termCoverage": "normalized query terms add bounded per-term score across title, keywords, summary and body",
+    "freshnessScore": "recently updated content receives a bounded configurable score within freshnessWindowDays",
+    "rebuildLimit": "maxRebuildRows",
+    "categoryBindIntegration": "search result rows and rebuild candidate objects prefer content_category_bind when content.category is enabled, with legacy content_item.category_id only as a compatibility mirror",
+    "accessIntegration": "public search results and count filter restricted content when content.access is enabled"
+  },
+  "tasks": ["search.rebuildIndex", "content.search.rebuild"]
+}

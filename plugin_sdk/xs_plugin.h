@@ -31,6 +31,7 @@ typedef void* XS_ResponseObject;
 #define XADMIN_GLOBAL_PLUGIN_ROOT_PATH 4
 #define XADMIN_GLOBAL_PLUGIN_DATA_PATH 5
 #define XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH 6
+#define XADMIN_GLOBAL_HOST_CONTEXT 7 /* XAdminHostContext*：宿主聚合上下文（v1 契约） */
 
 #define XADMIN_AUTH_SCOPE_ADMIN 1
 #define XADMIN_AUTH_SCOPE_MEMBER 2
@@ -54,6 +55,34 @@ typedef struct {
 	const char* message;
 } XAdminHealthReport;
 
+/* 宿主聚合上下文（v1 字段序 ABI）：一个结构体指针提供全部宿主路径与插件
+ * 身份信息，取代零散的标量全局注入（旧槽位 1-6 仍并行可用）。
+ * size/abi_version 前向兼容：消费方先校验再取尾部字段。 */
+struct sqlite3; /* 前置声明：不强依赖 <sqlite3.h>（指针兼容其 typedef） */
+typedef struct XAdminHostContext {
+	uint32_t size;
+	uint32_t abi_version;
+	const char* exe_path;
+	const char* app_path;
+	const char* web_path;
+	const char* db_path;
+	const char* log_path;
+	const char* temp_path;
+	const char* page_path;
+	const char* site_page_path;
+	const char* tool_path;
+	const char* option_path;
+	const char* install_path;
+	const char* template_path;
+	const char* attachment_path;
+	const char* plugin_xid;
+	const char* plugin_root_path;
+	const char* plugin_data_path;
+	const char* plugin_private_db_path;
+	struct sqlite3* main_db;
+	xvalue* option_table;
+} XAdminHostContext;
+
 typedef struct {
 	const char* path;
 	void* proc;
@@ -62,6 +91,24 @@ typedef struct {
 	int auth_id;
 	int auth_level;
 } XAdminRouteDecl;
+
+/* 动态（pattern 参数）路由：pattern 为 v3 pattern 方言（/api/x/{name} 形式，
+ * 命名捕获经 XAdmin_RouteParam 读取）。path 仅作登记键。 */
+typedef struct {
+	const char* path;
+	const char* pattern;
+	void* proc;
+	int priority;
+	int method;
+	bool need_auth;
+	bool admin_only;
+	int auth_id;
+	int auth_level;
+	const char* description;
+	int sort;
+	bool need_log;
+	bool keep_active;
+} XAdminDynamicRouteDecl;
 
 typedef struct {
 	const char* key;
@@ -175,6 +222,13 @@ size_t XAdmin_ReqBodyLen(XS_RequestObject objReq);
 
 int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl* decl, XAdminRouteToken* token);
 int XAdmin_UnregisterRoute(XAdminRouteToken token);
+int XAdmin_RegisterDynamicRoute(XAdminPluginHandle plugin_handle, const XAdminDynamicRouteDecl* decl, XAdminRouteToken* token);
+int XAdmin_RouteParam(int index, char* out_value, size_t out_cap);
+int XAdmin_RouteParamCount(void);
+void XAdmin_Free(void* ptr);
+const char* XAdmin_ReqPath(XS_RequestObject objReq);
+const char* XAdmin_ReqRemote(XS_RequestObject objReq);
+char* ServerHashPassword(const char* user, const char* salt, const char* client_hash);
 
 int XAdmin_RegisterMenu(XAdminPluginHandle plugin_handle, const XAdminMenuDecl* decl, int* out_menu_id, XAdminMenuToken* token);
 int XAdmin_UnregisterMenu(XAdminMenuToken token);
@@ -201,6 +255,14 @@ int XAdmin_ReleaseService(XAdminServiceLease lease);
 int XAdmin_GeneratePlugin(XAdminPluginHandle plugin_handle, const XAdminGeneratedPluginSpec* spec);
 int XAdmin_ReloadPlugin(XAdminPluginHandle plugin_handle, const char* xid);
 int XAdmin_SetPluginEnabled(XAdminPluginHandle plugin_handle, const char* xid, int enabled);
+
+/* 插件资源体系（page/template/option；静态文件经 /plugin-static/<xid>/ 由宿主直接服务）。
+ * 返回的堆串与 xvalue* 由调用方以 xrtFree/xrtValueRelease 释放。 */
+int XAdmin_LoadPluginPage(XAdminPluginHandle plugin_handle, XS_ResponseObject resp, int code, const char* header, const char* page);
+char* XAdmin_RenderPluginTemplate(XAdminPluginHandle plugin_handle, const char* template_name, xvalue* data, size_t* out_size, char** out_error);
+xvalue* XAdmin_PluginOptionLoad(XAdminPluginHandle plugin_handle, const char* file_name);
+int XAdmin_PluginOptionSave(XAdminPluginHandle plugin_handle, const char* file_name, xvalue* values);
+char* XAdmin_PluginResourcePath(XAdminPluginHandle plugin_handle, const char* resource_dir, const char* rel_path);
 
 #define XADMIN_DECLARE_PLUGIN(descriptor) \
 	XADMIN_EXPORT const XAdminPluginDescriptor* XAdmin_GetPluginDescriptor(void) \

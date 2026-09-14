@@ -1,0 +1,46 @@
+{
+  "tables": [
+    "comment_thread",
+    "comment_item",
+    "comment_audit_log",
+    "comment_notification"
+  ],
+  "fields": [
+    {
+      "name": "comment_count",
+      "title": "Comment Count",
+      "storage": {
+        "type": "integer"
+      },
+      "showInList": true
+    }
+  ],
+  "adminPages": [
+    "comments",
+    "comment_audit",
+    "comment_notification"
+  ],
+  "publicApis": [
+    "comment.list",
+    "comment.create",
+    "comment.hide",
+    "comment.count"
+  ],
+  "permissions": [
+    "comment.view",
+    "comment.audit",
+    "comment.delete"
+  ],
+  "events": [
+    "content.afterDelete",
+    "content.afterPublish",
+    "content.afterView",
+    "comment.afterCreate",
+    "comment.afterModerate"
+  ],
+  "tasks": [],
+  "files": [
+    "generated/pack_comment.c",
+    "generated/admin_comment.html"
+  ]
+}

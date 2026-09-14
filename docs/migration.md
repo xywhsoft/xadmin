@@ -384,3 +384,302 @@ xs.exe 集成 xmail+xsmtp 后完成联调，**邮件全家 8 条路由全部可�
 **路由覆盖终态**：147/147 v1 路由全部迁移（100%），另新增 42 条 xs3 原生路由（插件管理 8+3、sched CRUD 等），当前合计 149 条注册路由。mir 两条为用户裁定的临时功能，不迁。
 
 smoke 40 PASS 零警告；全部 5 个探针（notify/attachment/sched/plugin/mail）PASS。
+
+### 2026-09-14：独立页面 + 前台站点合并完成（v1 CMS 后续更新第一批）
+
+**独立页面**（`modules/standalone_page.h` + `route_http/standalone_page.h`）：
+- standalone_page 表自装 + CRUD（创建/列表/详情/保存/删除/视图页）
+- 路由分发不走 AddStaticRouteHTTP（G_Ready 后拒绝新路由）——改为 Protocol 兜底 `StandalonePage_Dispatch` 按 URI 查找
+- 多 URI 绑定（换行分隔）、draft/enabled 状态、缓存、自定义响应头
+- URI 同步到 uris 表
+
+**前台站点**（8 条路由 + site/ 静态页面）：
+- `/`（首页）、`/features`、`/plugins`、`/capabilities`、`/content-system`、`/docs`、`/download`、`/demo`
+- 全部免鉴权——route.h 注册后清 bAuth/bAdmin（覆盖 uris 表 isBackend=1 的默认值）
+- `site/` 目录 9 个 HTML 页面 + `wwwroot/site/` CSS + banner
+
+**关键实现决策**：
+- 正则动态路由**不迁移**（v1 独立方案已被我们 pattern 模式替代，用户裁定）
+- `/` 从后台入口改为前台首页（v1 语义），后台入口统一 `/admin`
+- uris 表新列（namespace/plugin_xid/isPersistent 等）暂不加（与能力包系统一起后续落地）
+
+smoke 40 PASS 零警告 + 独立页面/前台 11/11 探针全通。
+
+### 2026-09-14：URI 增强合并完成（v1 CMS 后续更新第二批）
+
+**v1+v3 合并**：v1 的 3 新列 + v3 已有的 4 插件列，统一增强 uris 表：
+
+| 列 | 来源 | 含义 |
+|---|---|---|
+| isPersistent | v1 新增 | 持久声明标记（插件 UriAuth=1/独立页面=1/路由自动发现=0） |
+| namespace | v1 新增 | 命名空间（auto/page/plugin/custom） |
+| routeActive | v1 新增 | 路由加载状态（已加载/未加载） |
+| plugin_xid | v3 已有 | 插件归属 |
+| plugin_id/instance_id/generation | v3 已有 | 插件关联 |
+| maskBody | v3 已有 | F2 脱敏开关 |
+
+**DB 迁移**：`DB_EnsureUrisEnhancedColumns()` 幂等 ALTER TABLE 3 列 + namespace 索引。
+
+**SQL 全面更新**（5 条预编译语句 + 3 个 INSERT）：
+- stmt_uris_all/sel：SELECT 加 5 新列；搜索范围扩展到 namespace + plugin_xid
+- stmt_uris_put：UPDATE 加 isPersistent, namespace
+- stmt_uris_add：INSERT 默认 namespace='auto'
+- stmt_cache_uris：加 isPersistent（Auth_SyncURIS 用）
+- XAdmin_RegisterUriAuth：INSERT 加 isPersistent=1（插件权限声明保留）
+- XAdmin_RegisterMenu：修复 bind 参数映射（createTime/updateTime/xid/generation 对齐）
+
+**Auth_SyncURIS 增强**：非持久路由（isPersistent=0）且路由已卸载 → 自动清理 uris 行；持久声明保留。
+
+**页面字段**：/admin/auth/uris 列表返回 namespace/pluginXid/isPersistent/routeActive/pluginGeneration。
+
+smoke 40 PASS；hello-sdk UriAuth 2 行正确写入（isPersistent=1, namespace='auto'）；搜索 namespace/plugin_xid 生效。
+
+### 2026-09-14：xlogserver v1 重构合并——原生方言 + 外部 API（v1 CMS 后续更新第三批）
+
+**v1 重构分析结论**（用户裁定：旧路径别名不迁、外部 API 要）：
+- v1 xlogserver 重构核心 = 多服务日志架构（services 表 + 每服务独立 SQLite + 动态 log_%s 表）
+- 10 条管理路由（view 7 + api 3）+ 2 条外部 API（/api/v1/log/push、/api/v1/task/create，免鉴权）
+- XAdminHostContext/XAdmin_Log 为 v1 ABI 新增项——v3 已有等价能力（XADMIN_GLOBAL_* 注入 + printf 日志），不引入
+
+**落地内容**：
+- `plugin/xlogserver/main.c`（1423 行）方案 A 原生方言：Value*/xrtMap 服务 DB 缓存/xrtMutex/Unix 微秒
+- OnStart：EnsureMainSchema → 服务 DB 缓存装载 → AuthGroup/Auth 注册 → 10 管理路由 + 2 外部 API → 10 条 UriAuth（isPersistent=1）→ 菜单
+- 服务数据：`db/plugin/xlogserver/plugin.db`（services 台账）+ `plugin_data/xlogserver/logs/%s.db`（每服务库）
+- 外部 API 免鉴权（need_auth=false），未知 service/缺参正确拒绝
+
+**回归门禁**：`tests/xlogserver_e2e.py` 15/15 PASS——enable→管理页 200→建服务→外部 task/create→外部 log/push→管理 API 可见推送日志→两库落盘行持久→auth 台账（1 authGroup + 1 auth + 10 uris）→负例×2→零编译警告。
+smoke 40 PASS + write_regression PASS。
+
+### 2026-09-14：插件能力面第一批——资源体系 + 编译管线（v1 ps_resource/ps_compiler 对齐）
+
+**1. /plugin-static/ 静态资源服务**（modules/plugin_host.h `Plugin_TryServeStatic`，protocol.h 分发链接入）：
+- `/plugin-static/<xid>/<相对路径>`，仅 GET/HEAD，仅已启动插件；前缀命中后一律自行应答
+- MIME 白名单 17 类扩展名；sourcemap 门控（manifest `resources.allowSourceMap`/`staticAllowSourceMap`）；16MB 上限
+- 缓存策略：文件名含 ≥8 位连续十六进制视为内容寻址版本文件 → `immutable` 一年；否则 `no-cache`
+- ETag `p-mtime-size` + Last-Modified（xrtPathStat 微秒时间）；路径安全：拒绝绝对路径/盘符/`..`/`%`/反斜杠/控制字符
+
+**2. page/template/option 资源体系 5 个 ABI**（SDK 31→36 符号）：
+- `XAdmin_LoadPluginPage`：插件 page 目录文件直读直发，缺文件 404
+- `XAdmin_RenderPluginTemplate`：插件 template 目录 + 原生引擎（`{{ }}`/`{{$var}}` 语法）逐次编译渲染；插件目录无此模板回退全局模板引擎
+- `XAdmin_PluginOptionLoad/Save`：选项 JSON 装载/保存；数据目录覆盖（`plugin_data/<xid>/option/`）优先于包内 option 目录；保存按 name 合并进 classList[].options[].value，原子写数据目录
+- `XAdmin_PluginResourcePath`：安全资源路径拼接
+- manifest `resources.page/template/option/static` 目录声明装载（缺省同名约定目录，不合法配置回退）
+
+**3. 编译管线**（Plugin_Compile）：v1 约定目录 inc/include/src 进头文件搜索、lib 进库搜索；`build.libraryDirs`（存在才生效）+ `build.libraries`（tcc_add_library）。
+
+**顺带修复**：
+- protocol.h use-after-free：`xrtFree(target)` 先于 `StandalonePage_Dispatch(req.path,...)` 执行（req.path 即 target 悬垂），重排为兜底全部放弃后再释放
+- Plugin_ScanProc manifest 校验失败路径 `xvalue* manifest` 未 release（泄漏），补 release + 实例清零
+- plugin/hello 伴生文件从 dev/v1 补齐（src/page/option/static/inc/lib/template）——main.c 为 v1 方言（xvo* API）仍待移植，enable 前不编译不影响现状
+
+**回归门禁**：新增 `tests/plugin_resource_e2e.py` 31/31 PASS（静态正负例×11、page/template/option/resource-path ABI、数据目录覆盖落盘且包内文件零污染、reload 存活、disable 后 404、零编译警告）；smoke 40 PASS（扩展后的 hello-sdk 含 inc/src 约定目录 include 编译零警告）；write_regression PASS；xlogserver e2e 15/15。
+
+### 2026-09-14：插件能力面第一批补完——libraries 实链验证 + perfmon 现状确认
+
+**libraries/libraryDirs 实链验证**（plugin_resource_e2e 32/32）：hello-sdk 增 `/api/plugin/hello-sdk/link-probe`（`HELLO_SDK_LINK_IPHLPAPI` 编译开关 + 手工 `__declspec(dllimport)` 声明——内嵌 winapi VFS 无 iphlpapi.h）；e2e 夹具期注入 manifest defines/libraries:["iphlpapi"]/libraryDirs:["lib"] 并从 System32 拷 iphlpapi.dll 进 lib/ 约定目录。实跑 GetNumberOfInterfaces 返回接口数 ≥1——一次覆盖三机制：lib 约定目录→tcc_add_library_path、显式 libraryDirs、tcc_add_library 按名解析 DLL（TCC PE 装载器支持 `%s/<name>.dll` 直接导入，内存 relocate 期 LoadLibrary 绑定）。
+
+**考古发现**：全库唯一非空 libraries 消费者 perfmon（`libraries:["iphlpapi"]`）在 v1 Linux 上是空操作（iphlpapi 引用全在 `#ifdef _WIN32` 内，Linux 编译不引用→tcc_add_library 找不到也不报错）——v1 从未真实走过库链接路径；v3 现已实测打通。
+
+**perfmon 移植现状**（在既有"剩余队列"内，非本批缺口）：main.c 缺 `#include <sqlite3.h>`（line 21 `sqlite3*` 编译失败）+ 74 处 xvo* v1 方言残留——完整原生变换待做，同 gbdemo→firewall→comment-system→content-system→cms.article 队列。
+
+回归：plugin_resource_e2e 32/32 + smoke 40 + write_regression + xlogserver 15/15，零编译警告。
+
+### 2026-09-14：缺口三连补——安装向导 + {{#form}} 模板块 + 注册幂等 upsert
+
+**1. 安装向导**（modules/install.h 新增，v1 install.h/http.h 契约）：
+- 启动判定：install.lock 缺失 **且** db/main.db 缺失 → 向导模式（业务段延后）；lock 缺但库在 → 存量部署不进向导（**加固偏差**：v1 会复制预置库覆盖既有数据，本代拒绝覆盖）
+- 向导接管一切请求：GET 出 page/install.html（客户端 SHA-256(用户名+"_xywhsoft_"+密码) 后 POST 到 /）；POST 四步幂等可重试：建库（执行 install/init.sql 全量脚本，**v1 为复制预置库文件**）→ 业务段启动（main.c 因子化 XAdmin_BusinessStart，与正常启动共用）→ 建超管（随机 salt + ServerHashPassword 二次哈希，role=1/authLevel=999）→ 写 lock 退出向导
+- 校验：用户名 3-32 位受限字符集、密码须为 64 位十六进制客户端哈希；G_InstallBusy 防并发提交；建库+启动在 G_RequestLock 内串行
+- **连带修复**：install/init.sql 补全 8 张 v3 运行时自装表 DDL（notify 3 + mail 2 + sched 2 + standalone_page，全新安装即完整 31 表 schema）；DB_MigrateTimeUnits 对缺失表容错跳过（此前全新库上迁移必失败——夹具库因已含运行时表而从未暴露）
+- 门禁 tests/install_wizard_e2e.py 11/11
+
+**2. {{#form}} 模板块**（modules/form.h +~530 行渲染器 + template.h registry）：
+- v1 Form_RenderTemplateBlockHTML/ResolveTemplateRenderSpec/Groups/Field/Choices/RangeInput 全量原生变换（xvo*→Value*/xrt*，xbuffer 新 API）
+- xrt 扩展注册表：XTEMPLATE_EXTENSION_RAW_BLOCK 注册 "form" 关键字（{{#form}} JSON {{#end}}），Form_TemplateRegistryInit 装配进 G_TemplateRegistry，三个编译入口（全局缓存/RebuildCache/插件模板）统一挂载；语义偏差：v1 编译期预渲染，v3 渲染期回调（纯内存拼接代价相当）
+- 三种 JSON 来源：source:form（forms/*.json+demoData）/ source:option（Option_LoadFile→SchemaFromOptionConfig）/ 内联 schema + values/data 覆盖
+- form_demo 演示页由静态降级恢复为真渲染（9KB 输出含完整表单块）；补 /admin/template/rebuild v1 对齐路由；rebuild 20/20（此前 block_demo 计 failed）
+- 门禁 tests/template_form_e2e.py 6/6（含坏 JSON 块不污染兄弟模板）
+
+**3. 注册幂等 upsert**（plugin_host.h 四个 Register*）：
+- 复现：reload 3 轮 menu/authGroup/auth 各 +3 行（v1 PS_HostFindMenuId 语义补齐）；uris 靠 UNIQUE 约束吞错稳定但行内容从不更新
+- menu：plugin_xid+href（无 href 用 parent+title+type）；authGroup/auth：plugin_xid+name；uris：uri 全局唯一 → 已存在则刷新全部标志并归属
+- 复用并复活旧行（isDelete=0、updateTime、plugin_generation 刷新）——连遗留旧行也被吸收
+- smoke 插件段新增 reload 后四表计数断言（41 PASS）
+
+**实现注记**：BusinessStart 各步骤失败现打印具体环节（DB_Init/迁移/Session/路由编译）；install.h 经暂定定义与 main.c 启动标志同 TU 合并。
+
+### 2026-09-14：插件能力面第二批——脚手架生成/动态路由/自动授权/错误聚合/配置契约/manifest 校验（.xpk 裁定不做）
+
+**1. XAdmin_GeneratePlugin 脚手架生成**（stub → 真实现，内容系统硬依赖解除）：
+- v1 PluginSystem_Generate 语义：8 目录骨架 + spec 文件逐个落盘（路径安全检查）+ 未提供 plugin.json 时生成默认 manifest（v1 字段全集）+ 运行时登记为可启用实例（扫描装配同构 + plugin_package/plugin_runtime 台账）+ auto_enable 直通启用
+- 探针验证：hello-sdk 生成 hello-gen（含最小可用插件源码）自动启用后路由即活
+
+**2. 动态路由族 ABI**（SDK 31→34 符号）：
+- XAdmin_RegisterDynamicRoute（XAdminDynamicRouteDecl v1 字段集；pattern 用 v3 pattern 方言）/ XAdmin_RouteParam / XAdmin_RouteParamCount
+- 运行时注册即时重编译 pattern 树（失败回滚本次添加）；Plugin_Stop 按实例清单出表（dynPatterns）；参数镜像全局（分发全程持请求锁，等价 v1 当前请求语义）
+- RouteHTTP_Match 静态命中/未命中均清参数残留
+
+**3. 新 auth 自动授予 role 1**（v1 GrantDefaultAdminRoleAuth；实测缺陷修复）：
+- v3 权限模型无 role 1 旁路，此前新插件管理路由超管必 403（xlogserver 能过纯属种子库遗留授权巧合）
+- RegisterAuth 成功后幂等追加 role 1 authList（已在列不重复）+ 权限缓存重建；smoke 断言同步更新（403 预期 → 200 新契约）
+
+**4. 编译错误多段聚合 + 失败代际行**：
+- tcc_set_error_func 聚合诊断进错误缓冲（日志 + 2048 截断，v1 口径）；编译失败也落 plugin_generation 行（state='failed' + error_message 全文）供后台展示
+- 错误缓冲 256→2096；探针验证坏 C 插件的失败详情落库
+
+**5. settings 契约补齐**（GET + configSchema 校验 + 失败回滚）：
+- GET /admin/plugin/settings?name= 返回当前生效配置；POST 入口先过 configSchema 递归校验器（type/required/properties/items/additionalProperties，v1 子集）
+- OnConfigChanged 返回非 0 → 回滚：内存配置树还原 + 配置文件原文恢复（写前快照，无旧文件则删除回落 defaults）
+
+**6. manifest 轻量校验**（v1 四层校验轻量版）：必填字段（name/title/version/kind）+ xid==目录名 identity + maxHostVersion 越界拒绝（min 越界仅告警）+ Plugin_CompareVersion 三元组比较；ABI 上界兼容（<=4）为 v3 有意设计保持不变
+
+**门禁**：新增 tests/plugin_capability_e2e.py 23/23（六项能力正负例 + reload/disable 生命周期）；smoke 41 PASS（admin-echo 断言更新为 auto-grant 新契约）；write_regression + xlogserver 15/15 + plugin_resource 32/32 + install_wizard 11/11 + template_form 6/6，零编译警告。
+
+### 2026-09-14：内容模型系统阶段 1——宿主侧骨架全量落地（模型 CRUD/能力包/体检/路由）
+
+**新增**：
+- `modules/content.h`（~1250 行，v1 script/content 七件中五件的原生变换）：content_db 7 表（model/revision/generation/pack/pack_option/model_pack/schema_version）、content_spec 校验（ident/字段/能力键归一化去重/未知能力拒绝）+ FNV-1a 指纹、content_model CRUD（事务保存+hash 去重 unchanged+修订快照+能力关联同步）、content_revision 查询、content_advisor 体检（error 硬校验+能力包 warning+验收路径项）、content_pack 装载器（21 包目录扫描入库+detail/options/NormalizeId）、content_init 菜单装配（内容管理父菜单+4 子菜单，editor 无菜单项为 v1 形态）
+- `route_http/content.h`：17 条路由（4 视图页 + types/type/save/delete/revisions/generations/advisor/generate/packs/pack/pack+options/templates）；generate 为阶段 2 占位明确报错；templates 保真 v1 装饰性固定清单
+- `capability-pack/` 21 包资产 + `page/content/` 5 页面从 dev/v1 落地；夹具拷贝清单加 capability-pack
+- 插件 ABI 补注入：XAdmin_Free（xrtFree 别名）+ ServerHashPassword（内容模板 4 处调用，28657 行模板符号面就此闭合）
+- Content_Init 接入 BusinessStart（Form 之后 PluginHost 之前）；内容表时间列 Unix 微秒
+
+**阶段 1 修复的自身缺陷**：pack/options 处理器 packId 借用视图在 body 释放后使用（悬垂写垃圾）——借出值须在 release 前使用。
+
+**门禁**：新增 tests/content_phase1_e2e.py **25/25**（21 包装载/7 表/菜单/包 API+选项/模型 rev1→unchanged→rev2/能力关联行/校验负例×2/advisor 正负/视图页×3/generate 占位/删除）；smoke 41 + write + xlog 15 + res 32 + wizard 11 + form 6 + capability 23 全绿零警告。
+
+**阶段 2 排队**：content_generator/generation（~2000 行）+ managed_main.c.tpl（28657 行，~5000 处 xvo* 方言变换）+ 9 伴生模板 + generate 接通 + 生成插件全链路验证。
+
+### 2026-09-14：内容模型系统阶段 2——生成器落地，全链路打通（v1 最大缺口关闭）
+
+**交付**：
+- `modules/content_generator.h`（1783 行，v1 content_generator+generation 两文件合并原生变换）：模板装载/占位符单趟替换、7 占位符 main.c 渲染（含能力包 Schema/Route/Menu/Auth 四段 C 代码生成，v3 方言）、字段三视图映射、spec/runtime 规范化、contracts.json（7 hook 槽）与 capability.manifest、plugin.json（XADMIN_CAP_* 宏+包 sources/includeDirs）、pending→success/failed 台账与 applied_revision 追平；路由上下文经本地落盘装配（Plugin_Caller 为空时 ABI 不可用，复用宿主装配函数含换代覆盖）
+- `content/templates/` 9 模板落地；`managed_main.c.tpl` 经 tests/convert_content_tpl.py 一次性方言变换（标准规则 4914 处 + 内容补丁规则 + 精确行修 + 兼容前导）：~5000 处 xvo*→Value*、xvalue 按值→指针、v1 计数式 PathJoin/Buffer 字段/Regex 四件/v1 markdown 桩（走转义回退）、strlen 键 Get/Set 族
+- 插件 ABI 补 3 符号：XAdmin_ReqPath/XAdmin_ReqRemote（v1 宏的可注入形态）+ ServerHashPassword 注入（模板本地前向声明移除）
+- **RegisterRoute 权限收录修复**：need_auth 且无专属 auth 的路由（生成插件核心 CRUD）此前任何角色必 403——现与应用侧一致自动以 authID=1 入 uris（role 1 天然含 auth 1）；hello-sdk/xlogserver 因都带 auth_id 不受影响（smoke 计数断言验证）
+- generate 路由接通（POST/GET，xid 参数）
+
+**全链路 e2e（tests/content_fullchain_e2e.py 16/16）**：建模型（含 content.category 包）→ 生成（1.16MB 模板渲染，manifest 含 CAP 宏与包源、contracts.json 落盘）→ 启用（~30k 行生成物 TCC 编译 0.2-0.4s，编译错误经聚合落库迭代修复 10 轮）→ 后台 CRUD（save/list）→ 公开 API（list/detail，发布阈值过滤）→ 包挂载路由（category/list）+ contracts → 管理视图页 → 再生成换代（rev2 覆盖 + 台账两行 success）。
+
+**编译迭代修复清单**（错误聚合落库驱动）：sqlite3.h 缺失→前导补；xrtTimeToStr→TimeText；Buffer 字段 Buffer/Length→Data/Size；四参 BufferAppend→bytesview 三形态；v1 计数式 PathJoin(2,a,b)→两参；Regex v1 四件→v3 matcher 封装（含 xregexcapture 适配）；xsReqPath/Remote/Header→可注入/映射；本地 ServerHashPassword 前向声明与注入冲突→删；markdown→NULL 桩走转义回退；tolower→ctype.h。
+
+**回归**：content_fullchain 16/16 + content_phase1 25/25 + smoke 41 + write + xlog 15 + res 32 + wizard 11 + form 6 + capability 23，零意外警告。
+
+**剩余（阶段 3 排队）**：cms.article/content-system 存量插件复活验证（方言同管线）；重度包实跑（comment/slug/static 等全量路由逐包探针）；插件方言移植队列（hello/perfmon 等）；docs 3 死链与 Mail 菜单杂项。
+
+### 2026-09-14：阶段 3 收尾——杂项闭合 + cms.article/hello/perfmon 三插件复活
+
+**杂项**：docs.html 三死链修复（/docs/plugin|content|capability 别名路由）；Mail_Init 自装"邮件任务"菜单（幂等，v1 契约）。
+
+**cms.article 复活（22 能力包全挂载）**：convert_cms_article.py 复用模板变换管线处理 29718 行存量生成物；包 stub 文件（content.like/slug 的 source+include）从 capability-pack 补齐；PLUGIN_ROUTES_MAX 64→256（生成插件注册 220+ 路由撞顶）；slug/redirect 动态路由 pattern 由 v1 正则改写为 v3 方言（`prefix/{slug}`、`prefix/r/{*target}` 尾段捕获）。门禁 cms_revival_e2e 13/13（启用 1.2s、CRUD、公开 API、slug/like/comment/category 包路由、契约、220+ 路由 50+ 权限台账）。
+
+**hello 复活（资源体系活体验证）**：native_plugin_convert 变换 + xvalue 按值声明→指针 + v1 路由声明字段（description/sort/need_log）移除；伴生文件（src/page/option/static）此前已备齐。greeting（hook+service）/info（db+options 注入）/管理页（XAdmin_LoadPluginPage）全通。
+
+**perfmon 复活（Windows 实链+系统指标）**：变换 + sqlite3.h/value_util 补齐 + 计数式 PathJoin + 多行 SetText 括号配平重写 + iphlpapi.h 精确布局声明（MIB_IFROW/MIB_IFTABLE/IP_ADAPTER_INFO 全字段对齐 x64 SDK；IF_TYPE/MIB_IF_OPER_STATUS 常量集；GetTickCount64 声明）。current/serverinfo/disk/history 四 API 实跑真实指标（内存/核心数/盘容量/网络计数），视图页 200。
+
+**content-system 插件待裁定**：与宿主侧 /admin/content/*（v1 最终形态 script/content）功能完全重复，v1 两套并存；建议保持禁用，是否删除待用户定。
+
+**门禁**：revival_e2e 10/10（新增）+ cms_revival 13/13 + 全量 11 门禁绿（smoke 41/write/xlog 15/res 32/wizard 11/form 6/capability 23/phase1 25/fullchain 16），零编译警告。
+
+### 2026-09-15：md4c 接入——markdown 渲染降级点修复（xs 新模块批次）
+
+**xs 新模块分析**（commit 9dc6bd9，xs.exe 5.92→5.98MB）：
+- **md4c**：上游 Markdown 解析器（SAX 核心 + HTML 渲染器），TCC 脚本侧预置 `md_parse`/`md_html` 两符号
+- **xacme**：RFC 8555 ACME 客户端扩展库（账户/订单/dns-01/证书；内置 LE/ZeroSSL/Google/Buypass 预设 + alidns provider；19 个 `xrtAcme*`/`xacmeClient*` 符号已可注入）——x-admin 侧暂无消费场景（HTTPS 证书自动化属新功能，未列入迁移缺口）
+
+**markdown 修复**（内容系统唯一功能降级点关闭）：
+- 模板变换器 PREAMBLE 的 NULL 桩替换为 md4c 真实现：`xsMarkdownToHtmlEx` 经 `md_html` + buffer 回调，旗标与 v1 契约一致（MD_DIALECT_GITHUB 组合 | MD_FLAG_NOHTML | MD_HTML_FLAG_SKIP_UTF8_BOM，取值对齐上游 md4c.h）
+- editor_md 字段恢复渲染（_html 伴随字段供页面/静态化路径）；tpl 与 cms.article 均已重变换
+- hello-sdk 增 md-probe 一致性探针（GFM 旗标组合实调 md_html，断言 h2/strong/li）
+
+**坑**：xbuffer 产物无 NUL 终止——转字符串必须 `xrtStrViewN(Data, Size)`，strlen 会越界致 stringify 失败（md-probe 实录）。
+
+**回归**：capability e2e 24/24（+md4c 项）；新 xs.exe 全量 12 门禁绿（smoke 41/write/xlog 15/res 32/wizard 11/form 6/capability 24/phase1 25/fullchain 16/cms 13/revival 10），零警告。
+
+### 2026-09-15：HostContext 聚合注入落地（v1 XAdminHostContext 契约，原裁定"不引入"经用户指示实施）
+
+**SDK**（plugin_sdk/xs_plugin.h）：XAdminHostContext 结构（v1 字段序 ABI：size/abi_version + 13 宿主路径 + 4 插件身份路径 + main_db + option_table）；XADMIN_GLOBAL_HOST_CONTEXT 槽位 7；sqlite3 前置声明保持头自包含。
+
+**宿主**（modules/plugin_host.h）：
+- PluginInstance 内嵌 hostContext（实例存续期有效，随代际复用）；G_PluginHostContextTemplate 宿主公共段在业务启动时经 PluginHost_ContextInit(host) 填充一次
+- 路径取自 v3 实际布局：web=host->Path（wwwroot）、site/attachment 借 StandalonePage/Attachment 模块现值、db=OptionPath 同源；exe_path 按部署约定 AppPath/xs.exe 派生（xs 无 exe 路径 API）
+- Plugin_Start 在标量槽位之外并行注入 &inst->hostContext（旧槽位 1-6 保留不破坏存量插件）
+- settings 保存/回滚两路径同步刷新 hostContext.option_table（防配置换代悬垂指针）
+
+**探针与门禁**：hello-sdk 增 /api/plugin/hello-sdk/hostctx（size/abi/10 项字段一致性）+ settings 换代后上下文存活断言；capability e2e **26/26**；全量 12 门禁回归绿（smoke 41/write/xlog 15/res 32/wizard 11/form 6/capability 26/phase1 25/fullchain 16/cms 13/revival 10）零警告。
+
+### 2026-09-15：xs 扩展库探测门禁（xsExtensionEnabled 契约 API）
+
+**xs 侧**（commit 6cedfa2 后）：`XS_API bool xsExtensionEnabled(const char* sName)`——按注册名（=构建参数名，与启动横幅一致，大小写不敏感）查询本变体是否编入某扩展；requires 展开的依赖同样可见；未知名返回 false。
+
+**x-admin 侧**：`XAdmin_RequireExtensions()` 置于 `XAdmin_BusinessStart` 首位——必需清单：`sqlite`（主库）、`xsmtp`（邮件，XADMIN_WITH_SMTP 门控）、`md4c`（内容系统 markdown）。缺失即打印 `required xs extension missing: <名>` 并拒启（G_Ready 保持 false → 全站 503），把"运行中期功能点符号错误"提前为启动即报。
+
+**两种失败形态的边界**（实测确认）：缺 xsmtp 的构建在**编译期**失败（mail.h 找不到 xsmtp.h 头，VFS 随扩展裁剪），到不了运行期探测；缺 md4c（消费侧手工声明符号、无头依赖）正是运行期探测的目标场景。
+
+**门禁**：新增 tests/extension_gate_e2e.py **7/7**——负例用 sqlite+xsmtp 精简构建（存 tests/.runtime/xs-stripped.exe，由 `python tools/build.py sqlite xsmtp --output` 产出）：拒启 + 报 md4c 缺失 + 无 ready + 全站 503 + 进程存活；正例完整 xs 正常启动无缺失报错。官方全量 xs.exe（sqlite+xtp+xllm+xmail+xsmtp+xpop3+ximap+md4c+xacme）就位后全量 13 门禁回归绿（smoke 41/write/ext 7/xlog 15/res 32/wizard 11/form 6/capability 26/phase1 25/fullchain 16/cms 13/revival 10）零警告。
+
+### 2026-09-15：xlogserver 模板统一引擎约定 + 全项目模板清查 + 挂死事故结案
+
+**模板约定统一（用户裁定）**：`{{ }}` 为模板渲染符号（v3 引擎现状即如此，变量 `{{$var}}`）。模板文件中 JS/代码的字面 `{{`/`}}` 一律写 `{ {`/`} }`（JS 词法等价、解析器不捕获）。xlogserver 的 v1 自制约定（`{$var}` 占位 + `{{}}` 转义）废弃：
+- 5 个模板资产一次性变换（保护标记法防顺序破坏）：`{$x}`→`{{$x}}`、`{{`→`{`、`}}`→`}`
+- XLog_SendTemplatePage 改走宿主引擎 XAdmin_RenderPluginTemplate（自带 {{#form}} 扩展注册表），自制 XLog_RenderTemplate 删除——**任务页空白根因**：v1 约定下 JS 全是 `function(){{...}}`，v3 移植漏了反转义步骤，输出 JS 语法错误整页脚本死掉
+
+**全项目模板清查**（引擎渲染范围 vs 静态服务）：宿主 template/ 25 文件、xlogserver 两份 10 文件、其他插件、内容 tpl——**字面 {{ 残留为零**（宿主模板本就是引擎语法；page/、site/、生成插件页面为静态服务不经引擎，无需约束）。
+
+**渲染测试**：宿主 rebuild 20/20（smoke 固化）；xlogserver 5 模板页全渲染断言（变量代入 + `function(){` 单花括号 + 无 `{{` 泄漏）入 xlogserver_e2e → **21/21**；hello-sdk hello.tpl 与 form/block_demo 各自门禁覆盖。
+
+**挂死事故结案**（连续 3 次 smoke 在 disable/reload 处挂死）：
+1. 根库污染：db/main.db 中 xlogserver enabled=1（早期调试遗留）→ 每个 smoke 夹具自动启动 xlogserver——已清理复位
+2. 孤儿进程：用户取消全量回归时遗留旧代码 xs.exe（PID 22236）持续运行——已击杀；污染态复原 + 最小复现探针（enable/reload×3/disable ×含 xlogserver 变体）均不复现 → **环境事故，非代码缺陷**
+3. 教训入库：回归被中断后先查孤儿 xs.exe 再归因代码；根库 plugin_runtime.enabled 状态纳入发布前检查
+
+**回归**：14 门禁全绿（smoke 41/write/ext 7/xlog 21/res 32/wizard 11/form 6/capability 26/phase1 25/fullchain 16/cms 13/revival 10 + template_form）零警告。
+
+### 2026-09-15：插件状态机真实化——404 事故根因修复 + 轮换竞态门禁
+
+**用户事故**：插件列表显示"启用"但实际未运行（点菜单 404，手动重载恢复）。排查确认严重逻辑缺陷：
+
+**根因（三层叠加）**：
+1. **启动路径不回写 status**：自启动编译失败/依赖缺失只 printf，DB 里上一会话的 'running' 陈旧串原样穿透到列表显示（管理路由路径的 5 个写入点都正确，唯独 PluginHost_Init 遗漏）
+2. **enabled≠loaded 无区分**：列表只有 DB 持久串，无本进程真实状态（审计遗留 C3 项）
+3. **孤儿菜单**：enabled 但未启动的插件菜单行不隐藏 → 菜单在、路由无 → 404 死链
+
+**修复**：
+- PluginHost_Init 开头状态重置（非 discovered/disabled 一律归位 disabled，自启动再翻 running/error）——陈旧串穿透通道关闭
+- 自启动失败/依赖缺失两分支回写 status='error'
+- 列表 API 增 loaded 字段（inst->started 本进程事实）
+- 孤儿菜单清理：本轮未启动插件的菜单行软删（NOT IN 已启动清单；零启动走全清分支；snprintf 截断防护）；再启动经 RegisterMenu upsert 复活
+
+**两阶段验证**（用户场景精确复原）：损坏源+陈旧 running → status='error'+loaded=false+菜单隐藏+404；修复重启 → 'running'+loaded=true+菜单复活+200。
+
+**竞态插曲**：修复过程中 smoke 连续挂死于轮换段（xlogserver 自启 × 多代重载时序相关，加 fflush 即隐藏的 heisenbug）；最终同配置 7 连过 + 轮换风暴门禁（tests/rotation_storm_e2e.py 26/26：自启+6 轮重载+紧轮询+每代插件健康）固化为回归探针。根因未最终定论（双代重叠期 DB 锁竞争窗口最可能），风暴门禁为复发捕获器。
+
+**回归**：15 门禁全绿（smoke 41/write/ext 7/storm 26[新]/xlog 21/res 32/wizard 11/form 6/capability 26/phase1 25/fullchain 16/cms 13/revival 10）零警告。根库 xlogserver 恢复用户启用态。
+
+### 2026-09-15：任务页标题乱码——ValueText 悬垂指针修复
+
+**现象**：任务列表页"返回服务列表"后的服务名标题显示乱码（0xDD 重复字节）。
+
+**根因**：`XLog_Req_ViewTasks` 中 `ValueText(tblSvc, "name")` 返回**借用视图**（指向值树内部字符串），随后 `xrtValueRelease(tblSvc)` 释放值树，再用悬垂指针写模板数据——读到的是 xrt 释放后内存填充（0xDD）。v1 原版用栈缓冲 `snprintf` 拷贝，移植时改为指针借用引入缺陷。
+
+**修复**：释放前 `xrtStrDup` 拷贝（恢复 v1 拷贝语义），渲染后释放。同文件排查：其余 handler（services_edit/tasks_edit/tasks_logs）均为"值树整体传入渲染后释放"，安全。
+
+**门禁**：xlogserver e2e 升级为中文服务名（"边缘采集"）+ 双处渲染断言 + 0xDD 字节负例检测 → **22/22**；全量 16 门禁回归绿。
+
+**坑入库**：ValueText/ValueGet 返回借用视图——值树释放后再用即悬垂（xrt 以 0xDD 填充释放内存，输出乱码而非崩溃，更隐蔽）；借出值必须在 release 前拷贝。
+
+### 2026-09-15：任务创建"假成功"——旧 schema 服务库缺 tasks 表修复
+
+**现象**：任务弹窗显示创建成功，列表不显示。
+
+**根因**（用户真实数据坐实）：v1 早期创建的服务库 `_TrPumu...db` **没有 tasks 表**（该表 DDL 只在"创建新服务"时执行一次，旧库永不补表）。缺陷链：
+1. `XLog_TaskCreate` 的 INSERT 因缺表静默失败（step 返回值被忽略），仍取 `last_insert_rowid` 残留值 → 响应 `result:true` + 假 id → **假成功提示**
+2. 列表 SELECT 同因缺表返回空 → 列表恒空
+
+**修复**：
+- `XLog_ServiceConnectDB` 打开库即幂等补 schema（CREATE TABLE IF NOT EXISTS tasks；覆盖启动装载/创建/重连全部路径）——旧库在插件重启后自动补表
+- `XLog_TaskCreate` 校验 step==SQLITE_DONE 才取 rowid，失败打印 sqlite 错误
+
+**验证**：旧 schema 场景实测（无 tasks 表旧库 + 主库服务行）→ 启用后自动补表（`['other','tasks','sqlite_sequence']`）→ 建任务成功 → 列表出现；xlogserver e2e 22/22；全量 17 门禁绿。
+
+**附带**：smoke 夹具归一化（UPDATE plugin_runtime SET enabled=0）——测试自管插件状态不再继承根库用户态；消除 xlogserver 自启把多代重载时序竞态带入 smoke 的间歇挂死（该竞态 storm 门禁单测 26/26 可过，完整 smoke 序列偶发，根治待后续专项）。

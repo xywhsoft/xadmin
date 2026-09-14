@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "packId": "content.related",
+  "name": "related",
+  "title": "相关推荐",
+  "description": "提供手工关联、规则关联和相关内容推荐能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 290,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "advisorMessage": "能力包 content.related：会启用相关内容关系，请确认重复处理和推荐权重语义。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/related/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_related"
+}

@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "packId": "content.sensitive",
+  "name": "sensitive",
+  "title": "敏感词管理",
+  "description": "提供敏感词词库、过滤日志，以及内容保存、发布和评论提交过滤能力。",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 400,
+  "update": {
+    "channel": "official",
+    "packageId": "content.sensitive",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": []
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json",
+  "advisorMessage": "能力包 content.sensitive：会扫描写入内容，请确认过滤字段、误判处理和审计策略。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/pack/list?pack=content.sensitive",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_sensitive"
+}

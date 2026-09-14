@@ -1,0 +1,22 @@
+{
+  "events": [
+    {
+      "event": "content.afterPublish",
+      "handler": "static_content_afterPublish"
+    },
+    {
+      "event": "content.afterDelete",
+      "handler": "static_content_afterDelete"
+    }
+  ],
+  "tasks": [
+    {
+      "task": "task.generate",
+      "handler": "static_task_generate"
+    },
+    {
+      "task": "task.clean",
+      "handler": "static_task_clean"
+    }
+  ]
+}

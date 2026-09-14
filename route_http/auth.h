@@ -1233,6 +1233,14 @@ void Request_View_Auth_URIs_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			ValueSetInt(tblInfo, "needLog", sqlite3_column_int64(stmt_uris_get, 6));
 			ValueSetInt(tblInfo, "keepActive", sqlite3_column_int64(stmt_uris_get, 7));
 			ValueSetInt(tblInfo, "sort", sqlite3_column_int64(stmt_uris_get, 8));
+			{
+				/* isPersistent(16), namespace(17), plugin_xid(19), plugin_generation(20), routeActive(21) */
+				ValueSetInt(tblInfo, "isPersistent", sqlite3_column_int64(stmt_uris_get, 16));
+				ValueSetText(tblInfo, "namespace", (str)sqlite3_column_text(stmt_uris_get, 17));
+				ValueSetText(tblInfo, "pluginXid", (str)sqlite3_column_text(stmt_uris_get, 19));
+				ValueSetInt(tblInfo, "pluginGeneration", sqlite3_column_int64(stmt_uris_get, 20));
+				ValueSetBool(tblInfo, "routeActive", sqlite3_column_int(stmt_uris_get, 21) != 0);
+			}
 			ValueSetRef(tblInfo, "authList", G_CACHE_Auth);
 			ValueSetRef(tblInfo, "memberAuthList", G_CACHE_MemberAuth);
 			bRow = true;
@@ -1298,8 +1306,13 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueSetText(tblRow, "authName", (str)sqlite3_column_text(stmt_uris_all, 11));
 				ValueSetText(tblRow, "memberAuthName", (str)sqlite3_column_text(stmt_uris_all, 12));
+				ValueSetInt(tblRow, "isPersistent", sqlite3_column_int64(stmt_uris_all, 13));
+				ValueSetText(tblRow, "namespace", (str)sqlite3_column_text(stmt_uris_all, 14));
+				ValueSetText(tblRow, "pluginXid", (str)sqlite3_column_text(stmt_uris_all, 15));
+				ValueSetInt(tblRow, "pluginGeneration", sqlite3_column_int64(stmt_uris_all, 16));
+				ValueSetBool(tblRow, "routeActive", sqlite3_column_int(stmt_uris_all, 17) != 0);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_all, 13);
+					iCount = sqlite3_column_int64(stmt_uris_all, 18);
 				}
 				ValueArrayOwn(data, tblRow);
 			}
@@ -1308,8 +1321,10 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			// 筛�?
 			sqlite3_bind_text(stmt_uris_sel, 1, sParam, iSize, NULL);
 			sqlite3_bind_text(stmt_uris_sel, 2, sParam, iSize, NULL);
-			sqlite3_bind_int64(stmt_uris_sel, 3, iLimit);
-			sqlite3_bind_int64(stmt_uris_sel, 4, iOffset);
+			sqlite3_bind_text(stmt_uris_sel, 3, sParam, iSize, NULL);
+			sqlite3_bind_text(stmt_uris_sel, 4, sParam, iSize, NULL);
+			sqlite3_bind_int64(stmt_uris_sel, 5, iLimit);
+			sqlite3_bind_int64(stmt_uris_sel, 6, iOffset);
 			while ( sqlite3_step(stmt_uris_sel) == SQLITE_ROW ) {
 				xvalue* tblRow = ValueObject();
 				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_uris_sel, 0));
@@ -1328,8 +1343,13 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueSetText(tblRow, "authName", (str)sqlite3_column_text(stmt_uris_sel, 11));
 				ValueSetText(tblRow, "memberAuthName", (str)sqlite3_column_text(stmt_uris_sel, 12));
+				ValueSetInt(tblRow, "isPersistent", sqlite3_column_int64(stmt_uris_sel, 13));
+				ValueSetText(tblRow, "namespace", (str)sqlite3_column_text(stmt_uris_sel, 14));
+				ValueSetText(tblRow, "pluginXid", (str)sqlite3_column_text(stmt_uris_sel, 15));
+				ValueSetInt(tblRow, "pluginGeneration", sqlite3_column_int64(stmt_uris_sel, 16));
+				ValueSetBool(tblRow, "routeActive", sqlite3_column_int(stmt_uris_sel, 17) != 0);
 				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_sel, 13);
+					iCount = sqlite3_column_int64(stmt_uris_sel, 18);
 				}
 				ValueArrayOwn(data, tblRow);
 			}
@@ -1378,8 +1398,13 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_uris_put, 5, needAuth);
 		sqlite3_bind_int64(stmt_uris_put, 6, needLog);
 		sqlite3_bind_int64(stmt_uris_put, 7, keepActive);
-		sqlite3_bind_int64(stmt_uris_put, 8, xrtNow());
-		sqlite3_bind_int64(stmt_uris_put, 9, id);
+		sqlite3_bind_int64(stmt_uris_put, 8, ValueInt(tblForm, "isPersistent"));
+		{
+			str ns = ValueText(tblForm, "namespace");
+			sqlite3_bind_text(stmt_uris_put, 9, ns && ns[0] ? ns : "auto", -1, SQLITE_TRANSIENT);
+		}
+		sqlite3_bind_int64(stmt_uris_put, 10, xrtNow());
+		sqlite3_bind_int64(stmt_uris_put, 11, id);
 		bool written = DB_Write(stmt_uris_put, true);
 		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;

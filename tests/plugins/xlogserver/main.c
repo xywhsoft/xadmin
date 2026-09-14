@@ -4,6 +4,7 @@
 #include <sqlite3.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 typedef struct {
 	int iMaxLogLines;
@@ -183,6 +184,24 @@ sqlite3* XLog_ServiceConnectDB(int64 serviceId, const char* sDbName)
 		return NULL;
 	}
 	sqlite3_busy_timeout(pDb, 3000);
+	/* 打开即补 schema（幂等）：v1 早期创建的旧服务库没有 tasks 表，
+	 * 缺表会导致任务创建静默失败 + 列表恒空 */
+	{
+		char* sErr = NULL;
+		if ( sqlite3_exec(pDb,
+			"CREATE TABLE IF NOT EXISTS tasks ("
+			"id INTEGER PRIMARY KEY AUTOINCREMENT,"
+			"name TEXT NOT NULL,"
+			"desc TEXT,"
+			"tableName TEXT NOT NULL,"
+			"createTime INTEGER,"
+			"updateTime INTEGER,"
+			"isDelete INTEGER DEFAULT 0);",
+			NULL, NULL, &sErr) != SQLITE_OK ) {
+		printf("[xlogserver] schema ensure failed: %s\n", sErr ? sErr : "?");
+			if ( sErr ) sqlite3_free(sErr);
+		}
+	}
 
 	if ( G_XLogServiceDbLock ) xrtMutexLock(G_XLogServiceDbLock);
 	if ( G_XLogServiceDbCache ) {
@@ -282,77 +301,21 @@ bool XLog_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	return true;
 }
 
-str XLog_RenderTemplate(const char* sFileName, xvalue* tblData)
-{
-	str sPath;
-	str sText;
-	size_t iSize;
-	xbuffer* tBuf = xrtBufferCreate();
-	size_t iPos;
-	size_t iTextLen;
-	size_t iKeyLen;
-	str sKey;
-	str sVal;
-
-	if ( (G_XLogRootPath == NULL) || (sFileName == NULL) ) return NULL;
-	sPath = xrtPathJoin(xrtPathJoin(G_XLogRootPath, (str)"template"), (str)sFileName);
-	if ( (sPath == NULL) || !xrtFileExists(sPath) ) {
-		if ( sPath ) xrtFree(sPath);
-		return NULL;
-	}
-	sText = xrtFileReadAll(sPath, NULL);
-	xrtFree(sPath);
-	if ( sText == NULL ) return NULL;
-
-	if ( tblData == NULL ) return sText;
-
-	
-	iTextLen = strlen(sText);
-	iPos = 0;
-
-	while ( iPos < iTextLen ) {
-		if ( (sText[iPos] == '{') && (iPos + 1 < iTextLen) && (sText[iPos + 1] == '$') ) {
-			size_t iStart = iPos + 2;
-			size_t iEnd = iStart;
-			while ( (iEnd < iTextLen) && (sText[iEnd] != '}') ) iEnd++;
-			if ( iEnd < iTextLen ) {
-				iKeyLen = iEnd - iStart;
-				sKey = xrtStrDupView(xrtStrViewN(sText + iStart, (size_t)iKeyLen));
-				if ( sKey ) {
-					sVal = ValueText(tblData, sKey);
-					if ( sVal && sVal[0] ) {
-						xrtBufferAppend(tBuf, (xbytesview){(cbytes)sVal, (uint32)strlen(sVal)});
-					}
-					xrtFree(sKey);
-				}
-				iPos = iEnd + 1;
-				continue;
-			}
-		}
-		{
-			char ch = sText[iPos];
-			xrtBufferAppend(tBuf, (xbytesview){(cbytes)&ch, 1});
-		}
-		iPos++;
-	}
-
-	xrtFree(sText);
-	{
-		char chZero = 0;
-		xrtBufferAppend(tBuf, (xbytesview){(cbytes)&chZero, 1});
-	}
-	return (str)xrtBufferTake(tBuf, NULL, NULL);
-}
-
+/* 模板渲染：宿主引擎（XAdmin_RenderPluginTemplate，{{ }} 定界 + {{$var}} 变量，
+ * 自动携带 {{#form}} 扩展注册表）。v1 自制 {$var}+{{}} 约定已随模板资产
+ * 一次性变换到引擎约定（tests 侧资产同步变换）。 */
 void XLog_SendTemplatePage(XS_ResponseObject objResp, const char* sFileName, xvalue* tblData)
 {
-	str sPage = XLog_RenderTemplate(sFileName, tblData);
+	size_t iSize = 0;
+	str sError = NULL;
+	str sPage = XAdmin_RenderPluginTemplate(G_XLogHandle, sFileName, tblData, &iSize, &sError);
 	if ( sPage ) {
-		size_t iLen = strlen(sPage);
-		xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", sPage, iLen);
+		xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", sPage, iSize);
 		xrtFree(sPage);
 	} else {
-		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain\r\n", "template not found", 0);
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n",
+			sError ? sError : (str)"template render failed", 0);
+		if ( sError ) xrtFree(sError);
 	}
 }
 
@@ -404,9 +367,12 @@ int64 XLog_TaskCreate(sqlite3* pDb, const char* sName, const char* sDesc)
 		sqlite3_bind_text(stmt, 2, sDesc ? sDesc : "", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int64(stmt, 3, now);
 		sqlite3_bind_int64(stmt, 4, now);
-		sqlite3_step(stmt);
+		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
+			newId = sqlite3_last_insert_rowid(pDb);
+		} else {
+			printf("[xlogserver] task insert failed: %s\n", sqlite3_errmsg(pDb));
+		}
 		sqlite3_finalize(stmt);
-		newId = sqlite3_last_insert_rowid(pDb);
 	}
 
 	if ( newId > 0 ) {
@@ -552,7 +518,7 @@ void XLog_Req_ViewTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	if ( XLog_OpenMainDb(&pMainDb) ) {
 		xvalue* tblSvc = XLog_ServiceGetOne(pMainDb, serviceId);
 		str sName = ValueText(tblSvc, "name");
-		if ( sName && sName[0] ) sServiceName = sName;
+		if ( sName && sName[0] ) sServiceName = xrtStrDup(sName); /* 借用视图：释放前拷贝 */
 		XLog_CloseDb(pMainDb);
 		xrtValueRelease(tblSvc);
 	}
@@ -562,6 +528,7 @@ void XLog_Req_ViewTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	ValueSetText(tblData, "serviceName", (str)sServiceName);
 	XLog_SendTemplatePage(objResp, "tasks_index.html", tblData);
 	xrtValueRelease(tblData);
+	if ( sServiceName != NULL && sServiceName != (const char*)"Unknown" ) xrtFree((char*)sServiceName);
 }
 
 void XLog_Req_ViewTasksAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
@@ -1337,6 +1304,33 @@ int XLog_OnStart(XAdminPluginHandle handle)
 	route.path = "/api/v1/task/create";
 	route.proc = XLog_Req_ApiTaskCreate;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
+
+	/* 管理路由的 URI 权限注册（需要与 uris 表关联才能通过权限检查） */
+	{
+		XAdminUriAuthDecl uriAuth;
+		static const char* adminUris[] = {
+			"/admin/view/plugin/xlogserver",
+			"/admin/view/plugin/xlogserver/services/add",
+			"/admin/view/plugin/xlogserver/services/edit",
+			"/admin/view/plugin/xlogserver/tasks",
+			"/admin/view/plugin/xlogserver/tasks/add",
+			"/admin/view/plugin/xlogserver/tasks/edit",
+			"/admin/view/plugin/xlogserver/tasks/logs",
+			"/admin/api/plugin/xlogserver/services",
+			"/admin/api/plugin/xlogserver/tasks",
+			"/admin/api/plugin/xlogserver/task/logs"
+		};
+		int i;
+		memset(&uriAuth, 0, sizeof(uriAuth));
+		uriAuth.scope = XADMIN_AUTH_SCOPE_ADMIN;
+		uriAuth.auth_id = iAuthId;
+		uriAuth.description = "xlogserver admin";
+		uriAuth.sort = 100010;
+		for (i = 0; i < 10; i++) {
+			uriAuth.uri = adminUris[i];
+			if (XAdmin_RegisterUriAuth(handle, &uriAuth, NULL, NULL) != 0) return -1;
+		}
+	}
 
 	memset(&menu, 0, sizeof(menu));
 	menu.title = "Log Service";

@@ -51,6 +51,7 @@ void Request_Plugin_List(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		ValueSetText(row, "kind", ValueText(inst->manifest, "kind"));
 		ValueSetText(row, "status", sStatus);
 		ValueSetBool(row, "enabled", bEnabled != 0);
+		ValueSetBool(row, "loaded", inst->started); /* 本进程真实运行态（C3）：DB status 为持久串，loaded 才是当下事实 */
 		ValueSetBool(row, "installed", bInstalled != 0);
 		ValueSetInt(row, "generation", iGen);
 		ValueSetText(row, "dataPath", inst->dataPath);
@@ -175,9 +176,26 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 	str sNameValue;
 	PluginInstance* inst;
 	char* sPath;
+	char* sOldText = NULL;
+	size_t iOldSize = 0;
 	xvalue* newCfg;
 	(void)objServer; (void)objHost; (void)objSession;
 
+	if (xsReqMethodID(objReq) == XHTTP_METHOD_GET) {
+		/* v1 契约补齐：返回当前生效配置 */
+		xsReqQueryValue(objReq, "name", sName, sizeof(sName));
+		inst = sName[0] ? Plugin_Find(sName) : NULL;
+		if (!inst) { PluginRoute_SendResult(objResp, false, "插件不存在"); return; }
+		{
+			xvalue* tblRet = ValueObject();
+			xvalue* tblData = inst->config ? xrtValueClone(inst->config) : ValueObject();
+			ValueSetBool(tblRet, "result", true);
+			ValueSetOwn(tblRet, "config", tblData);
+			PluginRoute_SendJson(objResp, tblRet);
+			xrtValueRelease(tblRet);
+		}
+		return;
+	}
 	if (xsReqMethodID(objReq) != XHTTP_METHOD_POST) {
 		PluginRoute_SendResult(objResp, false, "请求方法不允许");
 		return;
@@ -202,10 +220,30 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 			xrtValueRelease(tblBody);
 			return;
 		}
+		/* configSchema 校验（v1 SaveSettings 入口闸） */
+		{
+			xvalue* schema = Plugin_LoadConfigSchema(inst);
+			if (schema) {
+				char sErr[192] = {0};
+				bool valid = Plugin_ValidateConfigSchemaValue(schema, tblConfig, "config", sErr, sizeof(sErr));
+				xrtValueRelease(schema);
+				if (!valid) {
+					PluginRoute_SendResult(objResp, false, sErr[0] ? sErr : "配置校验失败");
+					xrtValueRelease(tblBody);
+					return;
+				}
+			}
+		}
 		sPath = xrtPathJoin(OptionPath, xrtFormat("plugin/%s.json", inst->xid));
-		if (!sPath || !JsonWriteFile(sPath, tblConfig, true)) {
+		if (!sPath) {
 			PluginRoute_SendResult(objResp, false, "配置写入失败");
-			if (sPath) xrtFree(sPath);
+			xrtValueRelease(tblBody);
+			return;
+		}
+		sOldText = (char*)xrtFileReadAll(sPath, &iOldSize); /* 回滚快照 */
+		if (!JsonWriteFile(sPath, tblConfig, true)) {
+			PluginRoute_SendResult(objResp, false, "配置写入失败");
+			xrtFree(sOldText); xrtFree(sPath);
 			xrtValueRelease(tblBody);
 			return;
 		}
@@ -216,10 +254,26 @@ void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, X
 		xvalue* old = inst->config;
 		newCfg = Plugin_LoadConfig(inst);
 		inst->config = newCfg;
-		if (inst->desc && inst->desc->OnConfigChanged)
-			inst->desc->OnConfigChanged(inst, newCfg);
+		inst->hostContext.option_table = newCfg; /* 聚合上下文随配置换代刷新 */
+		if (inst->desc && inst->desc->OnConfigChanged
+		    && inst->desc->OnConfigChanged(inst, newCfg) != 0) {
+			/* v1 SaveSettings 回滚：插件拒绝新配置 → 还原内存树与配置文件 */
+			char* sRollback = xrtPathJoin(OptionPath, xrtFormat("plugin/%s.json", inst->xid));
+			inst->config = old;
+			inst->hostContext.option_table = old;
+			CacheRetire(newCfg);
+			if (sRollback) {
+				if (sOldText) xrtFileWriteAtomic(sRollback, (xbytesview){(cbytes)sOldText, iOldSize});
+				else xrtFileDelete(sRollback);
+				xrtFree(sRollback);
+			}
+			xrtFree(sOldText);
+			PluginRoute_SendResult(objResp, false, "插件拒绝新配置，已回滚");
+			return;
+		}
 		if (old) CacheRetire(old);
 	}
+	xrtFree(sOldText);
 	PluginRoute_SendResult(objResp, true, "配置已保存");
 }
 
@@ -253,6 +307,16 @@ void Request_View_Plugin_Store(XS_ServerObject objServer, XS_HostObject objHost,
 // 表单演示页
 void Request_View_Template_FormDemo(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
+	size_t size = 0;
+	char* html;
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
-	LoadPage(objResp, 200, HTTP_CT_HTML, "template/form_demo.html");
+	/* v1 语义恢复：真渲染 template/form/block_demo.html，{{#form}} 块产出表单 HTML */
+	html = MakePageWithTemplate("form/block_demo.html", NULL, &size);
+	if (html && size) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, html, size);
+		xrtFree(html);
+	} else {
+		xrtFree(html);
+		LoadPage(objResp, 200, HTTP_CT_HTML, "template/form_demo.html");
+	}
 }

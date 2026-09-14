@@ -48,7 +48,7 @@ def fixture(port, protected=False, register_interval=0):
     base = ROOT / 'tests/.runtime'
     base.mkdir(parents=True, exist_ok=True)
     target = Path(tempfile.mkdtemp(prefix='smoke-', dir=base))
-    for name in ('wwwroot', 'page', 'template', 'options', 'forms', 'plugin_sdk'):
+    for name in ('wwwroot', 'page', 'template', 'options', 'forms', 'plugin_sdk', 'install', 'capability-pack', 'content'):
         shutil.copytree(ROOT / name, target / name)
     shutil.copytree(ROOT / 'plugin', target / 'plugin')
     shutil.copytree(ROOT / 'tests/plugins/hello-sdk', target / 'plugin/hello-sdk')
@@ -87,6 +87,13 @@ def fixture(port, protected=False, register_interval=0):
             dst.execute('INSERT INTO user(user,salt,pwd,role,authLevel,createTime,updateTime,isDelete) '
                         'VALUES(?,?,?,?,0,?,?,0)', (user, salt, pwd, role, now, now))
             dst.commit()
+    # 夹具归一化：插件启用状态不继承根库（用户态）——测试自管（hello-sdk 由
+    # 用例经 API 启用）。否则 xlogserver 等自启插件会把多代重载时序竞态带入
+    # 全部 smoke 轮次（间歇挂死，storm 门禁单测无法覆盖完整序列）。
+    with sqlite3.connect(target / 'db/main.db') as db:
+        db.execute('UPDATE plugin_runtime SET enabled=0')
+        db.commit()
+
     config = json.loads((ROOT / 'xs.json').read_text(encoding='utf-8'))
     service = config['services'][0]
     service['port'] = port
@@ -567,10 +574,12 @@ def checks(port, target, protected=False):
     status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/unregister')
     assert json.loads(body)['result'] is True, body
     assert request(port, 'GET', '/api/plugin/hello-sdk/temp')[0] == 404
-    # admin-only plugin route: anonymous redirect, authed-but-unauthorized 403
+    # admin-only plugin route: anonymous redirect; 超管经 auto-grant 直达 200
+    # （v1 GrantDefaultAdminRoleAuth 语义：新 auth 自动授 role 1，此前实测 403）
     expected_anon = 404 if protected else 302
     assert request(port, 'GET', '/api/plugin/hello-sdk/admin-echo')[0] == expected_anon
-    assert request(port, 'GET', '/api/plugin/hello-sdk/admin-echo', cookie=cookie)[0] == 403
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/admin-echo', cookie=cookie)
+    assert status == 200 and json.loads(body)['result'], (status, body[:100])
     # settings: config change round-trip via OnConfigChanged
     status, _, body = request(port, 'POST', '/admin/plugin/settings', {
         'name': 'hello-sdk', 'config': {'welcomeMessage': 'changed-by-smoke', 'showTime': False}}, cookie=cookie)
@@ -596,6 +605,14 @@ def checks(port, target, protected=False):
     with sqlite3.connect(target / 'db/main.db') as db:
         gen = db.execute("SELECT MAX(generation) FROM plugin_generation WHERE xid='hello-sdk'").fetchone()[0]
         assert gen == 2, gen
+    # 注册幂等 upsert：reload 后 menu/authGroup/auth/uris 不累积重复行
+    with sqlite3.connect(target / 'db/main.db') as db:
+        q = lambda sql: db.execute(sql).fetchone()[0]
+        assert q("SELECT COUNT(*) FROM menu WHERE plugin_xid='hello-sdk'") == 1, 'menu accumulated'
+        assert q("SELECT COUNT(*) FROM authGroup WHERE plugin_xid='hello-sdk'") == 1, 'authGroup accumulated'
+        assert q("SELECT COUNT(*) FROM auth WHERE plugin_xid='hello-sdk'") == 1, 'auth accumulated'
+        assert q("SELECT COUNT(*) FROM uris WHERE plugin_xid='hello-sdk'") == 2, 'uris accumulated'
+    print('PASS plugin registration idempotent upsert across reload')
     # disable -> teardown: routes gone, resources reclaimed, runtime disabled
     status, _, body = request(port, 'POST', '/admin/plugin/disable', {'name': 'hello-sdk'}, cookie=cookie)
     assert json.loads(body)['result'], body

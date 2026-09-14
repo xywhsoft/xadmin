@@ -1,0 +1,26 @@
+{
+  "permissions": ["media.view", "media.manage"],
+  "adminPages": ["media"],
+  "publicApis": ["media.list", "media.detail"],
+  "adminApis": ["media.list", "media.save", "media.delete", "media.batch", "media.ref.list"],
+  "tables": ["content_media", "content_media_ref"],
+  "events": ["media.afterUpload", "media.batch", "content.afterDelete"],
+  "runtime": {
+    "inferMetadata": ["ext", "mime", "size", "width", "height"],
+    "serverDetectImageSize": ["png", "jpeg", "gif"],
+    "configKeys": ["maxAssetSizeBytes", "maxImageDimension", "serverDetectImageSize", "allowedMimeTypes", "maxListRows", "maxRefListRows", "maxDetailMediaRows", "maxPublicRefCheckRows", "maxBatchRows", "maxRequestBytes"],
+    "mimeAllowList": "allowedMimeTypes",
+    "listLimit": "maxListRows",
+    "adminListFilters": "admin media list supports optional mime/status filters with bound SQL and maxListRows limit",
+    "refListLimit": "admin media reference list clamps request limit by maxRefListRows",
+    "detailMediaLimit": "maxDetailMediaRows",
+    "publicRefCheckLimit": "public access filter checks up to maxPublicRefCheckRows content refs per media",
+    "batchLimit": "admin media batch rejects ids beyond maxBatchRows",
+    "batchResultUi": "ability page renders media.batch as bounded summary and per-id result table while retaining raw JSON diagnostics",
+    "requestLimit": "admin media save/delete/batch rejects request bodies beyond maxRequestBytes before JSON parse",
+    "attachmentFill": "ability page media dialog can read host attachment metadata by xid and fill url/mime/ext/size/title",
+    "attachmentUploadMessage": "host attachment upload page posts xadminAttachmentUploaded to opener and content.media ability page opens a prefilled media dialog",
+    "accessIntegration": "public media list/detail filter resources whose content refs are restricted by content.access"
+  },
+  "tasks": []
+}

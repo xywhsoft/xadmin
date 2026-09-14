@@ -1,0 +1,32 @@
+{
+  "permissions": ["sitemap.view", "sitemap.generate", "sitemap.manage"],
+  "adminPages": ["sitemap"],
+  "publicApis": ["sitemap.xml", "sitemap-index.xml", "rss.xml", "robots.txt"],
+  "adminApis": ["sitemap.entry.list", "sitemap.refresh-plan", "sitemap.refresh", "sitemap.stats"],
+  "tables": ["content_sitemap_entry"],
+  "sharedTables": ["content_background_task"],
+  "events": ["content.afterPublish", "content.afterDelete"],
+  "runtime": {
+    "absoluteUrlConfig": true,
+    "fileCache": ["sitemap/sitemap.xml", "sitemap/sitemap-index.xml", "sitemap/rss.xml", "sitemap/robots.txt"],
+    "pagedSitemap": "sitemap.xml?page=N",
+    "configKeys": ["siteUrl", "cacheTtlSeconds", "maxEntryListRows", "maxRefreshRows", "maxRssRows"],
+    "entryListLimit": "admin sitemap entry list clamps request limit by maxEntryListRows",
+    "entryListFilters": ["contentId", "status"],
+    "refreshPlan": "admin preview endpoint returns bounded refresh cost without writing sitemap entries or cache files",
+    "refreshPlanUi": "ability page renders sitemap.refresh-plan as bounded refresh cost and cache policy tables while retaining raw JSON diagnostics",
+    "refreshLimit": "manual refresh clamps rebuild count by maxRefreshRows",
+    "refreshResultUi": "ability page renders sitemap.refresh as bounded refresh and cache write result table while retaining raw JSON diagnostics",
+    "refreshUiLimit": "ability page exposes refresh limit and sends it to both sitemap.refresh-plan and sitemap.refresh",
+    "rssLimit": "RSS fallback item count is capped by maxRssRows",
+    "dirtyMetadata": "admin stats reads sitemap/dirty.json and reports cacheDirty from dirty metadata",
+    "dirtyMetadataDetail": "admin stats exposes dirtyReason, dirtyContentId and dirtyUpdateTime from sitemap/dirty.json for cache diagnostics",
+    "cacheFileDiagnostics": "admin stats exposes cacheFiles with path, exists, sizeBytes and updateTimeText for sitemap.xml, sitemap-index.xml, rss.xml, robots.txt, cache.json and dirty.json",
+    "backgroundTaskSchema": "content_background_task is created only when static, sitemap or import-export task-capable packs are enabled and contains task_type, target_type, target_id, status, progress, payload, result, error, retry and timestamps",
+    "backgroundTaskApis": ["task.create", "task.list", "task.detail", "task.cancel", "task.retry"],
+    "backgroundTaskSitemapRefresh": "sitemap.refresh keeps the synchronous bounded refresh path and records a content.sitemap.refresh row in content_background_task with backgroundTaskId in the response",
+    "categoryBindIntegration": "entry list, manual refresh candidate rows, and sitemap/RSS fallback rows prefer content_category_bind when content.category is enabled",
+    "accessIntegration": "sitemap sync and refresh remove restricted content when content.access is enabled; public sitemap/RSS bypass stale cache and filter fallback rows when access is mounted"
+  },
+  "tasks": ["sitemap.generate"]
+}

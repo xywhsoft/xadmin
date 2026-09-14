@@ -30,6 +30,7 @@
 #include "modules/multipart.h"
 #include "modules/attachment.h"
 #include "modules/sched.h"
+#include "modules/standalone_page.h"
 #if XADMIN_WITH_SMTP
 #include "modules/mail.h"
 #endif
@@ -38,6 +39,10 @@
 #include "modules/option.h"
 #include "modules/form.h"
 #include "modules/plugin_host.h"
+#include "modules/content.h"
+#include "modules/content_generator.h"
+#include "modules/install.h"
+static bool G_SessionStarted, G_BusinessStarted; /* install.h 的向导流程与本段启动链共用 */
 #include "route_http/index.h"
 #include "route_http/login.h"
 #include "route_http/auth.h"
@@ -47,6 +52,7 @@
 #include "route_http/attachment.h"
 #include "route_http/attachment_api.h"
 #include "route_http/sched.h"
+#include "route_http/standalone_page.h"
 #if XADMIN_WITH_SMTP
 #include "route_http/mail.h"
 #endif
@@ -59,11 +65,65 @@
 #include "route_http/option.h"
 #include "route_http/option_file.h"
 #include "route_http/plugin.h"
+#include "route_http/content.h"
 #include "route_http/brand.h"
 #include "route.h"
 #include "modules/protocol.h"
 
-static bool G_SessionStarted, G_BusinessStarted;
+
+/* 必需扩展库探测（xs 契约 API xsExtensionEnabled，注册名=构建参数名）：
+ * 缺失即拒启，报错到日志——避免运行中期才在功能点炸出难定位的符号错误。 */
+static bool XAdmin_RequireExtensions(void)
+{
+	static const char* required[] = {
+		"sqlite",                    /* 主库 */
+#if XADMIN_WITH_SMTP
+		"xsmtp",                     /* 邮件发送/队列 */
+#endif
+		"md4c",                      /* 内容系统 markdown 渲染 */
+	};
+	size_t i;
+	for (i = 0; i < sizeof(required) / sizeof(required[0]); i++) {
+		if (!xsExtensionEnabled(required[i])) {
+			printf("[xadmin][error] required xs extension missing: %s\n", required[i]);
+			return false;
+		}
+	}
+	return true;
+}
+
+/* 业务段启动：DB 打开/迁移 + 会话/路由/模块/插件全链。正常启动与安装向导
+ * 完成后共用（向导在请求线程内调用，G_RequestLock 已序列化）。 */
+static bool XAdmin_BusinessStart(XS_HostInfo* host)
+{
+	if (!XAdmin_RequireExtensions()) return false;
+	if (!DB_Init()) { printf("[xadmin][error] business start: DB_Init failed\n"); return false; }
+	if (!DB_MigrateTimeUnits()) { printf("[xadmin][error] business start: DB_MigrateTimeUnits failed\n"); return false; }
+	if (!DB_EnsureUrisMaskColumn()) { printf("[xadmin][error] business start: uris mask column failed\n"); return false; }
+	if (!DB_EnsureUrisEnhancedColumns()) { printf("[xadmin][error] business start: uris enhanced columns failed\n"); return false; }
+	if (!DB_EnsurePluginResourceIndex()) { printf("[xadmin][error] business start: plugin resource index failed\n"); return false; }
+	G_SessionStarted = true;
+	if (!Session_Init()) { printf("[xadmin][error] business start: Session_Init failed\n"); return false; }
+	Guard_Init(); RouteHTTP_Init();
+	if (!RouteHTTP_Compile()) { printf("[xadmin][error] business start: RouteHTTP_Compile failed\n"); return false; }
+	/* SQL 与业务缓存复用 v1。这里不执行历史数据修复/重新安装。 */
+	Auth_CompileSQL(); ReloadCache_Auth_Auth(); ReloadCache_Auth_Group();
+	Member_Init(); MemberAuth_Init(); Notify_Init(); Attachment_Init(); Sched_Init(); StandalonePage_Init();
+#if XADMIN_WITH_SMTP
+	Mail_Init();
+#endif
+	Menu_Init(); Logs_Init(); Option_Init(); Form_Init();
+	Form_TemplateRegistryInit(); /* {{#form}} 扩展注册表，晚于全部模板编译点声明 */
+	if (!Content_Init()) return false; /* 内容系统：7 表 + 能力包装载 + 菜单（生成器阶段 2） */
+	PluginHost_ContextInit(host);
+	PluginHost_Init();
+	Auth_SyncURIS(); MemberAuth_ReloadCache();
+	G_BusinessStarted = true;
+	G_Ready = true;
+	Session_StartTimer(host);
+	printf("[xadmin] ready; database=%s/main.db\n", DBPath);
+	return true;
+}
 
 void ServiceInit(XS_HostInfo* host)
 {
@@ -75,27 +135,18 @@ void ServiceInit(XS_HostInfo* host)
 	path = xrtPathJoin(AppPath, "page"); G_PageRoot = xrtRootOpen(path); xrtFree(path);
 	path = xrtPathJoin(AppPath, "template"); G_TemplateRoot = xrtRootOpen(path); xrtFree(path);
 	G_Templates = xrtMapCreate(sizeof(xtemplate*));
-	if (!G_RequestLock || !G_PageRoot || !G_TemplateRoot || !G_Templates || !DB_Init() || !DB_MigrateTimeUnits() || !DB_EnsureUrisMaskColumn() || !DB_EnsurePluginResourceIndex()) {
-		printf("[xadmin][error] initialization failed; check migrated resources and db/main.db\n");
+	if (!G_RequestLock || !G_PageRoot || !G_TemplateRoot || !G_Templates) {
+		printf("[xadmin][error] initialization failed; page/template resource missing\n");
 		return;
 	}
-	G_SessionStarted = true;
-	if (!Session_Init()) return;
-	Guard_Init(); RouteHTTP_Init();
-	if (!RouteHTTP_Compile()) return;
-	/* SQL 与业务缓存复用 v1。这里不执行历史数据修复/重新安装。 */
-	Auth_CompileSQL(); ReloadCache_Auth_Auth(); ReloadCache_Auth_Group();
-	Member_Init(); MemberAuth_Init(); Notify_Init(); Attachment_Init(); Sched_Init();
-#if XADMIN_WITH_SMTP
-	Mail_Init();
-#endif
-	Menu_Init(); Logs_Init(); Option_Init(); Form_Init();
-	PluginHost_Init();
-	Auth_SyncURIS(); MemberAuth_ReloadCache();
-	G_BusinessStarted = true;
-	G_Ready = true;
-	Session_StartTimer(host);
-	printf("[xadmin] ready; database=%s/main.db\n", DBPath);
+	Install_Init();
+	if (G_InstallMode) {
+		/* 未安装：业务段延后到向导 POST 完成（建库后在本进程内拉起） */
+		printf("[xadmin] install mode; wizard serves all requests until installed\n");
+		return;
+	}
+	if (!XAdmin_BusinessStart(host))
+		printf("[xadmin][error] initialization failed; check migrated resources and db/main.db\n");
 }
 
 void ServiceUnit(XS_HostInfo* host)
@@ -105,6 +156,7 @@ void ServiceUnit(XS_HostInfo* host)
 		PluginHost_Unit();
 		Attachment_Unit();
 		Sched_Unit();
+		StandalonePage_Unit();
 #if XADMIN_WITH_SMTP
 		Mail_Unit();
 #endif
@@ -115,6 +167,7 @@ void ServiceUnit(XS_HostInfo* host)
 	if (G_SessionStarted) Session_Unit();
 	G_Ready = false;
 	Template_Unit();
+	Form_TemplateRegistryUnit(); /* 编译产物全部释放后再回收扩展注册表 */
 	if (G_PageRoot) xrtRootClose(G_PageRoot);
 	G_PageRoot = NULL;
 	RouteHTTP_Unit();

@@ -831,6 +831,24 @@ static bool Mail_TestSmtp(const char* toEmail, str* outMessage)
 
 void Mail_Init(void)
 {
+	/* v1 契约：自装"邮件任务"菜单（幂等，href 命中即复用） */
+	{
+		sqlite3_stmt* stmt = NULL;
+		int menuId = 0;
+		int64 now = xrtNow();
+		if (sqlite3_prepare_v2(G_DB, "SELECT id FROM menu WHERE isDelete=0 AND href='/admin/view/member/mail' LIMIT 1", -1, &stmt, NULL) == SQLITE_OK) {
+			if (sqlite3_step(stmt) == SQLITE_ROW) menuId = sqlite3_column_int(stmt, 0);
+			sqlite3_finalize(stmt);
+		}
+		if (!menuId) {
+			if (sqlite3_prepare_v2(G_DB, "INSERT INTO menu (parent,title,icon,type,openType,href,sort,visible,remark,createTime,updateTime,isDelete) SELECT 0,'邮件任务','layui-icon layui-icon-email',1,'_iframe','/admin/view/member/mail',401700,1,'前台用户邮件任务与发送记录',?,?,0", -1, &stmt, NULL) == SQLITE_OK) {
+				sqlite3_bind_int64(stmt, 1, now);
+				sqlite3_bind_int64(stmt, 2, now);
+				sqlite3_step(stmt);
+				sqlite3_finalize(stmt);
+			}
+		}
+	}
 	printf("        Mail_Init \n");
 	Notify_ExecSQLIgnore("CREATE TABLE IF NOT EXISTS mail_template (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, name TEXT DEFAULT '', sourcePlugin TEXT DEFAULT '', subjectTpl TEXT DEFAULT '', htmlTpl TEXT DEFAULT '', textTpl TEXT DEFAULT '', enabled INTEGER DEFAULT 1, remark TEXT DEFAULT '', createTime INTEGER DEFAULT 0, updateTime INTEGER DEFAULT 0)");
 	Notify_ExecSQLIgnore("CREATE TABLE IF NOT EXISTS mail_task (id INTEGER PRIMARY KEY AUTOINCREMENT, memberId INTEGER DEFAULT 0, toEmail TEXT DEFAULT '', templateCode TEXT DEFAULT '', subject TEXT DEFAULT '', htmlBody TEXT DEFAULT '', textBody TEXT DEFAULT '', payloadJson TEXT DEFAULT '', sourcePlugin TEXT DEFAULT '', bizType TEXT DEFAULT '', bizId INTEGER DEFAULT 0, status TEXT DEFAULT 'pending', retryCount INTEGER DEFAULT 0, maxRetryCount INTEGER DEFAULT 0, nextRetryAt INTEGER DEFAULT 0, errorMessage TEXT DEFAULT '', createTime INTEGER DEFAULT 0, updateTime INTEGER DEFAULT 0, sendTime INTEGER DEFAULT 0)");

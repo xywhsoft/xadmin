@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "packId": "content.media",
+  "name": "media",
+  "title": "媒体资源",
+  "description": "提供封面图、正文资源、资源反查和删除保护能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 240,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "advisorMessage": "能力包 content.media：会跟踪媒体资源和内容引用，请规划上传存储、删除保护和图片处理策略。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/media/ref/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_media"
+}

@@ -69,6 +69,13 @@ static bool DB_MigrateTimeUnits(void)
 	if (xrtTimeLocal(xrtNow(), &local)) offset = (int64)local.Offset;
 	if (sqlite3_exec(G_DB, "BEGIN IMMEDIATE", NULL, NULL, NULL) != SQLITE_OK) return false;
 	for (i = 0; i < sizeof(tables) / sizeof(tables[0]); i++) {
+		/* 运行时自装表（notify/mail/sched 等）在全新库上尚不存在，缺表跳过 */
+		snprintf(sql, sizeof(sql), "SELECT 1 FROM sqlite_master WHERE type='table' AND name='%s';", tables[i].table);
+		if (sqlite3_prepare_v2(G_DB, sql, -1, &stmt, NULL) == SQLITE_OK) {
+			bool exists = sqlite3_step(stmt) == SQLITE_ROW;
+			sqlite3_finalize(stmt);
+			if (!exists) continue;
+		}
 		for (c = 0; c < 8 && tables[i].columns[c]; c++) {
 			snprintf(sql, sizeof(sql),
 				"UPDATE %s SET %s = (%s - 62167219200 - %lld) * 1000000 "
@@ -92,6 +99,17 @@ static bool DB_MigrateTimeUnits(void)
 
 /* 浸泡实测：plugin_resource 无索引时台账清理全表扫描，20 万行后 p95 达 5.2s。
  * (xid, generation, status) 精确覆盖 CleanupResources 的 WHERE 子句。 */
+static bool DB_EnsureUrisEnhancedColumns(void)
+{
+	sqlite3_exec(G_DB, "ALTER TABLE uris ADD COLUMN isPersistent INTEGER DEFAULT 0", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "ALTER TABLE uris ADD COLUMN namespace TEXT DEFAULT 'auto'", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "ALTER TABLE uris ADD COLUMN routeActive INTEGER DEFAULT 1", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "UPDATE uris SET namespace = 'auto' WHERE namespace IS NULL OR namespace = ''", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "UPDATE uris SET routeActive = 1 WHERE routeActive IS NULL", NULL, NULL, NULL);
+	sqlite3_exec(G_DB, "CREATE INDEX IF NOT EXISTS idx_uris_namespace ON uris(namespace)", NULL, NULL, NULL);
+	return true;
+}
+
 static bool DB_EnsurePluginResourceIndex(void)
 {
 	sqlite3_stmt* stmt; bool bHas = false;

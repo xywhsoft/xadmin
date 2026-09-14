@@ -1,0 +1,167 @@
+{
+  "groups": [
+    {
+      "key": "sensitive",
+      "title": "敏感词过滤配置",
+      "fields": [
+        {
+          "name": "strategy",
+          "type": "select",
+          "label": "命中策略",
+          "value": "mark",
+          "list": [
+            {
+              "value": "block",
+              "label": "拦截"
+            },
+            {
+              "value": "replace",
+              "label": "替换"
+            },
+            {
+              "value": "mark",
+              "label": "转人工审核"
+            },
+            {
+              "value": "log",
+              "label": "仅记录"
+            }
+          ]
+        },
+        {
+          "name": "fields",
+          "type": "checkbox",
+          "label": "扫描字段",
+          "value": [
+            "title",
+            "summary",
+            "content"
+          ],
+          "list": [
+            {
+              "value": "title",
+              "label": "标题"
+            },
+            {
+              "value": "summary",
+              "label": "摘要"
+            },
+            {
+              "value": "content",
+              "label": "正文"
+            },
+            {
+              "value": "body",
+              "label": "评论正文"
+            },
+            {
+              "value": "description",
+              "label": "描述"
+            }
+          ]
+        },
+        {
+          "name": "logRetentionDays",
+          "type": "number",
+          "label": "命中日志保留天数",
+          "value": 90,
+          "min": 1,
+          "max": 3650,
+          "step": 1
+        },
+        {
+          "name": "statsRecentDays",
+          "type": "number",
+          "label": "统计近期天数",
+          "value": 7,
+          "min": 1,
+          "max": 365,
+          "step": 1
+        },
+        {
+          "name": "matchMode",
+          "type": "select",
+          "label": "命中匹配模式",
+          "value": "substring",
+          "list": [
+            {
+              "value": "substring",
+              "label": "子串匹配"
+            },
+            {
+              "value": "asciiWord",
+              "label": "按 ASCII 词边界"
+            },
+            {
+              "value": "cjkLoose",
+              "label": "中文宽松匹配"
+            }
+          ]
+        },
+        {
+          "name": "maxWordLength",
+          "type": "number",
+          "label": "敏感词长度上限",
+          "value": 0,
+          "min": 0,
+          "max": 1024,
+          "step": 1
+        },
+        {
+          "name": "maxHitsPerScan",
+          "type": "number",
+          "label": "单次扫描命中上限",
+          "value": 200,
+          "min": 1,
+          "max": 10000,
+          "step": 1
+        },
+        {
+          "name": "maxCheckBytes",
+          "type": "number",
+          "label": "检测载荷字节上限",
+          "value": 65536,
+          "min": 1,
+          "max": 1048576,
+          "step": 1
+        },
+        {
+          "name": "maxCleanupRows",
+          "type": "number",
+          "label": "清理行数上限",
+          "value": 1000,
+          "min": 1,
+          "max": 10000,
+          "step": 1
+        },
+        {
+          "name": "maxLogListRows",
+          "type": "number",
+          "label": "命中日志列表行数上限",
+          "value": 200,
+          "min": 1,
+          "max": 2000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "后台请求体字节上限",
+          "value": 262144,
+          "min": 1,
+          "max": 1048576,
+          "step": 1
+        },
+        {
+          "name": "maxImportRows",
+          "type": "number",
+          "label": "导入行数上限",
+          "value": 1000,
+          "min": 1,
+          "max": 10000,
+          "step": 1
+        }
+      ]
+    }
+  ]
+}

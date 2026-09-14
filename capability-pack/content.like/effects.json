@@ -1,0 +1,38 @@
+{
+  "tables": [
+    "like_record",
+    "like_counter"
+  ],
+  "fields": [
+    {
+      "name": "like_count",
+      "title": "Like Count",
+      "storage": {
+        "type": "integer"
+      },
+      "showInList": true
+    }
+  ],
+  "adminPages": [
+    "likes"
+  ],
+  "publicApis": [
+    "like.create",
+    "like.cancel",
+    "like.status"
+  ],
+  "permissions": [
+    "like.view",
+    "like.manage"
+  ],
+  "events": [
+    "content.afterDelete",
+    "like.afterCreate",
+    "like.afterCancel"
+  ],
+  "tasks": [],
+  "files": [
+    "generated/pack_like.c",
+    "generated/admin_like.html"
+  ]
+}

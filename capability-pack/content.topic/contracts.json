@@ -1,0 +1,59 @@
+{
+  "permissions": [
+    "topic.view",
+    "topic.manage",
+    "topic.arrange"
+  ],
+  "adminPages": [
+    "topics",
+    "topic_contents"
+  ],
+  "publicApis": [
+    "topic.list",
+    "topic.detail",
+    "topic.contents"
+  ],
+  "adminApis": [
+    "topic.list",
+    "topic.save",
+    "topic.delete",
+    "topic.bind",
+    "topic.bind-content",
+    "topic.unbind",
+    "topic.content.sort",
+    "topic.batch-status",
+    "topic.stats",
+    "topic.content.list"
+  ],
+  "tables": [
+    "topic",
+    "topic_content"
+  ],
+  "events": [
+    "content.afterDelete",
+    "topic.afterBind",
+    "topic.afterSort"
+  ],
+  "runtime": {
+    "configKeys": ["mode", "maxBindContents", "maxPublicListRows", "maxDetailTopics", "maxPublicContentRows", "maxAdminLinkRows", "maxRequestBytes", "maxBatchRows"],
+    "boundedBind": true,
+    "boundedSortLimit": 500,
+    "batchStatus": "topic.batch-status updates enabled status for a bounded ids array",
+    "batchStatusUi": "ability page renders topic.batch-status as bounded summary and per-id result table while retaining raw JSON diagnostics",
+    "batchLimit": "maxBatchRows",
+    "publicListLimit": "maxPublicListRows",
+    "detailTopicLimit": "maxDetailTopics",
+    "publicContentLimit": "maxPublicContentRows",
+    "adminLinkLimit": "maxAdminLinkRows",
+    "adminLinkFilters": "topic content relation list supports optional topicId/contentId filters with bound SQL and maxAdminLinkRows limit",
+    "arrangeUi": "ability page loads topic content rows and provides Up/Down ordering before bounded sort save",
+    "sortResultUi": "ability page renders topic.content.sort as submitted/updated/bounded summary table while retaining raw JSON diagnostics",
+    "adminStats": "topic.stats returns bounded read-only aggregate status and top topic relation counts",
+    "adminStatsUi": "ability page renders topic.stats as summary, status and top relation tables while retaining raw JSON diagnostics",
+    "requestLimit": "admin topic write endpoints reject request bodies beyond maxRequestBytes before JSON parse",
+    "statusValidation": "topic.save normalizes status to enabled(1) or disabled(0)",
+    "categoryBindIntegration": "topic.contents result rows prefer content_category_bind when content.category is enabled",
+    "accessIntegration": "topic.contents filters restricted content when content.access is enabled; topic.list/detail hide aggregate content counts when access is mounted"
+  },
+  "tasks": []
+}

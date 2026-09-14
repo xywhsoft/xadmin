@@ -1,0 +1,13 @@
+{
+  "events": [
+    {
+      "event": "content.afterDelete",
+      "handler": "topic_content_afterDelete"
+    },
+    {
+      "event": "topic.afterBind",
+      "handler": "topic_topic_afterBind"
+    }
+  ],
+  "tasks": []
+}

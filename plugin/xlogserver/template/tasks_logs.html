@@ -2,42 +2,42 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>日志查看 - {$name}</title>
+	<title>日志查看 - {{$name}}</title>
 	<meta name="renderer" content="webkit">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link href="/layui/css/layui.css" rel="stylesheet">
 	<style>
-		body {{ margin: 0; padding: 0; background: #1a1a1a; color: #ccc; font-family: Consolas, Monaco, 'Courier New', monospace; }}
-		.log-header {{ padding: 10px 16px; background: #2a2a2a; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; gap: 12px; }}
-		.log-header .title {{ font-size: 14px; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-		.log-header .controls {{ display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }}
-		.log-header select, .log-header button {{ height: 28px; font-size: 12px; }}
-		.log-container {{ padding: 10px 16px; height: calc(100vh - 58px); overflow-y: auto; box-sizing: border-box; }}
-		.log-line {{ padding: 2px 0; line-height: 1.6; font-size: 13px; white-space: pre-wrap; word-break: break-all; }}
-		.log-time {{ color: #777; margin-right: 10px; }}
-		.log-sub {{ color: #888; }}
-		.log-info {{ color: #ccc; }}
-		.log-succ {{ color: #52c41a; }}
-		.log-fail, .log-error, .log-err {{ color: #ff4d4f; }}
-		.log-war {{ color: #faad14; }}
-		.log-section {{ font-size: 15px; font-weight: bold; color: #fff; margin-top: 8px; }}
-		.log-title {{ font-size: 18px; font-weight: bold; color: #1890ff; margin-top: 12px; margin-bottom: 4px; }}
-		.log-container::-webkit-scrollbar {{ width: 8px; }}
-		.log-container::-webkit-scrollbar-track {{ background: #1a1a1a; }}
-		.log-container::-webkit-scrollbar-thumb {{ background: #444; border-radius: 4px; }}
-		.log-container::-webkit-scrollbar-thumb:hover {{ background: #555; }}
-		.status-dot {{ display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }}
-		.status-running {{ background: #52c41a; animation: pulse 1s infinite; }}
-		.status-paused {{ background: #faad14; }}
-		@keyframes pulse {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.5; }} }}
+		body { margin: 0; padding: 0; background: #1a1a1a; color: #ccc; font-family: Consolas, Monaco, 'Courier New', monospace; }
+		.log-header { padding: 10px 16px; background: #2a2a2a; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+		.log-header .title { font-size: 14px; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+		.log-header .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+		.log-header select, .log-header button { height: 28px; font-size: 12px; }
+		.log-container { padding: 10px 16px; height: calc(100vh - 58px); overflow-y: auto; box-sizing: border-box; }
+		.log-line { padding: 2px 0; line-height: 1.6; font-size: 13px; white-space: pre-wrap; word-break: break-all; }
+		.log-time { color: #777; margin-right: 10px; }
+		.log-sub { color: #888; }
+		.log-info { color: #ccc; }
+		.log-succ { color: #52c41a; }
+		.log-fail, .log-error, .log-err { color: #ff4d4f; }
+		.log-war { color: #faad14; }
+		.log-section { font-size: 15px; font-weight: bold; color: #fff; margin-top: 8px; }
+		.log-title { font-size: 18px; font-weight: bold; color: #1890ff; margin-top: 12px; margin-bottom: 4px; }
+		.log-container::-webkit-scrollbar { width: 8px; }
+		.log-container::-webkit-scrollbar-track { background: #1a1a1a; }
+		.log-container::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+		.log-container::-webkit-scrollbar-thumb:hover { background: #555; }
+		.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+		.status-running { background: #52c41a; animation: pulse 1s infinite; }
+		.status-paused { background: #faad14; }
+		@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 	</style>
 </head>
 <body>
 	<div class="log-header">
 		<div class="title">
 			<span class="status-dot status-running" id="statusDot"></span>
-			<span id="taskName">{$name}</span>
+			<span id="taskName">{{$name}}</span>
 			<span style="color: #777; margin-left: 10px;">已加载 <span id="logCount">0</span> 条</span>
 		</div>
 		<div class="controls">
@@ -58,11 +58,11 @@
 
 	<script src="/layui/layui.js"></script>
 	<script>
-		var G_ServiceId = {$serviceId};
-		var G_TaskId = {$taskId};
+		var G_ServiceId = {{$serviceId}};
+		var G_TaskId = {{$taskId}};
 		var G_LastId = 0;
 		var G_Timer = null;
-		var G_Interval = {$refreshInterval};
+		var G_Interval = {{$refreshInterval}};
 		var G_Paused = false;
 		var G_LogCount = 0;
 		var G_FirstLoad = true;
@@ -75,9 +75,9 @@
 		refreshSelect.value = String(G_Interval);
 		if (refreshSelect.value !== String(G_Interval)) refreshSelect.value = '3000';
 
-		function getLogClass(cls) {{
+		function getLogClass(cls) {
 			if (!cls) return 'log-info';
-			switch(String(cls).toLowerCase()) {{
+			switch(String(cls).toLowerCase()) {
 				case 'sub': return 'log-sub';
 				case 'info': return 'log-info';
 				case 'succ': case 'success': return 'log-succ';
@@ -87,86 +87,86 @@
 				case 'section': return 'log-section';
 				case 'title': return 'log-title';
 				default: return 'log-info';
-			}}
-		}}
+			}
+		}
 
-		function escapeHtml(text) {{
+		function escapeHtml(text) {
 			var div = document.createElement('div');
 			div.textContent = text == null ? '' : String(text);
 			return div.innerHTML;
-		}}
+		}
 
-		function renderLogLine(log) {{
+		function renderLogLine(log) {
 			var div = document.createElement('div');
 			div.className = 'log-line ' + getLogClass(log.class);
 			div.innerHTML = '<span class="log-time">' + escapeHtml(log.time) + '</span>' + escapeHtml(log.text);
 			return div;
-		}}
+		}
 
-		function fetchLogs() {{
+		function fetchLogs() {
 			if (G_Paused) return;
 			fetch(apiUrl + '?serviceId=' + G_ServiceId + '&taskId=' + G_TaskId + '&lastId=' + G_LastId + '&limit=100')
-				.then(function(response){{ return response.json(); }})
-				.then(function(res){{
-					if (res.code === 0 && res.data && res.data.length) {{
+				.then(function(response){ return response.json(); })
+				.then(function(res){
+					if (res.code === 0 && res.data && res.data.length) {
 						var fragment = document.createDocumentFragment();
-						for (var i = 0; i < res.data.length; i++) {{
+						for (var i = 0; i < res.data.length; i++) {
 							var log = res.data[i];
 							fragment.appendChild(renderLogLine(log));
 							if (log.id > G_LastId) G_LastId = log.id;
 							G_LogCount++;
-						}}
+						}
 						logContainer.appendChild(fragment);
 						logCountEl.textContent = G_LogCount;
-						if (G_FirstLoad) {{
+						if (G_FirstLoad) {
 							logContainer.scrollTop = logContainer.scrollHeight;
 							G_FirstLoad = false;
-						}}
-					}}
-				}})
-				.catch(function(error){{ console.error('fetch logs failed:', error); }});
-		}}
+						}
+					}
+				})
+				.catch(function(error){ console.error('fetch logs failed:', error); });
+		}
 
-		function startTimer() {{
+		function startTimer() {
 			if (G_Timer) clearInterval(G_Timer);
 			if (G_Interval > 0) G_Timer = setInterval(fetchLogs, G_Interval);
-		}}
+		}
 
-		refreshSelect.onchange = function() {{
+		refreshSelect.onchange = function() {
 			G_Interval = parseInt(this.value, 10) || 0;
 			startTimer();
-		}};
+		};
 
 		document.getElementById('btnRefresh').onclick = fetchLogs;
-		document.getElementById('btnToggle').onclick = function() {{
+		document.getElementById('btnToggle').onclick = function() {
 			G_Paused = !G_Paused;
 			this.textContent = G_Paused ? '继续' : '暂停';
 			this.className = G_Paused ? 'layui-btn layui-btn-sm layui-btn-normal' : 'layui-btn layui-btn-sm';
 			statusDot.className = G_Paused ? 'status-dot status-paused' : 'status-dot status-running';
-		}};
+		};
 
-		document.getElementById('btnClear').onclick = function() {{
-			layui.use('layer', function(){{
+		document.getElementById('btnClear').onclick = function() {
+			layui.use('layer', function(){
 				var layer = layui.layer;
-				layer.confirm('确定要清空所有日志吗？<br>此操作不可恢复。', {{icon: 3, title: '清空确认'}}, function(index){{
-					fetch(apiUrl + '?serviceId=' + G_ServiceId + '&taskId=' + G_TaskId, {{method: 'DELETE'}})
-						.then(function(response){{ return response.json(); }})
-						.then(function(res){{
-							if (res.code === 0) {{
-								layer.msg('日志已清空', {{icon: 1}});
+				layer.confirm('确定要清空所有日志吗？<br>此操作不可恢复。', {icon: 3, title: '清空确认'}, function(index){
+					fetch(apiUrl + '?serviceId=' + G_ServiceId + '&taskId=' + G_TaskId, {method: 'DELETE'})
+						.then(function(response){ return response.json(); })
+						.then(function(res){
+							if (res.code === 0) {
+								layer.msg('日志已清空', {icon: 1});
 								logContainer.innerHTML = '';
 								G_LogCount = 0;
 								G_LastId = 0;
 								logCountEl.textContent = '0';
-							}} else {{
-								layer.msg(res.message || '清空失败', {{icon: 2}});
-							}}
-						}})
-						.catch(function(){{ layer.msg('请求失败', {{icon: 2}}); }});
+							} else {
+								layer.msg(res.message || '清空失败', {icon: 2});
+							}
+						})
+						.catch(function(){ layer.msg('请求失败', {icon: 2}); });
 					layer.close(index);
-				}});
-			}});
-		}};
+				});
+			});
+		};
 
 		fetchLogs();
 		startTimer();

@@ -5,7 +5,7 @@ static void RouteHTTP_Init(void)
 {
     RouteInfo* brand;
     G_StaticRouteTableHTTP = xrtMapCreate(sizeof(RouteInfo));
-	AddStaticRouteHTTP("/", XHTTP_METHOD_ANY, Request_Index, false);
+	AddStaticRouteHTTP("/", XHTTP_METHOD_ANY, Request_Site_Home, false);
 	AddStaticRouteHTTP("/admin", XHTTP_METHOD_ANY, Request_Index, false);
 	AddStaticRouteHTTP("/admin/login", XHTTP_METHOD_ANY, Request_Login, true);
 	AddStaticRouteHTTP("/admin/logout", XHTTP_METHOD_ANY, Request_Logout, false);
@@ -35,7 +35,43 @@ static void RouteHTTP_Init(void)
 	AddStaticRouteHTTP("/admin/view/option/file", XHTTP_METHOD_ANY, Request_View_Option_File, false);
 	AddStaticRouteHTTP("/admin/option/file", XHTTP_METHOD_ANY, Request_Option_File, false);
 	AddStaticRouteHTTP("/admin/view/plugin", XHTTP_METHOD_ANY, Request_View_Plugin_List, false);
+	AddStaticRouteHTTP("/admin/view/content/page", XHTTP_METHOD_ANY, Request_View_Content_Page, false);
+	AddStaticRouteHTTP("/admin/content/pages", XHTTP_METHOD_ANY, Request_Content_Pages, false);
+	AddStaticRouteHTTP("/admin/content/page", XHTTP_METHOD_ANY, Request_Content_Page, false);
+	AddStaticRouteHTTP("/admin/content/page/save", XHTTP_METHOD_ANY, Request_Content_Page_Save, false);
+	AddStaticRouteHTTP("/admin/content/page/delete", XHTTP_METHOD_ANY, Request_Content_Page_Delete, false);
+	{ /* 前台站点路由：免鉴权免日志 */
+		RouteInfo* site;
+		AddStaticRouteHTTP("/features", XHTTP_METHOD_ANY, Request_Site_Features, false);
+		AddStaticRouteHTTP("/plugins", XHTTP_METHOD_ANY, Request_Site_Plugins, false);
+		AddStaticRouteHTTP("/capabilities", XHTTP_METHOD_ANY, Request_Site_Capabilities, false);
+		AddStaticRouteHTTP("/content-system", XHTTP_METHOD_ANY, Request_Site_ContentSystem, false);
+		AddStaticRouteHTTP("/docs", XHTTP_METHOD_ANY, Request_Site_Docs, false);
+	AddStaticRouteHTTP("/docs/plugin", XHTTP_METHOD_ANY, Request_Site_Docs, false);
+	AddStaticRouteHTTP("/docs/content", XHTTP_METHOD_ANY, Request_Site_Docs, false);
+	AddStaticRouteHTTP("/docs/capability", XHTTP_METHOD_ANY, Request_Site_Docs, false);
+		AddStaticRouteHTTP("/download", XHTTP_METHOD_ANY, Request_Site_Download, false);
+		AddStaticRouteHTTP("/demo", XHTTP_METHOD_ANY, Request_Site_Demo, false);
+		(void)site;
+	}
 	AddStaticRouteHTTP("/admin/view/template/form_demo", XHTTP_METHOD_ANY, Request_View_Template_FormDemo, false);
+	AddStaticRouteHTTP("/admin/template/rebuild", XHTTP_METHOD_ANY, Request_Tool_Reload_Template, false);
+	AddStaticRouteHTTP("/admin/view/content", XHTTP_METHOD_ANY, Request_View_Content_Index, false);
+	AddStaticRouteHTTP("/admin/view/content/editor", XHTTP_METHOD_ANY, Request_View_Content_Editor, false);
+	AddStaticRouteHTTP("/admin/view/content/packs", XHTTP_METHOD_ANY, Request_View_Content_Packs, false);
+	AddStaticRouteHTTP("/admin/view/content/pack-store", XHTTP_METHOD_ANY, Request_View_Content_PackStore, false);
+	AddStaticRouteHTTP("/admin/content/types", XHTTP_METHOD_ANY, Request_Content_Types, false);
+	AddStaticRouteHTTP("/admin/content/type", XHTTP_METHOD_ANY, Request_Content_Type, false);
+	AddStaticRouteHTTP("/admin/content/save", XHTTP_METHOD_ANY, Request_Content_Save, false);
+	AddStaticRouteHTTP("/admin/content/delete", XHTTP_METHOD_ANY, Request_Content_Delete, false);
+	AddStaticRouteHTTP("/admin/content/revisions", XHTTP_METHOD_ANY, Request_Content_Revisions, false);
+	AddStaticRouteHTTP("/admin/content/generations", XHTTP_METHOD_ANY, Request_Content_Generations, false);
+	AddStaticRouteHTTP("/admin/content/advisor", XHTTP_METHOD_ANY, Request_Content_Advisor, false);
+	AddStaticRouteHTTP("/admin/content/generate", XHTTP_METHOD_ANY, Request_Content_Generate, false);
+	AddStaticRouteHTTP("/admin/content/packs", XHTTP_METHOD_ANY, Request_Content_Packs, false);
+	AddStaticRouteHTTP("/admin/content/pack", XHTTP_METHOD_ANY, Request_Content_Pack, false);
+	AddStaticRouteHTTP("/admin/content/pack/options", XHTTP_METHOD_ANY, Request_Content_Pack_Options, false);
+	AddStaticRouteHTTP("/admin/content/templates", XHTTP_METHOD_ANY, Request_Content_Templates, false);
     AddStaticRouteHTTP("/admin/view/plugin/store", XHTTP_METHOD_ANY, Request_View_Plugin_Store, false);
     AddStaticRouteHTTP("/admin/plugin/list", XHTTP_METHOD_ANY, Request_Plugin_List, false);
     AddStaticRouteHTTP("/admin/plugin/get", XHTTP_METHOD_ANY, Request_Plugin_Get, false);
@@ -154,6 +190,15 @@ static void RouteHTTP_Init(void)
 	AddStaticRouteHTTP("/admin/view/member/mail", XHTTP_METHOD_ANY, Request_View_Member_Mail, false);
 	AddStaticRouteHTTP("/admin/view/member/mail/send", XHTTP_METHOD_ANY, Request_View_Member_Mail_Send, false);
 #endif
+    { /* 前台站点路由免鉴权（覆盖 uris 表 isBackend=1 的种子默认） */
+        RouteInfo* sr;
+        const char* sp[] = {"/", "/features", "/plugins", "/capabilities", "/content-system", "/docs", "/download", "/demo"};
+        int si;
+        for (si = 0; si < 8; si++) {
+            sr = xrtMapGet(G_StaticRouteTableHTTP, KeyView(sp[si]));
+            if (sr) { sr->bAuth = false; sr->bAdmin = false; }
+        }
+    }
     brand = xrtMapGet(G_StaticRouteTableHTTP, KeyViewN("/brand/admin", 12));
     if (brand) { brand->bAuth = false; brand->bAdmin = false; }
 }

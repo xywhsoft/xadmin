@@ -3,6 +3,7 @@
  */
 static xroot G_TemplateRoot;
 static xmap* G_Templates;
+static xtemplateregistry* G_TemplateRegistry; /* 扩展注册表（{{#form}} 等），Form 模块装配 */
 static char* MakePageWithTemplate(const char* name, xvalue* data, size_t* size)
 {
 	xbytesview key = {(cbytes)name, strlen(name)};
@@ -14,6 +15,7 @@ static char* MakePageWithTemplate(const char* name, xvalue* data, size_t* size)
 		if (!source) return NULL;
 		xrtTemplateConfigInit(&config);
 		config.Open = XRT_STR_LITERAL("{{"); config.Close = XRT_STR_LITERAL("}}");
+		config.Registry = G_TemplateRegistry;
 		compiled = xrtTemplateCompileConfig((xstrview){(const char*)source, length}, &config);
 		xrtFree(source);
 		if (!compiled) { printf("[template][error] %s\n", name); return NULL; }
@@ -67,6 +69,7 @@ static int Template_RebuildFileProc(const char* path, size_t size, bool dir, voi
 	if (!source) { ctx->failed++; xrtFree(key); return 0; }
 	xrtTemplateConfigInit(&config);
 	config.Open = XRT_STR_LITERAL("{{"); config.Close = XRT_STR_LITERAL("}}");
+	config.Registry = G_TemplateRegistry;
 	compiled = xrtTemplateCompileConfig((xstrview){(const char*)source, length}, &config);
 	xrtFree(source);
 	if (!compiled) {

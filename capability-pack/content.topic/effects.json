@@ -1,0 +1,39 @@
+{
+  "tables": [
+    "topic",
+    "topic_content"
+  ],
+  "fields": [
+    {
+      "name": "topic_ids",
+      "title": "Topics",
+      "storage": {
+        "type": "text"
+      },
+      "showInList": false
+    }
+  ],
+  "adminPages": [
+    "topics",
+    "topic_contents"
+  ],
+  "publicApis": [
+    "topic.list",
+    "topic.detail",
+    "topic.contents"
+  ],
+  "permissions": [
+    "topic.view",
+    "topic.manage",
+    "topic.arrange"
+  ],
+  "events": [
+    "content.afterDelete",
+    "topic.afterBind"
+  ],
+  "tasks": [],
+  "files": [
+    "generated/pack_topic.c",
+    "generated/admin_topic.html"
+  ]
+}

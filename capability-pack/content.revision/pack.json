@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "packId": "content.revision",
+  "name": "revision",
+  "title": "内容版本",
+  "description": "提供版本列表、字段级差异对比和版本恢复能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 250,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "advisorMessage": "能力包 content.revision：会在写入时保存内容快照，请评估数据库增长和版本保留策略。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/revision/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_revision"
+}

@@ -1,0 +1,42 @@
+{
+  "tables": [
+    "view_counter",
+    "view_log",
+    "view_daily_stat"
+  ],
+  "fields": [
+    {
+      "name": "view_count",
+      "title": "View Count",
+      "storage": {
+        "type": "integer"
+      },
+      "showInList": true
+    }
+  ],
+  "adminPages": [
+    "view_stats",
+    "view_rank"
+  ],
+  "publicApis": [
+    "view.count",
+    "view.rank",
+    "view.detail"
+  ],
+  "permissions": [
+    "view_stat.view",
+    "view_stat.export"
+  ],
+  "events": [
+    "content.afterView",
+    "content.afterDelete"
+  ],
+  "tasks": [
+    "task.aggregate",
+    "task.clean"
+  ],
+  "files": [
+    "generated/pack_view-stat.c",
+    "generated/admin_view-stat.html"
+  ]
+}

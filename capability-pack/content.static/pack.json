@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "packId": "content.static",
+  "name": "static",
+  "title": "静态化管理",
+  "description": "提供静态输出规则、生成任务、增量生成、访问受限壳页面和清理能力。",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 500,
+  "update": {
+    "channel": "official",
+    "packageId": "content.static",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": [
+      "task"
+    ]
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json",
+  "advisorMessage": "能力包 content.static：会写入静态化产物，请确认输出目录、清理策略和刷新触发条件。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/static/rule/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_static"
+}

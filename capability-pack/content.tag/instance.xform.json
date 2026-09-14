@@ -1,0 +1,79 @@
+{
+  "groups": [
+    {
+      "key": "tag",
+      "title": "标签配置",
+      "fields": [
+        {
+          "name": "maxTags",
+          "type": "number",
+          "label": "单内容最大标签数",
+          "value": 8,
+          "min": 0,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "name": "allowCreateInline",
+          "type": "switch",
+          "label": "允许编辑页即时创建标签",
+          "value": true
+        },
+        {
+          "name": "maxPublicListRows",
+          "type": "number",
+          "label": "公开标签行数上限",
+          "value": 500,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxDetailTags",
+          "type": "number",
+          "label": "详情标签行数上限",
+          "value": 20,
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "name": "maxPublicContentRows",
+          "type": "number",
+          "label": "公开内容行数上限",
+          "value": 200,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxAdminLinkRows",
+          "type": "number",
+          "label": "后台关联行数上限",
+          "value": 500,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "请求体字节上限",
+          "value": 65536,
+          "min": 1024,
+          "max": 262144,
+          "step": 1024
+        },
+        {
+          "name": "maxBatchRows",
+          "type": "number",
+          "label": "批量操作行数上限",
+          "value": 100,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        }
+      ]
+    }
+  ]
+}

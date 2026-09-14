@@ -116,7 +116,8 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		
 		// 获取所有菜单数�?
 		xvalue* arrData = ValueArray();
-		
+		int iCount = 0;
+
 		while ( sqlite3_step(stmt_menu_all) == SQLITE_ROW ) {
 			xvalue* tblRow = ValueObject();
 			ValueSetInt(tblRow, "id", sqlite3_column_int(stmt_menu_all, 0));
@@ -130,13 +131,15 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			ValueSetInt(tblRow, "visible", sqlite3_column_int(stmt_menu_all, 8));
 			ValueSetText(tblRow, "remark", (char*)sqlite3_column_text(stmt_menu_all, 9));
 			ValueArrayOwn(arrData, tblRow);
+			iCount++;
 		}
 		sqlite3_reset(stmt_menu_all);
-		
-		// 构建返回�?
+
+		// 构建返回值
 		xvalue* tblRet = ValueObject();
 		ValueSetBool(tblRet, "result", true);
 		ValueSetText(tblRet, "message", "菜单数据获取成功");
+		ValueSetInt(tblRet, "count", iCount);
 		ValueSetOwn(tblRet, "data", arrData);
 		
 		size_t iRetSize = 0;

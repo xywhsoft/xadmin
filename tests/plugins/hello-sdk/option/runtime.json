@@ -1,0 +1,10 @@
+{
+  "classList": [
+    {
+      "title": "hello-sdk options",
+      "options": [
+        { "name": "welcome_message", "title": "Welcome Message", "type": "text", "value": "hello-option-default" }
+      ]
+    }
+  ]
+}

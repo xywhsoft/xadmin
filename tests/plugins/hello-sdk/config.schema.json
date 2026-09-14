@@ -1,0 +1,8 @@
+{
+	"type": "object",
+	"properties": {
+		"welcomeMessage": { "type": "string" },
+		"showTime": { "type": "boolean" }
+	},
+	"additionalProperties": false
+}

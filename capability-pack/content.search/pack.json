@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "packId": "content.search",
+  "name": "search",
+  "title": "内容搜索",
+  "description": "提供后台搜索和前台搜索能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 270,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "advisorMessage": "能力包 content.search：会启用前台和后台搜索，请确认可搜索字段、索引重建成本和结果可见性。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/search/stats",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_search"
+}

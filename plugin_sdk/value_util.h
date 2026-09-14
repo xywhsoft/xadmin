@@ -68,6 +68,10 @@ static bool ValueSetInt(xvalue* obj, const char* key, int64 value)
 {
 	return xrtValueObjectSetNew(obj, xrtStrView(key), xrtValueInt(value));
 }
+static bool ValueSetFloat(xvalue* obj, const char* key, double value)
+{
+	return xrtValueObjectSetNew(obj, xrtStrView(key), xrtValueFloat(value));
+}
 static bool ValueSetBool(xvalue* obj, const char* key, bool value)
 {
 	return xrtValueObjectSetNew(obj, xrtStrView(key), xrtValueBool(value));

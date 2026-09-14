@@ -1,0 +1,1783 @@
+/* 内容生成器（v1 script/content/content_generator.h + content_generation.h 对齐，方案 A 原生方言）。
+ * 阶段 2：模板装载/占位符替换、managed 产物构建（main.c/plugin.json/spec.json/
+ * runtime 三件套/页面 HTML）、能力包声明文件拷贝与生成编排。
+ * 由 main.c 在 modules/content.h 之后 include（依赖 Content_* / ContentPack_* /
+ * Plugin_BindText / XAdmin_GeneratePlugin / plugin_host.h 静态装配函数，同 TU）。
+ * 时间列 Unix 微秒（xrtNow），与 v1 秒不互换——内容表为 v3 新表。 */
+
+/* ==================== 文本与模板基础 ==================== */
+
+static const char* Content_TextOr(const char* text, const char* fallback)
+{
+	if (text && text[0]) return text;
+	return fallback ? fallback : "";
+}
+
+/* C 字符串字面量转义（\ " 换行 回车；v1 Content_EscapeCString 同集） */
+static char* Content_EscapeCString(const char* text)
+{
+	size_t len; size_t extra = 0; const char* p; char* out; char* w;
+	if (!text) return xrtStrDup("");
+	len = strlen(text);
+	for (p = text; *p; p++)
+		if (*p == '\\' || *p == '"' || *p == '\n' || *p == '\r') extra++;
+	out = (char*)xrtMalloc(len + extra + 1);
+	if (!out) return NULL;
+	w = out;
+	for (p = text; *p; p++) {
+		char c = *p;
+		if (c == '\\') { *w++ = '\\'; *w++ = '\\'; }
+		else if (c == '"') { *w++ = '\\'; *w++ = '"'; }
+		else if (c == '\n') { *w++ = '\\'; *w++ = 'n'; }
+		else if (c == '\r') { *w++ = '\\'; *w++ = 'r'; }
+		else *w++ = c;
+	}
+	*w = '\0';
+	return out;
+}
+
+/* 标识符清洗：字母数字下划线保留，. - 换 _，空结果回退 fallback（v1 同） */
+static char* Content_SanitizeSqlIdent(const char* text, const char* fallback)
+{
+	const char* fb = Content_TextOr(fallback, "content_record");
+	const char* p; char* out; size_t w = 0; bool hasChar = false;
+	if (!text) text = "";
+	out = (char*)xrtMalloc(strlen(text) + strlen(fb) + 2);
+	if (!out) return NULL;
+	for (p = text; *p; p++) {
+		char c = *p;
+		if (((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')) || ((c >= '0') && (c <= '9')) || (c == '_')) {
+			out[w++] = c;
+			hasChar = true;
+		} else if (c == '.' || c == '-') {
+			out[w++] = '_';
+			hasChar = true;
+		}
+	}
+	if (!hasChar) {
+		memcpy(out + w, fb, strlen(fb));
+		w += strlen(fb);
+	}
+	out[w] = '\0';
+	return out;
+}
+
+static char* Content_TemplatePath(const char* name)
+{
+	if (!AppPath || !name || !name[0]) return NULL;
+	return xrtPathJoin(xrtPathJoin(xrtPathJoin(AppPath, "content"), "templates"), name);
+}
+
+/* 读模板 + 去 UTF-8 BOM；失败返回 NULL（v1 Content_LoadGeneratorTemplate 同语义） */
+static char* Content_LoadGeneratorTemplate(const char* name)
+{
+	char* path = Content_TemplatePath(name);
+	char* text = NULL;
+	if (path) {
+		size_t size = 0;
+		bytes data = xrtFileReadAll(path, &size);
+		if (data) {
+			text = (char*)xrtMalloc(size + 1);
+			if (text) {
+				memcpy(text, data, size);
+				text[size] = '\0';
+				if (size >= 3 && (unsigned char)text[0] == 0xEF && (unsigned char)text[1] == 0xBB && (unsigned char)text[2] == 0xBF)
+					memmove(text, text + 3, size - 3 + 1);
+			}
+			xrtFree(data);
+		}
+		xrtFree(path);
+	}
+	return text;
+}
+
+/* 单趟扫描全量替换（v1 Content_StringReplaceAll；needle 为空回退整串拷贝） */
+static char* Content_StringReplaceAll(const char* text, const char* needle, const char* value)
+{
+	size_t needleLen; size_t valueLen; size_t count = 0; size_t outCap;
+	const char* cursor; const char* hit; char* out; char* w;
+	if (!text) return NULL;
+	if (!needle || !needle[0]) return xrtStrDup(text);
+	if (!value) value = "";
+	needleLen = strlen(needle);
+	valueLen = strlen(value);
+	for (cursor = strstr(text, needle); cursor; cursor = strstr(cursor + needleLen, needle))
+		count++;
+	outCap = strlen(text) + count * (valueLen > needleLen ? valueLen - needleLen : 0) + 1;
+	out = (char*)xrtMalloc(outCap);
+	if (!out) return NULL;
+	w = out;
+	cursor = text;
+	while ((hit = strstr(cursor, needle)) != NULL) {
+		if (hit > cursor) {
+			memcpy(w, cursor, (size_t)(hit - cursor));
+			w += hit - cursor;
+		}
+		if (valueLen) {
+			memcpy(w, value, valueLen);
+			w += valueLen;
+		}
+		cursor = hit + needleLen;
+	}
+	{
+		size_t rest = strlen(cursor);
+		if (rest) {
+			memcpy(w, cursor, rest);
+			w += rest;
+		}
+	}
+	*w = '\0';
+	return out;
+}
+
+/* 消费旧串的所有权并返回替换结果（v1 Content_TemplateSet） */
+static char* Content_TemplateSet(char* template, const char* needle, const char* value)
+{
+	char* next = Content_StringReplaceAll(template, needle, value);
+	xrtFree(template);
+	return next;
+}
+
+static char* Content_StringifyJson(xvalue* value, bool pretty)
+{
+	size_t size = 0;
+	return value ? xrtJsonStringify(value, pretty, &size) : NULL;
+}
+
+/* ==================== 能力包静态映射表（v1 照抄） ==================== */
+
+/* define 名：XADMIN_CAP_ + key 各段大写（. - → _），如 content.category → XADMIN_CAP_CONTENT_CATEGORY */
+static char* Content_CapabilityDefineName(const char* packId)
+{
+	const char* p; char* out; size_t w = 0;
+	if (!packId || !packId[0]) return xrtStrDup("XADMIN_CAP_UNKNOWN");
+	out = (char*)xrtMalloc(strlen(packId) + 16);
+	if (!out) return NULL;
+	memcpy(out, "XADMIN_CAP_", 11);
+	w = 11;
+	for (p = packId; *p; p++) {
+		char c = *p;
+		if ((c >= 'a') && (c <= 'z')) out[w++] = (char)(c - 'a' + 'A');
+		else if (((c >= 'A') && (c <= 'Z')) || ((c >= '0') && (c <= '9'))) out[w++] = c;
+		else out[w++] = '_';
+	}
+	out[w] = '\0';
+	return out;
+}
+
+static bool Content_IsBuiltinAbilityPack(const char* packId)
+{
+	if (!packId) return false;
+	if (!strcmp(packId, "content.comment")) return true;
+	if (!strcmp(packId, "content.tag")) return true;
+	if (!strcmp(packId, "content.topic")) return true;
+	if (!strcmp(packId, "content.sensitive")) return true;
+	if (!strcmp(packId, "content.static")) return true;
+	if (!strcmp(packId, "content.like")) return true;
+	if (!strcmp(packId, "content.view-stat")) return true;
+	return false;
+}
+
+/* v1 缺省权限映射（21 条 + 兜底） */
+static const char* Content_DefaultAbilityPermission(const char* packId)
+{
+	if (!packId) return "ability.manage";
+	if (!strcmp(packId, "content.comment")) return "comment.view";
+	if (!strcmp(packId, "content.tag")) return "tag.manage";
+	if (!strcmp(packId, "content.topic")) return "topic.manage";
+	if (!strcmp(packId, "content.sensitive")) return "sensitive.manage";
+	if (!strcmp(packId, "content.static")) return "static.manage";
+	if (!strcmp(packId, "content.like")) return "like.view";
+	if (!strcmp(packId, "content.view-stat")) return "view_stat.view";
+	if (!strcmp(packId, "content.seo")) return "seo.manage";
+	if (!strcmp(packId, "content.slug")) return "slug.manage";
+	if (!strcmp(packId, "content.redirect")) return "redirect.manage";
+	if (!strcmp(packId, "content.category")) return "category.manage";
+	if (!strcmp(packId, "content.media")) return "media.manage";
+	if (!strcmp(packId, "content.revision")) return "revision.manage";
+	if (!strcmp(packId, "content.workflow")) return "workflow.manage";
+	if (!strcmp(packId, "content.search")) return "search.manage";
+	if (!strcmp(packId, "content.sitemap")) return "sitemap.manage";
+	if (!strcmp(packId, "content.related")) return "related.manage";
+	if (!strcmp(packId, "content.form")) return "form.manage";
+	if (!strcmp(packId, "content.access")) return "access.manage";
+	if (!strcmp(packId, "content.audit-log")) return "audit_log.view";
+	if (!strcmp(packId, "content.import-export")) return "import_export.manage";
+	return "ability.manage";
+}
+
+static const char* Content_DefaultAbilityMenuTitle(const char* packId, const char* fallback)
+{
+	if (!packId) return fallback;
+	if (!strcmp(packId, "content.comment")) return "评论管理";
+	if (!strcmp(packId, "content.tag")) return "标签管理";
+	if (!strcmp(packId, "content.topic")) return "专题管理";
+	if (!strcmp(packId, "content.sensitive")) return "敏感词管理";
+	if (!strcmp(packId, "content.static")) return "静态化管理";
+	if (!strcmp(packId, "content.like")) return "点赞管理";
+	if (!strcmp(packId, "content.view-stat")) return "访问统计";
+	if (!strcmp(packId, "content.seo")) return "SEO 优化";
+	if (!strcmp(packId, "content.slug")) return "固定链接";
+	if (!strcmp(packId, "content.redirect")) return "跳转规则";
+	if (!strcmp(packId, "content.category")) return "栏目";
+	if (!strcmp(packId, "content.media")) return "媒体资源";
+	if (!strcmp(packId, "content.revision")) return "内容版本";
+	if (!strcmp(packId, "content.workflow")) return "审核流程";
+	if (!strcmp(packId, "content.search")) return "内容搜索";
+	if (!strcmp(packId, "content.sitemap")) return "站点地图";
+	if (!strcmp(packId, "content.related")) return "相关推荐";
+	if (!strcmp(packId, "content.form")) return "内容表单";
+	if (!strcmp(packId, "content.access")) return "阅读权限";
+	if (!strcmp(packId, "content.audit-log")) return "操作审计";
+	if (!strcmp(packId, "content.import-export")) return "导入导出";
+	return fallback;
+}
+
+/* capabilities[] 条目启用判定（缺省视为启用） */
+static bool Content_CapabilityEnabled(xvalue* item)
+{
+	if (!item || xrtValueType(item) != XVALUE_OBJECT) return false;
+	return ValueHas(item, "enabled") ? ValueBool(item, "enabled") : true;
+}
+
+static bool Content_SpecHasCapability(xvalue* spec, const char* key)
+{
+	xvalue* capabilities = ValueGet(spec, "capabilities");
+	uint32 i;
+	if (!key || !capabilities || xrtValueType(capabilities) != XVALUE_ARRAY) return false;
+	for (i = 0; i < ValueCount(capabilities); i++) {
+		xvalue* cap = xrtValueArrayGet(capabilities, i);
+		str capKey = (cap && xrtValueType(cap) == XVALUE_OBJECT) ? ValueText(cap, "key") : NULL;
+		if (Content_CapabilityEnabled(cap) && capKey && !strcmp(capKey, key)) return true;
+	}
+	return false;
+}
+
+/* ==================== managed main.c 生成段（v3 方言 C 代码） ==================== */
+
+/* 各启用包 schema.sql 拼接为 G_SchemaSql 的 C 字符串续段（每包一段换行分隔） */
+static char* Content_BuildAbilityPackSchemaSql(xvalue* spec)
+{
+	xvalue* packs = ValueGet(spec, "capabilities");
+	char* code = xrtStrDup("");
+	uint32 i;
+	if (!packs || xrtValueType(packs) != XVALUE_ARRAY) return code;
+	for (i = 0; i < ValueCount(packs); i++) {
+		xvalue* item = xrtValueArrayGet(packs, i);
+		str key = (item && xrtValueType(item) == XVALUE_OBJECT) ? ValueText(item, "key") : NULL;
+		xvalue* packDetail = NULL;
+		str dir = NULL;
+		char* path = NULL;
+		char* sql = NULL;
+		char* escaped = NULL;
+		char* next = NULL;
+		if (!key || !key[0]) continue;
+		if (!Content_CapabilityEnabled(item)) continue;
+		packDetail = ContentPack_GetDetail(key);
+		dir = packDetail ? ValueText(packDetail, "path") : NULL;
+		if (!dir || !dir[0]) {
+			xrtValueRelease(packDetail);
+			continue;
+		}
+		path = xrtPathJoin(dir, "schema.sql");
+		if (path && xrtPathExists(path)) {
+			size_t size = 0;
+			bytes data = xrtFileReadAll(path, &size);
+			if (data) {
+				sql = (char*)xrtMalloc(size + 1);
+				if (sql) {
+					memcpy(sql, data, size);
+					sql[size] = '\0';
+				}
+				xrtFree(data);
+			}
+		}
+		if (sql && sql[0]) {
+			escaped = Content_EscapeCString(sql);
+			next = xrtFormat("%s\n\t\"%s\"", Content_TextOr(code, ""), Content_TextOr(escaped, ""));
+			xrtFree(code);
+			code = next;
+		}
+		xrtFree(path);
+		xrtFree(sql);
+		xrtFree(escaped);
+		xrtValueRelease(packDetail);
+	}
+	return code;
+}
+
+/* 能力包后台路由注册段：path=/admin/view/plugin/{xid}/pack/{key}，auth 绑定本包权限 */
+static char* Content_BuildAbilityPackRouteCode(const char* pluginXid, xvalue* spec)
+{
+	xvalue* packs = ValueGet(spec, "capabilities");
+	char* code = xrtStrDup("");
+	uint32 i;
+	if (!packs || xrtValueType(packs) != XVALUE_ARRAY) return code;
+	for (i = 0; i < ValueCount(packs); i++) {
+		xvalue* item = xrtValueArrayGet(packs, i);
+		str key = (item && xrtValueType(item) == XVALUE_OBJECT) ? ValueText(item, "key") : NULL;
+		char* safeKey = NULL;
+		char* next = NULL;
+		if (!key || !key[0]) continue;
+		if (!Content_CapabilityEnabled(item)) continue;
+		safeKey = Content_SanitizeSqlIdent(key, "pack");
+		next = xrtFormat(
+			"%s\t\tmemset(&route, 0, sizeof(route));\n"
+			"\t\troute.path = \"/admin/view/plugin/%s/pack/%s\";\n"
+			"\t\troute.proc = Managed_RequestAbilityPackView;\n"
+			"\t\troute.need_auth = true;\n"
+			"\t\troute.admin_only = true;\n"
+			"\t\troute.auth_id = auth_%s;\n"
+			"\t\tif ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {\n"
+			"\t\t\tprintf(\"        [ManagedPlugin] ability route register failed: xid=%s path=%%s\\n\", route.path);\n"
+			"\t\t\tgoto failed;\n"
+			"\t\t}\n\n",
+			Content_TextOr(code, ""),
+			Content_TextOr(pluginXid, ""),
+			Content_TextOr(safeKey, "pack"),
+			Content_TextOr(safeKey, "pack"),
+			Content_TextOr(pluginXid, ""));
+		xrtFree(code);
+		xrtFree(safeKey);
+		code = next;
+	}
+	return code;
+}
+
+/* 能力包菜单注册段：title=包标题（v1 中文缺省表），href 同路由 */
+static char* Content_BuildAbilityPackMenuCode(const char* pluginXid, xvalue* spec)
+{
+	xvalue* packs = ValueGet(spec, "capabilities");
+	char* code = xrtStrDup("");
+	uint32 i;
+	if (!packs || xrtValueType(packs) != XVALUE_ARRAY) return code;
+	for (i = 0; i < ValueCount(packs); i++) {
+		xvalue* item = xrtValueArrayGet(packs, i);
+		str key = (item && xrtValueType(item) == XVALUE_OBJECT) ? ValueText(item, "key") : NULL;
+		xvalue* packDetail = NULL;
+		str packTitle = NULL;
+		const char* title = NULL;
+		char* safeKey = NULL;
+		char* safeTitle = NULL;
+		char* next = NULL;
+		if (!key || !key[0]) continue;
+		if (!Content_CapabilityEnabled(item)) continue;
+		packDetail = ContentPack_GetDetail(key);
+		packTitle = packDetail ? ValueText(packDetail, "title") : key;
+		title = Content_DefaultAbilityMenuTitle(key, packTitle);
+		safeKey = Content_SanitizeSqlIdent(key, "pack");
+		safeTitle = Content_EscapeCString(Content_TextOr(title, key));
+		next = xrtFormat(
+			"%s\t\tmemset(&menu, 0, sizeof(menu));\n"
+			"\t\tmenu.key = \"%s.pack.%s\";\n"
+			"\t\tmenu.parent_id = iRootMenuId;\n"
+			"\t\tmenu.title = \"%s\";\n"
+			"\t\tmenu.icon = \"layui-icon layui-icon-component\";\n"
+			"\t\tmenu.type = 1;\n"
+			"\t\tmenu.open_type = \"_component\";\n"
+			"\t\tmenu.href = \"/admin/view/plugin/%s/pack/%s\";\n"
+			"\t\tmenu.sort = %d;\n"
+			"\t\tmenu.visible = true;\n"
+			"\t\tmenu.remark = \"Generated ability pack admin page\";\n"
+			"\t\tif ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) {\n"
+			"\t\t\tprintf(\"        [ManagedPlugin] ability menu register failed: xid=%s href=%%s\\n\", menu.href);\n"
+			"\t\t\tgoto failed;\n"
+			"\t\t}\n\n",
+			Content_TextOr(code, ""),
+			Content_TextOr(pluginXid, ""),
+			Content_TextOr(safeKey, "pack"),
+			Content_TextOr(safeTitle, ""),
+			Content_TextOr(pluginXid, ""),
+			Content_TextOr(safeKey, "pack"),
+			100 + (int)i * 10,
+			Content_TextOr(pluginXid, ""));
+		xrtFree(code);
+		xrtFree(safeKey);
+		xrtFree(safeTitle);
+		xrtValueRelease(packDetail);
+		code = next;
+	}
+	return code;
+}
+
+/* 能力包权限注册段：一个 authGroup（sort=700000）+ 每包每权限一条 XAdmin_RegisterAuth。
+ * 内置包的 auth_<key> 变量在模板 OnStart 中预声明（赋值形式），非内置包就地声明。 */
+static char* Content_BuildAbilityPackAuthCode(const char* pluginXid, const char* pluginTitle, xvalue* spec)
+{
+	xvalue* packs = ValueGet(spec, "capabilities");
+	char* code = xrtStrDup("");
+	char* safeGroupName = Content_EscapeCString(Content_TextOr(pluginTitle, pluginXid ? pluginXid : "Generated Content Plugin"));
+	bool hasPack = false;
+	uint32 i;
+	if (!packs || xrtValueType(packs) != XVALUE_ARRAY) {
+		xrtFree(safeGroupName);
+		return code;
+	}
+	for (i = 0; i < ValueCount(packs); i++) {
+		xvalue* item = xrtValueArrayGet(packs, i);
+		if (!Content_CapabilityEnabled(item)) continue;
+		hasPack = true;
+		break;
+	}
+	if (!hasPack) {
+		xrtFree(safeGroupName);
+		return code;
+	}
+	xrtFree(code);
+	code = xrtFormat(
+		"\tmemset(&authGroup, 0, sizeof(authGroup));\n"
+		"\tauthGroup.scope = XADMIN_AUTH_SCOPE_ADMIN;\n"
+		"\tauthGroup.name = \"%s Ability Packs\";\n"
+		"\tauthGroup.description = \"Generated content ability pack permissions\";\n"
+		"\tauthGroup.sort = 700000;\n"
+		"\tif ( XAdmin_RegisterAuthGroup(handle, &authGroup, &iAbilityAuthGroupId, NULL) != 0 ) goto failed;\n\n",
+		Content_TextOr(safeGroupName, ""));
+	for (i = 0; i < ValueCount(packs); i++) {
+		xvalue* item = xrtValueArrayGet(packs, i);
+		str key = (item && xrtValueType(item) == XVALUE_OBJECT) ? ValueText(item, "key") : NULL;
+		char* safeKey = NULL;
+		xvalue* packDetail = NULL;
+		xvalue* contracts = NULL;
+		xvalue* permissions = NULL;
+		str contractsJson = NULL;
+		bool builtinPack = false;
+		bool declaredFirst = false;
+		const char* fallbackPerm = NULL;
+		uint32 permCount;
+		uint32 j;
+		char* next = NULL;
+		if (!key || !key[0]) continue;
+		if (!Content_CapabilityEnabled(item)) continue;
+		safeKey = Content_SanitizeSqlIdent(key, "pack");
+		builtinPack = Content_IsBuiltinAbilityPack(key);
+		fallbackPerm = Content_DefaultAbilityPermission(key);
+		packDetail = ContentPack_GetDetail(key);
+		contractsJson = packDetail ? ValueText(packDetail, "contractsJson") : NULL;
+		if (contractsJson && contractsJson[0]) {
+			contracts = JsonParseN(contractsJson, 0);
+			permissions = contracts ? ValueGet(contracts, "permissions") : NULL;
+		}
+		if (!permissions || xrtValueType(permissions) != XVALUE_ARRAY || ValueCount(permissions) == 0)
+			permissions = NULL;
+		permCount = permissions ? (uint32)ValueCount(permissions) : 1;
+		for (j = 0; j < permCount; j++) {
+			xvalue* permValue = permissions ? xrtValueArrayGet(permissions, j) : NULL;
+			const char* perm = permissions ? ValueTextOf(permValue) : fallbackPerm;
+			char* authName = NULL;
+			char* authDesc = NULL;
+			char* safeName = NULL;
+			char* safeDesc = NULL;
+			if (!perm || !perm[0]) continue;
+			authName = xrtFormat("%s.%s", Content_TextOr(pluginXid, ""), perm);
+			authDesc = xrtFormat("Ability pack permission: %s", perm);
+			safeName = Content_EscapeCString(authName);
+			safeDesc = Content_EscapeCString(authDesc);
+			next = xrtFormat(
+				"%s\tint auth_%s_%u = 0;\n"
+				"\tmemset(&auth, 0, sizeof(auth));\n"
+				"\tauth.scope = XADMIN_AUTH_SCOPE_ADMIN;\n"
+				"\tauth.group_id = iAbilityAuthGroupId;\n"
+				"\tauth.name = \"%s\";\n"
+				"\tauth.description = \"%s\";\n"
+				"\tauth.sort = %d;\n"
+				"\tif ( XAdmin_RegisterAuth(handle, &auth, &auth_%s_%u, NULL) != 0 ) goto failed;\n",
+				Content_TextOr(code, ""),
+				Content_TextOr(safeKey, "pack"), j,
+				Content_TextOr(safeName, ""),
+				Content_TextOr(safeDesc, ""),
+				700100 + (int)i * 100 + (int)j,
+				Content_TextOr(safeKey, "pack"), j);
+			xrtFree(code);
+			code = next;
+			if (!declaredFirst) {
+				next = xrtFormat(
+					builtinPack ? "%s\tauth_%s = auth_%s_%u;\n" : "%s\tint auth_%s = auth_%s_%u;\n",
+					Content_TextOr(code, ""),
+					Content_TextOr(safeKey, "pack"),
+					Content_TextOr(safeKey, "pack"), j);
+				xrtFree(code);
+				code = next;
+				declaredFirst = true;
+			}
+			xrtFree(authName);
+			xrtFree(authDesc);
+			xrtFree(safeName);
+			xrtFree(safeDesc);
+		}
+		if (!declaredFirst) {
+			next = xrtFormat(
+				builtinPack ? "%s\tauth_%s = 0;\n" : "%s\tint auth_%s = 0;\n",
+				Content_TextOr(code, ""),
+				Content_TextOr(safeKey, "pack"));
+			xrtFree(code);
+			code = next;
+		}
+		next = xrtFormat("%s\n", Content_TextOr(code, ""));
+		xrtFree(code);
+		code = next;
+		xrtValueRelease(contracts);
+		xrtValueRelease(packDetail);
+		xrtFree(safeKey);
+	}
+	xrtFree(safeGroupName);
+	return code;
+}
+
+static char* Content_BuildManagedMainC(const char* pluginXid, const char* pluginTitle, const char* menuTitle, xvalue* spec)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_main.c.tpl");
+	char* safePluginTitle = Content_EscapeCString(Content_TextOr(pluginTitle, pluginXid ? pluginXid : "Generated Content Plugin"));
+	char* safeMenuTitle = Content_EscapeCString(Content_TextOr(menuTitle, pluginTitle ? pluginTitle : (pluginXid ? pluginXid : "Generated Content Plugin")));
+	char* packRoutes = NULL;
+	char* packMenus = NULL;
+	char* packSchemaSql = NULL;
+	char* packAuth = NULL;
+	if (!template) {
+		xrtFree(safePluginTitle);
+		xrtFree(safeMenuTitle);
+		return xrtStrDup("");
+	}
+	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
+	template = Content_TemplateSet(template, "{{PLUGIN_TITLE_C}}", Content_TextOr(safePluginTitle, ""));
+	template = Content_TemplateSet(template, "{{PLUGIN_VERSION}}", "1.0.0");
+	packRoutes = Content_BuildAbilityPackRouteCode(pluginXid, spec);
+	packMenus = Content_BuildAbilityPackMenuCode(pluginXid, spec);
+	packSchemaSql = Content_BuildAbilityPackSchemaSql(spec);
+	packAuth = Content_BuildAbilityPackAuthCode(pluginXid, pluginTitle, spec);
+	template = Content_TemplateSet(template, "{{ABILITY_PACK_ROUTE_REGISTRATIONS}}", Content_TextOr(packRoutes, ""));
+	template = Content_TemplateSet(template, "{{ABILITY_PACK_MENU_REGISTRATIONS}}", Content_TextOr(packMenus, ""));
+	template = Content_TemplateSet(template, "{{ABILITY_PACK_SCHEMA_SQL}}", Content_TextOr(packSchemaSql, ""));
+	template = Content_TemplateSet(template, "{{ABILITY_PACK_AUTH_REGISTRATIONS}}", Content_TextOr(packAuth, ""));
+	/* 菜单标题覆盖：pluginTitle 与 menuTitle 不同时改写根菜单标题行（v1 同） */
+	if (safeMenuTitle && pluginTitle && menuTitle && strcmp(pluginTitle, menuTitle) != 0) {
+		char* needle = xrtFormat("menu.title = \"%s\";", Content_TextOr(safePluginTitle, ""));
+		char* value = xrtFormat("menu.title = \"%s\";", Content_TextOr(safeMenuTitle, ""));
+		if (needle && value) template = Content_TemplateSet(template, needle, value);
+		xrtFree(needle);
+		xrtFree(value);
+	}
+	xrtFree(safePluginTitle);
+	xrtFree(safeMenuTitle);
+	xrtFree(packRoutes);
+	xrtFree(packMenus);
+	xrtFree(packSchemaSql);
+	xrtFree(packAuth);
+	return template;
+}
+
+/* ==================== 页面 HTML ==================== */
+
+/* DOM 前缀 + xid 清洗（非字母数字 → _），保证 JS 标识符合法（v1 同） */
+static char* Content_BuildPluginDomIdBase(const char* pluginXid)
+{
+	const char* base = pluginXid ? pluginXid : "";
+	static const char* prefix = "Content_MakePlugin_";
+	size_t baseLen = strlen(base);
+	char* out = (char*)xrtMalloc(strlen(prefix) + baseLen + 1);
+	size_t pos = 0;
+	size_t i;
+	if (!out) return NULL;
+	memcpy(out, prefix, strlen(prefix));
+	pos = strlen(prefix);
+	for (i = 0; i < baseLen; i++) {
+		char ch = base[i];
+		if (((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z')) || ((ch >= '0') && (ch <= '9')))
+			out[pos++] = ch;
+		else
+			out[pos++] = '_';
+	}
+	out[pos] = '\0';
+	return out;
+}
+
+static char* Content_BuildManagedAdminPageHtml(const char* pluginXid, const char* pageKind)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_admin.html.tpl");
+	char* domIdBase = Content_BuildPluginDomIdBase(pluginXid);
+	char* pageDomIdBase = NULL;
+	if (!template) {
+		xrtFree(domIdBase);
+		return NULL;
+	}
+	pageDomIdBase = xrtFormat("%s_%s", domIdBase ? domIdBase : "Content_MakePlugin", (pageKind && !strcmp(pageKind, "drafts")) ? "Drafts" : "Articles");
+	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
+	template = Content_TemplateSet(template, "{{PLUGIN_DOM_ID_BASE}}", pageDomIdBase ? pageDomIdBase : (domIdBase ? domIdBase : "Content_MakePlugin"));
+	template = Content_TemplateSet(template, "{{PLUGIN_PAGE_KIND}}", pageKind ? pageKind : "articles");
+	xrtFree(pageDomIdBase);
+	xrtFree(domIdBase);
+	return template;
+}
+
+static char* Content_BuildManagedEditorHtml(const char* pluginXid)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_editor.html.tpl");
+	char* domIdBase = Content_BuildPluginDomIdBase(pluginXid);
+	char* pageDomIdBase = NULL;
+	if (!template) {
+		xrtFree(domIdBase);
+		return NULL;
+	}
+	pageDomIdBase = xrtFormat("%s_Editor", domIdBase ? domIdBase : "Content_MakePlugin");
+	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
+	template = Content_TemplateSet(template, "{{PLUGIN_DOM_ID_BASE}}", pageDomIdBase ? pageDomIdBase : (domIdBase ? domIdBase : "Content_MakePlugin_Editor"));
+	template = Content_TemplateSet(template, "{{PLUGIN_LIST_DOM_ID_BASE}}", domIdBase ? domIdBase : "Content_MakePlugin");
+	xrtFree(pageDomIdBase);
+	xrtFree(domIdBase);
+	return template;
+}
+
+static char* Content_BuildManagedCategoryHtml(const char* pluginXid)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_category.html.tpl");
+	char* domIdBase = Content_BuildPluginDomIdBase(pluginXid);
+	char* pageDomIdBase = NULL;
+	if (!template) {
+		xrtFree(domIdBase);
+		return NULL;
+	}
+	pageDomIdBase = xrtFormat("%s_Categories", domIdBase ? domIdBase : "Content_MakePlugin");
+	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
+	template = Content_TemplateSet(template, "{{PLUGIN_DOM_ID_BASE}}", pageDomIdBase ? pageDomIdBase : (domIdBase ? domIdBase : "Content_MakePlugin_Category"));
+	xrtFree(pageDomIdBase);
+	xrtFree(domIdBase);
+	return template;
+}
+
+static char* Content_BuildManagedPublicHtml(const char* pluginXid)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_public.html.tpl");
+	char* domIdBase = Content_BuildPluginDomIdBase(pluginXid);
+	if (!template) {
+		xrtFree(domIdBase);
+		return NULL;
+	}
+	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
+	template = Content_TemplateSet(template, "{{PLUGIN_DOM_ID_BASE}}", domIdBase ? domIdBase : "Content_MakePlugin");
+	template = Content_TemplateSet(template, "{{PLUGIN_PAGE_KIND}}", "public");
+	xrtFree(domIdBase);
+	return template;
+}
+
+static char* Content_BuildManagedAbilityHtml(const char* pluginXid)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_ability.html.tpl");
+	if (!template) return xrtStrDup("<div style=\"padding:16px;\">Ability pack page missing.</div>");
+	/* @@ 系运行时占位（@@ABILITY_PAGE_KEY@@ 由插件启动后替换）；生成期替换 xid 双写法 */
+	template = Content_TemplateSet(template, "@@PLUGIN_XID@@", pluginXid ? pluginXid : "");
+	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
+	return template;
+}
+
+static char* Content_BuildManagedDashboardHtml(const char* pluginXid)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_dashboard.html.tpl");
+	char* domIdBase = Content_BuildPluginDomIdBase(pluginXid);
+	char* pageDomIdBase = NULL;
+	if (!template) {
+		xrtFree(domIdBase);
+		return xrtStrDup("<div style=\"padding:16px;\">Dashboard page missing.</div>");
+	}
+	pageDomIdBase = xrtFormat("%s_Dashboard", domIdBase ? domIdBase : "Content_MakePlugin");
+	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
+	template = Content_TemplateSet(template, "{{PLUGIN_DOM_ID_BASE}}", pageDomIdBase ? pageDomIdBase : (domIdBase ? domIdBase : "Content_MakePlugin_Dashboard"));
+	xrtFree(pageDomIdBase);
+	xrtFree(domIdBase);
+	return template;
+}
+
+static char* Content_BuildManagedTasksHtml(const char* pluginXid)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_tasks.html.tpl");
+	char* domIdBase = Content_BuildPluginDomIdBase(pluginXid);
+	char* pageDomIdBase = NULL;
+	if (!template) {
+		xrtFree(domIdBase);
+		return xrtStrDup("<div style=\"padding:16px;\">Task dashboard page missing.</div>");
+	}
+	pageDomIdBase = xrtFormat("%s_Tasks", domIdBase ? domIdBase : "Content_MakePlugin");
+	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
+	template = Content_TemplateSet(template, "{{PLUGIN_DOM_ID_BASE}}", pageDomIdBase ? pageDomIdBase : (domIdBase ? domIdBase : "Content_MakePlugin_Tasks"));
+	xrtFree(pageDomIdBase);
+	xrtFree(domIdBase);
+	return template;
+}
+
+static char* Content_BuildManagedStaticDetailHtml(void)
+{
+	char* template = Content_LoadGeneratorTemplate("managed_static_detail.html.tpl");
+	if (!template)
+		return xrtStrDup("<!doctype html><html><body><h1>{{title}}</h1><article>{{content_html}}</article></body></html>");
+	return template;
+}
+
+/* ==================== spec 三视图规范化（generated/spec.json） ==================== */
+
+static const char* Content_FieldStorageType(const char* type)
+{
+	if (!type) return "text";
+	if (!strcmp(type, "integer") || !strcmp(type, "int")) return "integer";
+	if (!strcmp(type, "number") || !strcmp(type, "float") || !strcmp(type, "double")) return "real";
+	if (!strcmp(type, "bool") || !strcmp(type, "boolean") || !strcmp(type, "switch")) return "integer";
+	return "text";
+}
+
+static const char* Content_FieldComponentType(const char* type, const char* options)
+{
+	if (type && !strcmp(type, "textarea")) return "textarea";
+	if (type && !strcmp(type, "text")) return "text";
+	if (type && !strcmp(type, "number")) return "number";
+	if (type && !strcmp(type, "int")) return "int";
+	if (type && !strcmp(type, "integer")) return "int";
+	if (type && !strcmp(type, "decimal")) return "number";
+	if (type && !strcmp(type, "password")) return "password";
+	if (type && !strcmp(type, "select")) return "select";
+	if (type && !strcmp(type, "combobox")) return "combobox";
+	if (type && !strcmp(type, "radio")) return "radio";
+	if (type && !strcmp(type, "checkbox")) return "checkbox";
+	if (type && !strcmp(type, "checklist")) return "checklist";
+	if (type && !strcmp(type, "date")) return "date";
+	if (type && !strcmp(type, "datetime")) return "datetime";
+	if (type && !strcmp(type, "time")) return "time";
+	if (type && !strcmp(type, "intrange")) return "intrange";
+	if (type && !strcmp(type, "numrange")) return "numrange";
+	if (type && !strcmp(type, "daterange")) return "daterange";
+	if (type && !strcmp(type, "timerange")) return "timerange";
+	if (type && !strcmp(type, "datetimerange")) return "datetimerange";
+	if (type && !strcmp(type, "editor_md")) return "editor_md";
+	if (type && !strcmp(type, "editor_html")) return "editor_html";
+	if (type && !strcmp(type, "editor_code")) return "editor_code";
+	if (type && !strcmp(type, "icon_picker")) return "icon_picker";
+	if (type && !strcmp(type, "image")) return "image";
+	if (type && !strcmp(type, "images")) return "images";
+	if (type && !strcmp(type, "file")) return "file";
+	if (type && !strcmp(type, "files")) return "files";
+	if (type && !strcmp(type, "badge_picker")) return "badge_picker";
+	if (options && options[0]) return "select";
+	if (type && (!strcmp(type, "bool") || !strcmp(type, "boolean") || !strcmp(type, "switch"))) return "switch";
+	return "input";
+}
+
+static const char* Content_FieldSemanticRole(const char* name)
+{
+	if (!name) return "";
+	if (!strcmp(name, "title")) return "title";
+	if (!strcmp(name, "status")) return "status";
+	if (!strcmp(name, "slug")) return "slug";
+	if (!strcmp(name, "summary")) return "summary";
+	if (!strcmp(name, "cover")) return "cover";
+	if (!strcmp(name, "publishedAt") || !strcmp(name, "published_at")) return "publishedAt";
+	return "";
+}
+
+static bool Content_TableBoolDefault(xvalue* tbl, const char* key, bool defaultValue)
+{
+	xvalue* value = ValueGet(tbl, key);
+	return value ? ValueBoolOf(value) : defaultValue;
+}
+
+/* "a,b:c,d" → [{value,label}]（v1 同：逗号分段，冒号前 value 后 label，首部空白裁剪） */
+static xvalue* Content_ParseOptionList(const char* options)
+{
+	xvalue* list = ValueArray();
+	char* copy = NULL;
+	char* p = NULL;
+	if (!list) return NULL;
+	if (!options || !options[0]) return list;
+	copy = xrtStrDup(options);
+	if (!copy) return list;
+	p = copy;
+	while (p && *p) {
+		char* next = strchr(p, ',');
+		char* sep = NULL;
+		char* value = NULL;
+		char* label = NULL;
+		if (next) {
+			*next = '\0';
+			next++;
+		}
+		while (*p == ' ' || *p == '\t') p++;
+		sep = strchr(p, ':');
+		if (sep) {
+			*sep = '\0';
+			label = sep + 1;
+		} else {
+			label = p;
+		}
+		value = p;
+		while (value[0] == ' ' || value[0] == '\t') value++;
+		while (label[0] == ' ' || label[0] == '\t') label++;
+		if (value[0]) {
+			xvalue* item = ValueObject();
+			ValueSetText(item, "value", value);
+			ValueSetText(item, "label", label[0] ? label : value);
+			ValueArrayOwn(list, item);
+		}
+		p = next;
+	}
+	xrtFree(copy);
+	return list;
+}
+
+static xvalue* Content_BuildManagedSpecField(xvalue* field)
+{
+	str name = ValueText(field, "name");
+	str type = ValueText(field, "type");
+	str options = ValueText(field, "options");
+	const char* role = Content_FieldSemanticRole(name);
+	xvalue* existingStorage = ValueGet(field, "storage");
+	xvalue* existingComponent = ValueGet(field, "component");
+	xvalue* existingSemantic = ValueGet(field, "semantic");
+	xvalue* list = Content_ParseOptionList(options);
+	xvalue* out = xrtValueDeepClone(field);
+	if (!out) out = ValueObject();
+	if (existingStorage && xrtValueType(existingStorage) == XVALUE_OBJECT) {
+		ValueSetOwn(out, "storage", xrtValueDeepClone(existingStorage));
+	} else {
+		xvalue* storage = ValueObject();
+		ValueSetText(storage, "type", Content_FieldStorageType(type));
+		ValueSetOwn(out, "storage", storage);
+	}
+	if (existingComponent && xrtValueType(existingComponent) == XVALUE_OBJECT) {
+		ValueSetOwn(out, "component", xrtValueDeepClone(existingComponent));
+	} else {
+		xvalue* component = ValueObject();
+		ValueSetText(component, "type", Content_FieldComponentType(type, options));
+		if (list && ValueCount(list) > 0)
+			ValueSetOwn(component, "list", xrtValueDeepClone(list));
+		ValueSetOwn(out, "component", component);
+	}
+	if (existingSemantic && xrtValueType(existingSemantic) == XVALUE_OBJECT) {
+		ValueSetOwn(out, "semantic", xrtValueDeepClone(existingSemantic));
+	} else if (role[0]) {
+		xvalue* semantic = ValueObject();
+		ValueSetText(semantic, "role", role);
+		ValueSetOwn(out, "semantic", semantic);
+	}
+	if (list && ValueCount(list) > 0 && !ValueGet(out, "options")) {
+		ValueSetOwn(out, "list", list);
+		list = NULL;
+	}
+	xrtValueRelease(list);
+	if (!ValueGet(out, "showInForm")) ValueSetBool(out, "showInForm", true);
+	if (!ValueGet(out, "showInList")) ValueSetBool(out, "showInList", Content_TableBoolDefault(field, "list", true));
+	if (!ValueGet(out, "showInDetail")) ValueSetBool(out, "showInDetail", Content_TableBoolDefault(field, "detail", true));
+	return out;
+}
+
+static xvalue* Content_CollectEnabledCapabilities(xvalue* spec)
+{
+	xvalue* capabilities = ValueGet(spec, "capabilities");
+	xvalue* enabled = ValueArray();
+	if (capabilities && xrtValueType(capabilities) == XVALUE_ARRAY) {
+		uint32 i;
+		for (i = 0; i < ValueCount(capabilities); i++) {
+			xvalue* cap = xrtValueArrayGet(capabilities, i);
+			if (!cap || xrtValueType(cap) != XVALUE_OBJECT) continue;
+			if (!Content_CapabilityEnabled(cap)) continue;
+			ValueArrayOwn(enabled, xrtValueDeepClone(cap));
+		}
+	}
+	return enabled;
+}
+
+static char* Content_BuildManagedSpecJson(xvalue* spec, const char* modelXid, const char* title, const char* description)
+{
+	xvalue* root = ValueObject();
+	xvalue* identity = ValueObject();
+	xvalue* entity = ValueObject();
+	xvalue* fields = ValueGet(spec, "fields");
+	xvalue* managedFields = ValueArray();
+	xvalue* core = ValueObject();
+	xvalue* draft = ValueObject();
+	xvalue* ui = ValueObject();
+	xvalue* uiList = ValueObject();
+	xvalue* uiForm = ValueObject();
+	xvalue* policies = ValueGet(spec, "policies");
+	xvalue* pages = ValueGet(spec, "pages");
+	str name = ValueText(spec, "name");
+	str ns = ValueText(spec, "namespace");
+	str tableName = ValueText(spec, "tableName");
+	char* json;
+	if (fields && xrtValueType(fields) == XVALUE_ARRAY) {
+		uint32 i;
+		for (i = 0; i < ValueCount(fields); i++) {
+			xvalue* field = xrtValueArrayGet(fields, i);
+			if (field && xrtValueType(field) == XVALUE_OBJECT)
+				ValueArrayOwn(managedFields, Content_BuildManagedSpecField(field));
+		}
+	}
+	ValueSetText(identity, "xid", Content_TextOr(modelXid, ""));
+	ValueSetText(identity, "name", Content_TextOr(name, modelXid));
+	ValueSetText(identity, "namespace", Content_TextOr(ns, ""));
+	ValueSetText(identity, "title", Content_TextOr(title, modelXid));
+	ValueSetText(identity, "description", Content_TextOr(description, ""));
+	ValueSetOwn(root, "identity", identity);
+	ValueSetText(entity, "table", Content_TextOr(tableName, "content_item"));
+	ValueSetText(entity, "entityName", Content_TextOr(name, "content"));
+	ValueSetText(entity, "titleField", "title");
+	ValueSetText(entity, "statusField", "status");
+	ValueSetOwn(entity, "fields", managedFields);
+	ValueSetOwn(root, "entity", entity);
+	ValueSetBool(draft, "enabled", true);
+	ValueSetText(draft, "mode", "same-table");
+	ValueSetOwn(core, "draft", draft);
+	ValueSetBool(core, "adminCrud", true);
+	ValueSetBool(core, "publicApi", true);
+	ValueSetOwn(root, "coreFeatures", core);
+	ValueSetInt(uiList, "pageSize", pages ? ValueInt(pages, "pageSize") : 20);
+	ValueSetOwn(ui, "list", uiList);
+	ValueSetText(uiForm, "layout", "single-column");
+	ValueSetOwn(ui, "form", uiForm);
+	ValueSetOwn(root, "ui", ui);
+	if (policies && xrtValueType(policies) == XVALUE_OBJECT)
+		ValueSetOwn(root, "policies", xrtValueDeepClone(policies));
+	ValueSetOwn(root, "capabilitySlots", Content_CollectEnabledCapabilities(spec));
+	if (pages && xrtValueType(pages) == XVALUE_OBJECT) {
+		xvalue* groups = ValueGet(pages, "fieldGroups");
+		if (groups && xrtValueType(groups) == XVALUE_ARRAY) {
+			xvalue* presentation = ValueObject();
+			ValueSetOwn(presentation, "groups", xrtValueDeepClone(groups));
+			ValueSetOwn(root, "presentation", presentation);
+		}
+	}
+	json = Content_StringifyJson(root, false);
+	xrtValueRelease(root);
+	return json;
+}
+
+/* ==================== runtime/managed.json ==================== */
+
+static char* Content_BuildRuntimeManagedJson(const char* pluginXid, int revision, int64 now, xvalue* spec)
+{
+	xvalue* root = ValueObject();
+	char* json;
+	ValueSetBool(root, "managed", true);
+	ValueSetText(root, "managedBy", "content");
+	ValueSetText(root, "managedType", "generated-plugin");
+	ValueSetText(root, "pluginXid", Content_TextOr(pluginXid, ""));
+	ValueSetInt(root, "contentTypeRevision", revision);
+	ValueSetText(root, "generatedRoot", "generated");
+	ValueSetText(root, "runtimeRoot", "runtime");
+	ValueSetText(root, "customRoot", "custom");
+	ValueSetInt(root, "generatedAt", now);
+	ValueSetOwn(root, "capabilitySlots", Content_CollectEnabledCapabilities(spec));
+	json = Content_StringifyJson(root, false);
+	xrtValueRelease(root);
+	if (!json)
+		json = xrtFormat(
+			"{\"managed\":true,\"managedBy\":\"content\",\"managedType\":\"generated-plugin\",\"pluginXid\":\"%s\",\"contentTypeRevision\":%d,\"generatedRoot\":\"generated\",\"runtimeRoot\":\"runtime\",\"customRoot\":\"custom\",\"generatedAt\":%lld,\"capabilitySlots\":[]}\n",
+			Content_TextOr(pluginXid, ""), revision, (long long)now);
+	return json;
+}
+
+/* ==================== runtime/contracts.json 与 capability.manifest.json ==================== */
+
+static void Content_AppendCapabilityHookSlot(xvalue* slots, const char* key, const char* surface, const char* phase, const char* description)
+{
+	xvalue* slot = ValueObject();
+	if (!slots || !slot) {
+		xrtValueRelease(slot);
+		return;
+	}
+	ValueSetText(slot, "key", Content_TextOr(key, ""));
+	ValueSetText(slot, "surface", Content_TextOr(surface, ""));
+	ValueSetText(slot, "phase", Content_TextOr(phase, ""));
+	ValueSetText(slot, "description", Content_TextOr(description, ""));
+	ValueArrayOwn(slots, slot);
+}
+
+static void Content_AppendCapabilityHookSlots(xvalue* slots)
+{
+	Content_AppendCapabilityHookSlot(slots, "schema", "database", "generation", "Ability packs may declare tables, indexes and bounded migrations.");
+	Content_AppendCapabilityHookSlot(slots, "route", "plugin.route", "startup", "Ability packs may register admin or public routes only when mounted.");
+	Content_AppendCapabilityHookSlot(slots, "menu", "admin.menu", "startup", "Ability packs may register admin menu entries only when mounted.");
+	Content_AppendCapabilityHookSlot(slots, "page", "admin.page", "generation", "Ability packs may copy generated admin pages and templates.");
+	Content_AppendCapabilityHookSlot(slots, "task", "background.task", "runtime", "Ability packs may register bounded background task producers and dashboards.");
+	Content_AppendCapabilityHookSlot(slots, "public-head", "public.html.head", "render", "Ability packs may inject public head assets only when mounted.");
+	Content_AppendCapabilityHookSlot(slots, "public-render", "public.html.body", "render", "Ability packs may inject public list/detail render fragments only when mounted.");
+}
+
+static char* Content_BuildGeneratedContracts(const char* modelXid, int revision, xvalue* spec)
+{
+	xvalue* capabilities = ValueGet(spec, "capabilities");
+	xvalue* root = ValueObject();
+	xvalue* enabledCapabilities = ValueArray();
+	xvalue* packs = ValueArray();
+	xvalue* hookSlots = ValueArray();
+	char* json;
+	ValueSetText(root, "model", Content_TextOr(modelXid, ""));
+	ValueSetInt(root, "revision", revision);
+	ValueSetText(root, "permissionBinding", "ability-admin-page-bound");
+	ValueSetText(root, "permissionBindingNote", "Ability permissions are registered and each mounted ability admin page route is bound to the first permission declared by that ability pack.");
+	Content_AppendCapabilityHookSlots(hookSlots);
+	if (capabilities && xrtValueType(capabilities) == XVALUE_ARRAY) {
+		uint32 i;
+		for (i = 0; i < ValueCount(capabilities); i++) {
+			xvalue* item = xrtValueArrayGet(capabilities, i);
+			str key = (item && xrtValueType(item) == XVALUE_OBJECT) ? ValueText(item, "key") : NULL;
+			xvalue* packDetail = NULL;
+			xvalue* out = NULL;
+			str jsonText = NULL;
+			if (!key || !key[0]) continue;
+			if (!Content_CapabilityEnabled(item)) continue;
+			if (item && xrtValueType(item) == XVALUE_OBJECT)
+				ValueArrayOwn(enabledCapabilities, xrtValueDeepClone(item));
+			packDetail = ContentPack_GetDetail(key);
+			out = ValueObject();
+			ValueSetText(out, "packId", key);
+			ValueSetText(out, "permissionBinding", "ability-admin-page-bound");
+			if (packDetail && xrtValueType(packDetail) == XVALUE_OBJECT) {
+				xvalue* parsed = NULL;
+				ValueSetText(out, "title", ValueText(packDetail, "title"));
+				ValueSetText(out, "version", ValueText(packDetail, "version"));
+				ValueSetText(out, "description", ValueText(packDetail, "description"));
+				jsonText = ValueText(packDetail, "effectsJson");
+				parsed = (jsonText && jsonText[0]) ? JsonParseN(jsonText, 0) : NULL;
+				if (parsed) ValueSetOwn(out, "effects", parsed);
+				jsonText = ValueText(packDetail, "contractsJson");
+				parsed = (jsonText && jsonText[0]) ? JsonParseN(jsonText, 0) : NULL;
+				if (parsed) ValueSetOwn(out, "contracts", parsed);
+				jsonText = ValueText(packDetail, "hooksJson");
+				parsed = (jsonText && jsonText[0]) ? JsonParseN(jsonText, 0) : NULL;
+				if (parsed) ValueSetOwn(out, "hooks", parsed);
+			}
+			if (item && xrtValueType(item) == XVALUE_OBJECT) {
+				xvalue* config = ValueGet(item, "config");
+				xvalue* mount = ValueGet(item, "mount");
+				if (config) ValueSetOwn(out, "instanceConfig", xrtValueDeepClone(config));
+				if (mount) ValueSetOwn(out, "mount", xrtValueDeepClone(mount));
+			}
+			ValueArrayOwn(packs, out);
+			xrtValueRelease(packDetail);
+		}
+	}
+	ValueSetOwn(root, "capabilities", enabledCapabilities);
+	ValueSetOwn(root, "abilityPacks", packs);
+	ValueSetOwn(root, "capabilityHookSlots", hookSlots);
+	json = Content_StringifyJson(root, true);
+	xrtValueRelease(root);
+	return json ? json : xrtStrDup("{\"capabilities\":[],\"abilityPacks\":[],\"capabilityHookSlots\":[]}\n");
+}
+
+static char* Content_BuildGeneratedCapabilityManifest(const char* modelXid, int revision, xvalue* spec)
+{
+	xvalue* capabilities = ValueGet(spec, "capabilities");
+	xvalue* root = ValueObject();
+	xvalue* packs = ValueArray();
+	char* json;
+	ValueSetInt(root, "formatVersion", 1);
+	ValueSetText(root, "model", Content_TextOr(modelXid, ""));
+	ValueSetInt(root, "revision", revision);
+	ValueSetText(root, "loadPolicy", "enabled-packs-only");
+	if (capabilities && xrtValueType(capabilities) == XVALUE_ARRAY) {
+		uint32 i;
+		for (i = 0; i < ValueCount(capabilities); i++) {
+			xvalue* item = xrtValueArrayGet(capabilities, i);
+			str key = (item && xrtValueType(item) == XVALUE_OBJECT) ? ValueText(item, "key") : NULL;
+			xvalue* packDetail = NULL;
+			xvalue* out = NULL;
+			str manifestJson = NULL;
+			if (!key || !key[0]) continue;
+			if (!Content_CapabilityEnabled(item)) continue;
+			packDetail = ContentPack_GetDetail(key);
+			out = ValueObject();
+			ValueSetText(out, "packId", key);
+			if (packDetail && xrtValueType(packDetail) == XVALUE_OBJECT) {
+				xvalue* manifest = NULL;
+				ValueSetText(out, "title", ValueText(packDetail, "title"));
+				ValueSetText(out, "version", ValueText(packDetail, "version"));
+				ValueSetText(out, "description", ValueText(packDetail, "description"));
+				manifestJson = ValueText(packDetail, "manifestJson");
+				if (manifestJson && manifestJson[0]) {
+					manifest = JsonParseN(manifestJson, 0);
+					if (manifest && xrtValueType(manifest) == XVALUE_OBJECT) {
+						ValueSetOwn(out, "manifest", manifest);
+						manifest = NULL;
+					}
+					xrtValueRelease(manifest);
+				}
+			}
+			if (item && xrtValueType(item) == XVALUE_OBJECT) {
+				xvalue* config = ValueGet(item, "config");
+				xvalue* mount = ValueGet(item, "mount");
+				if (config) ValueSetOwn(out, "instanceConfig", xrtValueDeepClone(config));
+				if (mount) ValueSetOwn(out, "mount", xrtValueDeepClone(mount));
+			}
+			ValueArrayOwn(packs, out);
+			xrtValueRelease(packDetail);
+		}
+	}
+	ValueSetOwn(root, "abilityPacks", packs);
+	json = Content_StringifyJson(root, true);
+	xrtValueRelease(root);
+	return json ? json : xrtStrDup("{\"formatVersion\":1,\"abilityPacks\":[]}\n");
+}
+
+/* ==================== plugin.json（v1 字段全集 + runtime.xadminManaged） ==================== */
+
+static bool Content_ValueArrayTextContains(xvalue* arr, const char* text)
+{
+	uint32 i;
+	if (!arr || !text) return false;
+	for (i = 0; i < ValueCount(arr); i++)
+		if (ValueArrayText(arr, i) && !strcmp(ValueArrayText(arr, i), text)) return true;
+	return false;
+}
+
+static void Content_AppendArrayText(xvalue* arr, const char* text)
+{
+	xvalue* item = xrtValueString(xrtStrView(text));
+	if (item) ValueArrayOwn(arr, item);
+}
+
+static void Content_BuildCapabilityDefines(xvalue* defines, xvalue* capabilities)
+{
+	Content_AppendArrayText(defines, "XADMIN_PLUGIN=1");
+	if (!capabilities || xrtValueType(capabilities) != XVALUE_ARRAY) return;
+	{
+		uint32 i;
+		for (i = 0; i < ValueCount(capabilities); i++) {
+			xvalue* item = xrtValueArrayGet(capabilities, i);
+			str key = (item && xrtValueType(item) == XVALUE_OBJECT) ? ValueText(item, "key") : NULL;
+			char* define = NULL;
+			if (!key || !key[0]) continue;
+			if (!Content_CapabilityEnabled(item)) continue;
+			define = Content_CapabilityDefineName(key);
+			if (define) {
+				char* entry = xrtFormat("%s=1", define);
+				Content_AppendArrayText(defines, entry);
+				xrtFree(entry);
+			}
+			xrtFree(define);
+		}
+	}
+}
+
+static char* Content_BuildGeneratedPluginJson(const char* pluginXid, const char* title, const char* description, xvalue* capabilities, xvalue* sources, xvalue* includeDirs)
+{
+	xvalue* m = ValueObject();
+	xvalue* runtime = ValueObject();
+	xvalue* resources = ValueObject();
+	xvalue* build = ValueObject();
+	xvalue* compat = ValueObject();
+	xvalue* deps = ValueObject();
+	xvalue* contributes = ValueObject();
+	xvalue* caps = ValueArray();
+	xvalue* defines = ValueArray();
+	xvalue* managed = ValueObject();
+	char* json;
+	ValueSetInt(m, "formatVersion", 4);
+	ValueSetText(m, "xid", pluginXid);
+	ValueSetText(m, "name", pluginXid);
+	ValueSetText(m, "title", Content_TextOr(title, "Generated Content Plugin"));
+	ValueSetText(m, "description", Content_TextOr(description, "Generated by xAdmin built-in content system"));
+	ValueSetText(m, "version", "1.0.0");
+	ValueSetText(m, "author", "xAdmin");
+	ValueSetText(m, "kind", "singleton");
+	ValueSetText(runtime, "compiler", "tcc");
+	ValueSetText(runtime, "language", "c");
+	ValueSetText(runtime, "xadminManaged", "content");
+	ValueSetOwn(m, "runtime", runtime);
+	ValueSetText(resources, "page", "page");
+	ValueSetText(resources, "template", "template");
+	ValueSetText(resources, "option", "option");
+	ValueSetText(resources, "static", "static");
+	ValueSetOwn(m, "resources", resources);
+	ValueSetText(build, "entry", "generated/main.c");
+	{
+		xvalue* sourceList = ValueArray();
+		Content_AppendArrayText(sourceList, "generated/main.c");
+		if (sources && xrtValueType(sources) == XVALUE_ARRAY) {
+			uint32 i;
+			for (i = 0; i < ValueCount(sources); i++) {
+				str rel = ValueArrayText(sources, i);
+				if (rel && rel[0] && !Content_ValueArrayTextContains(sourceList, rel))
+					Content_AppendArrayText(sourceList, rel);
+			}
+		}
+		ValueSetOwn(build, "sources", sourceList);
+	}
+	ValueSetOwn(build, "includeDirs", includeDirs ? xrtValueDeepClone(includeDirs) : ValueArray());
+	ValueSetOwn(build, "includeDirs", includeDirs ? xrtValueDeepClone(includeDirs) : ValueArray());
+	Content_BuildCapabilityDefines(defines, capabilities);
+	ValueSetOwn(build, "defines", defines);
+	ValueSetOwn(m, "build", build);
+	ValueSetText(compat, "minHostVersion", "4.0.0");
+	ValueSetText(compat, "maxHostVersion", "5.0.0");
+	ValueSetInt(compat, "abiVersion", XADMIN_ABI_VERSION);
+	ValueSetOwn(m, "compat", compat);
+	Content_AppendArrayText(caps, "route.public");
+	Content_AppendArrayText(caps, "route.admin");
+	ValueSetOwn(m, "capabilities", caps);
+	ValueSetOwn(deps, "plugins", ValueArray());
+	ValueSetOwn(deps, "services", ValueArray());
+	ValueSetOwn(deps, "features", ValueArray());
+	ValueSetOwn(m, "dependencies", deps);
+	ValueSetOwn(contributes, "menus", ValueArray());
+	ValueSetOwn(contributes, "routes", ValueArray());
+	ValueSetOwn(contributes, "hooks", ValueArray());
+	ValueSetOwn(contributes, "events", ValueArray());
+	ValueSetOwn(m, "contributes", contributes);
+	ValueSetText(m, "defaultConfig", "config.defaults.json");
+	ValueSetText(m, "configSchema", "config.schema.json");
+	ValueSetBool(managed, "managed", true);
+	ValueSetText(managed, "generator", "content");
+	ValueSetText(managed, "managedBy", "content");
+	ValueSetText(managed, "managedType", "generated-plugin");
+	ValueSetText(managed, "generatedRoot", "generated");
+	ValueSetText(managed, "runtimeRoot", "runtime");
+	ValueSetText(managed, "customRoot", "custom");
+	ValueSetOwn(m, "xadminManaged", managed);
+	json = Content_StringifyJson(m, true);
+	xrtValueRelease(m);
+	return json;
+}
+
+/* ==================== 相对路径安全与声明文件拷贝 ==================== */
+
+/* v1 Content_GeneratedRelativePathSafe 照抄：拒绝绝对路径、..、盘符冒号 */
+static bool Content_GeneratedRelativePathSafe(const char* path)
+{
+	if (!path || !path[0]) return false;
+	if (path[0] == '/' || path[0] == '\\') return false;
+	if (strstr(path, "..")) return false;
+	if (strchr(path, ':')) return false;
+	return true;
+}
+
+static char* Content_CopyGeneratedPathDir(const char* path)
+{
+	const char* slash1 = NULL;
+	const char* slash2 = NULL;
+	const char* slash = NULL;
+	size_t len = 0;
+	char* out = NULL;
+	if (!Content_GeneratedRelativePathSafe(path)) return NULL;
+	slash1 = strrchr(path, '/');
+	slash2 = strrchr(path, '\\');
+	if (slash1 && slash2) slash = (slash1 > slash2) ? slash1 : slash2;
+	else slash = slash1 ? slash1 : slash2;
+	if (!slash) return NULL;
+	len = (size_t)(slash - path);
+	if (len == 0) return NULL;
+	out = (char*)xrtMalloc(len + 1);
+	if (!out) return NULL;
+	memcpy(out, path, len);
+	out[len] = '\0';
+	return out;
+}
+
+static void Content_SetGeneratedFile(XAdminGeneratedFile* file, const char* relativePath, const char* data)
+{
+	const char* safeData = data ? data : "";
+	if (!file) return;
+	file->relative_path = relativePath;
+	file->data = safeData;
+	file->size = strlen(safeData);
+}
+
+static void Content_SetGeneratedFileBinary(XAdminGeneratedFile* file, const char* relativePath, const void* data, size_t size)
+{
+	if (!file) return;
+	file->relative_path = relativePath ? relativePath : "";
+	file->data = data;
+	file->size = size;
+}
+
+/* 收集各启用包 build 声明：sourceFiles → sources；includeFiles 目录 → includeDirs（去重） */
+static void Content_AppendDeclaredPackBuildPaths(xvalue* packDetail, xvalue* sources, xvalue* includeDirs)
+{
+	str manifestJson = packDetail ? ValueText(packDetail, "manifestJson") : NULL;
+	xvalue* manifest = NULL;
+	if (!manifestJson || !manifestJson[0]) return;
+	manifest = JsonParseN(manifestJson, 0);
+	if (!manifest || xrtValueType(manifest) != XVALUE_OBJECT) {
+		xrtValueRelease(manifest);
+		return;
+	}
+	{
+		xvalue* sourceFiles = ValueGet(manifest, "sourceFiles");
+		xvalue* includeFiles = ValueGet(manifest, "includeFiles");
+		if (sourceFiles && xrtValueType(sourceFiles) == XVALUE_ARRAY) {
+			uint32 i;
+			for (i = 0; i < ValueCount(sourceFiles); i++) {
+				str rel = ValueTextOf(xrtValueArrayGet(sourceFiles, i));
+				if (!Content_GeneratedRelativePathSafe(rel)) continue;
+				if (sources && !Content_ValueArrayTextContains(sources, rel))
+					Content_AppendArrayText(sources, rel);
+			}
+		}
+		if (includeFiles && xrtValueType(includeFiles) == XVALUE_ARRAY) {
+			uint32 i;
+			for (i = 0; i < ValueCount(includeFiles); i++) {
+				str rel = ValueTextOf(xrtValueArrayGet(includeFiles, i));
+				char* dir = Content_CopyGeneratedPathDir(rel);
+				if (dir && includeDirs && !Content_ValueArrayTextContains(includeDirs, dir))
+					Content_AppendArrayText(includeDirs, dir);
+				xrtFree(dir);
+			}
+		}
+	}
+	xrtValueRelease(manifest);
+}
+
+/* 各启用包声明的 sourceFiles/includeFiles/templateFiles/assetFiles 逐个读入文件清单 */
+static void Content_AppendDeclaredPackFiles(XAdminGeneratedFile* files, int* fileCount, int fileCap, char** ownedPaths, bytes* ownedData, int* ownedCount, int ownedCap, xvalue* packDetail)
+{
+	static const char* keys[4] = {"sourceFiles", "includeFiles", "templateFiles", "assetFiles"};
+	str packPath = packDetail ? ValueText(packDetail, "path") : NULL;
+	str manifestJson = packDetail ? ValueText(packDetail, "manifestJson") : NULL;
+	xvalue* manifest = NULL;
+	int k;
+	if (!files || !fileCount || !ownedPaths || !ownedData || !ownedCount) return;
+	if (!packPath || !packPath[0] || !manifestJson || !manifestJson[0]) return;
+	manifest = JsonParseN(manifestJson, 0);
+	if (!manifest || xrtValueType(manifest) != XVALUE_OBJECT) {
+		xrtValueRelease(manifest);
+		return;
+	}
+	for (k = 0; k < 4; k++) {
+		xvalue* arr = ValueGet(manifest, keys[k]);
+		uint32 i;
+		if (!arr || xrtValueType(arr) != XVALUE_ARRAY) continue;
+		for (i = 0; i < ValueCount(arr); i++) {
+			str rel = ValueTextOf(xrtValueArrayGet(arr, i));
+			char* fullPath = NULL;
+			bytes data = NULL;
+			size_t size = 0;
+			if (!Content_GeneratedRelativePathSafe(rel)) continue;
+			if ((*fileCount >= fileCap) || (*ownedCount >= ownedCap)) continue;
+			fullPath = xrtPathJoin(packPath, rel);
+			if (!fullPath) continue;
+			data = xrtFileReadAll(fullPath, &size);
+			xrtFree(fullPath);
+			if (!data) continue;
+			ownedPaths[*ownedCount] = xrtStrDup(rel);
+			ownedData[*ownedCount] = data;
+			Content_SetGeneratedFileBinary(&files[*fileCount], ownedPaths[*ownedCount], data, size);
+			(*fileCount)++;
+			(*ownedCount)++;
+		}
+	}
+	xrtValueRelease(manifest);
+}
+
+/* ==================== 生成台账（事务性：pending → success/failed） ==================== */
+
+static sqlite3_int64 Content_InsertGenerationPending(int modelId, int revision, const char* pluginXid, int64 now)
+{
+	sqlite3_stmt* stmt = NULL;
+	if (sqlite3_prepare_v2(G_DB,
+		"INSERT INTO content_generation (model_id,target_revision,plugin_xid,status,output_json,advisor_json,error_message,create_time,finish_time) "
+		"VALUES (?,?,?,'pending','{}','{}','',?,0)", -1, &stmt, NULL) != SQLITE_OK)
+		return 0;
+	sqlite3_bind_int(stmt, 1, modelId);
+	sqlite3_bind_int(stmt, 2, revision);
+	Content_BindText(stmt, 3, pluginXid);
+	sqlite3_bind_int64(stmt, 4, now);
+	sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
+	return sqlite3_last_insert_rowid(G_DB);
+}
+
+static void Content_FinishGenerationSuccess(sqlite3_int64 rowId, const char* outputJson, const char* advisorJson, int64 now)
+{
+	sqlite3_stmt* stmt = NULL;
+	if (rowId <= 0) return;
+	if (sqlite3_prepare_v2(G_DB,
+		"UPDATE content_generation SET status='success', output_json=?, advisor_json=?, finish_time=? WHERE id=?", -1, &stmt, NULL) != SQLITE_OK)
+		return;
+	Content_BindText(stmt, 1, outputJson ? outputJson : "{}");
+	Content_BindText(stmt, 2, advisorJson ? advisorJson : "{}");
+	sqlite3_bind_int64(stmt, 3, now);
+	sqlite3_bind_int64(stmt, 4, rowId);
+	sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
+}
+
+static void Content_FinishGenerationFailure(sqlite3_int64 rowId, const char* advisorJson, const char* errorMessage, int64 now)
+{
+	sqlite3_stmt* stmt = NULL;
+	if (rowId <= 0) return;
+	if (sqlite3_prepare_v2(G_DB,
+		"UPDATE content_generation SET status='failed', advisor_json=?, error_message=?, finish_time=? WHERE id=?", -1, &stmt, NULL) != SQLITE_OK)
+		return;
+	Content_BindText(stmt, 1, advisorJson ? advisorJson : "{}");
+	Content_BindText(stmt, 2, errorMessage ? errorMessage : "generate plugin failed");
+	sqlite3_bind_int64(stmt, 3, now);
+	sqlite3_bind_int64(stmt, 4, rowId);
+	sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
+}
+
+static void Content_UpdateAppliedRevision(int modelId, int revision, const char* pluginXid)
+{
+	sqlite3_stmt* stmt = NULL;
+	if (sqlite3_prepare_v2(G_DB,
+		"UPDATE content_model SET generated_plugin_xid=?, applied_revision=?, update_time=? WHERE id=?", -1, &stmt, NULL) != SQLITE_OK)
+		return;
+	Content_BindText(stmt, 1, pluginXid);
+	sqlite3_bind_int(stmt, 2, revision);
+	sqlite3_bind_int64(stmt, 3, xrtNow());
+	sqlite3_bind_int(stmt, 4, modelId);
+	sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
+}
+
+/* ==================== 落盘驱动 ==================== */
+
+/* 已存在实例（换代覆盖）时刷新 plugin_package 台账行（v1 Discover 语义） */
+static void Content_RefreshGeneratedPackageRow(const char* root, const char* pluginXid)
+{
+	char* path = xrtPathJoin(root, "plugin.json");
+	char* text = NULL;
+	sqlite3_stmt* stmt = NULL;
+	size_t size = 0;
+	bytes data;
+	if (!path) return;
+	data = xrtFileReadAll(path, &size);
+	xrtFree(path);
+	if (data) {
+		text = (char*)xrtMalloc(size + 1);
+		if (text) {
+			memcpy(text, data, size);
+			text[size] = '\0';
+		}
+		xrtFree(data);
+	}
+	if (sqlite3_prepare_v2(G_DB,
+		"UPDATE plugin_package SET install_path=?, manifest_json=? WHERE xid=?", -1, &stmt, NULL) == SQLITE_OK) {
+		Plugin_BindText(stmt, 1, root);
+		Plugin_BindText(stmt, 2, text ? text : "");
+		Plugin_BindText(stmt, 3, pluginXid);
+		sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+	}
+	xrtFree(text);
+}
+
+/* 宿主侧代写（v1 PluginSystem_Generate 语义）：目录骨架 + 文件 + manifest + 登记/覆盖。
+ * 与 XAdmin_GeneratePlugin 的差别仅在于不要求插件调用者、允许目标已存在（内容系统换代覆盖）。 */
+static bool Content_WriteGeneratedPluginLocal(const XAdminGeneratedPluginSpec* spec)
+{
+	static const char* dirs[] = {"page", "template", "option", "static", "inc", "lib", "src", "data"};
+	char* root = NULL;
+	bool ok = true;
+	size_t i;
+	if (!spec || !Plugin_XidValid(spec->xid)) return false;
+	root = xrtPathJoin(xrtPathJoin(AppPath, "plugin"), (char*)spec->xid);
+	if (!root) return false;
+	xrtDirCreateAll(root);
+	for (i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
+		char* sub = xrtPathJoin(root, (char*)dirs[i]);
+		if (sub) {
+			xrtDirCreateAll(sub);
+			xrtFree(sub);
+		}
+	}
+	for (i = 0; i < spec->file_count; i++) {
+		if (!Plugin_WriteGeneratedFile(root, &spec->files[i])) {
+			printf("[content][error] generate %s: write file failed: %s\n", spec->xid,
+				spec->files[i].relative_path ? spec->files[i].relative_path : "");
+			ok = false;
+			break;
+		}
+	}
+	if (ok && !Plugin_GeneratedSpecHasFile(spec, "plugin.json") && !Plugin_WriteGeneratedManifest(root, spec)) {
+		printf("[content][error] generate %s: write manifest failed\n", spec->xid);
+		ok = false;
+	}
+	if (ok && !Plugin_Find(spec->xid) && !Plugin_RegisterGenerated(root, spec->xid))
+		ok = false;
+	if (ok) Content_RefreshGeneratedPackageRow(root, spec->xid);
+	if (ok && spec->auto_enable)
+		ok = PluginHost_SetEnabled(spec->xid, true);
+	xrtFree(root);
+	return ok;
+}
+
+/* ABI 入口优先；宿主路由上下文无插件调用者或目标已存在（换代覆盖）时走本地代写 */
+static bool Content_RunPluginGeneration(const XAdminGeneratedPluginSpec* spec)
+{
+	if (XAdmin_GeneratePlugin(NULL, spec) == 0) return true;
+	return Content_WriteGeneratedPluginLocal(spec);
+}
+
+/* ==================== 生成编排入口 ==================== */
+
+#define CONTENT_GEN_FILES_MAX  128
+#define CONTENT_GEN_OWNED_MAX  96
+
+/* 全流程：按 xid 读库内 spec → 复校验 + advisor 门禁 → 组装产物 → 落盘 → 台账。
+ * 返回 data 对象（v1 契约）：{pluginXid, revision, generated, outputJson}；失败置 *error。 */
+static xvalue* Content_GeneratePluginForModel(const char* xid, str* error)
+{
+	xvalue* model = NULL;
+	xvalue* spec = NULL;
+	xvalue* advisor = NULL;
+	xvalue* capabilities = NULL;
+	xvalue* sources = ValueArray();
+	xvalue* includeDirs = ValueArray();
+	xvalue* outputFiles = ValueArray();
+	xvalue* ret = NULL;
+	XAdminGeneratedFile files[CONTENT_GEN_FILES_MAX];
+	XAdminGeneratedPluginSpec genSpec;
+	char* ownedPaths[CONTENT_GEN_OWNED_MAX];
+	bytes ownedData[CONTENT_GEN_OWNED_MAX];
+	int modelId = 0;
+	int revision = 0;
+	str pluginXid = NULL;
+	str modelTitle = NULL;
+	str specJson = NULL;
+	str pluginTitle = NULL;
+	str menuTitle = NULL;
+	str pluginDescription = NULL;
+	char* validateError = NULL;
+	char* advisorJson = NULL;
+	char* managedSpecJson = NULL;
+	char* pluginJson = NULL;
+	char* mainC = NULL;
+	char* adminHtml = NULL;
+	char* draftHtml = NULL;
+	char* editorHtml = NULL;
+	char* categoryHtml = NULL;
+	char* dashboardHtml = NULL;
+	char* tasksHtml = NULL;
+	char* publicHtml = NULL;
+	char* abilityHtml = NULL;
+	char* staticDetailHtml = NULL;
+	char* managedJson = NULL;
+	char* contractsJson = NULL;
+	char* capabilityManifestJson = NULL;
+	char* migrationPlanJson = NULL;
+	char* outputJson = NULL;
+	int64 now = xrtNow();
+	sqlite3_int64 genRowId = 0;
+	bool categoryPack = false;
+	bool metricPack = false;
+	bool taskPack = false;
+	bool ok = false;
+	int fileCount = 0;
+	int ownedCount = 0;
+	uint32 i;
+
+	if (error) *error = NULL;
+	if (!Content_IsValidXid(xid)) {
+		if (error) *error = xrtStrDup("invalid xid");
+		return NULL;
+	}
+	model = Content_GetModelByXid(xid);
+	if (!model) {
+		if (error) *error = xrtStrDup("model not found");
+		return NULL;
+	}
+	modelId = (int)ValueInt(model, "id");
+	revision = (int)ValueInt(model, "currentRevision");
+	pluginXid = ValueText(model, "generatedPluginXid");
+	if (!pluginXid || !pluginXid[0]) pluginXid = (str)xid;
+	modelTitle = ValueText(model, "title");
+	specJson = ValueText(model, "specJson");
+
+	/* 事务性：先落 pending 行，后续统一更新为 success/failed */
+	genRowId = Content_InsertGenerationPending(modelId, revision, pluginXid, now);
+
+	spec = (specJson && specJson[0]) ? JsonParseN(specJson, 0) : NULL;
+	if (!spec || xrtValueType(spec) != XVALUE_OBJECT || !Content_SpecValidate(spec, &validateError)) {
+		char* message = xrtFormat("stored spec invalid: %s", validateError ? validateError : "invalid json");
+		if (error) *error = xrtStrDup(message ? message : "stored spec invalid");
+		Content_FinishGenerationFailure(genRowId, "{}", message ? message : "stored spec invalid", now);
+		xrtFree(message);
+		goto cleanup;
+	}
+	advisor = Content_BuildAdvisor(spec);
+	if (advisor) {
+		str advisorStatus = ValueText(advisor, "status");
+		advisorJson = Content_StringifyJson(advisor, false);
+		if (!advisorStatus || strcmp(advisorStatus, "ok") != 0) {
+			if (error) *error = xrtStrDup("advisor check failed");
+			Content_FinishGenerationFailure(genRowId, advisorJson ? advisorJson : "{}", "advisor check failed", now);
+			goto cleanup;
+		}
+	} else {
+		advisorJson = xrtStrDup("{}");
+	}
+	pluginTitle = ValueText(spec, "pluginTitle");
+	menuTitle = ValueText(spec, "menuTitle");
+	pluginDescription = ValueText(spec, "description");
+	capabilities = ValueGet(spec, "capabilities");
+	categoryPack = Content_SpecHasCapability(spec, "content.category");
+	metricPack = Content_SpecHasCapability(spec, "content.like") || Content_SpecHasCapability(spec, "content.view-stat");
+	taskPack = Content_SpecHasCapability(spec, "content.static") || Content_SpecHasCapability(spec, "content.sitemap")
+		|| Content_SpecHasCapability(spec, "content.import-export") || Content_SpecHasCapability(spec, "content.search")
+		|| Content_SpecHasCapability(spec, "content.form") || Content_SpecHasCapability(spec, "content.audit-log");
+
+	/* build 声明收集（sources/includeDirs 去重） */
+	if (capabilities && xrtValueType(capabilities) == XVALUE_ARRAY) {
+		for (i = 0; i < ValueCount(capabilities); i++) {
+			xvalue* cap = xrtValueArrayGet(capabilities, i);
+			str capKey = (cap && xrtValueType(cap) == XVALUE_OBJECT) ? ValueText(cap, "key") : NULL;
+			xvalue* packDetail = NULL;
+			if (!capKey || !capKey[0]) continue;
+			if (!Content_CapabilityEnabled(cap)) continue;
+			packDetail = ContentPack_GetDetail(capKey);
+			Content_AppendDeclaredPackBuildPaths(packDetail, sources, includeDirs);
+			xrtValueRelease(packDetail);
+		}
+	}
+
+	managedSpecJson = Content_BuildManagedSpecJson(spec, xid, modelTitle, pluginDescription);
+	pluginJson = Content_BuildGeneratedPluginJson(pluginXid,
+		Content_TextOr(pluginTitle, modelTitle), pluginDescription, capabilities, sources, includeDirs);
+	mainC = Content_BuildManagedMainC(pluginXid,
+		Content_TextOr(pluginTitle, modelTitle),
+		Content_TextOr(menuTitle, Content_TextOr(pluginTitle, modelTitle)),
+		spec);
+	adminHtml = Content_BuildManagedAdminPageHtml(pluginXid, "articles");
+	draftHtml = Content_BuildManagedAdminPageHtml(pluginXid, "drafts");
+	editorHtml = Content_BuildManagedEditorHtml(pluginXid);
+	if (categoryPack) categoryHtml = Content_BuildManagedCategoryHtml(pluginXid);
+	if (metricPack) dashboardHtml = Content_BuildManagedDashboardHtml(pluginXid);
+	if (taskPack) tasksHtml = Content_BuildManagedTasksHtml(pluginXid);
+	publicHtml = Content_BuildManagedPublicHtml(pluginXid);
+	abilityHtml = Content_BuildManagedAbilityHtml(pluginXid);
+	staticDetailHtml = Content_BuildManagedStaticDetailHtml();
+	managedJson = Content_BuildRuntimeManagedJson(pluginXid, revision, now, spec);
+	contractsJson = Content_BuildGeneratedContracts(xid, revision, spec);
+	capabilityManifestJson = Content_BuildGeneratedCapabilityManifest(xid, revision, spec);
+
+	memset(files, 0, sizeof(files));
+	memset(ownedPaths, 0, sizeof(ownedPaths));
+	memset(ownedData, 0, sizeof(ownedData));
+	Content_SetGeneratedFile(&files[fileCount++], "plugin.json", pluginJson);
+	Content_AppendArrayText(outputFiles, "plugin.json");
+	Content_SetGeneratedFile(&files[fileCount++], "generated/main.c", mainC);
+	Content_AppendArrayText(outputFiles, "generated/main.c");
+	Content_SetGeneratedFile(&files[fileCount++], "generated/admin.html", adminHtml);
+	Content_AppendArrayText(outputFiles, "generated/admin.html");
+	Content_SetGeneratedFile(&files[fileCount++], "generated/drafts.html", draftHtml);
+	Content_AppendArrayText(outputFiles, "generated/drafts.html");
+	Content_SetGeneratedFile(&files[fileCount++], "generated/editor.html", editorHtml);
+	Content_AppendArrayText(outputFiles, "generated/editor.html");
+	if (categoryPack) {
+		Content_SetGeneratedFile(&files[fileCount++], "generated/categories.html", categoryHtml);
+		Content_AppendArrayText(outputFiles, "generated/categories.html");
+	}
+	if (metricPack) {
+		Content_SetGeneratedFile(&files[fileCount++], "generated/dashboard.html", dashboardHtml);
+		Content_AppendArrayText(outputFiles, "generated/dashboard.html");
+	}
+	if (taskPack) {
+		Content_SetGeneratedFile(&files[fileCount++], "generated/tasks.html", tasksHtml);
+		Content_AppendArrayText(outputFiles, "generated/tasks.html");
+	}
+	Content_SetGeneratedFile(&files[fileCount++], "generated/public.html", publicHtml);
+	Content_AppendArrayText(outputFiles, "generated/public.html");
+	Content_SetGeneratedFile(&files[fileCount++], "generated/ability.html", abilityHtml);
+	Content_AppendArrayText(outputFiles, "generated/ability.html");
+	Content_SetGeneratedFile(&files[fileCount++], "generated/spec.json", managedSpecJson);
+	Content_AppendArrayText(outputFiles, "generated/spec.json");
+	Content_SetGeneratedFile(&files[fileCount++], "template/static/detail.html", staticDetailHtml);
+	Content_AppendArrayText(outputFiles, "template/static/detail.html");
+	Content_SetGeneratedFile(&files[fileCount++], "config.defaults.json", "{\"pageSize\":20}\n");
+	Content_AppendArrayText(outputFiles, "config.defaults.json");
+	Content_SetGeneratedFile(&files[fileCount++], "config.schema.json",
+		"{\"type\":\"object\",\"properties\":{\"pageSize\":{\"type\":\"integer\",\"title\":\"Page Size\"}},\"additionalProperties\":false}\n");
+	Content_AppendArrayText(outputFiles, "config.schema.json");
+	Content_SetGeneratedFile(&files[fileCount++], "runtime/managed.json", managedJson);
+	Content_AppendArrayText(outputFiles, "runtime/managed.json");
+	Content_SetGeneratedFile(&files[fileCount++], "runtime/contracts.json", contractsJson);
+	Content_AppendArrayText(outputFiles, "runtime/contracts.json");
+	Content_SetGeneratedFile(&files[fileCount++], "runtime/capability.manifest.json", capabilityManifestJson);
+	Content_AppendArrayText(outputFiles, "runtime/capability.manifest.json");
+	Content_SetGeneratedFile(&files[fileCount++], "runtime/capability.mounts.example.json", "{\"mounts\":[]}\n");
+	Content_AppendArrayText(outputFiles, "runtime/capability.mounts.example.json");
+	Content_SetGeneratedFile(&files[fileCount++], "runtime/capability.mounts.schema.json",
+		"{\"type\":\"object\",\"properties\":{\"mounts\":{\"type\":\"array\"}},\"required\":[\"mounts\"]}\n");
+	Content_AppendArrayText(outputFiles, "runtime/capability.mounts.schema.json");
+	migrationPlanJson = xrtFormat("{\"pluginXid\":\"%s\",\"revision\":%d,\"items\":[],\"sql\":[]}\n", pluginXid ? pluginXid : "", revision);
+	Content_SetGeneratedFile(&files[fileCount++], "runtime/migration.plan.json", migrationPlanJson);
+	Content_AppendArrayText(outputFiles, "runtime/migration.plan.json");
+	Content_SetGeneratedFile(&files[fileCount++], "generated/migration.sql",
+		"-- Managed content migration is handled by generated plugin startup.\n");
+	Content_AppendArrayText(outputFiles, "generated/migration.sql");
+	Content_SetGeneratedFile(&files[fileCount++], "custom/README.txt",
+		"This directory is reserved for user-owned extensions.\n");
+	Content_AppendArrayText(outputFiles, "custom/README.txt");
+	if (capabilities && xrtValueType(capabilities) == XVALUE_ARRAY) {
+		for (i = 0; i < ValueCount(capabilities); i++) {
+			xvalue* cap = xrtValueArrayGet(capabilities, i);
+			str capKey = (cap && xrtValueType(cap) == XVALUE_OBJECT) ? ValueText(cap, "key") : NULL;
+			xvalue* packDetail = NULL;
+			if (!capKey || !capKey[0]) continue;
+			if (!Content_CapabilityEnabled(cap)) continue;
+			packDetail = ContentPack_GetDetail(capKey);
+			Content_AppendDeclaredPackFiles(files, &fileCount, CONTENT_GEN_FILES_MAX,
+				ownedPaths, ownedData, &ownedCount, CONTENT_GEN_OWNED_MAX, packDetail);
+			xrtValueRelease(packDetail);
+		}
+	}
+	{
+		xvalue* output = ValueObject();
+		ValueSetText(output, "pluginXid", pluginXid);
+		ValueSetInt(output, "revision", revision);
+		ValueSetOwn(output, "files", outputFiles);
+		outputFiles = NULL;
+		outputJson = Content_StringifyJson(output, false);
+		xrtValueRelease(output);
+	}
+
+	memset(&genSpec, 0, sizeof(genSpec));
+	genSpec.xid = pluginXid;
+	genSpec.title = modelTitle ? modelTitle : "Generated Content Plugin";
+	genSpec.version = "1.0.0";
+	genSpec.entry = "generated/main.c";
+	genSpec.auto_enable = 0;
+	genSpec.file_count = (size_t)fileCount;
+	genSpec.files = files;
+	ok = Content_RunPluginGeneration(&genSpec);
+
+	if (ok) {
+		Content_FinishGenerationSuccess(genRowId, outputJson, advisorJson, now);
+		Content_UpdateAppliedRevision(modelId, revision, pluginXid);
+		ret = ValueObject();
+		ValueSetText(ret, "pluginXid", pluginXid);
+		ValueSetInt(ret, "revision", revision);
+		ValueSetBool(ret, "generated", true);
+		if (outputJson) ValueSetText(ret, "outputJson", outputJson);
+	} else {
+		if (error) *error = xrtStrDup("generate plugin failed");
+		Content_FinishGenerationFailure(genRowId, advisorJson, "generate plugin failed", now);
+	}
+
+cleanup:
+	xrtValueRelease(advisor);
+	xrtValueRelease(spec);
+	xrtValueRelease(model);
+	xrtValueRelease(outputFiles);
+	xrtValueRelease(sources);
+	xrtValueRelease(includeDirs);
+	xrtFree(validateError);
+	xrtFree(advisorJson);
+	xrtFree(managedSpecJson);
+	xrtFree(pluginJson);
+	xrtFree(mainC);
+	xrtFree(adminHtml);
+	xrtFree(draftHtml);
+	xrtFree(editorHtml);
+	xrtFree(categoryHtml);
+	xrtFree(dashboardHtml);
+	xrtFree(tasksHtml);
+	xrtFree(publicHtml);
+	xrtFree(abilityHtml);
+	xrtFree(staticDetailHtml);
+	xrtFree(managedJson);
+	xrtFree(contractsJson);
+	xrtFree(capabilityManifestJson);
+	xrtFree(migrationPlanJson);
+	xrtFree(outputJson);
+	for (i = 0; i < (uint32)ownedCount; i++) {
+		xrtFree(ownedPaths[i]);
+		xrtFree(ownedData[i]);
+	}
+	return ret;
+}

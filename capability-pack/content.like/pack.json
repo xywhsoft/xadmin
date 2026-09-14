@@ -1,0 +1,48 @@
+{
+  "formatVersion": 1,
+  "packId": "content.like",
+  "name": "like",
+  "title": "点赞管理",
+  "description": "提供点赞、取消点赞、去重计数、状态查询和后台点赞统计能力。",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 600,
+  "update": {
+    "channel": "official",
+    "packageId": "content.like",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": []
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json",
+  "advisorMessage": "能力包 content.like：会记录互动计数，请确认去重策略、访客标识和滥用边界。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/like/counter/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_like",
+  "sourceFiles": [
+    "source/content_like_pack.c"
+  ],
+  "includeFiles": [
+    "include/content_like_pack.h"
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "packId": "content.comment",
+  "name": "comment",
+  "title": "评论管理",
+  "description": "提供公开评论、评论审核、回复树、评论计数和后台评论管理能力。",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 100,
+  "update": {
+    "channel": "official",
+    "packageId": "content.comment",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": []
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json",
+  "advisorMessage": "能力包 content.comment：会启用评论存储、公开提交和审核路由，请确认审核方式和反垃圾策略。",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/comment/list?contentId=1",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_comment"
+}

@@ -421,12 +421,21 @@ layui.use(['jquery', 'admin'], function() {
 		window.location.href = url;
 	}
 
+	function setStatValue(id, count) {
+		var el = document.getElementById(id);
+		if ( !el ) return;
+		el.setAttribute('data-value', count);
+		/* 观察器可能在 fetch 完成前就已触发过（卡片首屏可见时），
+		 * 此时动画已按 0 结束并 unobserve，这里直接落终值兜底 */
+		el.textContent = count;
+	}
+
 	function loadStats() {
 		fetch('/admin/auth/user?page=1&limit=1')
 		.then(function(response){ return response.json(); })
 		.then(function(data){
 			if ( data && data.count !== undefined ) {
-				document.getElementById('userCount').setAttribute('data-value', data.count);
+				setStatValue('userCount', data.count);
 			}
 		})
 		.catch(function(error){ console.error('用户数据加载失败:', error); });
@@ -435,7 +444,7 @@ layui.use(['jquery', 'admin'], function() {
 		.then(function(response){ return response.json(); })
 		.then(function(data){
 			if ( data && data.count !== undefined ) {
-				document.getElementById('roleCount').setAttribute('data-value', data.count);
+				setStatValue('roleCount', data.count);
 			}
 		})
 		.catch(function(error){ console.error('角色数据加载失败:', error); });
@@ -444,7 +453,7 @@ layui.use(['jquery', 'admin'], function() {
 		.then(function(response){ return response.json(); })
 		.then(function(data){
 			if ( data && data.count !== undefined ) {
-				document.getElementById('menuCount').setAttribute('data-value', data.count);
+				setStatValue('menuCount', data.count);
 			}
 		})
 		.catch(function(error){ console.error('菜单数据加载失败:', error); });
@@ -453,7 +462,7 @@ layui.use(['jquery', 'admin'], function() {
 		.then(function(response){ return response.json(); })
 		.then(function(data){
 			if ( data && data.count !== undefined ) {
-				document.getElementById('pluginCount').setAttribute('data-value', data.count);
+				setStatValue('pluginCount', data.count);
 			}
 		})
 		.catch(function(error){ console.error('插件数据加载失败:', error); });

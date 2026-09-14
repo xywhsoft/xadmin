@@ -1,0 +1,64 @@
+{
+  "permissions": [
+    "comment.view",
+    "comment.audit",
+    "comment.delete"
+  ],
+  "adminPages": [
+    "comments",
+    "comment_audit"
+  ],
+  "publicApis": [
+    "comment.list",
+    "comment.create",
+    "comment.hide",
+    "comment.count"
+  ],
+  "adminApis": [
+    "comment.status",
+    "comment.status-batch",
+    "comment.moderation-stats",
+    "comment.moderation-queue",
+    "comment.delete",
+    "comment.audit-log.list",
+    "comment.notification.list"
+  ],
+  "tables": [
+    "comment_thread",
+    "comment_item",
+    "comment_audit_log",
+    "comment_notification"
+  ],
+  "events": [
+    "content.afterDelete",
+    "content.afterPublish",
+    "content.afterView",
+    "comment.afterCreate",
+    "comment.afterModerate"
+  ],
+  "runtime": {
+    "antiSpam": ["maxRequestBytes", "honeypot", "minSubmitSeconds", "maxAuthorNameLength", "authorNameControlChars", "allowedAuthorNames", "blockedAuthorNames", "blockedBodyPhrases", "maxUserAgentLength", "blockedUserAgentPhrases", "minBodyLength", "maxBodyLength", "maxLinks", "duplicateWindowSeconds", "ipWindowSeconds", "ipWindowLimit"],
+    "ipSource": ["request.remote"],
+    "auditLog": "comment_audit_log",
+    "notificationLog": "comment_notification",
+    "configKeys": ["moderation", "allowPublicPost", "maxRequestBytes", "maxAuthorNameLength", "maxUserAgentLength", "maxBodyLength", "minBodyLength", "minSubmitSeconds", "maxLinks", "maxPublicRows", "maxAdminListRows", "moderationStatsRecentDays", "maxReplyDepth", "duplicateWindowSeconds", "ipWindowSeconds", "ipWindowLimit", "allowedAuthorNames", "blockedAuthorNames", "blockedBodyPhrases", "blockedUserAgentPhrases"],
+    "listControls": "allowedAuthorNames and blockedAuthorNames use exact case-insensitive matching; blockedBodyPhrases and blockedUserAgentPhrases use bounded substring matching",
+    "replyDepth": "maxReplyDepth",
+    "listLimit": "maxPublicRows",
+    "accessIntegration": "comment list/count/create/hide require readable content when content.access is enabled",
+    "adminListLimit": "admin audit and notification lists clamp request limit by maxAdminListRows",
+    "adminAuditWorkbench": "ability page exposes a dedicated moderation queue, audit logs filtered by commentId, notification logs and bounded batch approve/reject",
+    "adminModerationQueue": "comment.moderation-queue returns pending comments with content title, author/IP, bodyLength, linkCount, riskScore, riskFlags, ageSeconds, audit counts and optional contentId/authorName/body/ip filters under maxAdminListRows",
+    "adminModerationQueueFilters": ["contentId", "authorName", "body", "ip"],
+    "adminModerationRisk": "riskScore and riskFlags are admin-only diagnostics derived from existing anti-spam config; they do not change public submit behavior",
+    "adminModerationStats": "comment.moderation-stats returns pending/approved/rejected/hidden/deleted totals for the manual moderation workbench",
+    "adminModerationRiskStats": "comment.moderation-stats scans the bounded pending moderation queue and returns riskStats buckets without changing public submit behavior",
+    "adminModerationStatsUi": "ability page renders moderation totals and the recent pending window as a table, while retaining raw JSON for diagnostics",
+    "adminBatchModerationUi": "ability page renders comment.status-batch as a bounded summary and per-comment result table while retaining raw JSON diagnostics",
+    "adminAuditFilters": "audit logs support optional commentId/action filters and notification logs support optional commentId/contentId/status/event filters with bound SQL",
+    "adminBatchModeration": "comment.status-batch accepts a bounded ids array and only supports approve/reject status changes",
+    "adminStatusValidation": "comment.status only accepts pending(0), approve(1) or reject(2) status values",
+    "adminRequestLimit": "admin comment status/delete reject request bodies beyond maxRequestBytes before JSON parse"
+  },
+  "tasks": []
+}

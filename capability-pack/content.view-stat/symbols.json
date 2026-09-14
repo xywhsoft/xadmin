@@ -1,0 +1,11 @@
+{
+  "prefix": "cms_view_stat",
+  "tables": [
+    "view_counter",
+    "view_log",
+    "view_daily_stat"
+  ],
+  "counters": [
+    "view_count"
+  ]
+}

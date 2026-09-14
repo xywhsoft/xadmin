@@ -1,0 +1,56 @@
+{
+  "groups": [
+    {
+      "key": "workflow-scheduled",
+      "title": "定时发布选项",
+      "fields": [
+        {
+          "name": "defaultScheduledLimit",
+          "type": "number",
+          "label": "默认批量处理数量",
+          "value": 100
+        },
+        {
+          "name": "maxListRows",
+          "type": "number",
+          "label": "列表最大行数",
+          "value": 200,
+          "min": 20,
+          "max": 1000
+        },
+        {
+          "name": "maxReasonLength",
+          "type": "number",
+          "label": "审核原因最大长度",
+          "value": 1000,
+          "min": 1,
+          "max": 5000
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "请求体最大字节数",
+          "value": 65536,
+          "min": 512,
+          "max": 262144,
+          "step": 512
+        },
+        {
+          "name": "requiredApprovals",
+          "type": "number",
+          "label": "发布所需审核通过次数",
+          "value": 1,
+          "min": 1,
+          "max": 10,
+          "step": 1
+        },
+        {
+          "name": "requireDistinctApprovers",
+          "type": "switch",
+          "label": "要求不同审核人",
+          "value": false
+        }
+      ]
+    }
+  ]
+}

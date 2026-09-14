@@ -1,0 +1,32 @@
+{
+  "groups": [
+    {
+      "key": "comment",
+      "title": "Comment System Global Options",
+      "fields": [
+        {
+          "name": "moderationDefault",
+          "type": "select",
+          "label": "Default moderation",
+          "value": "manual",
+          "list": [
+            {
+              "value": "manual",
+              "label": "Manual"
+            },
+            {
+              "value": "auto",
+              "label": "Auto approve"
+            }
+          ]
+        },
+        {
+          "name": "allowPublicPostDefault",
+          "type": "switch",
+          "label": "Allow public post by default",
+          "value": true
+        }
+      ]
+    }
+  ]
+}
