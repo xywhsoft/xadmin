@@ -156,7 +156,7 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		ValueSetBool(tblRet, "result", true);
 		ValueSetInt(tblRet, "code", 0);
 		ValueSetInt(tblRet, "count", iCount);
-		ValueSetText(tblRet, "message", "�û����ݻ�ȡ�ɹ���");
+		ValueSetText(tblRet, "message", "用户数据获取成功！");
 		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
@@ -230,7 +230,7 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		// 返回成功信息和新创建的ID
 		xvalue* tblRet = ValueObject();
 		ValueSetBool(tblRet, "result", true);
-		ValueSetText(tblRet, "message", "�û����ӳɹ���");
+		ValueSetText(tblRet, "message", "用户添加成功！");
 		xvalue* dataRet = ValueObject();
 		ValueSetInt(dataRet, "id", newId);
 		ValueSetOwn(tblRet, "data", dataRet);
@@ -546,7 +546,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		ValueSetBool(tblRet, "result", true);
 		ValueSetInt(tblRet, "code", 0);
 		ValueSetInt(tblRet, "count", iCount);
-		ValueSetText(tblRet, "message", "��ɫ���ݻ�ȡ�ɹ���");
+		ValueSetText(tblRet, "message", "角色数据获取成功！");
 		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
@@ -818,7 +818,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		ValueSetBool(tblRet, "result", true);
 		ValueSetInt(tblRet, "code", 0);
 		ValueSetInt(tblRet, "count", iCount);
-		ValueSetText(tblRet, "message", "Ȩ�޷������ݻ�ȡ�ɹ���");
+		ValueSetText(tblRet, "message", "权限分类数据获取成功！");
 		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
@@ -1079,7 +1079,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		ValueSetBool(tblRet, "result", true);
 		ValueSetInt(tblRet, "code", 0);
 		ValueSetInt(tblRet, "count", iCount);
-		ValueSetText(tblRet, "message", "Ȩ�������ݻ�ȡ�ɹ���");
+		ValueSetText(tblRet, "message", "权限分组数据获取成功！");
 		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
@@ -1361,7 +1361,7 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		ValueSetBool(tblRet, "result", true);
 		ValueSetInt(tblRet, "code", 0);
 		ValueSetInt(tblRet, "count", iCount);
-		ValueSetText(tblRet, "message", "�ӿ����ݻ�ȡ�ɹ���");
+		ValueSetText(tblRet, "message", "接口数据获取成功！");
 		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON

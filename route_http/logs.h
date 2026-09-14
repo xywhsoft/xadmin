@@ -97,7 +97,7 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		}
 		
 		ValueSetInt(tblRet, "count", iCount);
-		ValueSetText(tblRet, "message", "��־���ݻ�ȡ�ɹ���");
+		ValueSetText(tblRet, "message", "日志数据获取成功！");
 		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
@@ -128,7 +128,7 @@ void Request_Logs_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		if (ReplyIfWriteFailed(objResp, DB_Write(stmt_logs_clear, false))) return;
 		
 		// 返回结果
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"7��ǰ����־����գ�\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"7天前的日志已清理！\"}", 0);
 		
 	} else {
 		

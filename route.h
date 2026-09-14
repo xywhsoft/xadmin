@@ -35,6 +35,7 @@ static void RouteHTTP_Init(void)
 	AddStaticRouteHTTP("/admin/view/option/file", XHTTP_METHOD_ANY, Request_View_Option_File, false);
 	AddStaticRouteHTTP("/admin/option/file", XHTTP_METHOD_ANY, Request_Option_File, false);
 	AddStaticRouteHTTP("/admin/view/plugin", XHTTP_METHOD_ANY, Request_View_Plugin_List, false);
+	AddStaticRouteHTTP("/admin/view/plugin/installed", XHTTP_METHOD_ANY, Request_View_Plugin_List, false); /* v1 别名 */
 	AddStaticRouteHTTP("/admin/view/content/page", XHTTP_METHOD_ANY, Request_View_Content_Page, false);
 	AddStaticRouteHTTP("/admin/content/pages", XHTTP_METHOD_ANY, Request_Content_Pages, false);
 	AddStaticRouteHTTP("/admin/content/page", XHTTP_METHOD_ANY, Request_Content_Page, false);

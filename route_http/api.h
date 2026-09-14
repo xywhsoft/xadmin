@@ -205,12 +205,12 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	
 	// step 2 : 验证必填字段
 	if ( !sUsername || (strlen(sUsername) < 3) ) {
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名至�?个字符\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名至少3个字符\"}", 0);
 		xrtValueRelease(tblForm);
 		return;
 	}
 	if ( strlen(sUsername) > 32 ) {
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名最�?2个字符\"}", 0);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名最多32个字符\"}", 0);
 		xrtValueRelease(tblForm);
 		return;
 	}
