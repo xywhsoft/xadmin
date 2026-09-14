@@ -18,6 +18,7 @@ str DBPath;
 str LogPath;
 str TempPath;
 str PagePath;
+str SitePagePath;
 str ToolPath;
 str OptionPath;
 str InstallPath;
@@ -90,6 +91,7 @@ typedef struct {
 	
 	// 对应插件
 	void* pPluginRouteToken;
+	void* pPageRouteToken;
 	
 	// 是否必须鉴权才能访问
 	bool bAuth;
@@ -108,10 +110,47 @@ typedef struct {
 	
 	// 权限级别 0 为不限制，否则必须用户组具备大于等于这个数字的权限级别才能访问）
 	uint32 AuthLevel;
+
+	bool bDynamic;
+	void* pDynamicRoute;
 	
 } RouteInfo;
 xdict G_StaticRouteTableHTTP;
-RouteInfo* G_MIRPushRoute;
+xdict G_DynamicRouteInvokeContext = NULL;
+
+// Keep the request hot path bounded while allowing one route group to expose a practical candidate set.
+#define XADMIN_DYNAMIC_ROUTE_MAX_MATCHES 256
+#define XADMIN_DYNAMIC_ROUTE_MAX_CAPTURES 16
+
+typedef struct {
+	RouteInfo Info;
+	str sUri;
+	str sPattern;
+	xregex* pRegex;
+	int iPriority;
+	int iMethod;
+	uint32 iPatternIndex;
+	uint32 iCaptureCount;
+} DynamicRouteInfo;
+
+typedef struct {
+	DynamicRouteInfo* pRoute;
+	const char* sPath;
+	size_t iPathLen;
+	xregexspan arrCaptures[XADMIN_DYNAMIC_ROUTE_MAX_CAPTURES];
+	uint32 iCaptureCount;
+} DynamicRouteInvokeContext;
+
+typedef struct {
+	xlist lstRoutes;
+	xregexset* pRegexSet;
+	uint32 iCompiledCount;
+	uint32 iGeneration;
+	str sLastError;
+	str sLastWarning;
+} DynamicRouteTableHTTP;
+
+DynamicRouteTableHTTP G_DynamicRouteTableHTTP = {0};
 
 // 添加全局静态路由表 - HTTP
 void AddStaticRouteHTTP(str uri, void* proc)
@@ -120,15 +159,498 @@ void AddStaticRouteHTTP(str uri, void* proc)
 	if ( pInfo ) {
 		pInfo->Proc = proc;
 		pInfo->pPluginRouteToken = NULL;
+		pInfo->pPageRouteToken = NULL;
 		pInfo->bAuth = TRUE;		// 默认需要鉴权（安全优先）
 		pInfo->bAdmin = TRUE;		// 默认后台接口
 		pInfo->bPutLog = FALSE;		// 默认不记录日志
 		pInfo->bActive = FALSE;		// 默认不保持活跃
 		pInfo->AuthID = 0;
 		pInfo->AuthLevel = 0;
+		pInfo->bDynamic = FALSE;
+		pInfo->pDynamicRoute = NULL;
 	} else {
 		printf("add static http route failed : %s.\n", uri);
 	}
+}
+
+static void DynamicRoute_ContextKey(char sKey[32])
+{
+	snprintf(sKey, 32, "%llu", (unsigned long long)xrtThreadGetCurrentId());
+}
+
+static void DynamicRoute_BeginInvoke(RouteInfo* pInfo, const char* sPath)
+{
+	DynamicRouteInvokeContext* pCtx;
+	DynamicRouteInvokeContext* pOldCtx = NULL;
+	DynamicRouteInfo* pRoute;
+	char sKey[32];
+
+	if ( pInfo == NULL || !pInfo->bDynamic || pInfo->pDynamicRoute == NULL || sPath == NULL || G_DynamicRouteInvokeContext == NULL ) {
+		return;
+	}
+	pRoute = (DynamicRouteInfo*)pInfo->pDynamicRoute;
+	pCtx = (DynamicRouteInvokeContext*)xrtMalloc(sizeof(DynamicRouteInvokeContext));
+	if ( pCtx == NULL ) {
+		return;
+	}
+	memset(pCtx, 0, sizeof(DynamicRouteInvokeContext));
+	pCtx->pRoute = pRoute;
+	pCtx->sPath = sPath;
+	pCtx->iPathLen = strlen(sPath);
+	pCtx->iCaptureCount = pRoute->iCaptureCount;
+	if ( pCtx->iCaptureCount > XADMIN_DYNAMIC_ROUTE_MAX_CAPTURES ) {
+		pCtx->iCaptureCount = XADMIN_DYNAMIC_ROUTE_MAX_CAPTURES;
+	}
+	if ( pCtx->iCaptureCount == 0 || xrtRegexCaptures(pRoute->pRegex, sPath, pCtx->iPathLen, pCtx->arrCaptures, pCtx->iCaptureCount) != 1 ) {
+		pCtx->iCaptureCount = 0;
+	}
+	DynamicRoute_ContextKey(sKey);
+	xrtDictSetPtr(G_DynamicRouteInvokeContext, sKey, (uint32)strlen(sKey), pCtx, (ptr*)&pOldCtx);
+	if ( pOldCtx ) {
+		xrtFree(pOldCtx);
+	}
+}
+
+static void DynamicRoute_EndInvoke()
+{
+	DynamicRouteInvokeContext* pCtx;
+	char sKey[32];
+
+	if ( G_DynamicRouteInvokeContext == NULL ) {
+		return;
+	}
+	DynamicRoute_ContextKey(sKey);
+	pCtx = (DynamicRouteInvokeContext*)xrtDictRemovePtr(G_DynamicRouteInvokeContext, sKey, (uint32)strlen(sKey));
+	if ( pCtx ) {
+		xrtFree(pCtx);
+	}
+}
+
+int DynamicRoute_GetParam(int iIndex, char* sOut, size_t iOutCap)
+{
+	DynamicRouteInvokeContext* pCtx;
+	xregexspan* pSpan;
+	char sKey[32];
+	uint32 iCaptureIndex;
+	size_t iLen;
+
+	if ( sOut && iOutCap > 0 ) {
+		sOut[0] = '\0';
+	}
+	if ( G_DynamicRouteInvokeContext == NULL || iIndex < 0 || sOut == NULL || iOutCap == 0 ) {
+		return -1;
+	}
+	DynamicRoute_ContextKey(sKey);
+	pCtx = (DynamicRouteInvokeContext*)xrtDictGetPtr(G_DynamicRouteInvokeContext, sKey, (uint32)strlen(sKey));
+	iCaptureIndex = (uint32)iIndex + 1;
+	if ( pCtx == NULL || iCaptureIndex >= pCtx->iCaptureCount ) {
+		return -1;
+	}
+	pSpan = &pCtx->arrCaptures[iCaptureIndex];
+	if ( pSpan->iEnd < pSpan->iBegin || pSpan->iEnd > pCtx->iPathLen ) {
+		return -1;
+	}
+	iLen = pSpan->iEnd - pSpan->iBegin;
+	if ( iLen >= iOutCap ) {
+		iLen = iOutCap - 1;
+	}
+	memcpy(sOut, pCtx->sPath + pSpan->iBegin, iLen);
+	sOut[iLen] = '\0';
+	return (int)(pSpan->iEnd - pSpan->iBegin);
+}
+
+int DynamicRoute_GetParamCount()
+{
+	DynamicRouteInvokeContext* pCtx;
+	char sKey[32];
+
+	if ( G_DynamicRouteInvokeContext == NULL ) {
+		return 0;
+	}
+	DynamicRoute_ContextKey(sKey);
+	pCtx = (DynamicRouteInvokeContext*)xrtDictGetPtr(G_DynamicRouteInvokeContext, sKey, (uint32)strlen(sKey));
+	return (pCtx && pCtx->iCaptureCount > 0) ? (int)(pCtx->iCaptureCount - 1) : 0;
+}
+
+static int DynamicRoute_Compare(const void* pLeft, const void* pRight)
+{
+	const DynamicRouteInfo* pA = *(const DynamicRouteInfo* const*)pLeft;
+	const DynamicRouteInfo* pB = *(const DynamicRouteInfo* const*)pRight;
+	if ( pA == NULL && pB == NULL ) return 0;
+	if ( pA == NULL ) return 1;
+	if ( pB == NULL ) return -1;
+	if ( pA->iPriority != pB->iPriority ) return (pA->iPriority < pB->iPriority) ? -1 : 1;
+	return strcmp((const char*)(pA->sUri ? pA->sUri : (str)""), (const char*)(pB->sUri ? pB->sUri : (str)""));
+}
+
+static void DynamicRoute_SortMatchIndexes(uint32* arrMatches, uint32 iMatchCount)
+{
+	for ( uint32 i = 1; i < iMatchCount; i++ ) {
+		uint32 iValue = arrMatches[i];
+		uint32 j = i;
+		while ( j > 0 && arrMatches[j - 1] > iValue ) {
+			arrMatches[j] = arrMatches[j - 1];
+			j--;
+		}
+		arrMatches[j] = iValue;
+	}
+}
+
+static void DynamicRoute_Free(DynamicRouteInfo* pRoute)
+{
+	if ( pRoute == NULL ) return;
+	if ( pRoute->pRegex ) xrtRegexDestroy(pRoute->pRegex);
+	if ( pRoute->sUri ) xrtFree(pRoute->sUri);
+	if ( pRoute->sPattern ) xrtFree(pRoute->sPattern);
+	xrtFree(pRoute);
+}
+
+static void DynamicRoute_SetError(const char* sMessage)
+{
+	if ( G_DynamicRouteTableHTTP.sLastError ) {
+		xrtFree(G_DynamicRouteTableHTTP.sLastError);
+		G_DynamicRouteTableHTTP.sLastError = NULL;
+	}
+	if ( sMessage ) {
+		G_DynamicRouteTableHTTP.sLastError = xrtCopyStr((str)sMessage, 0);
+	}
+}
+
+static void DynamicRoute_SetWarning(const char* sMessage)
+{
+	if ( G_DynamicRouteTableHTTP.sLastWarning ) {
+		xrtFree(G_DynamicRouteTableHTTP.sLastWarning);
+		G_DynamicRouteTableHTTP.sLastWarning = NULL;
+	}
+	if ( sMessage ) {
+		G_DynamicRouteTableHTTP.sLastWarning = xrtCopyStr((str)sMessage, 0);
+	}
+}
+
+static void DynamicRoute_AppendWarning(const char* sMessage)
+{
+	str sNext;
+
+	if ( (sMessage == NULL) || (sMessage[0] == '\0') ) return;
+	if ( G_DynamicRouteTableHTTP.sLastWarning && G_DynamicRouteTableHTTP.sLastWarning[0] ) {
+		sNext = xrtFormat("%s; %s", (const char*)G_DynamicRouteTableHTTP.sLastWarning, sMessage);
+	} else {
+		sNext = xrtCopyStr((str)sMessage, 0);
+	}
+	if ( sNext ) {
+		DynamicRoute_SetWarning((const char*)sNext);
+		xrtFree(sNext);
+	}
+}
+
+const char* DynamicRoute_GetLastErrorHTTP()
+{
+	return G_DynamicRouteTableHTTP.sLastError ? (const char*)G_DynamicRouteTableHTTP.sLastError : "";
+}
+
+const char* DynamicRoute_GetLastWarningHTTP()
+{
+	return G_DynamicRouteTableHTTP.sLastWarning ? (const char*)G_DynamicRouteTableHTTP.sLastWarning : "";
+}
+
+static void DynamicRoute_RecordPatternRisk(str uri, str pattern)
+{
+	str sWarning = NULL;
+
+	if ( pattern == NULL ) {
+		return;
+	}
+	if ( strcmp(pattern, "^/.*$") == 0 || strcmp(pattern, "^/(.*)$") == 0 || strcmp(pattern, "^/([^/]+)$") == 0 ) {
+		sWarning = xrtFormat("broad pattern: uri=%s pattern=%s", uri ? (const char*)uri : "", pattern);
+	}
+	if ( strstr(pattern, "/css") || strstr(pattern, "/js") || strstr(pattern, "/img") || strstr(pattern, "/uploads") || strstr(pattern, "/res") ) {
+		str sNext = xrtFormat("%s%sstatic asset overlap risk: uri=%s pattern=%s",
+			sWarning ? (const char*)sWarning : "",
+			sWarning ? "; " : "",
+			uri ? (const char*)uri : "",
+			pattern);
+		if ( sWarning ) xrtFree(sWarning);
+		sWarning = sNext;
+	}
+	if ( strstr(pattern, "^/admin") || strstr(pattern, "^/api") || strstr(pattern, "/admin") || strstr(pattern, "/api") ) {
+		str sNext = xrtFormat("%s%sadmin/API prefix overlap risk: uri=%s pattern=%s",
+			sWarning ? (const char*)sWarning : "",
+			sWarning ? "; " : "",
+			uri ? (const char*)uri : "",
+			pattern);
+		if ( sWarning ) xrtFree(sWarning);
+		sWarning = sNext;
+	}
+	if ( sWarning ) {
+		DynamicRoute_SetWarning((const char*)sWarning);
+		printf("[dynamic_route:warn] %s\n", (const char*)sWarning);
+		xrtFree(sWarning);
+	}
+}
+
+static bool DynamicRoute_RebuildHTTP()
+{
+	uint32 iCount = G_DynamicRouteTableHTTP.lstRoutes ? xrtListCount(G_DynamicRouteTableHTTP.lstRoutes) : 0;
+	DynamicRouteInfo** arrRoutes = NULL;
+	xregexsetbuilder* pBuilder = NULL;
+	xregexset* pNewSet = NULL;
+	xregexset* pOldSet = G_DynamicRouteTableHTTP.pRegexSet;
+	uint32 iOldCompiledCount = G_DynamicRouteTableHTTP.iCompiledCount;
+	uint32 iActive = 0;
+	int iRet;
+
+	DynamicRoute_SetError(NULL);
+
+	if ( iCount == 0 ) {
+		G_DynamicRouteTableHTTP.pRegexSet = NULL;
+		G_DynamicRouteTableHTTP.iCompiledCount = 0;
+		if ( pOldSet ) {
+			xrtRegexSetDestroy(pOldSet);
+		}
+		G_DynamicRouteTableHTTP.iGeneration++;
+		return TRUE;
+	}
+
+	arrRoutes = (DynamicRouteInfo**)xrtMalloc(sizeof(DynamicRouteInfo*) * iCount);
+	if ( arrRoutes == NULL ) {
+		G_DynamicRouteTableHTTP.pRegexSet = pOldSet;
+		G_DynamicRouteTableHTTP.iCompiledCount = iOldCompiledCount;
+		DynamicRoute_SetError("dynamic route rebuild out of memory");
+		return FALSE;
+	}
+	memset(arrRoutes, 0, sizeof(DynamicRouteInfo*) * iCount);
+	for ( uint32 i = 0; i < iCount; i++ ) {
+		arrRoutes[i] = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+	}
+	qsort(arrRoutes, iCount, sizeof(DynamicRouteInfo*), DynamicRoute_Compare);
+
+	iRet = xrtRegexSetBuilderCreate(&pBuilder, NULL);
+	if ( iRet != 0 || pBuilder == NULL ) {
+		xrtFree(arrRoutes);
+		G_DynamicRouteTableHTTP.pRegexSet = pOldSet;
+		G_DynamicRouteTableHTTP.iCompiledCount = iOldCompiledCount;
+		DynamicRoute_SetError("dynamic route regex set builder create failed");
+		return FALSE;
+	}
+	for ( uint32 i = 0; i < iCount; i++ ) {
+		DynamicRouteInfo* pRoute = arrRoutes[i];
+		if ( pRoute == NULL || pRoute->pRegex == NULL ) continue;
+		iRet = xrtRegexSetBuilderAdd(pBuilder, pRoute->pRegex);
+		if ( iRet != 0 ) {
+			xrtRegexSetBuilderDestroy(pBuilder);
+			xrtFree(arrRoutes);
+			G_DynamicRouteTableHTTP.pRegexSet = pOldSet;
+			G_DynamicRouteTableHTTP.iCompiledCount = iOldCompiledCount;
+			DynamicRoute_SetError("dynamic route regex set add failed");
+			return FALSE;
+		}
+		iActive++;
+	}
+	if ( iActive > 0 ) {
+		iRet = xrtRegexSetCreateFromBuilder(&pNewSet, pBuilder, NULL);
+		if ( iRet != 0 || pNewSet == NULL ) {
+			xrtRegexSetBuilderDestroy(pBuilder);
+			xrtFree(arrRoutes);
+			G_DynamicRouteTableHTTP.pRegexSet = pOldSet;
+			G_DynamicRouteTableHTTP.iCompiledCount = iOldCompiledCount;
+			DynamicRoute_SetError("dynamic route regex set compile failed");
+			return FALSE;
+		}
+	}
+	xrtRegexSetBuilderDestroy(pBuilder);
+	iActive = 0;
+	for ( uint32 i = 0; i < iCount; i++ ) {
+		DynamicRouteInfo* pRoute = arrRoutes[i];
+		xrtListSetPtr(G_DynamicRouteTableHTTP.lstRoutes, i, pRoute, NULL);
+		if ( pRoute == NULL || pRoute->pRegex == NULL ) continue;
+		pRoute->iPatternIndex = iActive++;
+	}
+	xrtFree(arrRoutes);
+	G_DynamicRouteTableHTTP.pRegexSet = pNewSet;
+	G_DynamicRouteTableHTTP.iCompiledCount = iActive;
+	if ( iActive > XADMIN_DYNAMIC_ROUTE_MAX_MATCHES ) {
+		str sCapacityWarning = xrtFormat("dynamic route candidate limit warning: compiled=%u limit=%u", iActive, XADMIN_DYNAMIC_ROUTE_MAX_MATCHES);
+		if ( sCapacityWarning ) {
+			DynamicRoute_AppendWarning((const char*)sCapacityWarning);
+			printf("[dynamic_route:warn] %s\n", (const char*)sCapacityWarning);
+			xrtFree(sCapacityWarning);
+		}
+	}
+	if ( pOldSet ) {
+		xrtRegexSetDestroy(pOldSet);
+	}
+	G_DynamicRouteTableHTTP.iGeneration++;
+	return TRUE;
+}
+
+bool AddDynamicRouteHTTPEx(str uri, str pattern, void* proc, int iPriority, int iMethod)
+{
+	DynamicRouteInfo* pRoute;
+	DynamicRouteInfo* pOldRoute = NULL;
+	xregex* pRegex;
+	const char* sRegexError;
+	int iOldIndex = -1;
+
+	if ( (uri == NULL) || (uri[0] == '\0') || (pattern == NULL) || (pattern[0] == '\0') || (proc == NULL) ) {
+		DynamicRoute_SetError("dynamic route requires uri, pattern and proc");
+		return FALSE;
+	}
+	if ( G_DynamicRouteTableHTTP.lstRoutes == NULL ) {
+		G_DynamicRouteTableHTTP.lstRoutes = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+		if ( G_DynamicRouteTableHTTP.lstRoutes ) {
+			xrtOwnerActivateShared(&G_DynamicRouteTableHTTP.lstRoutes->Owner);
+			xrtOwnerActivateShared(&G_DynamicRouteTableHTTP.lstRoutes->AVLT.Owner);
+		}
+	}
+	if ( G_DynamicRouteTableHTTP.lstRoutes == NULL ) {
+		DynamicRoute_SetError("dynamic route list create failed");
+		return FALSE;
+	}
+	if ( G_StaticRouteTableHTTP && xrtDictGet(G_StaticRouteTableHTTP, uri, (uint32)strlen(uri)) != NULL ) {
+		DynamicRoute_SetError("dynamic route uri conflicts with static route");
+		return FALSE;
+	}
+	DynamicRoute_SetWarning(NULL);
+	DynamicRoute_RecordPatternRisk(uri, pattern);
+
+	pRegex = xrtRegexCreate(pattern);
+	sRegexError = pRegex ? xrtRegexGetErrorMsg(pRegex) : NULL;
+	if ( pRegex == NULL || (sRegexError && sRegexError[0]) ) {
+		if ( pRegex ) xrtRegexDestroy(pRegex);
+		DynamicRoute_SetError(sRegexError && sRegexError[0] ? sRegexError : "dynamic route regex compile failed");
+		return FALSE;
+	}
+
+	for ( uint32 i = 0; i < xrtListCount(G_DynamicRouteTableHTTP.lstRoutes); i++ ) {
+		DynamicRouteInfo* pOld = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+		if ( pOld && pOld->sUri && strcmp(pOld->sUri, uri) == 0 ) {
+			pOldRoute = (DynamicRouteInfo*)xrtListRemovePtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+			iOldIndex = (int)i;
+			break;
+		}
+	}
+
+	pRoute = (DynamicRouteInfo*)xrtMalloc(sizeof(DynamicRouteInfo));
+	if ( pRoute == NULL ) {
+		xrtRegexDestroy(pRegex);
+		if ( pOldRoute ) {
+			xrtListSetPtr(G_DynamicRouteTableHTTP.lstRoutes, iOldIndex >= 0 ? (uint32)iOldIndex : xrtListCount(G_DynamicRouteTableHTTP.lstRoutes), pOldRoute, NULL);
+			DynamicRoute_RebuildHTTP();
+		}
+		DynamicRoute_SetError("dynamic route alloc failed");
+		return FALSE;
+	}
+	memset(pRoute, 0, sizeof(DynamicRouteInfo));
+	pRoute->sUri = xrtCopyStr(uri, 0);
+	pRoute->sPattern = xrtCopyStr(pattern, 0);
+	pRoute->pRegex = pRegex;
+	pRoute->iPriority = iPriority;
+	pRoute->iMethod = iMethod;
+	pRoute->iCaptureCount = xrtRegexCaptureCount(pRegex);
+	if ( pRoute->iCaptureCount > XADMIN_DYNAMIC_ROUTE_MAX_CAPTURES ) {
+		str sCaptureWarning = xrtFormat("dynamic route capture count exceeds route param limit: captures=%u limit=%u", pRoute->iCaptureCount, XADMIN_DYNAMIC_ROUTE_MAX_CAPTURES);
+		if ( sCaptureWarning ) {
+			DynamicRoute_AppendWarning((const char*)sCaptureWarning);
+			printf("[dynamic_route:warn] %s\n", (const char*)sCaptureWarning);
+			xrtFree(sCaptureWarning);
+		}
+	}
+	pRoute->Info.Proc = proc;
+	pRoute->Info.bAuth = TRUE;
+	pRoute->Info.bAdmin = TRUE;
+	pRoute->Info.bDynamic = TRUE;
+	pRoute->Info.pDynamicRoute = pRoute;
+	if ( (pRoute->sUri == NULL) || (pRoute->sPattern == NULL) ) {
+		DynamicRoute_Free(pRoute);
+		if ( pOldRoute ) {
+			xrtListSetPtr(G_DynamicRouteTableHTTP.lstRoutes, iOldIndex >= 0 ? (uint32)iOldIndex : xrtListCount(G_DynamicRouteTableHTTP.lstRoutes), pOldRoute, NULL);
+			DynamicRoute_RebuildHTTP();
+		}
+		DynamicRoute_SetError("dynamic route string alloc failed");
+		return FALSE;
+	}
+
+	xrtListSetPtr(G_DynamicRouteTableHTTP.lstRoutes, xrtListCount(G_DynamicRouteTableHTTP.lstRoutes), pRoute, NULL);
+	if ( !DynamicRoute_RebuildHTTP() ) {
+		xrtListRemovePtr(G_DynamicRouteTableHTTP.lstRoutes, xrtListCount(G_DynamicRouteTableHTTP.lstRoutes) - 1);
+		DynamicRoute_Free(pRoute);
+		if ( pOldRoute ) {
+			xrtListSetPtr(G_DynamicRouteTableHTTP.lstRoutes, iOldIndex >= 0 ? (uint32)iOldIndex : xrtListCount(G_DynamicRouteTableHTTP.lstRoutes), pOldRoute, NULL);
+		}
+		DynamicRoute_RebuildHTTP();
+		return FALSE;
+	}
+	if ( pOldRoute ) {
+		DynamicRoute_Free(pOldRoute);
+	}
+	return TRUE;
+}
+
+bool AddDynamicRouteHTTP(str uri, str pattern, void* proc)
+{
+	return AddDynamicRouteHTTPEx(uri, pattern, proc, 1000, 0);
+}
+
+bool RemoveDynamicRouteHTTP(str uri)
+{
+	if ( (uri == NULL) || (G_DynamicRouteTableHTTP.lstRoutes == NULL) ) return FALSE;
+	for ( uint32 i = 0; i < xrtListCount(G_DynamicRouteTableHTTP.lstRoutes); i++ ) {
+		DynamicRouteInfo* pRoute = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+		if ( pRoute && pRoute->sUri && strcmp(pRoute->sUri, uri) == 0 ) {
+			DynamicRouteInfo* pRemoved = (DynamicRouteInfo*)xrtListRemovePtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+			if ( DynamicRoute_RebuildHTTP() ) {
+				DynamicRoute_Free(pRemoved);
+				return TRUE;
+			}
+			xrtListSetPtr(G_DynamicRouteTableHTTP.lstRoutes, i, pRemoved, NULL);
+			DynamicRoute_RebuildHTTP();
+			return FALSE;
+		}
+	}
+	return FALSE;
+}
+
+RouteInfo* FindDynamicRouteHTTP(str uri)
+{
+	if ( (uri == NULL) || (G_DynamicRouteTableHTTP.lstRoutes == NULL) ) return NULL;
+	for ( uint32 i = 0; i < xrtListCount(G_DynamicRouteTableHTTP.lstRoutes); i++ ) {
+		DynamicRouteInfo* pRoute = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+		if ( pRoute && pRoute->sUri && strcmp(pRoute->sUri, uri) == 0 ) {
+			return &pRoute->Info;
+		}
+	}
+	return NULL;
+}
+
+RouteInfo* MatchDynamicRouteHTTP(const char* sPath, int iMethod)
+{
+	uint32 arrMatches[XADMIN_DYNAMIC_ROUTE_MAX_MATCHES];
+	uint32 iMatchCount = 0;
+	size_t iPathLen;
+
+	if ( (sPath == NULL) || (G_DynamicRouteTableHTTP.pRegexSet == NULL) || (G_DynamicRouteTableHTTP.iCompiledCount == 0) ) return NULL;
+	iPathLen = strlen(sPath);
+	if ( xrtRegexSetMatches(G_DynamicRouteTableHTTP.pRegexSet, sPath, iPathLen, arrMatches, XADMIN_DYNAMIC_ROUTE_MAX_MATCHES, &iMatchCount) != 0 || iMatchCount == 0 ) return NULL;
+	DynamicRoute_SortMatchIndexes(arrMatches, iMatchCount);
+
+	for ( uint32 i = 0; i < iMatchCount; i++ ) {
+		uint32 iPatternIndex = arrMatches[i];
+		DynamicRouteInfo* pRoute = NULL;
+		if ( iPatternIndex < xrtListCount(G_DynamicRouteTableHTTP.lstRoutes) ) {
+			pRoute = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, iPatternIndex);
+			if ( pRoute && pRoute->iPatternIndex != iPatternIndex ) pRoute = NULL;
+		}
+		if ( pRoute == NULL || pRoute->pRegex == NULL ) continue;
+		if ( pRoute->iMethod != 0 && pRoute->iMethod != iMethod ) continue;
+		{
+			xregexspan span[1];
+			if ( xrtRegexCaptures(pRoute->pRegex, sPath, iPathLen, span, 1) == 1 && span[0].iBegin == 0 && span[0].iEnd == iPathLen ) {
+				pRoute->Info.pDynamicRoute = pRoute;
+				return &pRoute->Info;
+			}
+		}
+	}
+	return NULL;
 }
 
 
@@ -137,6 +659,7 @@ void AddStaticRouteHTTP(str uri, void* proc)
 
 // xadmin page helper api
 void LoadPage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
+void LoadSitePage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
 void XS_ImportScriptAPI(TCCState* s);
 
 static void XAdminTCCErrorHandler(void* pOpaque, const char* sMsg)
@@ -376,6 +899,7 @@ void Define_Init(XS_ServerObject objServer, XS_HostObject objHost)
 	LogPath = xrtPathJoin(3, AppPath, "data", "logs");
 	TempPath = xrtPathJoin(3, AppPath, "data", "temp");
 	PagePath = xrtPathJoin(3, AppPath, "data", "page");
+	SitePagePath = xrtPathJoin(4, AppPath, "data", "site", "page");
 	ToolPath = xrtPathJoin(2, ExePath, "tools");
 	OptionPath = xrtPathJoin(3, AppPath, "data", "options");
 	InstallPath = xrtPathJoin(3, AppPath, "data", "install");
@@ -397,6 +921,7 @@ void Define_Unit()
 	xrtFree(LogPath);
 	xrtFree(TempPath);
 	xrtFree(PagePath);
+	xrtFree(SitePagePath);
 	xrtFree(ToolPath);
 	xrtFree(OptionPath);
 	xrtFree(InstallPath);

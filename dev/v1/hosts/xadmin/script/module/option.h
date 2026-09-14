@@ -203,7 +203,10 @@ static bool Option_AdminEntryConflictsRoute(const char* sPath)
 		return FALSE;
 	}
 
-	return xrtDictGet(G_StaticRouteTableHTTP, (str)sPath, strlen(sPath)) != NULL;
+	if ( xrtDictGet(G_StaticRouteTableHTTP, (str)sPath, strlen(sPath)) != NULL ) {
+		return TRUE;
+	}
+	return FindDynamicRouteHTTP((str)sPath) != NULL;
 }
 
 static bool Option_IsAdminEntryPathValid(const char* sPath)

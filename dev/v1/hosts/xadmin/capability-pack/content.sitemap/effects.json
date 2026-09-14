@@ -1,0 +1,16 @@
+{
+  "tables": ["content_sitemap_entry"],
+  "fields": [],
+  "adminPages": ["sitemap"],
+  "publicApis": ["sitemap.xml", "sitemap-index.xml", "rss.xml", "robots.txt"],
+  "adminApis": ["sitemap.entry.list", "sitemap.refresh", "sitemap.stats"],
+  "permissions": ["sitemap.view", "sitemap.generate"],
+  "events": ["content.afterPublish", "content.afterDelete"],
+  "runtime": {
+    "absoluteUrlConfig": true,
+    "fileCache": ["sitemap/sitemap.xml", "sitemap/sitemap-index.xml", "sitemap/rss.xml", "sitemap/robots.txt"],
+    "pagedSitemap": "sitemap.xml?page=N",
+    "configKeys": ["siteUrl"]
+  },
+  "tasks": ["sitemap.generate"]
+}

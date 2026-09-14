@@ -1,0 +1,19 @@
+{
+  "tables": ["content_access_rule"],
+  "fields": [
+    {"name": "access_mode", "title": "访问模式", "storage": {"type": "text"}, "showInList": false},
+    {"name": "required_read_level", "title": "阅读等级", "storage": {"type": "integer"}, "showInList": false}
+  ],
+  "adminPages": ["access"],
+  "publicApis": ["access.check"],
+  "permissions": ["access.view", "access.manage"],
+  "events": ["content.beforeRead", "category.accessInherit"],
+  "runtime": {
+    "inheritFromCategory": true,
+    "categoryRuleTarget": "content_id = -category_id",
+    "contentRulePriority": "content rule overrides category rule",
+    "passwordHash": "xsha256 salted transitional hash, xrt64/plaintext compatible",
+    "paidMode": "returns payRequired and price; order validation is a later integration"
+  },
+  "tasks": []
+}

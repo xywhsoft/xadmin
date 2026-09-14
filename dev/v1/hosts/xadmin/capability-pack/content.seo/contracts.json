@@ -1,0 +1,31 @@
+{
+  "permissions": ["seo.view", "seo.manage"],
+  "adminPages": ["seo"],
+  "publicApis": ["seo.meta"],
+  "adminApis": ["seo.list", "seo.save", "seo.delete"],
+  "storage": "table+payload",
+  "tables": ["content_seo_meta"],
+  "fields": ["seo_title", "seo_keywords", "seo_description", "category.seo_title", "category.seo_keywords", "category.seo_description"],
+  "events": ["content.beforeRender", "content.afterPublish", "category.beforeRender"],
+  "runtime": {
+    "publicHeadInjection": true,
+    "categorySeoFields": true,
+    "categoryTemplates": ["categoryTitleTemplate", "categoryKeywordsTemplate", "categoryDescriptionTemplate", "categoryCanonicalTemplate"],
+    "contentTemplates": ["titleTemplate", "keywordsTemplate", "descriptionTemplate", "canonicalTemplate"],
+    "contentTemplateVariables": ["id", "contentId", "title", "keywords", "description", "summary", "slug", "canonical", "categoryId", "siteName", "pluginXid", "seoTitle", "seoKeywords", "seoDescription"],
+    "categoryTemplateVariables": ["categoryId", "categoryTitle", "categorySlug", "categoryDescription", "siteName", "pluginTitle", "pluginXid"],
+    "configKeys": ["titleTemplate", "keywordsTemplate", "descriptionTemplate", "canonicalTemplate", "categoryTitleTemplate", "categoryKeywordsTemplate", "categoryDescriptionTemplate", "categoryCanonicalTemplate", "maxListRows", "maxRequestBytes"],
+    "listLimit": "admin SEO meta list clamps request limit by maxListRows",
+    "requestLimit": "admin SEO meta save/delete reject request bodies beyond maxRequestBytes before JSON parse",
+    "previewUi": "ability page can preview effective SEO meta by content id or slug through seo.meta",
+    "previewResultUi": "ability page renders content/category SEO preview as effective meta and template-variable tables while retaining raw JSON diagnostics",
+    "variableValuePreview": "seo.meta includes templateVariables so ability page preview can show actual token values",
+    "categoryVariablePreview": "ability page can preview category SEO meta and category template variable values by category id or slug",
+    "templateWarningPreview": "ability page preview reports unresolved {token} placeholders in effective content/category SEO output",
+    "accessIntegration": "seo.meta hides restricted content metadata through content.access when that pack is enabled",
+    "listMetaOutput": true,
+    "categoryHeadInjection": true,
+    "statusValidation": "SEO meta save normalizes status to enabled/disabled values before writing"
+  },
+  "tasks": []
+}

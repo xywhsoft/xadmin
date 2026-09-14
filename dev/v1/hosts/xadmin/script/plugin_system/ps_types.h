@@ -82,6 +82,7 @@ struct PluginSystemGeneration {
 	str sWorkDir;
 	str sCompileHash;
 	str sErrorMessage;
+	XAdminHostContext tHostContext;
 	TCCState* pTccState;
 	const XAdminPluginDescriptor* pDescriptor;
 	XAdminPluginHandle hPlugin;
@@ -90,7 +91,6 @@ struct PluginSystemGeneration {
 	xlist lstMenuTokens;
 	xlist lstAuthGroupTokens;
 	xlist lstAuthTokens;
-	xlist lstUriAuthTokens;
 	xlist lstServiceRegistrations;
 	xlist lstEventRegistrations;
 	xlist lstHookRegistrations;
@@ -111,6 +111,10 @@ struct PluginSystemPackage {
 	str sRootPath;
 	str sManifestPath;
 	str sEntry;
+	str sPageDir;
+	str sTemplateDir;
+	str sOptionDir;
+	str sStaticDir;
 	str sDataPath;
 	str sPrivateDbPath;
 	bool bEnabled;
@@ -477,7 +481,6 @@ PluginSystemGeneration* PS_CreateGeneration(uint32_t iGeneration)
 	pGeneration->lstMenuTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstAuthGroupTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstAuthTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
-	pGeneration->lstUriAuthTokens = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstServiceRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstEventRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
 	pGeneration->lstHookRegistrations = xrtListCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
@@ -505,10 +508,6 @@ void PS_DestroyGeneration(PluginSystemGeneration* pGeneration)
 	if ( pGeneration->lstAuthTokens ) {
 		xrtListDestroy(pGeneration->lstAuthTokens);
 		pGeneration->lstAuthTokens = NULL;
-	}
-	if ( pGeneration->lstUriAuthTokens ) {
-		xrtListDestroy(pGeneration->lstUriAuthTokens);
-		pGeneration->lstUriAuthTokens = NULL;
 	}
 	if ( pGeneration->lstServiceRegistrations ) {
 		xrtListDestroy(pGeneration->lstServiceRegistrations);
@@ -605,6 +604,10 @@ void PS_DestroyPackage(PluginSystemPackage* pPackage)
 	PS_FreeString(&pPackage->sRootPath);
 	PS_FreeString(&pPackage->sManifestPath);
 	PS_FreeString(&pPackage->sEntry);
+	PS_FreeString(&pPackage->sPageDir);
+	PS_FreeString(&pPackage->sTemplateDir);
+	PS_FreeString(&pPackage->sOptionDir);
+	PS_FreeString(&pPackage->sStaticDir);
 	PS_FreeString(&pPackage->sDataPath);
 	PS_FreeString(&pPackage->sPrivateDbPath);
 	xrtFree(pPackage);

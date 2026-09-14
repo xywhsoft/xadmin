@@ -12,6 +12,12 @@
 		"compiler": "tcc",
 		"language": "c"
 	},
+	"resources": {
+		"page": "page",
+		"template": "template",
+		"option": "option",
+		"static": "static"
+	},
 	"build": {
 		"entry": "main.c",
 		"sources": ["main.c"],

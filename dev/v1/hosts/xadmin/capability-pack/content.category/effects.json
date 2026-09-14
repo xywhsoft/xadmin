@@ -1,0 +1,16 @@
+{
+  "tables": ["content_category", "content_category_bind"],
+  "fields": [
+    {"name": "category_id", "title": "栏目", "storage": {"type": "integer"}, "showInList": true}
+  ],
+  "adminPages": ["categories"],
+  "publicApis": ["category.list", "category.detail", "category.contents"],
+  "permissions": ["category.view", "category.manage"],
+  "events": ["category.afterSave", "category.afterDelete"],
+  "runtime": {
+    "publicFilter": true,
+    "publicCategoryHead": true,
+    "publicTemplateKeys": ["default", "compact", "grid", "feature"]
+  },
+  "tasks": []
+}

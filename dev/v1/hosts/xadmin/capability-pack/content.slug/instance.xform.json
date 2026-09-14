@@ -1,0 +1,58 @@
+{
+  "groups": [
+    {
+      "key": "slug-route",
+      "title": "固定链接路由选项",
+      "fields": [
+        {
+          "name": "enablePrettySlugRoute",
+          "type": "switch",
+          "label": "启用 /{pluginXid}/{slug} 动态漂亮 URL",
+          "value": true
+        },
+        {
+          "name": "slugRoutePrefix",
+          "type": "text",
+          "label": "固定链接公开前缀",
+          "value": "/{pluginXid}"
+        },
+        {
+          "name": "maxHistoryRows",
+          "type": "number",
+          "label": "后台历史列表上限",
+          "value": 200,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxPublicLookupRows",
+          "type": "number",
+          "label": "公开 slug 查询行数上限",
+          "value": 5000,
+          "min": 1,
+          "max": 50000,
+          "step": 1
+        },
+        {
+          "name": "maxRepairRows",
+          "type": "number",
+          "label": "修复行数上限",
+          "value": 500,
+          "min": 1,
+          "max": 2000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "请求体字节上限",
+          "value": 65536,
+          "min": 1024,
+          "max": 262144,
+          "step": 1024
+        }
+      ]
+    }
+  ]
+}

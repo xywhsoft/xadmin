@@ -1,0 +1,22 @@
+{
+  "events": [
+    {
+      "event": "content.afterView",
+      "handler": "view-stat_content_afterView"
+    },
+    {
+      "event": "content.afterDelete",
+      "handler": "view-stat_content_afterDelete"
+    }
+  ],
+  "tasks": [
+    {
+      "task": "task.aggregate",
+      "handler": "view-stat_task_aggregate"
+    },
+    {
+      "task": "task.clean",
+      "handler": "view-stat_task_clean"
+    }
+  ]
+}

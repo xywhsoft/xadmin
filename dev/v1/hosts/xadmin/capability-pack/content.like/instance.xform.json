@@ -1,0 +1,54 @@
+{
+  "groups": [
+    {
+      "key": "like",
+      "title": "点赞系统选项",
+      "fields": [
+        {
+          "name": "allowGuest",
+          "type": "switch",
+          "label": "允许游客点赞",
+          "value": true
+        },
+        {
+          "name": "dedup",
+          "type": "select",
+          "label": "去重策略",
+          "value": "ip",
+          "list": [
+            {
+              "value": "member",
+              "label": "会员"
+            },
+            {
+              "value": "ip",
+              "label": "按 IP"
+            },
+            {
+              "value": "cookie",
+              "label": "按 Cookie"
+            }
+          ]
+        },
+        {
+          "name": "maxAdminListRows",
+          "type": "number",
+          "label": "后台排行列表上限",
+          "value": 100,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "点赞请求体字节上限",
+          "value": 8192,
+          "min": 512,
+          "max": 65536,
+          "step": 512
+        }
+      ]
+    }
+  ]
+}

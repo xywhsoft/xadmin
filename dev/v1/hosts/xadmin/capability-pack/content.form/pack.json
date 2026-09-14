@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "packId": "content.form",
+  "name": "form",
+  "title": "内容表单",
+  "description": "提供内容附属表单和表单提交管理能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 300,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "advisorMessage": "能力包 content.form：会接收公开提交，请配置校验、通知、保留周期和防刷策略。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/form/submission/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_form"
+}

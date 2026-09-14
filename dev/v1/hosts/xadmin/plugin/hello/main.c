@@ -1,4 +1,5 @@
 #include <xs_plugin.h>
+#include "hello_page.h"
 
 static XAdminPluginHandle G_HelloHandle = NULL;
 static sqlite3* G_HelloMainDb = NULL;
@@ -417,27 +418,12 @@ void Hello_RequestInfo(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 void Hello_RequestView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
-	const char* sHtml =
-		"<div style='padding:32px;text-align:center;'>"
-		"<h1 style='margin-bottom:12px;'>Hello Plugin</h1>"
-		"<p style='color:#666;'>This page is served by xs_plugin.h.</p>"
-		"<button class='layui-btn' onclick='helloPluginTest()'>Call API</button>"
-		"<pre id='hello_plugin_result' style='margin:24px auto 0;max-width:720px;text-align:left;background:#f7f7f7;padding:16px;border-radius:8px;'></pre>"
-		"</div>"
-		"<script>"
-		"function helloPluginTest(){"
-		"fetch('/api/plugin/hello/greeting')"
-		".then(function(r){return r.json();})"
-		".then(function(data){document.getElementById('hello_plugin_result').innerText=JSON.stringify(data,null,2);});"
-		"}"
-		"</script>";
-
 	(void)objServer;
 	(void)objHost;
 	(void)objReq;
 	(void)objSession;
 
-	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html\r\n", sHtml, 0);
+	XAdmin_LoadPluginPage(G_HelloHandle, objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", HELLO_ADMIN_PAGE);
 }
 
 void Hello_OnGreetingEvent(const char* event_name, void* payload, size_t payload_size)
@@ -488,7 +474,6 @@ int Hello_OnStart(XAdminPluginHandle handle)
 {
 	XAdminAuthGroupDecl authGroup;
 	XAdminAuthDecl auth;
-	XAdminUriAuthDecl uriAuth;
 	XAdminMenuDecl menu;
 	XAdminRouteDecl route;
 	XAdminServiceDecl serviceDecl;
@@ -562,6 +547,9 @@ int Hello_OnStart(XAdminPluginHandle handle)
 	route.need_auth = TRUE;
 	route.admin_only = TRUE;
 	route.auth_id = iAuthId;
+	route.description = "Hello plugin generator api";
+	route.sort = 990002;
+	route.need_log = TRUE;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
 		return -1;
 	}
@@ -572,30 +560,9 @@ int Hello_OnStart(XAdminPluginHandle handle)
 	route.need_auth = TRUE;
 	route.admin_only = TRUE;
 	route.auth_id = iAuthId;
+	route.description = "Hello plugin admin page";
+	route.sort = 990001;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) {
-		return -1;
-	}
-
-	memset(&uriAuth, 0, sizeof(uriAuth));
-	uriAuth.scope = XADMIN_AUTH_SCOPE_ADMIN;
-	uriAuth.auth_id = iAuthId;
-	uriAuth.uri = "/admin/view/plugin/hello";
-	uriAuth.description = "Hello plugin admin page";
-	uriAuth.sort = 990001;
-	uriAuth.need_auth = TRUE;
-	if ( XAdmin_RegisterUriAuth(handle, &uriAuth, NULL, NULL) != 0 ) {
-		return -1;
-	}
-
-	memset(&uriAuth, 0, sizeof(uriAuth));
-	uriAuth.scope = XADMIN_AUTH_SCOPE_ADMIN;
-	uriAuth.auth_id = iAuthId;
-	uriAuth.uri = "/api/plugin/hello/generate";
-	uriAuth.description = "Hello plugin generator api";
-	uriAuth.sort = 990002;
-	uriAuth.need_auth = TRUE;
-	uriAuth.need_log = TRUE;
-	if ( XAdmin_RegisterUriAuth(handle, &uriAuth, NULL, NULL) != 0 ) {
 		return -1;
 	}
 

@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "packId": "content.seo",
+  "name": "seo",
+  "title": "搜索引擎优化 SEO",
+  "description": "为内容、列表、栏目和详情页提供 SEO 元信息能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 200,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "advisorMessage": "能力包 content.seo：会启用 SEO 字段和公开 meta 接口，请确认标题、关键词、描述与主题的职责边界。",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/seo/meta?id=1",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_seo"
+}

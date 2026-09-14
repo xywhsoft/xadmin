@@ -17,6 +17,7 @@
 #define XADMIN_GLOBAL_PLUGIN_ROOT_PATH 4
 #define XADMIN_GLOBAL_PLUGIN_DATA_PATH 5
 #define XADMIN_GLOBAL_PLUGIN_PRIVATE_DB_PATH 6
+#define XADMIN_GLOBAL_HOST_CONTEXT 7
 
 #define XADMIN_AUTH_SCOPE_ADMIN 1
 #define XADMIN_AUTH_SCOPE_MEMBER 2
@@ -36,7 +37,6 @@ typedef uintptr_t XAdminRouteToken;
 typedef uintptr_t XAdminMenuToken;
 typedef uintptr_t XAdminAuthGroupToken;
 typedef uintptr_t XAdminAuthToken;
-typedef uintptr_t XAdminUriAuthToken;
 typedef uintptr_t XAdminEventToken;
 typedef uintptr_t XAdminHookToken;
 
@@ -46,13 +46,57 @@ typedef struct {
 } XAdminHealthReport;
 
 typedef struct {
+	uint32_t size;
+	uint32_t abi_version;
+	const char* exe_path;
+	const char* app_path;
+	const char* web_path;
+	const char* db_path;
+	const char* log_path;
+	const char* temp_path;
+	const char* page_path;
+	const char* site_page_path;
+	const char* tool_path;
+	const char* option_path;
+	const char* install_path;
+	const char* template_path;
+	const char* attachment_path;
+	const char* plugin_xid;
+	const char* plugin_root_path;
+	const char* plugin_data_path;
+	const char* plugin_private_db_path;
+	sqlite3* main_db;
+	xvalue option_table;
+} XAdminHostContext;
+
+typedef struct {
 	const char* path;
 	void* proc;
 	bool need_auth;
 	bool admin_only;
 	int auth_id;
 	int auth_level;
+	const char* description;
+	int sort;
+	bool need_log;
+	bool keep_active;
 } XAdminRouteDecl;
+
+typedef struct {
+	const char* path;
+	const char* pattern;
+	void* proc;
+	int priority;
+	int method;
+	bool need_auth;
+	bool admin_only;
+	int auth_id;
+	int auth_level;
+	const char* description;
+	int sort;
+	bool need_log;
+	bool keep_active;
+} XAdminDynamicRouteDecl;
 
 typedef struct {
 	const char* key;
@@ -83,18 +127,6 @@ typedef struct {
 	const char* description;
 	int sort;
 } XAdminAuthDecl;
-
-typedef struct {
-	int scope;
-	const char* key;
-	int auth_id;
-	const char* uri;
-	const char* description;
-	int sort;
-	bool need_auth;
-	bool need_log;
-	bool keep_active;
-} XAdminUriAuthDecl;
 
 typedef struct {
 	const char* service_name;
@@ -154,6 +186,9 @@ int HttpReplyFormat(XS_ResponseObject objResp, int iCode, str sHead, str sFormat
 void LoadPage(XS_ResponseObject objResp, int iCode, str sHead, str sPage);
 
 int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl* decl, XAdminRouteToken* token);
+int XAdmin_RegisterDynamicRoute(XAdminPluginHandle plugin_handle, const XAdminDynamicRouteDecl* decl, XAdminRouteToken* token);
+int XAdmin_RouteParam(int index, char* out_value, size_t out_cap);
+int XAdmin_RouteParamCount(void);
 int XAdmin_UnregisterRoute(XAdminRouteToken token);
 
 int XAdmin_RegisterMenu(XAdminPluginHandle plugin_handle, const XAdminMenuDecl* decl, int* out_menu_id, XAdminMenuToken* token);
@@ -163,8 +198,6 @@ int XAdmin_RegisterAuthGroup(XAdminPluginHandle plugin_handle, const XAdminAuthG
 int XAdmin_UnregisterAuthGroup(XAdminAuthGroupToken token);
 int XAdmin_RegisterAuth(XAdminPluginHandle plugin_handle, const XAdminAuthDecl* decl, int* out_auth_id, XAdminAuthToken* token);
 int XAdmin_UnregisterAuth(XAdminAuthToken token);
-int XAdmin_RegisterUriAuth(XAdminPluginHandle plugin_handle, const XAdminUriAuthDecl* decl, int* out_uri_id, XAdminUriAuthToken* token);
-int XAdmin_UnregisterUriAuth(XAdminUriAuthToken token);
 
 int XAdmin_ListenEvent(XAdminPluginHandle plugin_handle, const XAdminEventDecl* decl, XAdminEventToken* token);
 int XAdmin_UnlistenEvent(XAdminEventToken token);
@@ -181,6 +214,21 @@ int XAdmin_ReleaseService(XAdminServiceLease lease);
 int XAdmin_GeneratePlugin(XAdminPluginHandle plugin_handle, const XAdminGeneratedPluginSpec* spec);
 int XAdmin_ReloadPlugin(XAdminPluginHandle plugin_handle, const char* xid);
 int XAdmin_SetPluginEnabled(XAdminPluginHandle plugin_handle, const char* xid, int enabled);
+int XAdmin_LoadPluginPage(XAdminPluginHandle plugin_handle, XS_ResponseObject resp, int code, const char* header, const char* page);
+char* XAdmin_RenderPluginTemplate(XAdminPluginHandle plugin_handle, const char* template_name, xvalue data, size_t* out_size, char** out_error);
+xvalue XAdmin_PluginOptionLoad(XAdminPluginHandle plugin_handle, const char* file_name);
+int XAdmin_PluginOptionSave(XAdminPluginHandle plugin_handle, const char* file_name, xvalue values);
+void XAdmin_Log(XAdminPluginHandle plugin_handle, int level, const char* message);
+int XAdmin_ReplyJson(XS_ResponseObject resp, int code, xvalue data);
+const char* XAdmin_PluginPrivateDbPath(XAdminPluginHandle plugin_handle);
+int XAdmin_OpenPluginPrivateDb(XAdminPluginHandle plugin_handle, sqlite3** out_db);
+int64 XAdmin_SessionAdminId(xvalue session);
+int64 XAdmin_SessionAdminRoleId(xvalue session);
+char* XAdmin_PluginResourcePath(XAdminPluginHandle plugin_handle, const char* resource_dir, const char* rel_path);
+char* XAdmin_AttachmentUrl(const char* attachment_xid);
+char* XAdmin_AttachmentUploadUrl(XAdminPluginHandle plugin_handle, const char* model_name, int64 record_id);
+char* XAdmin_AttachmentListUrl(XAdminPluginHandle plugin_handle, const char* model_name);
+void XAdmin_Free(void* ptr);
 
 #define XADMIN_DECLARE_PLUGIN(descriptor) \
 	XADMIN_EXPORT const XAdminPluginDescriptor* XAdmin_GetPluginDescriptor(void) \

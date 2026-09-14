@@ -1,0 +1,11 @@
+{
+  "prefix": "cms_comment",
+  "tables": [
+    "comment_thread",
+    "comment_item",
+    "comment_audit_log"
+  ],
+  "counters": [
+    "comment_count"
+  ]
+}

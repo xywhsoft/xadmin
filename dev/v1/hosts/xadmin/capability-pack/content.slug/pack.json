@@ -1,0 +1,28 @@
+{
+  "formatVersion": 1,
+  "packId": "content.slug",
+  "name": "slug",
+  "title": "固定链接",
+  "description": "提供内容 slug、URL 规则、唯一性检查和公开 URL 解析能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 210,
+  "advisorMessage": "能力包 content.slug：会启用 slug 查询和漂亮 URL，请在公开上线前确认唯一性和 URL 冲突规则。",
+  "acceptanceApiPath": "/admin/api/plugin/{pluginXid}/slug/check?slug=demo",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_slug",
+  "sourceFiles": [
+    "source/content_slug_pack.c"
+  ],
+  "includeFiles": [
+    "include/content_slug_pack.h"
+  ],
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  }
+}

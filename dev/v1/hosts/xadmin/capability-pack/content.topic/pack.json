@@ -1,0 +1,42 @@
+{
+  "formatVersion": 1,
+  "packId": "content.topic",
+  "name": "topic",
+  "title": "专题管理",
+  "description": "提供专题管理、内容编排、专题公开接口和后台专题页面能力。",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 300,
+  "update": {
+    "channel": "official",
+    "packageId": "content.topic",
+    "canUpdate": true,
+    "canUninstall": false
+  },
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "requires": {
+    "plugins": [],
+    "packs": [],
+    "features": []
+  },
+  "config": {
+    "globalForm": "global.xform.json",
+    "instanceForm": "instance.xform.json"
+  },
+  "effects": "effects.json",
+  "hooks": "hooks.json",
+  "symbols": "symbols.json",
+  "patches": "patches.json",
+  "contracts": "contracts.json",
+  "advisorMessage": "能力包 content.topic：会启用专题聚合能力，请确认专题 URL、排序和归属规则。",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/topic/list",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_topic"
+}

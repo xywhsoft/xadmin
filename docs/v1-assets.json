@@ -1,5 +1,395 @@
 [
  {
+  "source": "dev/v1/hosts/xadmin/data/page/form.html",
+  "target": "page/form.html",
+  "sha256": "6f07e3a47b0c413e829555764c02b198060bbd3c7dc6c1e505dd2ace23a3ed0d"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/install.html",
+  "target": "page/install.html",
+  "sha256": "0896ebbe813588f1cd8f2496e363dd9698554f00c0a7a8233106d720315cfa40"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/logs.html",
+  "target": "page/logs.html",
+  "sha256": "4e4bb64513c77813b22c99397e230f974c9afbe4291a7a353d8143e5cca9d6b9"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/option.html",
+  "target": "page/option.html",
+  "sha256": "512f59fb30474d597c172b5f97acd6af09ca027f2707389fe89550d1e65a9b94"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/admin/home.html",
+  "target": "page/admin/home.html",
+  "sha256": "95fd5a63f17b65be7dde56434ffbfae7d2095641e017f726a1f099b3def50940"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/admin/index.html",
+  "target": "page/admin/index.html",
+  "sha256": "5b1d01e1f75b0cf30b14384d8bf113cafd74883060156099e9e15db57fd859c6",
+  "target_sha256": "c849f0ddd6503d3be01b3af1a9f62ad02f10229e7192f63d57bdfcdf88fcc6c6"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/admin/login.html",
+  "target": "page/admin/login.html",
+  "sha256": "a77b5f5ffbde7d36fab7b6d58a71455c57aea94c7f976a7a3d2f9eba48d24b67"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/attachment/edit.html",
+  "target": "page/attachment/edit.html",
+  "sha256": "66722c612d0d60070c2ca64d2dfb10c6c5a233ced180afce1908a302f061faba"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/attachment/list.html",
+  "target": "page/attachment/list.html",
+  "sha256": "e499dc72339ca80cc20da4bcb599e41c941bccd077d7a2015ef8e145119c0453"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/attachment/stats.html",
+  "target": "page/attachment/stats.html",
+  "sha256": "8344364e2fecf9679e1f850df908c3470f4f53bce77e24891ce6fa92127afab4"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/attachment/upload.html",
+  "target": "page/attachment/upload.html",
+  "sha256": "03f37ebb955d2a478d0e0676ab535100e136323431914648fb40919435e52bd5",
+  "target_sha256": "de3ef3a9a32c32690051bd61e740295b4456ee0cf2d46ee14b68bcfe6fbef339"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/auth/auth.html",
+  "target": "page/auth/auth.html",
+  "sha256": "a8a62869b6e79368d488be047fbfa170edd1f2c50a0e1e9df5b75861e378ac69"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/auth/group.html",
+  "target": "page/auth/group.html",
+  "sha256": "0bcc21aa2be06a7109f1f51729fcc9db314aabaaf2517d259aa10624e429592d"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/auth/group_add.html",
+  "target": "page/auth/group_add.html",
+  "sha256": "5cf6ac73199de701f2e221ce55d06aba2ced41230ab47fe04f00aa248bebcead"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/auth/role.html",
+  "target": "page/auth/role.html",
+  "sha256": "37d078285aa16e0853f0c5cf48118b6ffe8cafbc206275ad945946a0c3f87637"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/auth/uris.html",
+  "target": "page/auth/uris.html",
+  "sha256": "6759d2e1913a5539d0764b362be978fc9f509983a8f39072b3ae4a88378cf365",
+  "target_sha256": "2f77400dee9e1fbf3fcd90d578f94b81289b8ecfafb14632d4d328fe6cadcf99"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/auth/user.html",
+  "target": "page/auth/user.html",
+  "sha256": "e54fa72b18d03bdd7a3514327d28b723abbb5f332cdbe4111fce456a8be2ba98"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/auth.html",
+  "target": "page/member/auth.html",
+  "sha256": "e0f89a9fe0c95cef95a2576f6021a74fb1b18114fe4895637a95e159650e8a6a"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/authgroup.html",
+  "target": "page/member/authgroup.html",
+  "sha256": "3f08bba97aeb00ca8b7f5f0e6367877ba42c4a56a07d6868b522fd74e53436c9"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/authgroup_add.html",
+  "target": "page/member/authgroup_add.html",
+  "sha256": "90cb41d75d0b48a32e03ff02ad831dec6d31f846694ff106b25190e444556d64"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/group.html",
+  "target": "page/member/group.html",
+  "sha256": "a9e76e6da13e7bd187f154db078e1a311159591ab3de3436002a93aa8691950a"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/mail_send.html",
+  "target": "page/member/mail_send.html",
+  "sha256": "7e1d503f345870e930723e75de2c17891f815688eb8f1dca2d265ba0483d7715"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/mail_task.html",
+  "target": "page/member/mail_task.html",
+  "sha256": "9b54a95176b219aade44c3986da00a91c3c78bb84a299e957181bcb15b0f0654"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/notify.html",
+  "target": "page/member/notify.html",
+  "sha256": "e66bdc988d0af2df52fa31b8f4c7b61c1ef7d726f29c1d919ede92e78be21f68"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/notify_send.html",
+  "target": "page/member/notify_send.html",
+  "sha256": "812a0497b86a1bb86887064fcb49329bd56cef11603aa0793f6035d1e0ef979d"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/member/user.html",
+  "target": "page/member/user.html",
+  "sha256": "daa590af12d61c21b403875c72b40834e3f349436395bf636dc61c2872b22890"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/add.html",
+  "target": "page/model/add.html",
+  "sha256": "c8d7839802ad6e56ece2f65b1c84583e584c8fec6814516c39e79ce98576b1af"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/data.html",
+  "target": "page/model/data.html",
+  "sha256": "a098095cdc5e063115b674fd68b1e8e0c3369a98c483fb5a46280e78b5060bbc"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/data_add.html",
+  "target": "page/model/data_add.html",
+  "sha256": "aa171f19262a6b60684ee1f3fd6f3844bd78b70bca8c2eede302b780fdb9bdb5"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/data_draft.html",
+  "target": "page/model/data_draft.html",
+  "sha256": "0b4951837e4f71b99834715a3f0c9cf8090e23621d1af4115652043329f18dc1"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/data_draft_edit.html",
+  "target": "page/model/data_draft_edit.html",
+  "sha256": "45b932def7ae955f82d365353332169b51ce16f29e65bfb544d95c4b29de4cbc"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/data_edit.html",
+  "target": "page/model/data_edit.html",
+  "sha256": "3f754554316da467a6367b56d62ec619dbceabc28b2893a5ee46aa747298db71"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/edit.html",
+  "target": "page/model/edit.html",
+  "sha256": "96046bd1485e3a3b4fb45d3c9ded45936fc8e516d30397c07a15b970f233868e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/fields.html",
+  "target": "page/model/fields.html",
+  "sha256": "97da183f1ab2536cf956f7e467a4d053bdc785df26c8ef11b088141fdb47e181"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/model/list.html",
+  "target": "page/model/list.html",
+  "sha256": "3a6fabdd05e98bc42b57fe7d578f273f5fbdd6476c9aca60022a7da09b1df7e9"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/option/files.html",
+  "target": "page/option/files.html",
+  "sha256": "aee2cd1cbdb9704d9e0c8c5fb4fe475ab2729396342e87d7fdf62fe584b9b289"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/option/file_edit.html",
+  "target": "page/option/file_edit.html",
+  "sha256": "1af5fbb5cd27944309e51caa86db791b0f71a6a34148ffc4e380551fbbe88568"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/option/menu.html",
+  "target": "page/option/menu.html",
+  "sha256": "b37d68d7f880d44acebd1f251e81da3a76007faa3d886e80ea7ea2c8bb4ac575"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/option/menu_add.html",
+  "target": "page/option/menu_add.html",
+  "sha256": "d7582328b9e1fbfcda82401f8fdd2793c362c865c67a49e163012101d12a2249"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/option/menu_add_category.html",
+  "target": "page/option/menu_add_category.html",
+  "sha256": "3451fc0c10ddc9e87b24a192050e3fd9bdb22d4cc0c0ae26f7581ca2fb99d589"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/option/menu_edit.html",
+  "target": "page/option/menu_edit.html",
+  "sha256": "87e12db6e11c3eead295c9549673bd149bd6a6ccfee37e13c0eb5e4fca73a619"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/option/menu_edit_category.html",
+  "target": "page/option/menu_edit_category.html",
+  "sha256": "1f9951dad6bea8deedbaca5eb934d5e1356db2887876cfb03e04290875d977bd"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/plugin/list.html",
+  "target": "page/plugin/list.html",
+  "sha256": "3976999abe0018b81c7a45c25d936e6fda1e12b3535657665691c9aec5bc43ee"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/plugin/store.html",
+  "target": "page/plugin/store.html",
+  "sha256": "f0f09c1ceba56624b74d4b8799e0e5dafe7fa49c69da48b916b5e7e9126fc568"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/sched/dashboard.html",
+  "target": "page/sched/dashboard.html",
+  "sha256": "428330cc0e307cb27ebd864d9d0c2973612e27f1b06665bc38319cd1df226176"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/sched/edit.html",
+  "target": "page/sched/edit.html",
+  "sha256": "3b8c6fbf322ec97238d91f9d5db5f2bb0b619bd19660022ac03a0a30a25e2fd1"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/sched/list.html",
+  "target": "page/sched/list.html",
+  "sha256": "049ffd35c0bebd08eff579439056ae8be3b94a7c25f3fd11f203193ee037a8e4"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/sched/log.html",
+  "target": "page/sched/log.html",
+  "sha256": "7f5d3c228b78d233097ff08192fd109b3996a48818f823f8adde9b0a2878ad0c"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/status/403.html",
+  "target": "page/status/403.html",
+  "sha256": "6e24d22dc75ac7b510a569d1c9236c09cd9d8e66f50e4d9295580b16cfa14ba1"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/status/404.html",
+  "target": "page/status/404.html",
+  "sha256": "eab0cf479b25e882758a618ed15d1c6df4759949da3b3b0bf951c6daea482c05"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/status/500.html",
+  "target": "page/status/500.html",
+  "sha256": "2d9745d23a263f98d8d470c628a7b80c8baea8d582874a8d8d4db1c421ca178c"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/status/error.html",
+  "target": "page/status/error.html",
+  "sha256": "2e92f32e26292ab7b3420821190e6c45a06ef2fe7b25859428bd8bad90dcf8ac"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/status/success.html",
+  "target": "page/status/success.html",
+  "sha256": "95ba0829888bc930adbc541930fe380ca5c5fd27f6d4643179cc684d37e5cb95"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/page/tool/reload.html",
+  "target": "page/tool/reload.html",
+  "sha256": "fade18b0d8bd246c4b69738b4aa40cec62e87b32285ad36847766582e5823212"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/auth/auth_add.html",
+  "target": "template/auth/auth_add.html",
+  "sha256": "53feb589cc5d17fdfa1723d33e56f76be9efece48301bd22e3376bd823a76b67"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/auth/auth_edit.html",
+  "target": "template/auth/auth_edit.html",
+  "sha256": "524c68fafcc14e6529d70cf80a8959ac9f187d5ae2b47ca628c2160780f7a966"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/auth/group_edit.html",
+  "target": "template/auth/group_edit.html",
+  "sha256": "d27bb393a9ccdd0a0b8684fbbc4f1eaf0d4ce91bde2863a428a90e247e091169"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/auth/role_add.html",
+  "target": "template/auth/role_add.html",
+  "sha256": "fa29225c30da0af47232e85edc6ec8bdc0bbac8867ac478fa2ba4922871bf759"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/auth/role_edit.html",
+  "target": "template/auth/role_edit.html",
+  "sha256": "dccf86ec3a5b74681e2698e67a6c9f9bf44901a1ac68ccfc47f78f24cbe9578d"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/auth/uris_edit.html",
+  "target": "template/auth/uris_edit.html",
+  "sha256": "ee4daf0c3f80bc10c9b5073e99b62216875c58ac5069541bbc252fb26921f863",
+  "target_sha256": "6f985c28624465a9229277d45d5b30bd03bf8d6c099e13d6ae7af64fbf84d1b0"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/auth/user_add.html",
+  "target": "template/auth/user_add.html",
+  "sha256": "e966e6c341377b680f0aa1b7f1f2739994a4d63f0da70d1a25c9727c86c427cd"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/auth/user_edit.html",
+  "target": "template/auth/user_edit.html",
+  "sha256": "e251916a800e4430e2cc817183a4d861adec13d690afd0055fdaf46a4159acb1"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/form/block_demo.html",
+  "target": "template/form/block_demo.html",
+  "sha256": "991899a7bd8fa9973755b19eaecc6c98142e4cc992430379d547e4346fc38eca"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/member/authgroup_edit.html",
+  "target": "template/member/authgroup_edit.html",
+  "sha256": "888e06a4cc9c0c1b84be8eff90594273f927c01805a479754767d7f958abfc82"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/member/auth_add.html",
+  "target": "template/member/auth_add.html",
+  "sha256": "ce154503b3b62f9e15d237f85d8f3242390aea4adee81bc57bf180977cc287fe"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/member/auth_edit.html",
+  "target": "template/member/auth_edit.html",
+  "sha256": "6c91795d0215a770f8233709220befc142ab0588f6b37819247ba3a436c54857"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/member/group_add.html",
+  "target": "template/member/group_add.html",
+  "sha256": "f153a011dfa867360ecabb0272a3932aabd84b694150ff78f5a64c3bf6945999"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/member/group_edit.html",
+  "target": "template/member/group_edit.html",
+  "sha256": "5a4f556625bbe7855a8881741e1b5105303aa5d9588bce0dceb41d31b5747051"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/member/user_add.html",
+  "target": "template/member/user_add.html",
+  "sha256": "ae87402526b0c6273fd7a929a08b29efbf61fe67790d1ad961557b68839756ae"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/member/user_balance.html",
+  "target": "template/member/user_balance.html",
+  "sha256": "f62abdd8f6b04096bfb534bb47242d87d1f57eecc861fa71d5311b8fdf3a314e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/member/user_edit.html",
+  "target": "template/member/user_edit.html",
+  "sha256": "c7dea17fd5baff7c57f045c20639c0d09baead8f2b0b8be6157a73e91a6b62e7"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/option/menu_edit.html",
+  "target": "template/option/menu_edit.html",
+  "sha256": "f247b63d5d363902e977eb5068741187a9c5524e8ef8be5215a8d2d754d4e7d9"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/option/menu_edit_category.html",
+  "target": "template/option/menu_edit_category.html",
+  "sha256": "407a7d977b50cb788a390fdcf21841690d29749d62f608f5235d5554acdc687e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/data/template/sched/c_task_runner.c",
+  "target": "template/sched/c_task_runner.c",
+  "sha256": "2d2e288eaed8ce297d446e7675f91d10238518493516c00aa30cac589638203a",
+  "target_sha256": "72a3404dbaca95d7045f7e45eb9aa6509306a9c0cc5e36c6009282d3ed336cea"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/demo1.html",
+  "target": "wwwroot/demo1.html",
+  "sha256": "9e6c98e3b9cc3f65f8e604d7d6c0632acc0bf95d38257750246bee314aa7fad9"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/demo2.html",
+  "target": "wwwroot/demo2.html",
+  "sha256": "4df79a7074442e9aab740ff3ceacce42b95e6e157137bfe5809149323b69464b"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/demo3.html",
+  "target": "wwwroot/demo3.html",
+  "sha256": "f388e88776f8cf07c0c94fbde7f01ad7d3771c76fcf6ae89eb77b754aa05262e"
+ },
+ {
   "source": "dev/v1/hosts/xadmin/wwwroot/css/admin.css",
   "target": "wwwroot/css/admin.css",
   "sha256": "ec291de3e8e132d5fb89d48b2909c1e9044ce4936b396fcb66a0eb05018c067c"
@@ -8,6 +398,46 @@
   "source": "dev/v1/hosts/xadmin/wwwroot/css/admin.dark.css",
   "target": "wwwroot/css/admin.dark.css",
   "sha256": "6bb449e14e3884b3d00c92f70d3232dd5ff44c70f1b430b0e91a90e63b2aa8e9"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/css/reset.css",
+  "target": "wwwroot/css/reset.css",
+  "sha256": "1bf625283bb65990696d63c16d88a013011c7ac6e685a29f44e79619ea342673"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/css/variables.css",
+  "target": "wwwroot/css/variables.css",
+  "sha256": "1a8f152b56b86ee502c6ad5306ec259ec9373d06459b85ea3781f03e543ca09c"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/data/pear.config.json",
+  "target": "wwwroot/data/pear.config.json",
+  "sha256": "410538f7312994939d6d895037dbe269545796f0b93223266aeb96e1fa55cfba"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/img/background.svg",
+  "target": "wwwroot/img/background.svg",
+  "sha256": "a81e33e9a75f0ee6a8a2305daebca4a6a37dfb435a31b72cea6500bedc1a8a1e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/img/logo.png",
+  "target": "wwwroot/img/logo.png",
+  "sha256": "34c68b8c8a8f742025b39404bb60ce45ff3af60c1cd5889e97c3b83d863a5610"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/js/icon-picker.js",
+  "target": "wwwroot/js/icon-picker.js",
+  "sha256": "f228e39f6e79263c5ad3f3c1d11ae95ae3fde192897737e67e39e2a4ede7937d"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/layui/layui.js",
+  "target": "wwwroot/layui/layui.js",
+  "sha256": "64cf8ffb71a4b3bdb4d161f1564e4961c8aecc120bc1a8b0435b88d2a6cbbde7"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/pear.js",
+  "target": "wwwroot/pear/pear.js",
+  "sha256": "68f16bf57696585d4845854f799d101138ca2c28bf71bc12eabe56945e506da3"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/css/other/analysis.css",
@@ -40,51 +470,6 @@
   "sha256": "e5f41aebc0a9314f19f547aeab643e9108ee7e8fc7c484955a251eeb1bcf637f"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/css/reset.css",
-  "target": "wwwroot/css/reset.css",
-  "sha256": "1bf625283bb65990696d63c16d88a013011c7ac6e685a29f44e79619ea342673"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/css/variables.css",
-  "target": "wwwroot/css/variables.css",
-  "sha256": "1a8f152b56b86ee502c6ad5306ec259ec9373d06459b85ea3781f03e543ca09c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/data/pear.config.json",
-  "target": "wwwroot/data/pear.config.json",
-  "sha256": "410538f7312994939d6d895037dbe269545796f0b93223266aeb96e1fa55cfba"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/demo1.html",
-  "target": "wwwroot/demo1.html",
-  "sha256": "9e6c98e3b9cc3f65f8e604d7d6c0632acc0bf95d38257750246bee314aa7fad9"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/demo2.html",
-  "target": "wwwroot/demo2.html",
-  "sha256": "4df79a7074442e9aab740ff3ceacce42b95e6e157137bfe5809149323b69464b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/demo3.html",
-  "target": "wwwroot/demo3.html",
-  "sha256": "f388e88776f8cf07c0c94fbde7f01ad7d3771c76fcf6ae89eb77b754aa05262e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/img/background.svg",
-  "target": "wwwroot/img/background.svg",
-  "sha256": "a81e33e9a75f0ee6a8a2305daebca4a6a37dfb435a31b72cea6500bedc1a8a1e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/img/logo.png",
-  "target": "wwwroot/img/logo.png",
-  "sha256": "34c68b8c8a8f742025b39404bb60ce45ff3af60c1cd5889e97c3b83d863a5610"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/js/icon-picker.js",
-  "target": "wwwroot/js/icon-picker.js",
-  "sha256": "f228e39f6e79263c5ad3f3c1d11ae95ae3fde192897737e67e39e2a4ede7937d"
- },
- {
   "source": "dev/v1/hosts/xadmin/wwwroot/layui/css/layui.css",
   "target": "wwwroot/layui/css/layui.css",
   "sha256": "d5c625030b3c8f3a96d517039ebaa6fb11f1c49b97dfe213aa605c311ad19918"
@@ -115,9 +500,359 @@
   "sha256": "6fd5d8e2b0efe73d02897f788c4b0c5ed6327cd310a04463564a19121e3f8dca"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/layui/layui.js",
-  "target": "wwwroot/layui/layui.js",
-  "sha256": "64cf8ffb71a4b3bdb4d161f1564e4961c8aecc120bc1a8b0435b88d2a6cbbde7"
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/editormd.min.js",
+  "target": "wwwroot/lib/editormd/editormd.min.js",
+  "sha256": "56869a4bfa6ff76f060ac690605beafdaa5428fa6dd393c49d44daff27f51a8c"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/wangEditor/index.js",
+  "target": "wwwroot/lib/wangEditor/index.js",
+  "sha256": "0373fb0ccd48e19475cc369a8770829868b11c2e63876d3b631caf4e6ca783a7"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/xform/xform.js",
+  "target": "wwwroot/lib/xform/xform.js",
+  "sha256": "faa724d6fe3cb4a35bc8eff3a56d1d6f05e2c083bf793bafb8ef3cb911a65ad0"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/lib/codemirror.css",
+  "target": "wwwroot/lib/CodeMirror/lib/codemirror.css",
+  "sha256": "ffede8c08ced2c0306b54e9b185318861bc14f83095450c482c4b88c3b7dadfb"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/lib/codemirror.js",
+  "target": "wwwroot/lib/CodeMirror/lib/codemirror.js",
+  "sha256": "cfb6116f12daef9aea5334c257f606d1e653864b3f1ae5ef96cc4bf0f7b5e2c3"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/mode/meta.js",
+  "target": "wwwroot/lib/CodeMirror/mode/meta.js",
+  "sha256": "2dc7c687f194f9af98e3bea58043285f7e7db6db85532409bae321d525683092"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/3024-day.css",
+  "target": "wwwroot/lib/CodeMirror/theme/3024-day.css",
+  "sha256": "0d53b1519e046e38168493d8f05f6262fa372b342ba9be71a1ae282582f20701"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/3024-night.css",
+  "target": "wwwroot/lib/CodeMirror/theme/3024-night.css",
+  "sha256": "99e57bf61d4f6056875027dca63fd812b8727baa468aac31f077ff941675e14c"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/abbott.css",
+  "target": "wwwroot/lib/CodeMirror/theme/abbott.css",
+  "sha256": "16fdc7141785266d593fac6d5a2df678f60f43423b7c5d8ce5fb4ffc679248eb"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/abcdef.css",
+  "target": "wwwroot/lib/CodeMirror/theme/abcdef.css",
+  "sha256": "bc02b11b3aedf2912999d89783cf4d209c6004dba33939bbb8963b5932415647"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ambiance-mobile.css",
+  "target": "wwwroot/lib/CodeMirror/theme/ambiance-mobile.css",
+  "sha256": "c02677b73070c8f4d3c1c02c24200324cc3296655812f42e33e83ffa4e71ad55"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ambiance.css",
+  "target": "wwwroot/lib/CodeMirror/theme/ambiance.css",
+  "sha256": "8185074d77a2b65d1f6f37e2f1f9248ba85cb5963ee7de7047146ab1163b8b4c"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ayu-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/ayu-dark.css",
+  "sha256": "ffb7251e641db5a69cfd295cc24d5f24fd640b5dd09228e08528cbe1aca8103e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ayu-mirage.css",
+  "target": "wwwroot/lib/CodeMirror/theme/ayu-mirage.css",
+  "sha256": "b7205298146236455ec5dd129097bb35e65218a81944a50108ee1ecb5b6cb552"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/base16-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/base16-dark.css",
+  "sha256": "a35a7e528820b912f1c68886d2cec70dc95c9d084910441ed9808584442a8712"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/base16-light.css",
+  "target": "wwwroot/lib/CodeMirror/theme/base16-light.css",
+  "sha256": "0bd8dde6db9e41de1f343666c1c961631d67ce6ec29712d7a3d9274a202c7640"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/bespin.css",
+  "target": "wwwroot/lib/CodeMirror/theme/bespin.css",
+  "sha256": "83b99bceb6c8890dfa59973774ec4a94c0426037dac5fceca3e484330b230b6e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/blackboard.css",
+  "target": "wwwroot/lib/CodeMirror/theme/blackboard.css",
+  "sha256": "cc2b3b8c6a7da757c2f315264c19977840275f08df466b033ae16d82a8655f87"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/cobalt.css",
+  "target": "wwwroot/lib/CodeMirror/theme/cobalt.css",
+  "sha256": "540668e24f1f465ec9ce84f01b83ca2005df7d1822c9cce8b0dce20f71027a1e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/colorforth.css",
+  "target": "wwwroot/lib/CodeMirror/theme/colorforth.css",
+  "sha256": "3701714f9db5de0f4b8c829cb074d68c3c14219c88f7c4f77868a90138c6836f"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/darcula.css",
+  "target": "wwwroot/lib/CodeMirror/theme/darcula.css",
+  "sha256": "0531530c96164fb89edba10e9227d5220c1b7b4aa21b419453419680dd5395e6"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/dracula.css",
+  "target": "wwwroot/lib/CodeMirror/theme/dracula.css",
+  "sha256": "9f0ebc5a8e2775c4be97294d495918cccae941795933b52b840edee492f0146e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/duotone-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/duotone-dark.css",
+  "sha256": "9bf35f2bb01f0e74d765b5ee1ade47a93a33570db452b328a55300448723002b"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/duotone-light.css",
+  "target": "wwwroot/lib/CodeMirror/theme/duotone-light.css",
+  "sha256": "b75be304b84bcf957b669608f8ef205e3786ee65f0c9f40c7b5be828228a90f5"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/eclipse.css",
+  "target": "wwwroot/lib/CodeMirror/theme/eclipse.css",
+  "sha256": "27c0d8080c994d8497cbda4d33fca464d9e257d4d26e808730e406882eeb357b"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/elegant.css",
+  "target": "wwwroot/lib/CodeMirror/theme/elegant.css",
+  "sha256": "deb8e628773343958598ba8735b8e7efcd1ad7c9d017e75191aebcc3b8036b39"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/erlang-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/erlang-dark.css",
+  "sha256": "8c104aefd8cf665c980e5a5f3ded0a61679c714033bd885a1e9669dfb9f65a94"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/gruvbox-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/gruvbox-dark.css",
+  "sha256": "7d6906dd95ab970bf8febb1bdf0eda865ae2114c161866dac596dfc6a2927905"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/hopscotch.css",
+  "target": "wwwroot/lib/CodeMirror/theme/hopscotch.css",
+  "sha256": "4f4ec0ed70d45feeb50029dc9695a52dd51f51bd6e6411d92de01cd3824828d5"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/icecoder.css",
+  "target": "wwwroot/lib/CodeMirror/theme/icecoder.css",
+  "sha256": "47252c1aaba7fef78937c24de5aa0c83859e22b14576072dc5927bba8fb668ed"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/idea.css",
+  "target": "wwwroot/lib/CodeMirror/theme/idea.css",
+  "sha256": "e59630c50ad0f970cf95e3cc8ddb125ba72c0e82f8faf945a106812884b042c8"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/isotope.css",
+  "target": "wwwroot/lib/CodeMirror/theme/isotope.css",
+  "sha256": "2cbe11c8c1deabee72d130987bce9591102873b20b97f82635920c80eeff611e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/juejin.css",
+  "target": "wwwroot/lib/CodeMirror/theme/juejin.css",
+  "sha256": "86e8dbb3a80d10bdae1abc976d9f90c554c1ce9c1d824069620448c9532142c3"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/lesser-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/lesser-dark.css",
+  "sha256": "3bb6b4ea6a4cf66e52330c9955e9201c8d8b4f82440cdea7ff17995c1fdd8462"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/liquibyte.css",
+  "target": "wwwroot/lib/CodeMirror/theme/liquibyte.css",
+  "sha256": "96f9124e793e62ca507f24ac8c6a84b40a03f7c81c0b23a68951ed99f4d59d58"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/lucario.css",
+  "target": "wwwroot/lib/CodeMirror/theme/lucario.css",
+  "sha256": "e8b486b6d70129bf3e4f642b5895366029f2f2d6d5c66d7685bf38fb6332b52d"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/material-darker.css",
+  "target": "wwwroot/lib/CodeMirror/theme/material-darker.css",
+  "sha256": "c0bfe6dd177889236381b0f470e69d5af37ab8f189fa4a82ee8bf446c634eda5"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/material-ocean.css",
+  "target": "wwwroot/lib/CodeMirror/theme/material-ocean.css",
+  "sha256": "bd72a45004922803d2d93e30fff7197c2c530614be3054eee35180c6adf6da76"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/material-palenight.css",
+  "target": "wwwroot/lib/CodeMirror/theme/material-palenight.css",
+  "sha256": "d541698905bca634f4822cc5e8ee84ef880e06b6d71ba729c8f3c803c13d649f"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/material.css",
+  "target": "wwwroot/lib/CodeMirror/theme/material.css",
+  "sha256": "4a3d127205f932ad327c10cfe8a68310c0d1511c4c89edc61da2e307f7b24b0e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/mbo.css",
+  "target": "wwwroot/lib/CodeMirror/theme/mbo.css",
+  "sha256": "8c25912b873c35ea2792b0860944abdc9e6d78bea8edcaac084f77a7b5a923c6"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/mdn-like.css",
+  "target": "wwwroot/lib/CodeMirror/theme/mdn-like.css",
+  "sha256": "eeff56b70df84773405718ecb0cd2aaba1a71f87dd1ac39c5c7100df1a4cdb88"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/midnight.css",
+  "target": "wwwroot/lib/CodeMirror/theme/midnight.css",
+  "sha256": "f7d8470bc9eb474066932fde2247c1ed8150e5a00bb4359bcbda571210754629"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/monokai.css",
+  "target": "wwwroot/lib/CodeMirror/theme/monokai.css",
+  "sha256": "539570b8778c30196dbc04f854bceedcfb80c489be22de71f02528c7f47f9391"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/moxer.css",
+  "target": "wwwroot/lib/CodeMirror/theme/moxer.css",
+  "sha256": "9607be8a9049eb1f6c4f3cff365812c762567a8aeced471804491bb5cf26dd5c"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/neat.css",
+  "target": "wwwroot/lib/CodeMirror/theme/neat.css",
+  "sha256": "c7671f0c2c308ca0268ccc214ab4ec88e827d76a0f535b7ba3f4fa0a6fc1c402"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/neo.css",
+  "target": "wwwroot/lib/CodeMirror/theme/neo.css",
+  "sha256": "21a06e0c7bed54924350a54b753f71be2b2a8be22c574d897bc337b2a9e8cd84"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/night.css",
+  "target": "wwwroot/lib/CodeMirror/theme/night.css",
+  "sha256": "c89f109f8cc58189d547a32655192c53b003972399add2c06a41a1f016fc6009"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/nord.css",
+  "target": "wwwroot/lib/CodeMirror/theme/nord.css",
+  "sha256": "1fbf4eacf5e6a400f2e8699ceae8124a36e281a5cfcf1f6bab2f32b36f649a0d"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/oceanic-next.css",
+  "target": "wwwroot/lib/CodeMirror/theme/oceanic-next.css",
+  "sha256": "25d81b5f03c25aa84ab889c7dc1db6f1543469af1dcb6217d93416f0488df393"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/panda-syntax.css",
+  "target": "wwwroot/lib/CodeMirror/theme/panda-syntax.css",
+  "sha256": "39cd773814afdbfd56478383ab4160e9b759c2a8d0ef0452ec2efdfdb7e3147a"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/paraiso-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/paraiso-dark.css",
+  "sha256": "a64638ef753b5942750e23f0e66678b836daf806af3d24d57d12740094841541"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/paraiso-light.css",
+  "target": "wwwroot/lib/CodeMirror/theme/paraiso-light.css",
+  "sha256": "ea27b4778b8e784498c5c875e0a8aff51db1543bf52d73f7365bee337500a9aa"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/pastel-on-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/pastel-on-dark.css",
+  "sha256": "37815ef478534c34875faeb8f0e1d353ff5928c8a02a012b6fe94f027eb89667"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/railscasts.css",
+  "target": "wwwroot/lib/CodeMirror/theme/railscasts.css",
+  "sha256": "c424ae32b528f2269964907ec7d6e55740e054fef259becc8e41bcd1cb3ab74a"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/rubyblue.css",
+  "target": "wwwroot/lib/CodeMirror/theme/rubyblue.css",
+  "sha256": "f3d9e54f2787c131103c6c8ada7bee158fb2b206aa449d2533d66da0cf579310"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/seti.css",
+  "target": "wwwroot/lib/CodeMirror/theme/seti.css",
+  "sha256": "7937945aa7a43f44a792bcfcc5bb427a61c87f7712f2d6479ba4aefcdf30f917"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/shadowfox.css",
+  "target": "wwwroot/lib/CodeMirror/theme/shadowfox.css",
+  "sha256": "19d206974a081afcff7f4267b3f0759edd34173e7f3d39e78ac2a7cc06e87d31"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/solarized.css",
+  "target": "wwwroot/lib/CodeMirror/theme/solarized.css",
+  "sha256": "84f56363bc4f2a7f0bc4606cd2859cfafd3ff27026f978aa59f1b3a8224f8482"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ssms.css",
+  "target": "wwwroot/lib/CodeMirror/theme/ssms.css",
+  "sha256": "c1c6623c659ded37e193e0caa5270104453868406c352fa7730cdafe0a96f5a7"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/the-matrix.css",
+  "target": "wwwroot/lib/CodeMirror/theme/the-matrix.css",
+  "sha256": "163ad7d3f9689221dbda271b96ae94ba8083ef652e629891712c99a31262b239"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/tomorrow-night-bright.css",
+  "target": "wwwroot/lib/CodeMirror/theme/tomorrow-night-bright.css",
+  "sha256": "10e6204c5322099c90accdc811dbbe569bc1fa028e06a13ab176c93f64ea056a"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/tomorrow-night-eighties.css",
+  "target": "wwwroot/lib/CodeMirror/theme/tomorrow-night-eighties.css",
+  "sha256": "8e0ee4d78e0455a98ee1338304bf21bac3042a57767117b701d9207309f417fa"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ttcn.css",
+  "target": "wwwroot/lib/CodeMirror/theme/ttcn.css",
+  "sha256": "41b03e59c1224127154768f7213fd0ea144e86c0251381440f80a0bf1e215570"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/twilight.css",
+  "target": "wwwroot/lib/CodeMirror/theme/twilight.css",
+  "sha256": "3ee2961c05efec0cd70aad268e2c2c28bd43d39af069968ed63aa65f3dc30b74"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/vibrant-ink.css",
+  "target": "wwwroot/lib/CodeMirror/theme/vibrant-ink.css",
+  "sha256": "ee9c9f0a81750863cd1468928054f7a7b6fa079b0b4354f4d4613b29723c4db1"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/xq-dark.css",
+  "target": "wwwroot/lib/CodeMirror/theme/xq-dark.css",
+  "sha256": "9def1db62fc8f26dd1540347707323935a28ce538a8a93b79d1c9a603bc5d780"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/xq-light.css",
+  "target": "wwwroot/lib/CodeMirror/theme/xq-light.css",
+  "sha256": "af018ea5369ddb93f6c6e7be438c052a0d68e28275ee5d9ebaf66dc57d5be883"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/yeti.css",
+  "target": "wwwroot/lib/CodeMirror/theme/yeti.css",
+  "sha256": "2e8d7a89a80b37eb0b57d9a9837efda0a5bc611c59d1a750873319a2fa34a506"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/yonce.css",
+  "target": "wwwroot/lib/CodeMirror/theme/yonce.css",
+  "sha256": "c71afa1fdad482340d21975174e18763d0a0caaa30dfe69d351ef485c3b0ff46"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/zenburn.css",
+  "target": "wwwroot/lib/CodeMirror/theme/zenburn.css",
+  "sha256": "8fd8c78d1751d5130e2dff46f0e33a3e1f6a27a925f1370c1ed21f37a6f99d87"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/addon/comment/comment.js",
@@ -460,16 +1195,6 @@
   "sha256": "ee98a41c5af3cc317aa3ba0f8eb001f9b2df012abef86018d9766af1a0648fe4"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/lib/codemirror.css",
-  "target": "wwwroot/lib/CodeMirror/lib/codemirror.css",
-  "sha256": "ffede8c08ced2c0306b54e9b185318861bc14f83095450c482c4b88c3b7dadfb"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/lib/codemirror.js",
-  "target": "wwwroot/lib/CodeMirror/lib/codemirror.js",
-  "sha256": "cfb6116f12daef9aea5334c257f606d1e653864b3f1ae5ef96cc4bf0f7b5e2c3"
- },
- {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/mode/apl/apl.js",
   "target": "wwwroot/lib/CodeMirror/mode/apl/apl.js",
   "sha256": "36da873555eea4c1a1b204b9c12fda8accc45836d0fb9f8b315d3ca0d63bfc73"
@@ -735,11 +1460,6 @@
   "sha256": "a914d272b876ea546c48ec39039648fefbcb30d934544e92890e2aa916d1e25f"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/mode/meta.js",
-  "target": "wwwroot/lib/CodeMirror/mode/meta.js",
-  "sha256": "2dc7c687f194f9af98e3bea58043285f7e7db6db85532409bae321d525683092"
- },
- {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/mode/mirc/mirc.js",
   "target": "wwwroot/lib/CodeMirror/mode/mirc/mirc.js",
   "sha256": "62fcdfaaa400705eeeeb348fa90240b181c831e3f133442c9bd80b34e17a0d83"
@@ -853,11 +1573,6 @@
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/mode/r/r.js",
   "target": "wwwroot/lib/CodeMirror/mode/r/r.js",
   "sha256": "f3764ab989a907d4bb9aa05fe7787bfe5d81136308651f9f2c9962ecb6d3fddf"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/mode/rpm/changes/index.html",
-  "target": "wwwroot/lib/CodeMirror/mode/rpm/changes/index.html",
-  "sha256": "8d00f5ea823bf91bd23a0fd0b3aa52d29c9d586c5deabb632dd89f78a669d003"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/mode/rpm/rpm.js",
@@ -1095,329 +1810,9 @@
   "sha256": "31eb263536b94d758d23e2ec29eb6a447389dcdc379dc12fe1cfbd977976ad3f"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/3024-day.css",
-  "target": "wwwroot/lib/CodeMirror/theme/3024-day.css",
-  "sha256": "0d53b1519e046e38168493d8f05f6262fa372b342ba9be71a1ae282582f20701"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/3024-night.css",
-  "target": "wwwroot/lib/CodeMirror/theme/3024-night.css",
-  "sha256": "99e57bf61d4f6056875027dca63fd812b8727baa468aac31f077ff941675e14c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/abbott.css",
-  "target": "wwwroot/lib/CodeMirror/theme/abbott.css",
-  "sha256": "16fdc7141785266d593fac6d5a2df678f60f43423b7c5d8ce5fb4ffc679248eb"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/abcdef.css",
-  "target": "wwwroot/lib/CodeMirror/theme/abcdef.css",
-  "sha256": "bc02b11b3aedf2912999d89783cf4d209c6004dba33939bbb8963b5932415647"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ambiance-mobile.css",
-  "target": "wwwroot/lib/CodeMirror/theme/ambiance-mobile.css",
-  "sha256": "c02677b73070c8f4d3c1c02c24200324cc3296655812f42e33e83ffa4e71ad55"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ambiance.css",
-  "target": "wwwroot/lib/CodeMirror/theme/ambiance.css",
-  "sha256": "8185074d77a2b65d1f6f37e2f1f9248ba85cb5963ee7de7047146ab1163b8b4c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ayu-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/ayu-dark.css",
-  "sha256": "ffb7251e641db5a69cfd295cc24d5f24fd640b5dd09228e08528cbe1aca8103e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ayu-mirage.css",
-  "target": "wwwroot/lib/CodeMirror/theme/ayu-mirage.css",
-  "sha256": "b7205298146236455ec5dd129097bb35e65218a81944a50108ee1ecb5b6cb552"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/base16-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/base16-dark.css",
-  "sha256": "a35a7e528820b912f1c68886d2cec70dc95c9d084910441ed9808584442a8712"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/base16-light.css",
-  "target": "wwwroot/lib/CodeMirror/theme/base16-light.css",
-  "sha256": "0bd8dde6db9e41de1f343666c1c961631d67ce6ec29712d7a3d9274a202c7640"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/bespin.css",
-  "target": "wwwroot/lib/CodeMirror/theme/bespin.css",
-  "sha256": "83b99bceb6c8890dfa59973774ec4a94c0426037dac5fceca3e484330b230b6e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/blackboard.css",
-  "target": "wwwroot/lib/CodeMirror/theme/blackboard.css",
-  "sha256": "cc2b3b8c6a7da757c2f315264c19977840275f08df466b033ae16d82a8655f87"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/cobalt.css",
-  "target": "wwwroot/lib/CodeMirror/theme/cobalt.css",
-  "sha256": "540668e24f1f465ec9ce84f01b83ca2005df7d1822c9cce8b0dce20f71027a1e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/colorforth.css",
-  "target": "wwwroot/lib/CodeMirror/theme/colorforth.css",
-  "sha256": "3701714f9db5de0f4b8c829cb074d68c3c14219c88f7c4f77868a90138c6836f"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/darcula.css",
-  "target": "wwwroot/lib/CodeMirror/theme/darcula.css",
-  "sha256": "0531530c96164fb89edba10e9227d5220c1b7b4aa21b419453419680dd5395e6"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/dracula.css",
-  "target": "wwwroot/lib/CodeMirror/theme/dracula.css",
-  "sha256": "9f0ebc5a8e2775c4be97294d495918cccae941795933b52b840edee492f0146e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/duotone-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/duotone-dark.css",
-  "sha256": "9bf35f2bb01f0e74d765b5ee1ade47a93a33570db452b328a55300448723002b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/duotone-light.css",
-  "target": "wwwroot/lib/CodeMirror/theme/duotone-light.css",
-  "sha256": "b75be304b84bcf957b669608f8ef205e3786ee65f0c9f40c7b5be828228a90f5"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/eclipse.css",
-  "target": "wwwroot/lib/CodeMirror/theme/eclipse.css",
-  "sha256": "27c0d8080c994d8497cbda4d33fca464d9e257d4d26e808730e406882eeb357b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/elegant.css",
-  "target": "wwwroot/lib/CodeMirror/theme/elegant.css",
-  "sha256": "deb8e628773343958598ba8735b8e7efcd1ad7c9d017e75191aebcc3b8036b39"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/erlang-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/erlang-dark.css",
-  "sha256": "8c104aefd8cf665c980e5a5f3ded0a61679c714033bd885a1e9669dfb9f65a94"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/gruvbox-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/gruvbox-dark.css",
-  "sha256": "7d6906dd95ab970bf8febb1bdf0eda865ae2114c161866dac596dfc6a2927905"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/hopscotch.css",
-  "target": "wwwroot/lib/CodeMirror/theme/hopscotch.css",
-  "sha256": "4f4ec0ed70d45feeb50029dc9695a52dd51f51bd6e6411d92de01cd3824828d5"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/icecoder.css",
-  "target": "wwwroot/lib/CodeMirror/theme/icecoder.css",
-  "sha256": "47252c1aaba7fef78937c24de5aa0c83859e22b14576072dc5927bba8fb668ed"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/idea.css",
-  "target": "wwwroot/lib/CodeMirror/theme/idea.css",
-  "sha256": "e59630c50ad0f970cf95e3cc8ddb125ba72c0e82f8faf945a106812884b042c8"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/isotope.css",
-  "target": "wwwroot/lib/CodeMirror/theme/isotope.css",
-  "sha256": "2cbe11c8c1deabee72d130987bce9591102873b20b97f82635920c80eeff611e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/juejin.css",
-  "target": "wwwroot/lib/CodeMirror/theme/juejin.css",
-  "sha256": "86e8dbb3a80d10bdae1abc976d9f90c554c1ce9c1d824069620448c9532142c3"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/lesser-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/lesser-dark.css",
-  "sha256": "3bb6b4ea6a4cf66e52330c9955e9201c8d8b4f82440cdea7ff17995c1fdd8462"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/liquibyte.css",
-  "target": "wwwroot/lib/CodeMirror/theme/liquibyte.css",
-  "sha256": "96f9124e793e62ca507f24ac8c6a84b40a03f7c81c0b23a68951ed99f4d59d58"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/lucario.css",
-  "target": "wwwroot/lib/CodeMirror/theme/lucario.css",
-  "sha256": "e8b486b6d70129bf3e4f642b5895366029f2f2d6d5c66d7685bf38fb6332b52d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/material-darker.css",
-  "target": "wwwroot/lib/CodeMirror/theme/material-darker.css",
-  "sha256": "c0bfe6dd177889236381b0f470e69d5af37ab8f189fa4a82ee8bf446c634eda5"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/material-ocean.css",
-  "target": "wwwroot/lib/CodeMirror/theme/material-ocean.css",
-  "sha256": "bd72a45004922803d2d93e30fff7197c2c530614be3054eee35180c6adf6da76"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/material-palenight.css",
-  "target": "wwwroot/lib/CodeMirror/theme/material-palenight.css",
-  "sha256": "d541698905bca634f4822cc5e8ee84ef880e06b6d71ba729c8f3c803c13d649f"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/material.css",
-  "target": "wwwroot/lib/CodeMirror/theme/material.css",
-  "sha256": "4a3d127205f932ad327c10cfe8a68310c0d1511c4c89edc61da2e307f7b24b0e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/mbo.css",
-  "target": "wwwroot/lib/CodeMirror/theme/mbo.css",
-  "sha256": "8c25912b873c35ea2792b0860944abdc9e6d78bea8edcaac084f77a7b5a923c6"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/mdn-like.css",
-  "target": "wwwroot/lib/CodeMirror/theme/mdn-like.css",
-  "sha256": "eeff56b70df84773405718ecb0cd2aaba1a71f87dd1ac39c5c7100df1a4cdb88"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/midnight.css",
-  "target": "wwwroot/lib/CodeMirror/theme/midnight.css",
-  "sha256": "f7d8470bc9eb474066932fde2247c1ed8150e5a00bb4359bcbda571210754629"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/monokai.css",
-  "target": "wwwroot/lib/CodeMirror/theme/monokai.css",
-  "sha256": "539570b8778c30196dbc04f854bceedcfb80c489be22de71f02528c7f47f9391"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/moxer.css",
-  "target": "wwwroot/lib/CodeMirror/theme/moxer.css",
-  "sha256": "9607be8a9049eb1f6c4f3cff365812c762567a8aeced471804491bb5cf26dd5c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/neat.css",
-  "target": "wwwroot/lib/CodeMirror/theme/neat.css",
-  "sha256": "c7671f0c2c308ca0268ccc214ab4ec88e827d76a0f535b7ba3f4fa0a6fc1c402"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/neo.css",
-  "target": "wwwroot/lib/CodeMirror/theme/neo.css",
-  "sha256": "21a06e0c7bed54924350a54b753f71be2b2a8be22c574d897bc337b2a9e8cd84"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/night.css",
-  "target": "wwwroot/lib/CodeMirror/theme/night.css",
-  "sha256": "c89f109f8cc58189d547a32655192c53b003972399add2c06a41a1f016fc6009"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/nord.css",
-  "target": "wwwroot/lib/CodeMirror/theme/nord.css",
-  "sha256": "1fbf4eacf5e6a400f2e8699ceae8124a36e281a5cfcf1f6bab2f32b36f649a0d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/oceanic-next.css",
-  "target": "wwwroot/lib/CodeMirror/theme/oceanic-next.css",
-  "sha256": "25d81b5f03c25aa84ab889c7dc1db6f1543469af1dcb6217d93416f0488df393"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/panda-syntax.css",
-  "target": "wwwroot/lib/CodeMirror/theme/panda-syntax.css",
-  "sha256": "39cd773814afdbfd56478383ab4160e9b759c2a8d0ef0452ec2efdfdb7e3147a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/paraiso-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/paraiso-dark.css",
-  "sha256": "a64638ef753b5942750e23f0e66678b836daf806af3d24d57d12740094841541"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/paraiso-light.css",
-  "target": "wwwroot/lib/CodeMirror/theme/paraiso-light.css",
-  "sha256": "ea27b4778b8e784498c5c875e0a8aff51db1543bf52d73f7365bee337500a9aa"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/pastel-on-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/pastel-on-dark.css",
-  "sha256": "37815ef478534c34875faeb8f0e1d353ff5928c8a02a012b6fe94f027eb89667"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/railscasts.css",
-  "target": "wwwroot/lib/CodeMirror/theme/railscasts.css",
-  "sha256": "c424ae32b528f2269964907ec7d6e55740e054fef259becc8e41bcd1cb3ab74a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/rubyblue.css",
-  "target": "wwwroot/lib/CodeMirror/theme/rubyblue.css",
-  "sha256": "f3d9e54f2787c131103c6c8ada7bee158fb2b206aa449d2533d66da0cf579310"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/seti.css",
-  "target": "wwwroot/lib/CodeMirror/theme/seti.css",
-  "sha256": "7937945aa7a43f44a792bcfcc5bb427a61c87f7712f2d6479ba4aefcdf30f917"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/shadowfox.css",
-  "target": "wwwroot/lib/CodeMirror/theme/shadowfox.css",
-  "sha256": "19d206974a081afcff7f4267b3f0759edd34173e7f3d39e78ac2a7cc06e87d31"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/solarized.css",
-  "target": "wwwroot/lib/CodeMirror/theme/solarized.css",
-  "sha256": "84f56363bc4f2a7f0bc4606cd2859cfafd3ff27026f978aa59f1b3a8224f8482"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ssms.css",
-  "target": "wwwroot/lib/CodeMirror/theme/ssms.css",
-  "sha256": "c1c6623c659ded37e193e0caa5270104453868406c352fa7730cdafe0a96f5a7"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/the-matrix.css",
-  "target": "wwwroot/lib/CodeMirror/theme/the-matrix.css",
-  "sha256": "163ad7d3f9689221dbda271b96ae94ba8083ef652e629891712c99a31262b239"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/tomorrow-night-bright.css",
-  "target": "wwwroot/lib/CodeMirror/theme/tomorrow-night-bright.css",
-  "sha256": "10e6204c5322099c90accdc811dbbe569bc1fa028e06a13ab176c93f64ea056a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/tomorrow-night-eighties.css",
-  "target": "wwwroot/lib/CodeMirror/theme/tomorrow-night-eighties.css",
-  "sha256": "8e0ee4d78e0455a98ee1338304bf21bac3042a57767117b701d9207309f417fa"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/ttcn.css",
-  "target": "wwwroot/lib/CodeMirror/theme/ttcn.css",
-  "sha256": "41b03e59c1224127154768f7213fd0ea144e86c0251381440f80a0bf1e215570"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/twilight.css",
-  "target": "wwwroot/lib/CodeMirror/theme/twilight.css",
-  "sha256": "3ee2961c05efec0cd70aad268e2c2c28bd43d39af069968ed63aa65f3dc30b74"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/vibrant-ink.css",
-  "target": "wwwroot/lib/CodeMirror/theme/vibrant-ink.css",
-  "sha256": "ee9c9f0a81750863cd1468928054f7a7b6fa079b0b4354f4d4613b29723c4db1"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/xq-dark.css",
-  "target": "wwwroot/lib/CodeMirror/theme/xq-dark.css",
-  "sha256": "9def1db62fc8f26dd1540347707323935a28ce538a8a93b79d1c9a603bc5d780"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/xq-light.css",
-  "target": "wwwroot/lib/CodeMirror/theme/xq-light.css",
-  "sha256": "af018ea5369ddb93f6c6e7be438c052a0d68e28275ee5d9ebaf66dc57d5be883"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/yeti.css",
-  "target": "wwwroot/lib/CodeMirror/theme/yeti.css",
-  "sha256": "2e8d7a89a80b37eb0b57d9a9837efda0a5bc611c59d1a750873319a2fa34a506"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/yonce.css",
-  "target": "wwwroot/lib/CodeMirror/theme/yonce.css",
-  "sha256": "c71afa1fdad482340d21975174e18763d0a0caaa30dfe69d351ef485c3b0ff46"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/theme/zenburn.css",
-  "target": "wwwroot/lib/CodeMirror/theme/zenburn.css",
-  "sha256": "8fd8c78d1751d5130e2dff46f0e33a3e1f6a27a925f1370c1ed21f37a6f99d87"
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/CodeMirror/mode/rpm/changes/index.html",
+  "target": "wwwroot/lib/CodeMirror/mode/rpm/changes/index.html",
+  "sha256": "8d00f5ea823bf91bd23a0fd0b3aa52d29c9d586c5deabb632dd89f78a669d003"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/css/editormd.css",
@@ -1448,11 +1843,6 @@
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/css/editormd.preview.min.css",
   "target": "wwwroot/lib/editormd/css/editormd.preview.min.css",
   "sha256": "7362d2da994829c4b237da29e8d2ea9314696003c2732978a3d8096b9ff19573"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/editormd.min.js",
-  "target": "wwwroot/lib/editormd/editormd.min.js",
-  "sha256": "56869a4bfa6ff76f060ac690605beafdaa5428fa6dd393c49d44daff27f51a8c"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/fonts/editormd-logo.eot",
@@ -1518,6 +1908,41 @@
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/images/loading@3x.gif",
   "target": "wwwroot/lib/editormd/images/loading@3x.gif",
   "sha256": "7f7b559b03fd7c10048b8d820c6d1d610c70b74f809e14c9891b73e7274d66ca"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/flowchart.min.js",
+  "target": "wwwroot/lib/editormd/lib/flowchart.min.js",
+  "sha256": "4812e727c7f49aa15b6db355d6add4e0e09ebfebeea70ac811d03ebcf6a6d4fc"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/jquery.flowchart.min.js",
+  "target": "wwwroot/lib/editormd/lib/jquery.flowchart.min.js",
+  "sha256": "d1198c7b09d452303103f9fe2473da0cb06a5ab989231da72ae3c8c048f11223"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/marked.min.js",
+  "target": "wwwroot/lib/editormd/lib/marked.min.js",
+  "sha256": "5adcdc49ee2ca1c259d74588ad2517c755e4ba58a9dc62b3c2ea104578ac282e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/prettify.min.js",
+  "target": "wwwroot/lib/editormd/lib/prettify.min.js",
+  "sha256": "3a1e6941c24aefae07e54965289434e260e20ffdaf40e55321bfac4a394accca"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/raphael.min.js",
+  "target": "wwwroot/lib/editormd/lib/raphael.min.js",
+  "sha256": "5114e3c511659271996cb3e688619c26aa012b9c8d03d5ad90502d470fd483cf"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/sequence-diagram.min.js",
+  "target": "wwwroot/lib/editormd/lib/sequence-diagram.min.js",
+  "sha256": "503a06c912951877de504b3e4b6326728449cf1ce3acdb42af13391019455e8b"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/underscore.min.js",
+  "target": "wwwroot/lib/editormd/lib/underscore.min.js",
+  "sha256": "e1d9f92f2f21b8f0e56e307ba46d358ac30635bc81fc71ed1e79bdd605357c16"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/images/logos/editormd-favicon-16x16.ico",
@@ -1618,6 +2043,236 @@
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/images/logos/vi.png",
   "target": "wwwroot/lib/editormd/images/logos/vi.png",
   "sha256": "5eb73d2543bd8db3011a69a0acf965681fdb1773d1b1cd3146c6d63c06f7223e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/addons.min.js",
+  "target": "wwwroot/lib/editormd/lib/codemirror/addons.min.js",
+  "sha256": "6cd75f8a390eec110708c349aa321bcafb3f787d53b735d1665a3c222eb93e8e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/AUTHORS",
+  "target": "wwwroot/lib/editormd/lib/codemirror/AUTHORS",
+  "sha256": "a1c370b0e4d01de50d701afda3d8e53ea5286f24aae6346bab262af0ebb6238e"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/bower.json",
+  "target": "wwwroot/lib/editormd/lib/codemirror/bower.json",
+  "sha256": "760558498c66ec39244eefc10fc59ea86ffdda784f7b0fa9d49d322de38e3a69"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/codemirror.min.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/codemirror.min.css",
+  "sha256": "2085e09947219c920978a335ff6b71555ba1a6b98f403372b68344bd69cd8bc1"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/codemirror.min.js",
+  "target": "wwwroot/lib/editormd/lib/codemirror/codemirror.min.js",
+  "sha256": "7a01e37883c5a1794bd7e425a3d9db3e0b5eb878a573c9df7aa7150a0ae7ffca"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/LICENSE",
+  "target": "wwwroot/lib/editormd/lib/codemirror/LICENSE",
+  "sha256": "f7dfffd11a9b093c182bd0bce82470aa462b63c79e88e29255c766a67a6fdd13"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/modes.min.js",
+  "target": "wwwroot/lib/editormd/lib/codemirror/modes.min.js",
+  "sha256": "0b1248dbc27b2d99c6ecf4387d75447974020b0b16fb2d42d380cb548e263b08"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/package.json",
+  "target": "wwwroot/lib/editormd/lib/codemirror/package.json",
+  "sha256": "66234d9377ab1f83a5557086a58e65b1f106b0507b24d7cce6cb8b0cbe8777e1"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/README.md",
+  "target": "wwwroot/lib/editormd/lib/codemirror/README.md",
+  "sha256": "54848b7ec20196056e4f6dac27883f9e2597ad2af8d2986b5aaf4cb34335f2de"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/lib/codemirror.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/lib/codemirror.css",
+  "sha256": "6ad6aec3dc13b72dc2bae5e4958027a83849fba5a640a7d3eef4b8408a025702"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/lib/codemirror.js",
+  "target": "wwwroot/lib/editormd/lib/codemirror/lib/codemirror.js",
+  "sha256": "22da9eeb4c6db51597546641b890dfcd6503339a494b23deb878b8a7ff85665b"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/index.html",
+  "target": "wwwroot/lib/editormd/lib/codemirror/mode/index.html",
+  "sha256": "68fcb4958312e0d78f2e8ca0c60299fda49de4ce9dbea62dff591af7ee98f869"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/meta.js",
+  "target": "wwwroot/lib/editormd/lib/codemirror/mode/meta.js",
+  "sha256": "9b3797ebb1f406df4e36a24de4a00e0ccd2386abf5021451fad38894add1b0a0"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/3024-day.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/3024-day.css",
+  "sha256": "2cd76bc35c0f8d1d0235b8f86c954d5703059e03bb82c4f017f3e1bbd98cf95f"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/3024-night.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/3024-night.css",
+  "sha256": "d3c6bfdf0d6ff81a5732dfc2174ee4a9c0a448d1e654ca50d530cfd3ece9fb04"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/ambiance-mobile.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/ambiance-mobile.css",
+  "sha256": "c02677b73070c8f4d3c1c02c24200324cc3296655812f42e33e83ffa4e71ad55"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/ambiance.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/ambiance.css",
+  "sha256": "7e0e036e90ae2262f9887970a739c00b1f4954efee1a3476ce379a8a857270a4"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/base16-dark.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/base16-dark.css",
+  "sha256": "f0a0646d012867738a243a5ae142b05cca69594dccbccaf4df3f179b582a90d4"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/base16-light.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/base16-light.css",
+  "sha256": "17552bb2c1aad36f3ea49f336d6ec5f3630f0ba1a15a376fcbfe77e978a2ba40"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/blackboard.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/blackboard.css",
+  "sha256": "addfbba188e33dfe913f16c76deea332a6c69a5f224f2ba273010bc5b8a1784a"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/cobalt.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/cobalt.css",
+  "sha256": "30fd5ae6fb14af7f440534f7afbbac45f48db3aa177f53dc63838505ba21c169"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/colorforth.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/colorforth.css",
+  "sha256": "c33d95717564b1d5022cf83aeefd5d1a6ebbbd38a81e970c2193ce8677e055d0"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/eclipse.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/eclipse.css",
+  "sha256": "f90ee98e39339e026743636138c92c6d56f6800678bf4d2d9ba326495be3726c"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/elegant.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/elegant.css",
+  "sha256": "dba0197aedd39234eef2cafc960d748ebc863c2b58398e4f91d5ff6e3bed8157"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/erlang-dark.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/erlang-dark.css",
+  "sha256": "cd22ee20e54103b2ecf68c0abb6d31ef2bd1f9fc8008836d3f7b3aa495f8ca26"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/lesser-dark.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/lesser-dark.css",
+  "sha256": "d9297c701adbb984c320e23a946339dafd535df8020e6a5924d5cfa60d5c9108"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/mbo.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/mbo.css",
+  "sha256": "770ab667e75357b8d299cf78420c2978d9a295b5faad17127638f3f185172c42"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/mdn-like.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/mdn-like.css",
+  "sha256": "350f08a104f7c07405b434e53830c892a28b1c40acc20f4921ec75ef1bed8e4a"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/midnight.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/midnight.css",
+  "sha256": "37ff4e2d2f7f05f76689de74b233854612311f1d9c1c8794723b6f485775fee6"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/monokai.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/monokai.css",
+  "sha256": "2e8bee02979cc3f5b1927fe21936ed58edcd17df85ff9bbe0ad1fed060bd80a9"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/neat.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/neat.css",
+  "sha256": "dc49c7ba11a2672736bde6fcae4b618a5192f256d3bb570ec885820742ccc013"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/neo.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/neo.css",
+  "sha256": "cc10f059e5c292446e53175114c541385211d196d907b4945f7c45211df718f8"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/night.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/night.css",
+  "sha256": "1ac1eee61b533be57b05bb9faaac425106288104ccbd71fb59efbac453971484"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/paraiso-dark.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/paraiso-dark.css",
+  "sha256": "ce9eb0047aa2877850ec6e806829c1318b01fffcc43432fc7fc3e44f8de547fc"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/paraiso-light.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/paraiso-light.css",
+  "sha256": "9278c9c4221603ffd6666716185ec7aeb4d631d135a143ae1a4bef4688042ee3"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/pastel-on-dark.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/pastel-on-dark.css",
+  "sha256": "53b5af552176213361167f7518bd46e03fc4bbd7cfe9af883f5da4e808a59d96"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/rubyblue.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/rubyblue.css",
+  "sha256": "dbac5c8132b636286c5fccf9cd549dd5287fdb678061a4da706d8f024cc1246d"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/solarized.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/solarized.css",
+  "sha256": "3e958bb3266792213a9c8128f4274b41c38197cd97bf194c5009f4602d5ef084"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/the-matrix.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/the-matrix.css",
+  "sha256": "202290e9637e63ab41fcb46edff04df1f782c6abcd40fd946485cdadd9301cf2"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/tomorrow-night-bright.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/tomorrow-night-bright.css",
+  "sha256": "9ced8f848e35de81073bb614f3a5900d4903700e4f9023dcfa1bf6803dc0fd40"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/tomorrow-night-eighties.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/tomorrow-night-eighties.css",
+  "sha256": "269b6ed438d6ede7caabe9d7d883cd085c1cf83bbcf9619a93078e95016c3eca"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/twilight.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/twilight.css",
+  "sha256": "08b0adce5d145129e20dad83e78558ff352116523fddd5d43ccda0ccad0c8335"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/vibrant-ink.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/vibrant-ink.css",
+  "sha256": "f50993c6611a2963ca0dc68d0b8457fadba456f61b598458a5024562012e0292"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/xq-dark.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/xq-dark.css",
+  "sha256": "5fc13f783afa0c274f70b9f52728f2a157377ff35469d2a3bb0cc93e1c51abfe"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/xq-light.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/xq-light.css",
+  "sha256": "e801210d1a65d5fda095cb7fe8bfdb14b40f8926a753a1cae62ac1361ed13f83"
+ },
+ {
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/zenburn.css",
+  "target": "wwwroot/lib/editormd/lib/codemirror/theme/zenburn.css",
+  "sha256": "9bde813a19e1c8a88683cd892513fe904c8c596cfdaa43d9dff637be1bcc3ddf"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/addon/comment/comment.js",
@@ -1943,46 +2598,6 @@
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/addon/wrap/hardwrap.js",
   "target": "wwwroot/lib/editormd/lib/codemirror/addon/wrap/hardwrap.js",
   "sha256": "1dad18e39aa386503f0cbcbee7e40adfe1e22a07054cb2d662d451b010354602"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/addons.min.js",
-  "target": "wwwroot/lib/editormd/lib/codemirror/addons.min.js",
-  "sha256": "6cd75f8a390eec110708c349aa321bcafb3f787d53b735d1665a3c222eb93e8e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/AUTHORS",
-  "target": "wwwroot/lib/editormd/lib/codemirror/AUTHORS",
-  "sha256": "a1c370b0e4d01de50d701afda3d8e53ea5286f24aae6346bab262af0ebb6238e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/bower.json",
-  "target": "wwwroot/lib/editormd/lib/codemirror/bower.json",
-  "sha256": "760558498c66ec39244eefc10fc59ea86ffdda784f7b0fa9d49d322de38e3a69"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/codemirror.min.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/codemirror.min.css",
-  "sha256": "2085e09947219c920978a335ff6b71555ba1a6b98f403372b68344bd69cd8bc1"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/codemirror.min.js",
-  "target": "wwwroot/lib/editormd/lib/codemirror/codemirror.min.js",
-  "sha256": "7a01e37883c5a1794bd7e425a3d9db3e0b5eb878a573c9df7aa7150a0ae7ffca"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/lib/codemirror.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/lib/codemirror.css",
-  "sha256": "6ad6aec3dc13b72dc2bae5e4958027a83849fba5a640a7d3eef4b8408a025702"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/lib/codemirror.js",
-  "target": "wwwroot/lib/editormd/lib/codemirror/lib/codemirror.js",
-  "sha256": "22da9eeb4c6db51597546641b890dfcd6503339a494b23deb878b8a7ff85665b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/LICENSE",
-  "target": "wwwroot/lib/editormd/lib/codemirror/LICENSE",
-  "sha256": "f7dfffd11a9b093c182bd0bce82470aa462b63c79e88e29255c766a67a6fdd13"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/apl/apl.js",
@@ -2365,11 +2980,6 @@
   "sha256": "aa087b1e8faf6ae278dfaa0cd324f1b18c8a521b3773f00702a9f36c361dda5f"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/index.html",
-  "target": "wwwroot/lib/editormd/lib/codemirror/mode/index.html",
-  "sha256": "68fcb4958312e0d78f2e8ca0c60299fda49de4ce9dbea62dff591af7ee98f869"
- },
- {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/jade/index.html",
   "target": "wwwroot/lib/editormd/lib/codemirror/mode/jade/index.html",
   "sha256": "35ce3dd84f4da82b499141d7bb50e3959f8ff648785fd1d64d2e03d1244083cb"
@@ -2468,11 +3078,6 @@
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/markdown/test.js",
   "target": "wwwroot/lib/editormd/lib/codemirror/mode/markdown/test.js",
   "sha256": "e2d83985de025adffc606fdedf77a005487efb4653d13cc1553bb61b891ae378"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/meta.js",
-  "target": "wwwroot/lib/editormd/lib/codemirror/mode/meta.js",
-  "sha256": "9b3797ebb1f406df4e36a24de4a00e0ccd2386abf5021451fad38894add1b0a0"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/mirc/index.html",
@@ -2638,11 +3243,6 @@
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/r/r.js",
   "target": "wwwroot/lib/editormd/lib/codemirror/mode/r/r.js",
   "sha256": "d2d21d398af8bab6c58ca09a0a885b89b5d668d4b4ef8b191ecea6c93fa62339"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/rpm/changes/index.html",
-  "target": "wwwroot/lib/editormd/lib/codemirror/mode/rpm/changes/index.html",
-  "sha256": "864c2097dbacbb76be14bcfc317b66b5b4c75fa1d8cacda1caadd5e55cdfe634"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/rpm/index.html",
@@ -3035,219 +3635,9 @@
   "sha256": "3a663ba5d5fd80ad4bf1a47e4649238d3a355ea0e4f6cb13b041eb90638b16e2"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/modes.min.js",
-  "target": "wwwroot/lib/editormd/lib/codemirror/modes.min.js",
-  "sha256": "0b1248dbc27b2d99c6ecf4387d75447974020b0b16fb2d42d380cb548e263b08"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/package.json",
-  "target": "wwwroot/lib/editormd/lib/codemirror/package.json",
-  "sha256": "66234d9377ab1f83a5557086a58e65b1f106b0507b24d7cce6cb8b0cbe8777e1"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/README.md",
-  "target": "wwwroot/lib/editormd/lib/codemirror/README.md",
-  "sha256": "54848b7ec20196056e4f6dac27883f9e2597ad2af8d2986b5aaf4cb34335f2de"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/3024-day.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/3024-day.css",
-  "sha256": "2cd76bc35c0f8d1d0235b8f86c954d5703059e03bb82c4f017f3e1bbd98cf95f"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/3024-night.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/3024-night.css",
-  "sha256": "d3c6bfdf0d6ff81a5732dfc2174ee4a9c0a448d1e654ca50d530cfd3ece9fb04"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/ambiance-mobile.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/ambiance-mobile.css",
-  "sha256": "c02677b73070c8f4d3c1c02c24200324cc3296655812f42e33e83ffa4e71ad55"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/ambiance.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/ambiance.css",
-  "sha256": "7e0e036e90ae2262f9887970a739c00b1f4954efee1a3476ce379a8a857270a4"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/base16-dark.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/base16-dark.css",
-  "sha256": "f0a0646d012867738a243a5ae142b05cca69594dccbccaf4df3f179b582a90d4"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/base16-light.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/base16-light.css",
-  "sha256": "17552bb2c1aad36f3ea49f336d6ec5f3630f0ba1a15a376fcbfe77e978a2ba40"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/blackboard.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/blackboard.css",
-  "sha256": "addfbba188e33dfe913f16c76deea332a6c69a5f224f2ba273010bc5b8a1784a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/cobalt.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/cobalt.css",
-  "sha256": "30fd5ae6fb14af7f440534f7afbbac45f48db3aa177f53dc63838505ba21c169"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/colorforth.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/colorforth.css",
-  "sha256": "c33d95717564b1d5022cf83aeefd5d1a6ebbbd38a81e970c2193ce8677e055d0"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/eclipse.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/eclipse.css",
-  "sha256": "f90ee98e39339e026743636138c92c6d56f6800678bf4d2d9ba326495be3726c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/elegant.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/elegant.css",
-  "sha256": "dba0197aedd39234eef2cafc960d748ebc863c2b58398e4f91d5ff6e3bed8157"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/erlang-dark.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/erlang-dark.css",
-  "sha256": "cd22ee20e54103b2ecf68c0abb6d31ef2bd1f9fc8008836d3f7b3aa495f8ca26"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/lesser-dark.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/lesser-dark.css",
-  "sha256": "d9297c701adbb984c320e23a946339dafd535df8020e6a5924d5cfa60d5c9108"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/mbo.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/mbo.css",
-  "sha256": "770ab667e75357b8d299cf78420c2978d9a295b5faad17127638f3f185172c42"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/mdn-like.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/mdn-like.css",
-  "sha256": "350f08a104f7c07405b434e53830c892a28b1c40acc20f4921ec75ef1bed8e4a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/midnight.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/midnight.css",
-  "sha256": "37ff4e2d2f7f05f76689de74b233854612311f1d9c1c8794723b6f485775fee6"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/monokai.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/monokai.css",
-  "sha256": "2e8bee02979cc3f5b1927fe21936ed58edcd17df85ff9bbe0ad1fed060bd80a9"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/neat.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/neat.css",
-  "sha256": "dc49c7ba11a2672736bde6fcae4b618a5192f256d3bb570ec885820742ccc013"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/neo.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/neo.css",
-  "sha256": "cc10f059e5c292446e53175114c541385211d196d907b4945f7c45211df718f8"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/night.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/night.css",
-  "sha256": "1ac1eee61b533be57b05bb9faaac425106288104ccbd71fb59efbac453971484"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/paraiso-dark.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/paraiso-dark.css",
-  "sha256": "ce9eb0047aa2877850ec6e806829c1318b01fffcc43432fc7fc3e44f8de547fc"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/paraiso-light.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/paraiso-light.css",
-  "sha256": "9278c9c4221603ffd6666716185ec7aeb4d631d135a143ae1a4bef4688042ee3"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/pastel-on-dark.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/pastel-on-dark.css",
-  "sha256": "53b5af552176213361167f7518bd46e03fc4bbd7cfe9af883f5da4e808a59d96"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/rubyblue.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/rubyblue.css",
-  "sha256": "dbac5c8132b636286c5fccf9cd549dd5287fdb678061a4da706d8f024cc1246d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/solarized.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/solarized.css",
-  "sha256": "3e958bb3266792213a9c8128f4274b41c38197cd97bf194c5009f4602d5ef084"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/the-matrix.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/the-matrix.css",
-  "sha256": "202290e9637e63ab41fcb46edff04df1f782c6abcd40fd946485cdadd9301cf2"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/tomorrow-night-bright.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/tomorrow-night-bright.css",
-  "sha256": "9ced8f848e35de81073bb614f3a5900d4903700e4f9023dcfa1bf6803dc0fd40"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/tomorrow-night-eighties.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/tomorrow-night-eighties.css",
-  "sha256": "269b6ed438d6ede7caabe9d7d883cd085c1cf83bbcf9619a93078e95016c3eca"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/twilight.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/twilight.css",
-  "sha256": "08b0adce5d145129e20dad83e78558ff352116523fddd5d43ccda0ccad0c8335"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/vibrant-ink.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/vibrant-ink.css",
-  "sha256": "f50993c6611a2963ca0dc68d0b8457fadba456f61b598458a5024562012e0292"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/xq-dark.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/xq-dark.css",
-  "sha256": "5fc13f783afa0c274f70b9f52728f2a157377ff35469d2a3bb0cc93e1c51abfe"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/xq-light.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/xq-light.css",
-  "sha256": "e801210d1a65d5fda095cb7fe8bfdb14b40f8926a753a1cae62ac1361ed13f83"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/theme/zenburn.css",
-  "target": "wwwroot/lib/editormd/lib/codemirror/theme/zenburn.css",
-  "sha256": "9bde813a19e1c8a88683cd892513fe904c8c596cfdaa43d9dff637be1bcc3ddf"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/flowchart.min.js",
-  "target": "wwwroot/lib/editormd/lib/flowchart.min.js",
-  "sha256": "4812e727c7f49aa15b6db355d6add4e0e09ebfebeea70ac811d03ebcf6a6d4fc"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/jquery.flowchart.min.js",
-  "target": "wwwroot/lib/editormd/lib/jquery.flowchart.min.js",
-  "sha256": "d1198c7b09d452303103f9fe2473da0cb06a5ab989231da72ae3c8c048f11223"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/marked.min.js",
-  "target": "wwwroot/lib/editormd/lib/marked.min.js",
-  "sha256": "5adcdc49ee2ca1c259d74588ad2517c755e4ba58a9dc62b3c2ea104578ac282e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/prettify.min.js",
-  "target": "wwwroot/lib/editormd/lib/prettify.min.js",
-  "sha256": "3a1e6941c24aefae07e54965289434e260e20ffdaf40e55321bfac4a394accca"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/raphael.min.js",
-  "target": "wwwroot/lib/editormd/lib/raphael.min.js",
-  "sha256": "5114e3c511659271996cb3e688619c26aa012b9c8d03d5ad90502d470fd483cf"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/sequence-diagram.min.js",
-  "target": "wwwroot/lib/editormd/lib/sequence-diagram.min.js",
-  "sha256": "503a06c912951877de504b3e4b6326728449cf1ce3acdb42af13391019455e8b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/underscore.min.js",
-  "target": "wwwroot/lib/editormd/lib/underscore.min.js",
-  "sha256": "e1d9f92f2f21b8f0e56e307ba46d358ac30635bc81fc71ed1e79bdd605357c16"
+  "source": "dev/v1/hosts/xadmin/wwwroot/lib/editormd/lib/codemirror/mode/rpm/changes/index.html",
+  "target": "wwwroot/lib/editormd/lib/codemirror/mode/rpm/changes/index.html",
+  "sha256": "864c2097dbacbb76be14bcfc317b66b5b4c75fa1d8cacda1caadd5e55cdfe634"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/wangEditor/css/style.css",
@@ -3255,59 +3645,9 @@
   "sha256": "b31c11846b6807e04fb770ece75dae3c8721ffad43f751bcba48bdbb48878919"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/wangEditor/index.js",
-  "target": "wwwroot/lib/wangEditor/index.js",
-  "sha256": "0373fb0ccd48e19475cc369a8770829868b11c2e63876d3b631caf4e6ca783a7"
- },
- {
   "source": "dev/v1/hosts/xadmin/wwwroot/lib/xform/ext/badge_picker.js",
   "target": "wwwroot/lib/xform/ext/badge_picker.js",
   "sha256": "3bb8b3688b62c6d1d76ebb0c1af0b50e357f68d4d40a5ba24a3b508d874308ac"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/lib/xform/xform.js",
-  "target": "wwwroot/lib/xform/xform.js",
-  "sha256": "faa724d6fe3cb4a35bc8eff3a56d1d6f05e2c083bf793bafb8ef3cb911a65ad0"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/global.css",
-  "target": "wwwroot/pear/css/module/global.css",
-  "sha256": "c4f115b1caeabd25d891f4b05c31f2e940ebe31cc5839ef163e86245a4c49348"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/menu.css",
-  "target": "wwwroot/pear/css/module/menu.css",
-  "sha256": "12b3cafbb03b3f52b529650cc11d9a390a69eb239665ff7804fb0a3b5ef350a1"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/menuSearch.css",
-  "target": "wwwroot/pear/css/module/menuSearch.css",
-  "sha256": "5d69717ff4fe9a45b4dff096f57cde3850a802daf6cec2c89e7ad212015c654b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/messageCenter.css",
-  "target": "wwwroot/pear/css/module/messageCenter.css",
-  "sha256": "fef688b79346078b10607ac17af906a02e8e0b79a5df7944663c069fe1cbadfe"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/nprogress.css",
-  "target": "wwwroot/pear/css/module/nprogress.css",
-  "sha256": "16a58929a483d14870fb024927d0164afd150b1ad10a8d3be4724aa425d7c53a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/page.css",
-  "target": "wwwroot/pear/css/module/page.css",
-  "sha256": "f57c5b5023ab027a9f765fd0c24775733e77d776f1ec9c4c92cfd4f0f968299b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/tabPage.css",
-  "target": "wwwroot/pear/css/module/tabPage.css",
-  "sha256": "73ff2cceefca3e9284ade442d8f58435d571412218434558425b9d0f6a2024aa"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/toast.css",
-  "target": "wwwroot/pear/css/module/toast.css",
-  "sha256": "6d2fde848fee97bba706bd6f80b5eb156d712ffec13d8fe4f97ce64c7971d0df"
  },
  {
   "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/pear.css",
@@ -3355,26 +3695,6 @@
   "sha256": "d60cd0ea78b58582facd8d468cd6963ae636e91e95d389df84a7cbb2c5e85b8a"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/extends/count.js",
-  "target": "wwwroot/pear/module/extends/count.js",
-  "sha256": "f71b5f03075ffbb460c523d72095011aac8863bd4c9e5f1fc0407b432bff714a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/extends/nprogress.js",
-  "target": "wwwroot/pear/module/extends/nprogress.js",
-  "sha256": "b91effb71de48f057da425afe4b2e4330e2486d72ba20e2139773953f6c73c61"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/extends/popup.js",
-  "target": "wwwroot/pear/module/extends/popup.js",
-  "sha256": "ea67df17feac34fa1524f3405c966fba7243a2852d55d274fa055b5a2fac62c7"
- },
- {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/extends/toast.js",
-  "target": "wwwroot/pear/module/extends/toast.js",
-  "sha256": "8b5c45e1d9618777922004a649a1ad163834df6473d252207c69adfeb5e9e8bd"
- },
- {
   "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/fullscreen.js",
   "target": "wwwroot/pear/module/fullscreen.js",
   "sha256": "d8bacf3e81cd102cd51b5ee26b315fe6fe99997a86b55d249eca2b13d51981cc"
@@ -3410,762 +3730,63 @@
   "sha256": "5da13a9233da66360d991f950c25898b4467c3d6906d0c656c52744351e1ed68"
  },
  {
-  "source": "dev/v1/hosts/xadmin/wwwroot/pear/pear.js",
-  "target": "wwwroot/pear/pear.js",
-  "sha256": "68f16bf57696585d4845854f799d101138ca2c28bf71bc12eabe56945e506da3"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/global.css",
+  "target": "wwwroot/pear/css/module/global.css",
+  "sha256": "c4f115b1caeabd25d891f4b05c31f2e940ebe31cc5839ef163e86245a4c49348"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/admin/home.html",
-  "target": "page/admin/home.html",
-  "sha256": "95fd5a63f17b65be7dde56434ffbfae7d2095641e017f726a1f099b3def50940"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/menu.css",
+  "target": "wwwroot/pear/css/module/menu.css",
+  "sha256": "12b3cafbb03b3f52b529650cc11d9a390a69eb239665ff7804fb0a3b5ef350a1"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/admin/index.html",
-  "target": "page/admin/index.html",
-  "sha256": "5b1d01e1f75b0cf30b14384d8bf113cafd74883060156099e9e15db57fd859c6",
-  "target_sha256": "c849f0ddd6503d3be01b3af1a9f62ad02f10229e7192f63d57bdfcdf88fcc6c6"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/menuSearch.css",
+  "target": "wwwroot/pear/css/module/menuSearch.css",
+  "sha256": "5d69717ff4fe9a45b4dff096f57cde3850a802daf6cec2c89e7ad212015c654b"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/admin/login.html",
-  "target": "page/admin/login.html",
-  "sha256": "a77b5f5ffbde7d36fab7b6d58a71455c57aea94c7f976a7a3d2f9eba48d24b67"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/messageCenter.css",
+  "target": "wwwroot/pear/css/module/messageCenter.css",
+  "sha256": "fef688b79346078b10607ac17af906a02e8e0b79a5df7944663c069fe1cbadfe"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/attachment/edit.html",
-  "target": "page/attachment/edit.html",
-  "sha256": "66722c612d0d60070c2ca64d2dfb10c6c5a233ced180afce1908a302f061faba"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/nprogress.css",
+  "target": "wwwroot/pear/css/module/nprogress.css",
+  "sha256": "16a58929a483d14870fb024927d0164afd150b1ad10a8d3be4724aa425d7c53a"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/attachment/list.html",
-  "target": "page/attachment/list.html",
-  "sha256": "e499dc72339ca80cc20da4bcb599e41c941bccd077d7a2015ef8e145119c0453"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/page.css",
+  "target": "wwwroot/pear/css/module/page.css",
+  "sha256": "f57c5b5023ab027a9f765fd0c24775733e77d776f1ec9c4c92cfd4f0f968299b"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/attachment/stats.html",
-  "target": "page/attachment/stats.html",
-  "sha256": "8344364e2fecf9679e1f850df908c3470f4f53bce77e24891ce6fa92127afab4"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/tabPage.css",
+  "target": "wwwroot/pear/css/module/tabPage.css",
+  "sha256": "73ff2cceefca3e9284ade442d8f58435d571412218434558425b9d0f6a2024aa"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/attachment/upload.html",
-  "target": "page/attachment/upload.html",
-  "sha256": "de3ef3a9a32c32690051bd61e740295b4456ee0cf2d46ee14b68bcfe6fbef339"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/css/module/toast.css",
+  "target": "wwwroot/pear/css/module/toast.css",
+  "sha256": "6d2fde848fee97bba706bd6f80b5eb156d712ffec13d8fe4f97ce64c7971d0df"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/auth/auth.html",
-  "target": "page/auth/auth.html",
-  "sha256": "a8a62869b6e79368d488be047fbfa170edd1f2c50a0e1e9df5b75861e378ac69"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/extends/count.js",
+  "target": "wwwroot/pear/module/extends/count.js",
+  "sha256": "f71b5f03075ffbb460c523d72095011aac8863bd4c9e5f1fc0407b432bff714a"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/auth/group.html",
-  "target": "page/auth/group.html",
-  "sha256": "0bcc21aa2be06a7109f1f51729fcc9db314aabaaf2517d259aa10624e429592d"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/extends/nprogress.js",
+  "target": "wwwroot/pear/module/extends/nprogress.js",
+  "sha256": "b91effb71de48f057da425afe4b2e4330e2486d72ba20e2139773953f6c73c61"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/auth/group_add.html",
-  "target": "page/auth/group_add.html",
-  "sha256": "5cf6ac73199de701f2e221ce55d06aba2ced41230ab47fe04f00aa248bebcead"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/extends/popup.js",
+  "target": "wwwroot/pear/module/extends/popup.js",
+  "sha256": "ea67df17feac34fa1524f3405c966fba7243a2852d55d274fa055b5a2fac62c7"
  },
  {
-  "source": "dev/v1/hosts/xadmin/data/page/auth/role.html",
-  "target": "page/auth/role.html",
-  "sha256": "37d078285aa16e0853f0c5cf48118b6ffe8cafbc206275ad945946a0c3f87637"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/auth/uris.html",
-  "target": "page/auth/uris.html",
-  "sha256": "2f77400dee9e1fbf3fcd90d578f94b81289b8ecfafb14632d4d328fe6cadcf99"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/auth/user.html",
-  "target": "page/auth/user.html",
-  "sha256": "e54fa72b18d03bdd7a3514327d28b723abbb5f332cdbe4111fce456a8be2ba98"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/form.html",
-  "target": "page/form.html",
-  "sha256": "6f07e3a47b0c413e829555764c02b198060bbd3c7dc6c1e505dd2ace23a3ed0d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/install.html",
-  "target": "page/install.html",
-  "sha256": "0896ebbe813588f1cd8f2496e363dd9698554f00c0a7a8233106d720315cfa40"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/logs.html",
-  "target": "page/logs.html",
-  "sha256": "4e4bb64513c77813b22c99397e230f974c9afbe4291a7a353d8143e5cca9d6b9"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/auth.html",
-  "target": "page/member/auth.html",
-  "sha256": "e0f89a9fe0c95cef95a2576f6021a74fb1b18114fe4895637a95e159650e8a6a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/authgroup.html",
-  "target": "page/member/authgroup.html",
-  "sha256": "3f08bba97aeb00ca8b7f5f0e6367877ba42c4a56a07d6868b522fd74e53436c9"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/authgroup_add.html",
-  "target": "page/member/authgroup_add.html",
-  "sha256": "90cb41d75d0b48a32e03ff02ad831dec6d31f846694ff106b25190e444556d64"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/group.html",
-  "target": "page/member/group.html",
-  "sha256": "a9e76e6da13e7bd187f154db078e1a311159591ab3de3436002a93aa8691950a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/mail_send.html",
-  "target": "page/member/mail_send.html",
-  "sha256": "7e1d503f345870e930723e75de2c17891f815688eb8f1dca2d265ba0483d7715"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/mail_task.html",
-  "target": "page/member/mail_task.html",
-  "sha256": "9b54a95176b219aade44c3986da00a91c3c78bb84a299e957181bcb15b0f0654"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/notify.html",
-  "target": "page/member/notify.html",
-  "sha256": "e66bdc988d0af2df52fa31b8f4c7b61c1ef7d726f29c1d919ede92e78be21f68"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/notify_send.html",
-  "target": "page/member/notify_send.html",
-  "sha256": "812a0497b86a1bb86887064fcb49329bd56cef11603aa0793f6035d1e0ef979d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/member/user.html",
-  "target": "page/member/user.html",
-  "sha256": "daa590af12d61c21b403875c72b40834e3f349436395bf636dc61c2872b22890"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/add.html",
-  "target": "page/model/add.html",
-  "sha256": "c8d7839802ad6e56ece2f65b1c84583e584c8fec6814516c39e79ce98576b1af"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/data.html",
-  "target": "page/model/data.html",
-  "sha256": "a098095cdc5e063115b674fd68b1e8e0c3369a98c483fb5a46280e78b5060bbc"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/data_add.html",
-  "target": "page/model/data_add.html",
-  "sha256": "aa171f19262a6b60684ee1f3fd6f3844bd78b70bca8c2eede302b780fdb9bdb5"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/data_draft.html",
-  "target": "page/model/data_draft.html",
-  "sha256": "0b4951837e4f71b99834715a3f0c9cf8090e23621d1af4115652043329f18dc1"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/data_draft_edit.html",
-  "target": "page/model/data_draft_edit.html",
-  "sha256": "45b932def7ae955f82d365353332169b51ce16f29e65bfb544d95c4b29de4cbc"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/data_edit.html",
-  "target": "page/model/data_edit.html",
-  "sha256": "3f754554316da467a6367b56d62ec619dbceabc28b2893a5ee46aa747298db71"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/edit.html",
-  "target": "page/model/edit.html",
-  "sha256": "96046bd1485e3a3b4fb45d3c9ded45936fc8e516d30397c07a15b970f233868e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/fields.html",
-  "target": "page/model/fields.html",
-  "sha256": "97da183f1ab2536cf956f7e467a4d053bdc785df26c8ef11b088141fdb47e181"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/model/list.html",
-  "target": "page/model/list.html",
-  "sha256": "3a6fabdd05e98bc42b57fe7d578f273f5fbdd6476c9aca60022a7da09b1df7e9"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/option/file_edit.html",
-  "target": "page/option/file_edit.html",
-  "sha256": "1af5fbb5cd27944309e51caa86db791b0f71a6a34148ffc4e380551fbbe88568"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/option/files.html",
-  "target": "page/option/files.html",
-  "sha256": "aee2cd1cbdb9704d9e0c8c5fb4fe475ab2729396342e87d7fdf62fe584b9b289"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/option/menu.html",
-  "target": "page/option/menu.html",
-  "sha256": "b37d68d7f880d44acebd1f251e81da3a76007faa3d886e80ea7ea2c8bb4ac575"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/option/menu_add.html",
-  "target": "page/option/menu_add.html",
-  "sha256": "d7582328b9e1fbfcda82401f8fdd2793c362c865c67a49e163012101d12a2249"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/option/menu_add_category.html",
-  "target": "page/option/menu_add_category.html",
-  "sha256": "3451fc0c10ddc9e87b24a192050e3fd9bdb22d4cc0c0ae26f7581ca2fb99d589"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/option/menu_edit.html",
-  "target": "page/option/menu_edit.html",
-  "sha256": "87e12db6e11c3eead295c9549673bd149bd6a6ccfee37e13c0eb5e4fca73a619"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/option/menu_edit_category.html",
-  "target": "page/option/menu_edit_category.html",
-  "sha256": "1f9951dad6bea8deedbaca5eb934d5e1356db2887876cfb03e04290875d977bd"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/option.html",
-  "target": "page/option.html",
-  "sha256": "512f59fb30474d597c172b5f97acd6af09ca027f2707389fe89550d1e65a9b94"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/plugin/list.html",
-  "target": "page/plugin/list.html",
-  "sha256": "3976999abe0018b81c7a45c25d936e6fda1e12b3535657665691c9aec5bc43ee"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/plugin/store.html",
-  "target": "page/plugin/store.html",
-  "sha256": "f0f09c1ceba56624b74d4b8799e0e5dafe7fa49c69da48b916b5e7e9126fc568"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/sched/dashboard.html",
-  "target": "page/sched/dashboard.html",
-  "sha256": "428330cc0e307cb27ebd864d9d0c2973612e27f1b06665bc38319cd1df226176"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/sched/edit.html",
-  "target": "page/sched/edit.html",
-  "sha256": "3b8c6fbf322ec97238d91f9d5db5f2bb0b619bd19660022ac03a0a30a25e2fd1"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/sched/list.html",
-  "target": "page/sched/list.html",
-  "sha256": "049ffd35c0bebd08eff579439056ae8be3b94a7c25f3fd11f203193ee037a8e4"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/sched/log.html",
-  "target": "page/sched/log.html",
-  "sha256": "7f5d3c228b78d233097ff08192fd109b3996a48818f823f8adde9b0a2878ad0c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/status/403.html",
-  "target": "page/status/403.html",
-  "sha256": "6e24d22dc75ac7b510a569d1c9236c09cd9d8e66f50e4d9295580b16cfa14ba1"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/status/404.html",
-  "target": "page/status/404.html",
-  "sha256": "eab0cf479b25e882758a618ed15d1c6df4759949da3b3b0bf951c6daea482c05"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/status/500.html",
-  "target": "page/status/500.html",
-  "sha256": "2d9745d23a263f98d8d470c628a7b80c8baea8d582874a8d8d4db1c421ca178c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/status/error.html",
-  "target": "page/status/error.html",
-  "sha256": "2e92f32e26292ab7b3420821190e6c45a06ef2fe7b25859428bd8bad90dcf8ac"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/status/success.html",
-  "target": "page/status/success.html",
-  "sha256": "95ba0829888bc930adbc541930fe380ca5c5fd27f6d4643179cc684d37e5cb95"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/page/tool/reload.html",
-  "target": "page/tool/reload.html",
-  "sha256": "fade18b0d8bd246c4b69738b4aa40cec62e87b32285ad36847766582e5823212"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/auth/auth_add.html",
-  "target": "template/auth/auth_add.html",
-  "sha256": "53feb589cc5d17fdfa1723d33e56f76be9efece48301bd22e3376bd823a76b67"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/auth/auth_edit.html",
-  "target": "template/auth/auth_edit.html",
-  "sha256": "524c68fafcc14e6529d70cf80a8959ac9f187d5ae2b47ca628c2160780f7a966"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/auth/group_edit.html",
-  "target": "template/auth/group_edit.html",
-  "sha256": "d27bb393a9ccdd0a0b8684fbbc4f1eaf0d4ce91bde2863a428a90e247e091169"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/auth/role_add.html",
-  "target": "template/auth/role_add.html",
-  "sha256": "fa29225c30da0af47232e85edc6ec8bdc0bbac8867ac478fa2ba4922871bf759"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/auth/role_edit.html",
-  "target": "template/auth/role_edit.html",
-  "sha256": "dccf86ec3a5b74681e2698e67a6c9f9bf44901a1ac68ccfc47f78f24cbe9578d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/auth/uris_edit.html",
-  "target": "template/auth/uris_edit.html",
-  "sha256": "6f985c28624465a9229277d45d5b30bd03bf8d6c099e13d6ae7af64fbf84d1b0"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/auth/user_add.html",
-  "target": "template/auth/user_add.html",
-  "sha256": "e966e6c341377b680f0aa1b7f1f2739994a4d63f0da70d1a25c9727c86c427cd"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/auth/user_edit.html",
-  "target": "template/auth/user_edit.html",
-  "sha256": "e251916a800e4430e2cc817183a4d861adec13d690afd0055fdaf46a4159acb1"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/form/block_demo.html",
-  "target": "template/form/block_demo.html",
-  "sha256": "991899a7bd8fa9973755b19eaecc6c98142e4cc992430379d547e4346fc38eca"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/member/auth_add.html",
-  "target": "template/member/auth_add.html",
-  "sha256": "ce154503b3b62f9e15d237f85d8f3242390aea4adee81bc57bf180977cc287fe"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/member/auth_edit.html",
-  "target": "template/member/auth_edit.html",
-  "sha256": "6c91795d0215a770f8233709220befc142ab0588f6b37819247ba3a436c54857"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/member/authgroup_edit.html",
-  "target": "template/member/authgroup_edit.html",
-  "sha256": "888e06a4cc9c0c1b84be8eff90594273f927c01805a479754767d7f958abfc82"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/member/group_add.html",
-  "target": "template/member/group_add.html",
-  "sha256": "f153a011dfa867360ecabb0272a3932aabd84b694150ff78f5a64c3bf6945999"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/member/group_edit.html",
-  "target": "template/member/group_edit.html",
-  "sha256": "5a4f556625bbe7855a8881741e1b5105303aa5d9588bce0dceb41d31b5747051"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/member/user_add.html",
-  "target": "template/member/user_add.html",
-  "sha256": "ae87402526b0c6273fd7a929a08b29efbf61fe67790d1ad961557b68839756ae"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/member/user_balance.html",
-  "target": "template/member/user_balance.html",
-  "sha256": "f62abdd8f6b04096bfb534bb47242d87d1f57eecc861fa71d5311b8fdf3a314e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/member/user_edit.html",
-  "target": "template/member/user_edit.html",
-  "sha256": "c7dea17fd5baff7c57f045c20639c0d09baead8f2b0b8be6157a73e91a6b62e7"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/option/menu_edit.html",
-  "target": "template/option/menu_edit.html",
-  "sha256": "f247b63d5d363902e977eb5068741187a9c5524e8ef8be5215a8d2d754d4e7d9"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/option/menu_edit_category.html",
-  "target": "template/option/menu_edit_category.html",
-  "sha256": "407a7d977b50cb788a390fdcf21841690d29749d62f608f5235d5554acdc687e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/data/template/sched/c_task_runner.c",
-  "target": "template/sched/c_task_runner.c",
-  "sha256": "2d2e288eaed8ce297d446e7675f91d10238518493516c00aa30cac589638203a",
-  "target_sha256": "3d2fac23e95cd07899973057d0fdd39c9668c4187d29ee669318d4dc245da9f1",
-  "note": "2026-09-13 sched 迁移：runner 模板原生化改写（v1 方言 → xs3 原生，param 经 host->Custom），接口 {{$taskSourceCode}}/TaskProc 不变"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/config.defaults.json",
-  "target": "plugin/cms.article/config.defaults.json",
-  "sha256": "fd18087592ca9458b4cddad6d065c65d325d925c09456c48038bc6866750ee27"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/config.schema.json",
-  "target": "plugin/cms.article/config.schema.json",
-  "sha256": "5fdfaaa84eceb96c6f6a551d28d9a532bad2f81d5a669e5784240c6dc7487a23"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/custom/capability.mounts.json",
-  "target": "plugin/cms.article/custom/capability.mounts.json",
-  "sha256": "1c25a1afbd0c02cb0601e2c111258036d6484d74f9041d541f2d0a663107454e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/custom/README.txt",
-  "target": "plugin/cms.article/custom/README.txt",
-  "sha256": "d8df5b3ce3d9efde9569ad4aaa39d4403d79d487f0f68580b4139376643573db"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/generated/admin.html",
-  "target": "plugin/cms.article/generated/admin.html",
-  "sha256": "e423e9334933c714346a6e73dc5bb714f22617378f2ed2318da5587272ac11e6"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/generated/main.c",
-  "target": "plugin/cms.article/generated/main.c",
-  "sha256": "aab83c7feef2a9a3027d520ab74866fdf88e916e96d57622a6eaf7698cba38fc"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/generated/migration.sql",
-  "target": "plugin/cms.article/generated/migration.sql",
-  "sha256": "2ed5cdfea0d9ace096e3d8038884c39e07646acb589a3eee35edb24541bb369d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/generated/public.html",
-  "target": "plugin/cms.article/generated/public.html",
-  "sha256": "9635f95e924968fac40d29e07624f5d2ce43ece2d669aa9c93797947985a929e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/generated/spec.json",
-  "target": "plugin/cms.article/generated/spec.json",
-  "sha256": "9d5730e80b498f160e34c9a4546948073c07e288ed55b7a9fe9b78f30e008163"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/plugin.json",
-  "target": "plugin/cms.article/plugin.json",
-  "sha256": "68fc9d78e028f88be247bb775d1deb8df89b489a58ce406b8f3bb3d83fe3cce2"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/runtime/capability.mounts.example.json",
-  "target": "plugin/cms.article/runtime/capability.mounts.example.json",
-  "sha256": "ec6e2996213ebf66951ba2faa64d23c3a192163744356435ffe9fe9a3ca776b4"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/runtime/capability.mounts.schema.json",
-  "target": "plugin/cms.article/runtime/capability.mounts.schema.json",
-  "sha256": "5e16001c384260841c7baf421c6ed74a78e55b1b6350b33f1801364e57194a5d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/runtime/contracts.json",
-  "target": "plugin/cms.article/runtime/contracts.json",
-  "sha256": "d2f0842f4d39b0747d8a6a1845c12b2cc34e3c6de2e5024b28d89facf3c9ac88"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/runtime/managed.json",
-  "target": "plugin/cms.article/runtime/managed.json",
-  "sha256": "4fef1b107f7f8768b6119a98c6dcbc79a657b5ca809706c7ac4bcf8385dedc44"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/cms.article/runtime/migration.plan.json",
-  "target": "plugin/cms.article/runtime/migration.plan.json",
-  "sha256": "4854987d18df52614457758e832f2fe2037852373a713c190c3efd0d2b46a364"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/comment-system/admin.html",
-  "target": "plugin/comment-system/admin.html",
-  "sha256": "5c70818f12e27f532acdf42c9a9ecd8daacd1490f54047c56d54816c614cb77b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/comment-system/capability.provider.json",
-  "target": "plugin/comment-system/capability.provider.json",
-  "sha256": "e73f81fe54228ced0aa55757ee5821ea3f75efdc2fc9cbea6b5ec65951f41b13"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/comment-system/config.defaults.json",
-  "target": "plugin/comment-system/config.defaults.json",
-  "sha256": "5fa3ab5f47ef77686f3f7deef362f45481a7f7f6444e9d5eb761ef2b1e375e1a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/comment-system/config.schema.json",
-  "target": "plugin/comment-system/config.schema.json",
-  "sha256": "a351e2c0105e70831b448c86e5337dede363a5bf00378f2303bb09153157529d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/comment-system/main.c",
-  "target": "plugin/comment-system/main.c",
-  "sha256": "bb94a1c7d5afb896f1b6bd35a49bda689d917ee65faf2ad7af1c77dfd6b38ca9"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/comment-system/plugin.json",
-  "target": "plugin/comment-system/plugin.json",
-  "sha256": "e65ae3fd2bafe0113eb0cd10ef90551247fb87ba99ebdaf74470ec9be12c0ff2"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/comment-system/public.html",
-  "target": "plugin/comment-system/public.html",
-  "sha256": "54da554baca6a83a0dbe49d27e2296addca49b604effb21aea44b5dba3fcdf0e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/admin.html",
-  "target": "plugin/content-system/admin.html",
-  "sha256": "cab2d15df6490ed4c9911549991961863dfed40210d2229d7a489300f6add895"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/capability.provider.example.json",
-  "target": "plugin/content-system/capability.provider.example.json",
-  "sha256": "6fdfc855b4e802baa808d4431d2482b268e6cbd8c44a418527abd07965918dc3"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/capability.provider.schema.json",
-  "target": "plugin/content-system/capability.provider.schema.json",
-  "sha256": "931fc44c8585295d0a779c6b0b5c2d8bae40ddcc121184cbe98ff86ac62a26cb"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/config.defaults.json",
-  "target": "plugin/content-system/config.defaults.json",
-  "sha256": "be4052589e224c1662c996b292200637b4cf3d0563d9bee76f07ce3b0c4d88c7"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/config.schema.json",
-  "target": "plugin/content-system/config.schema.json",
-  "sha256": "f3779696ec5580388bcdd8d138bd9d6099dc701e43c93dc3a97569544dae0752"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/main.c",
-  "target": "plugin/content-system/main.c",
-  "sha256": "35dd0b0823a427a52b7df656434c918865a9eb6000129b1c06ec6d3683bc8830"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/managed_admin.template.html",
-  "target": "plugin/content-system/managed_admin.template.html",
-  "sha256": "08472ae409d2d9ffd0e376e16b8072b7be7f29fd00fc7eb807f1f169cd4e2d57"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/managed_main.template.c",
-  "target": "plugin/content-system/managed_main.template.c",
-  "sha256": "dfccfde49ee6fea99b878d68eca03e9df28250f26f11a53930a6ddd89cce34ec"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/managed_public.template.html",
-  "target": "plugin/content-system/managed_public.template.html",
-  "sha256": "e3c766fa0e7883ed92a26d18a0caeede92da238fce5425e2751ca1f0523a90b7"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/content-system/plugin.json",
-  "target": "plugin/content-system/plugin.json",
-  "sha256": "158cbfa8d6238c61fd0b976d95fd33b22842827fcc59d0e86d43bbf3c292ee1f"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/filemanager/config.defaults.json",
-  "target": "plugin/filemanager/config.defaults.json",
-  "sha256": "27768a23bdf3c27c3b9258bd1dec782fc6f8eda4d90b6ab37ab2f22013bbb969"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/filemanager/config.schema.json",
-  "target": "plugin/filemanager/config.schema.json",
-  "sha256": "d89737abc39ee2ff28d32a7281baba1572742266f068d856ac1e7b7849e91b45"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/filemanager/main.c",
-  "target": "plugin/filemanager/main.c",
-  "sha256": "7470edcd287e3f9f1023c54b80adc81c4aec3b82623476ff40a69cdd4afd3163"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/filemanager/page/filemanager.html",
-  "target": "plugin/filemanager/page/filemanager.html",
-  "sha256": "259d21fe0d096433aa002cf856032bac17d4183edfbbec5fe464aaded6959891"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/filemanager/plugin.json",
-  "target": "plugin/filemanager/plugin.json",
-  "sha256": "1476a53138abeb6b95179b7ac7158abbe65b811a34411d4d31afa1d68079dcce"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/firewall/config.defaults.json",
-  "target": "plugin/firewall/config.defaults.json",
-  "sha256": "335931488d5401185ba16936ef479692f2aa8f7a8cad3c5c8069c6b2a128fe0d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/firewall/config.schema.json",
-  "target": "plugin/firewall/config.schema.json",
-  "sha256": "42a1e0fd1b4d1824566cc4fd2c43e4e66db073cadaad89a744475c960158dace"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/firewall/main.c",
-  "target": "plugin/firewall/main.c",
-  "sha256": "3ed8974429739a2ad27c9ac14cbf0ef0264a2e202027b57a2bde4068cb15656a"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/firewall/page/firewall.html",
-  "target": "plugin/firewall/page/firewall.html",
-  "sha256": "410e74db1c79e5226849ca507837bdf021f15cb23148c1c5bddfba3b2a489466"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/firewall/plugin.json",
-  "target": "plugin/firewall/plugin.json",
-  "sha256": "00df9e5e2148f4a77498a4237e7ce216620ec6bc8009907467e832dec5ba4806"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/gbdemo/admin.html",
-  "target": "plugin/gbdemo/admin.html",
-  "sha256": "f14b2c0af7b017f95819774b9902dbd8f5d683841dee78e13c824b93c69bfc57"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/gbdemo/config.defaults.json",
-  "target": "plugin/gbdemo/config.defaults.json",
-  "sha256": "56ee4771895083115ef2850aed47bb1527ab845217d4ee09177e41a2aec126b4"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/gbdemo/config.schema.json",
-  "target": "plugin/gbdemo/config.schema.json",
-  "sha256": "f5dc899011c557705854001b3b889f0c2bf1874898835231e9fa90ebac19cbe8"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/gbdemo/main.c",
-  "target": "plugin/gbdemo/main.c",
-  "sha256": "523f0b3c312304cc0e0eee769a3f9a3862848ae8d5da39d31215d07c9479e1eb"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/gbdemo/plugin.json",
-  "target": "plugin/gbdemo/plugin.json",
-  "sha256": "7cb60349f3311ecc2a040f022d3c56b8c1cc28dc579052911cdc012c87f19dce"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/gbdemo/public.html",
-  "target": "plugin/gbdemo/public.html",
-  "sha256": "d0399c8810ca6a9e815ddf59101635c7dea23a34535c6bca531e7f5a12c95bb5"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/guestbook_v3/admin.html",
-  "target": "plugin/guestbook_v3/admin.html",
-  "sha256": "4f1c88e7b40ebbc2fca194f7261f0a417ddf168874e2da580286188c3df98e1e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/guestbook_v3/config.defaults.json",
-  "target": "plugin/guestbook_v3/config.defaults.json",
-  "sha256": "3601ea0ba48d9f94c64a8c82736d81aaa51877359969ddc6ef8803b6a6daf2e9"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/guestbook_v3/config.schema.json",
-  "target": "plugin/guestbook_v3/config.schema.json",
-  "sha256": "8ac42d2c267593b0bd4c0343bbc4728befd44735a1ed92342a934bc049f2b492"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/guestbook_v3/main.c",
-  "target": "plugin/guestbook_v3/main.c",
-  "sha256": "c8fab361d2e8c8b9135c7b559055f2a4b2bb6e11c6b133620ab87cb38fb5f9fc"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/guestbook_v3/plugin.json",
-  "target": "plugin/guestbook_v3/plugin.json",
-  "sha256": "8461b6a2de2950de2f8150c4344620c78e79d904a4ebcd9fbeb9999fc422dc2e"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/guestbook_v3/public.html",
-  "target": "plugin/guestbook_v3/public.html",
-  "sha256": "501aae87fa4915267a886a319f22c65130dffb6ebbf40c3941dae34148ba9252"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/hello/config.defaults.json",
-  "target": "plugin/hello/config.defaults.json",
-  "sha256": "326f7d8a405b275bf4fcf3b6159b1784e3ab43835a6f085d7296b8cca8fcf33c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/hello/config.schema.json",
-  "target": "plugin/hello/config.schema.json",
-  "sha256": "621682bde4d07caa2f70156d176dc7a073bf241c1a5595f97f67971e3f9807bd"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/hello/main.c",
-  "target": "plugin/hello/main.c",
-  "sha256": "d197464b7388a91151b683ae7d2c80b5720281d287362e56ab1283c47de806b8"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/hello/plugin.json",
-  "target": "plugin/hello/plugin.json",
-  "sha256": "fc8934aefea32dfe6b4606b49ea79ed2d6baec40717ed93eb85de384fa3f70d0"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/perfmon/config.defaults.json",
-  "target": "plugin/perfmon/config.defaults.json",
-  "sha256": "0b24bf650331a5612d26c6bd2a5d035a89d8dc05f18d7ce20c2e6925e6235136"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/perfmon/config.schema.json",
-  "target": "plugin/perfmon/config.schema.json",
-  "sha256": "6623e83478e8f73d5fd0b5d0d4062c2141c5cb2372f41c6a62bed9946c1ccec8"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/perfmon/main.c",
-  "target": "plugin/perfmon/main.c",
-  "sha256": "bd1c0f56702ece581c1fe410561469266ae1c46ee17c9218ca2e8423effa4223"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/perfmon/page/dashboard.html",
-  "target": "plugin/perfmon/page/dashboard.html",
-  "sha256": "c7e9ed00231e7074a5098f4913640a016ab8a7ec51ae7d12a33ea7cdb2fdd213"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/perfmon/page/performance.html",
-  "target": "plugin/perfmon/page/performance.html",
-  "sha256": "d9f764bb3657d6f67a9f138acc5f5fe8e71efd3abccc039b2c53e0076e04a78d"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/perfmon/plugin.json",
-  "target": "plugin/perfmon/plugin.json",
-  "sha256": "bbf8d26f39d8cbc43f32367d5dea8c6eedad6071c6d20827daee0da8df698d93"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/config.defaults.json",
-  "target": "plugin/xlogserver/config.defaults.json",
-  "sha256": "bb1655f9a4e4cd553025ed2197f8851d5b4249d402c0a86232ffada0c844f8e6"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/config.schema.json",
-  "target": "plugin/xlogserver/config.schema.json",
-  "sha256": "910014093bf8ea8d133b8ab9ac231c66d65c65b6996be509d9db23dcda1d73c5"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/main.c",
-  "target": "plugin/xlogserver/main.c",
-  "sha256": "7fed3e0cd6fe49d114028b8d77f06b7babb3e33db5ecffefc05b0853018ce132"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/page/services.html",
-  "target": "plugin/xlogserver/page/services.html",
-  "sha256": "5a7f2d79a16a93c09411bbc87bd6961130a035b7cb54362a96a3e0f1149902fa"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/page/services_add.html",
-  "target": "plugin/xlogserver/page/services_add.html",
-  "sha256": "7f079a45de0444e98d538d83a8447b2f586894ce71045c08d504256c20f34925"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/plugin.json",
-  "target": "plugin/xlogserver/plugin.json",
-  "sha256": "7c975e2e60ec7c575d7a4114213e5a68d4df1b7621624405fd3a127487085421"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/template/services_edit.html",
-  "target": "plugin/xlogserver/template/services_edit.html",
-  "sha256": "cf644bbe041f45583f177070299965e80911ac34a1dd26ac87cd5b2ee3413b9b"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/template/tasks_add.html",
-  "target": "plugin/xlogserver/template/tasks_add.html",
-  "sha256": "3c4688c55f7f34a76ef8f1706a470c7ed98b89f536b3d9d39109be9c05118da3"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/template/tasks_edit.html",
-  "target": "plugin/xlogserver/template/tasks_edit.html",
-  "sha256": "1af2d759f6ce76be84765f12f11868ab6cdb7bed2714e3cdbbb103617a77d85c"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/template/tasks_index.html",
-  "target": "plugin/xlogserver/template/tasks_index.html",
-  "sha256": "e4b6d41501b6175417f3982d53c48d3eda9f1cfe4d89ee8af8457912200b39ba"
- },
- {
-  "source": "dev/v1/hosts/xadmin/plugin/xlogserver/template/tasks_logs.html",
-  "target": "plugin/xlogserver/template/tasks_logs.html",
-  "sha256": "dcbcd103dce7a08c2f878c7130e94ec69ea3b62d5182aac356742c05bdf7fa21"
- },
- {
-  "source": "page/template/form_demo.html",
-  "target": "page/template/form_demo.html",
-  "sha256": "52e3a40784ce0ce85ae4b5cc407fb39e8823fb13e65b7932973070eac23b0d39",
-  "note": "2026-09-14 新增：表单演示页（v1 有路由但无页面文件，按 v1 语义新写）"
+  "source": "dev/v1/hosts/xadmin/wwwroot/pear/module/extends/toast.js",
+  "target": "wwwroot/pear/module/extends/toast.js",
+  "sha256": "8b5c45e1d9618777922004a649a1ad163834df6473d252207c69adfeb5e9e8bd"
  }
 ]

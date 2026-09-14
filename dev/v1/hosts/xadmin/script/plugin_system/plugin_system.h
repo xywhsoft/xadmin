@@ -5,6 +5,7 @@
 #include "ps_storage.h"
 #include "ps_service.h"
 #include "ps_signal.h"
+#include "ps_resource.h"
 #include "ps_abi.h"
 #include "ps_manifest.h"
 #include "ps_compiler_tcc.h"

@@ -1,0 +1,412 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>编辑内容模型</title>
+	<link rel="stylesheet" href="/layui/css/layui.css">
+	<link rel="stylesheet" href="/content/css/editor.css">
+</head>
+<body>
+	<div class="content-editor">
+		<div class="editor-head">
+			<div>
+				<div class="editor-title" id="content_title">新建模型</div>
+				<div class="editor-meta" id="content_meta">修订 0 / 已应用 0</div>
+			</div>
+			<div class="editor-actions">
+				<button class="layui-btn layui-btn-primary layui-btn-sm" id="content_template">载入模板</button>
+				<button class="layui-btn layui-btn-normal layui-btn-sm" id="content_save">保存修订</button>
+				<button class="layui-btn layui-btn-warm layui-btn-sm" id="content_preflight">生成预检</button>
+				<button class="layui-btn layui-btn-danger layui-btn-sm" id="content_generate">生成插件</button>
+			</div>
+		</div>
+
+		<div class="editor-tabs">
+			<div class="tab-list" id="content_tabs">
+				<button class="tab-btn active" data-tab="overview">概览</button>
+				<button class="tab-btn" data-tab="fields">字段</button>
+				<button class="tab-btn" data-tab="pages">页面</button>
+				<button class="tab-btn" data-tab="capabilities">能力</button>
+				<button class="tab-btn" data-tab="policies">策略</button>
+				<button class="tab-btn" data-tab="generate">生成</button>
+				<button class="tab-btn" data-tab="advanced">高级</button>
+			</div>
+		</div>
+
+		<div class="editor-layout">
+			<div class="panel">
+				<div class="panel-title">
+					<span id="side_title">概览</span>
+					<button class="layui-btn layui-btn-xs layui-btn-normal hidden" id="field_new">新建字段</button>
+				</div>
+				<div id="side_overview" class="side-list">
+					<div class="side-item active"><div class="side-item-title">身份</div><div class="side-item-meta">模型标识与目标插件</div></div>
+					<div class="side-item"><div class="side-item-title">状态</div><div class="side-item-meta">修订与生成状态</div></div>
+				</div>
+				<div id="side_fields" class="side-list hidden"></div>
+				<div id="side_capabilities" class="hidden"></div>
+				<div id="side_default" class="side-list hidden">
+					<div class="side-item active"><div class="side-item-title">当前页面</div><div class="side-item-meta">在右侧维护配置</div></div>
+				</div>
+			</div>
+
+			<div class="panel">
+				<div id="tab_overview">
+					<div class="panel-title">模型身份</div>
+					<form class="layui-form" lay-filter="content_model_form">
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">XID</label>
+								<div class="layui-input-block"><input name="xid" class="layui-input" placeholder="cms.article"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">名称</label>
+								<div class="layui-input-block"><input name="name" class="layui-input" placeholder="article"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">标题</label>
+								<div class="layui-input-block"><input name="title" class="layui-input" placeholder="Article"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">命名空间</label>
+								<div class="layui-input-block"><input name="namespace" class="layui-input" placeholder="cms"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">插件标题</label>
+								<div class="layui-input-block"><input name="pluginTitle" class="layui-input" placeholder="默认使用标题"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">菜单标题</label>
+								<div class="layui-input-block"><input name="menuTitle" class="layui-input" placeholder="默认使用标题"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">数据表</label>
+								<div class="layui-input-block"><input name="tableName" class="layui-input" placeholder="cms_article"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">插件</label>
+								<div class="layui-input-block"><input name="generatedPluginXid" class="layui-input" placeholder="默认与 XID 一致"></div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">说明</label>
+							<div class="layui-input-block"><textarea name="description" class="layui-textarea"></textarea></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">修订说明</label>
+							<div class="layui-input-block"><input name="note" class="layui-input" placeholder="说明本次调整内容"></div>
+						</div>
+					</form>
+				</div>
+
+				<div id="tab_fields" class="hidden">
+					<div class="panel-title">字段编辑</div>
+					<form class="layui-form" lay-filter="content_field_form">
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">字段名</label>
+								<div class="layui-input-block"><input name="name" class="layui-input" placeholder="title"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">标题</label>
+								<div class="layui-input-block"><input name="title" class="layui-input" placeholder="Title"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">类型</label>
+								<div class="layui-input-block">
+									<select name="type">
+										<option value="input">input</option>
+										<option value="text">text</option>
+										<option value="textarea">textarea</option>
+										<option value="number">number</option>
+										<option value="int">int</option>
+										<option value="integer">integer</option>
+										<option value="decimal">decimal</option>
+										<option value="password">password</option>
+										<option value="select">select</option>
+										<option value="combobox">combobox</option>
+										<option value="radio">radio</option>
+										<option value="checkbox">checkbox</option>
+										<option value="checklist">checklist</option>
+										<option value="switch">switch</option>
+										<option value="date">date</option>
+										<option value="datetime">datetime</option>
+										<option value="time">time</option>
+										<option value="intrange">intrange</option>
+										<option value="numrange">numrange</option>
+										<option value="daterange">daterange</option>
+										<option value="timerange">timerange</option>
+										<option value="datetimerange">datetimerange</option>
+										<option value="editor_md">editor_md</option>
+										<option value="editor_html">editor_html</option>
+										<option value="editor_code">editor_code</option>
+										<option value="icon_picker">icon_picker</option>
+										<option value="image">image</option>
+										<option value="images">images</option>
+										<option value="file">file</option>
+										<option value="files">files</option>
+										<option value="badge_picker">badge_picker</option>
+										<option value="json">json</option>
+									</select>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">默认值</label>
+								<div class="layui-input-block"><input name="defaultValue" class="layui-input"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">存储类型</label>
+								<div class="layui-input-block">
+									<select name="storageType">
+										<option value="">自动</option>
+										<option value="text">text</option>
+										<option value="integer">integer</option>
+										<option value="real">real</option>
+										<option value="boolean">boolean</option>
+										<option value="date">date</option>
+										<option value="datetime">datetime</option>
+										<option value="time">time</option>
+										<option value="json">json</option>
+									</select>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">语义角色</label>
+								<div class="layui-input-block">
+									<select name="semanticRole">
+										<option value="">无</option>
+										<option value="title">标题</option>
+										<option value="slug">URL 标识</option>
+										<option value="summary">摘要</option>
+										<option value="content">正文</option>
+										<option value="cover">封面</option>
+										<option value="status">状态</option>
+										<option value="author">作者</option>
+										<option value="publishedAt">发布时间</option>
+										<option value="sort">排序</option>
+										<option value="category">分类</option>
+										<option value="tag">标签</option>
+									</select>
+								</div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">占位提示</label>
+								<div class="layui-input-block"><input name="placeholder" class="layui-input" placeholder="请输入标题"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">布局跨度</label>
+								<div class="layui-input-block">
+									<select name="layoutSpan">
+										<option value="">自动</option>
+										<option value="1">单列</option>
+										<option value="2">通栏</option>
+									</select>
+								</div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">选项</label>
+							<div class="layui-input-block"><input name="options" class="layui-input" placeholder="value:Label, draft:Draft"></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">选项 JSON</label>
+							<div class="layui-input-block"><textarea name="listJson" class="layui-textarea" placeholder='[{"value":"draft","label":"草稿"}]'></textarea></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">选项列表</label>
+							<div class="layui-input-block">
+								<div class="option-table" id="field_option_rows"></div>
+								<button type="button" class="layui-btn layui-btn-primary layui-btn-xs" id="field_option_add">添加选项</button>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">标记</label>
+							<div class="layui-input-block">
+								<input type="checkbox" name="required" title="必填">
+								<input type="checkbox" name="nullable" title="可空">
+								<input type="checkbox" name="list" title="列表">
+								<input type="checkbox" name="detail" title="详情">
+								<input type="checkbox" name="readonly" title="只读">
+								<input type="checkbox" name="disabled" title="禁用">
+								<input type="checkbox" name="sortable" title="排序">
+								<input type="checkbox" name="filterable" title="筛选">
+								<input type="checkbox" name="searchable" title="搜索">
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">上传地址</label>
+								<div class="layui-input-block"><input name="uploadUrl" class="layui-input" placeholder="/admin/attachment/upload"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">允许 MIME</label>
+								<div class="layui-input-block"><input name="acceptMime" class="layui-input" placeholder="image/*"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">上传 accept</label>
+								<div class="layui-input-block"><input name="accept" class="layui-input" placeholder="images 或 file"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">按钮文字</label>
+								<div class="layui-input-block"><input name="buttonText" class="layui-input" placeholder="上传"></div>
+							</div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">组件属性</label>
+							<div class="layui-input-block"><textarea name="componentPropsJson" class="layui-textarea" placeholder='{"min":0,"max":100,"step":1,"height":240}'></textarea></div>
+						</div>
+						<div class="layui-form-item">
+							<label class="layui-form-label">说明</label>
+							<div class="layui-input-block"><textarea name="description" class="layui-textarea"></textarea></div>
+						</div>
+						<div class="layui-form-item">
+							<div class="layui-input-block">
+								<button type="button" class="layui-btn layui-btn-normal" id="field_apply">应用字段</button>
+								<button type="button" class="layui-btn layui-btn-primary" id="field_copy">复制</button>
+								<button type="button" class="layui-btn layui-btn-primary" id="field_up">上移</button>
+								<button type="button" class="layui-btn layui-btn-primary" id="field_down">下移</button>
+								<button type="button" class="layui-btn layui-btn-primary" id="field_delete">删除</button>
+							</div>
+						</div>
+					</form>
+				</div>
+
+				<div id="tab_capabilities" class="hidden">
+					<div class="panel-title">能力装配</div>
+					<div id="capability_workspace"></div>
+				</div>
+
+				<div id="tab_pages" class="hidden">
+					<div class="panel-title">页面</div>
+					<div class="layui-form">
+						<div class="form-section-title">生成页面</div>
+						<div class="layui-form-item">
+							<input type="checkbox" id="page_admin" title="后台页面" checked>
+							<input type="checkbox" id="page_public" title="前台页面" checked>
+							<input type="checkbox" id="page_detail" title="详情页" checked>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">列表列</label>
+								<div class="layui-input-block"><input id="page_list_columns" class="layui-input" placeholder="title,status,update_time"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">详情字段</label>
+								<div class="layui-input-block"><input id="page_detail_fields" class="layui-input" placeholder="title,summary,status"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">默认排序</label>
+								<div class="layui-input-block">
+									<select id="page_default_sort">
+										<option value="id_desc">ID 倒序</option>
+										<option value="id_asc">ID 正序</option>
+										<option value="update_desc">更新倒序</option>
+										<option value="create_desc">创建倒序</option>
+									</select>
+								</div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">分页大小</label>
+								<div class="layui-input-block"><input id="page_page_size" class="layui-input" type="number" min="1" max="200" value="20"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">Max scan rows</label>
+								<div class="layui-input-block"><input id="page_max_scan_rows" class="layui-input" type="number" min="200" max="50000" value="5000"></div>
+							</div>
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">展示分组</label>
+								<div class="layui-input-block"><textarea id="page_display_groups" class="layui-textarea" placeholder="Basic:title,summary&#10;Publishing:status"></textarea></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">字段分组</label>
+								<div class="layui-input-block"><textarea id="page_field_groups" class="layui-textarea" placeholder="main:title,summary&#10;meta:status"></textarea></div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div id="tab_policies" class="hidden">
+					<div class="panel-title">策略</div>
+					<div class="layui-form">
+						<div class="form-section-title">数据策略</div>
+						<div class="layui-form-item">
+							<input type="checkbox" id="policy_soft_delete" title="软删除" checked>
+							<input type="checkbox" id="policy_audit_time" title="审计时间" checked>
+							<input type="checkbox" id="policy_status_flow" title="状态流转">
+						</div>
+						<div class="form-row">
+							<div class="layui-form-item">
+								<label class="layui-form-label">创建角色</label>
+								<div class="layui-input-block"><input id="policy_create_role" class="layui-input" placeholder="admin"></div>
+							</div>
+							<div class="layui-form-item">
+								<label class="layui-form-label">管理角色</label>
+								<div class="layui-input-block"><input id="policy_manage_role" class="layui-input" placeholder="admin"></div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div id="tab_generate" class="hidden">
+					<div class="panel-title">生成</div>
+					<div class="generate-grid">
+						<div class="status-box"><div class="status-title">预检</div><div class="status-text" id="generate_preflight">生成前先运行预检。</div></div>
+						<div class="status-box"><div class="status-title">输出</div><div class="status-text" id="generate_output">生成插件写入插件目录，并使用自己的私有数据库。</div></div>
+						<div class="status-box"><div class="status-title">资源</div><div class="status-text" id="generate_resources">输出使用 page/template/option/static/src 标准插件目录。</div></div>
+						<div class="status-box"><div class="status-title">数据库</div><div class="status-text" id="generate_database">插件启动时初始化私有数据库结构。</div></div>
+						<div class="status-box"><div class="status-title">能力</div><div class="status-text" id="generate_capabilities">未选择能力。</div></div>
+						<div class="status-box generate-wide"><div class="status-title">验收路径</div><div class="status-text" id="generate_acceptance">预检后展示已启用能力包的最小 API 和页面验收路径。</div></div>
+					</div>
+				</div>
+				<div id="tab_advanced" class="hidden"><div class="panel-title">高级</div><textarea id="advanced_spec" class="layui-textarea" style="min-height:260px;"></textarea></div>
+			</div>
+
+			<div class="panel">
+				<div class="panel-title">状态</div>
+				<div class="status-box">
+					<div class="status-title">当前状态</div>
+					<div class="status-text" id="content_state">新建模型</div>
+				</div>
+				<div class="status-box">
+					<div class="status-title">影响</div>
+					<div class="status-text" id="content_impact">保存修订后可计算生成影响。</div>
+				</div>
+				<div class="status-box">
+					<div class="status-title">修订</div>
+					<div class="status-text" id="content_revisions">暂无修订。</div>
+				</div>
+				<div class="status-box">
+					<div class="status-title">生成历史</div>
+					<div class="status-text" id="content_generations">暂无生成记录。</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="/layui/layui.js"></script>
+	<script src="/content/js/content-api.js"></script>
+	<script src="/content/js/editor-state.js"></script>
+	<script src="/content/js/editor-fields.js"></script>
+	<script src="/content/js/editor-capability.js"></script>
+	<script src="/content/js/editor-display.js"></script>
+	<script src="/content/js/editor-generate.js"></script>
+	<script src="/content/js/editor-main.js"></script>
+</body>
+</html>

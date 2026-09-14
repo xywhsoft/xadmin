@@ -1,0 +1,15 @@
+{
+  "tables": ["content_import_job", "content_export_job"],
+  "fields": [],
+  "adminPages": ["import_export"],
+  "publicApis": [],
+  "adminApis": ["import/preview", "import/commit", "import/jobs", "import/replay", "export/json", "export/jobs", "export/download"],
+  "permissions": ["import_export.view", "import_export.import", "import_export.export"],
+  "events": ["import.afterFinish", "export.afterFinish"],
+  "runtime": {
+    "conflictMode": ["insert", "update", "skip"],
+    "failedReplay": true,
+    "chunkedExport": true
+  },
+  "tasks": ["import.process", "export.process"]
+}

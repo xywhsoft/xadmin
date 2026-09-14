@@ -1,0 +1,37 @@
+{
+  "tables": [
+    "tag",
+    "content_tag"
+  ],
+  "fields": [
+    {
+      "name": "tag_ids",
+      "title": "Tags",
+      "storage": {
+        "type": "text"
+      },
+      "showInList": false
+    }
+  ],
+  "adminPages": [
+    "tags"
+  ],
+  "publicApis": [
+    "tag.list",
+    "tag.detail",
+    "tag.contents"
+  ],
+  "permissions": [
+    "tag.view",
+    "tag.manage"
+  ],
+  "events": [
+    "content.afterDelete",
+    "tag.afterBind"
+  ],
+  "tasks": [],
+  "files": [
+    "generated/pack_tag.c",
+    "generated/admin_tag.html"
+  ]
+}

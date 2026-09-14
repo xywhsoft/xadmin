@@ -1,0 +1,89 @@
+{
+  "groups": [
+    {
+      "key": "topic",
+      "title": "专题配置",
+      "fields": [
+        {
+          "name": "mode",
+          "type": "select",
+          "label": "绑定模式",
+          "value": "single",
+          "list": [
+            {
+              "value": "single",
+              "label": "单专题"
+            },
+            {
+              "value": "multiple",
+              "label": "多专题"
+            }
+          ]
+        },
+        {
+          "name": "maxBindContents",
+          "type": "number",
+          "label": "单次最大绑定内容数",
+          "value": 200,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxPublicListRows",
+          "type": "number",
+          "label": "公开专题行数上限",
+          "value": 500,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxDetailTopics",
+          "type": "number",
+          "label": "详情专题行数上限",
+          "value": 20,
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "name": "maxPublicContentRows",
+          "type": "number",
+          "label": "公开内容行数上限",
+          "value": 200,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxAdminLinkRows",
+          "type": "number",
+          "label": "后台关联行数上限",
+          "value": 500,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "请求体字节上限",
+          "value": 65536,
+          "min": 1024,
+          "max": 262144,
+          "step": 1024
+        },
+        {
+          "name": "maxBatchRows",
+          "type": "number",
+          "label": "批量操作行数上限",
+          "value": 100,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        }
+      ]
+    }
+  ]
+}

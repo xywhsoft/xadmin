@@ -1,0 +1,88 @@
+{
+  "groups": [
+    {
+      "key": "seo-content-template",
+      "title": "内容 SEO 模板",
+      "fields": [
+        {
+          "name": "titleTemplate",
+          "type": "input",
+          "label": "内容 Title 模板",
+          "value": ""
+        },
+        {
+          "name": "keywordsTemplate",
+          "type": "input",
+          "label": "内容 Keywords 模板",
+          "value": ""
+        },
+        {
+          "name": "descriptionTemplate",
+          "type": "input",
+          "label": "内容 Description 模板",
+          "value": ""
+        },
+        {
+          "name": "canonicalTemplate",
+          "type": "input",
+          "label": "内容 Canonical 模板",
+          "value": ""
+        }
+      ]
+    },
+    {
+      "key": "seo-category-template",
+      "title": "栏目 SEO 模板",
+      "fields": [
+        {
+          "name": "categoryTitleTemplate",
+          "type": "input",
+          "label": "栏目 Title 模板",
+          "value": "{categoryTitle} - {siteName}"
+        },
+        {
+          "name": "categoryKeywordsTemplate",
+          "type": "input",
+          "label": "栏目 Keywords 模板",
+          "value": "{categoryTitle},{siteName}"
+        },
+        {
+          "name": "categoryDescriptionTemplate",
+          "type": "input",
+          "label": "栏目 Description 模板",
+          "value": "{categoryDescription}"
+        },
+        {
+          "name": "categoryCanonicalTemplate",
+          "type": "input",
+          "label": "栏目 Canonical 模板",
+          "value": "/plugin/{pluginXid}?categoryId={categoryId}"
+        }
+      ]
+    },
+    {
+      "key": "seo-admin",
+      "title": "后台 SEO 管理",
+      "fields": [
+        {
+          "name": "maxListRows",
+          "type": "number",
+          "label": "后台元信息列表上限",
+          "value": 500,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "后台请求体字节上限",
+          "value": 65536,
+          "min": 512,
+          "max": 262144,
+          "step": 512
+        }
+      ]
+    }
+  ]
+}

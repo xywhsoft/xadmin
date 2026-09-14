@@ -160,6 +160,9 @@ layui.use(['form', 'upload'], function(){
 				if ( parent.layui && parent.layui.table ) {
 					parent.layui.table.reloadData('Table_Attachment_List');
 				}
+				if ( window.opener && !window.opener.closed ) {
+					window.opener.postMessage({type:'xadminAttachmentUploaded', data:res.data || {}}, window.location.origin);
+				}
 			} else {
 				$result.removeClass('success').addClass('error').html(
 					'<strong>上传失败</strong><br>' + (res.message || '未知错误')

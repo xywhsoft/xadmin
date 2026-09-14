@@ -1,0 +1,22 @@
+{
+  "formatVersion": 1,
+  "packId": "content.access",
+  "name": "access",
+  "title": "阅读权限",
+  "description": "提供阅读等级、会员组、付费、密码和私有内容访问控制能力。",
+  "version": "0.1.0",
+  "author": "xAdmin",
+  "source": "xadmin",
+  "installType": "bundled",
+  "status": "active",
+  "sort": 310,
+  "protection": {
+    "system": true,
+    "readonly": true,
+    "disableAllowed": true,
+    "deleteAllowed": false
+  },
+  "advisorMessage": "能力包 content.access：会拦截公开读取，请确认阅读等级、会员身份来源和静态页访问策略。",
+  "acceptanceApiPath": "/api/plugin/{pluginXid}/access/check?contentId=1",
+  "acceptanceViewPath": "/admin/view/plugin/{pluginXid}/pack/content_access"
+}

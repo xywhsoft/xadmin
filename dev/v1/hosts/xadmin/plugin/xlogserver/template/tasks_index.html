@@ -2,179 +2,162 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Tasks - {$serviceName}</title>
+	<title>任务管理 - {$serviceName}</title>
 	<meta name="renderer" content="webkit">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link href="/layui/css/layui.css" rel="stylesheet">
 	<style>
-		body { margin: 0; padding: 0; background: #f5f5f5; }
+		body {{ margin: 0; padding: 0; background: #f5f5f5; }}
+		.xlog-page {{ padding: 16px; }}
 	</style>
 </head>
 <body>
-	<div style="padding: 16px;">
+	<div class="xlog-page">
 		<table class="layui-hide" id="Table_Tasks" lay-filter="Table_Tasks"></table>
 	</div>
 
 	<script type="text/html" id="Toolbar_Tasks">
 		<div class="layui-inline">
-			<span style="font-weight: bold; margin-right: 10px;">Service: {$serviceName}</span>
+			<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="back"><i class="layui-icon layui-icon-left"></i> 服务列表</button>
+			<span style="font-weight: bold; margin: 0 12px;">{$serviceName}</span>
 		</div>
 		<div class="layui-inline">
-			<input type="text" id="searchTasks" placeholder="Search tasks..." class="layui-input" style="width: 200px; height: 32px; margin-right: 10px;">
+			<input type="text" id="searchTasks" placeholder="搜索任务名称或描述..." class="layui-input" style="width: 220px; height: 32px; margin-right: 10px;">
 		</div>
 		<div class="layui-inline">
-			<button class="layui-btn layui-btn-sm" lay-event="Tasks_Search"><i class="layui-icon layui-icon-search"></i> Search</button>
-			<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Tasks_Refresh"><i class="layui-icon layui-icon-refresh"></i> Refresh</button>
+			<button class="layui-btn layui-btn-sm" lay-event="search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+			<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
 		</div>
 		<div class="layui-inline" style="float: right;">
-			<button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="Tasks_Add"><i class="layui-icon layui-icon-add-1"></i> New Task</button>
-			<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="Tasks_Del"><i class="layui-icon layui-icon-delete"></i> Delete</button>
+			<button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="add"><i class="layui-icon layui-icon-add-1"></i> 新建任务</button>
+			<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDelete"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>
 		</div>
 	</script>
 
 	<script type="text/html" id="Tool_Tasks">
 		<div class="layui-clear-space">
-			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="logs">Logs</a>
-			<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">Edit</a>
-			<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="delete">Delete</a>
+			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="logs">日志</a>
+			<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+			<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="delete">删除</a>
 		</div>
 	</script>
 
 	<script src="/layui/layui.js"></script>
 	<script>
 		var G_ServiceId = {$serviceId};
-
-		layui.use(['table'], function(){
+		layui.use(['table'], function(){{
 			var table = layui.table;
 			var layer = layui.layer;
 			var $ = layui.$;
+			var apiUrl = '/admin/api/plugin/xlogserver/tasks?serviceId=' + G_ServiceId;
 
-			table.render({
+			table.render({{
 				elem: '#Table_Tasks',
 				toolbar: '#Toolbar_Tasks',
-				url: '/admin/api/plugin/xlogserver/tasks?serviceId=' + G_ServiceId,
+				url: apiUrl,
 				defaultToolbar: ['filter', 'exports', 'print'],
 				height: 'full-50',
-				cellMinWidth: 60,
-				skin: "line",
-				totalRow: false,
-				page: {
+				cellMinWidth: 80,
+				skin: 'line',
+				page: {{
 					limit: 20,
 					groups: 11,
-					layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
-				},
+					layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+				}},
 				cols: [[
-					{type: 'checkbox', fixed: 'left'},
-					{field:'id', width:80, title: 'ID'},
-					{field:'name', width:200, title: 'Task Name'},
-					{field:'desc', title: 'Description'},
-					{field:'tableName', width:320, title: 'Table'},
-					{field:'createTime', width:180, title: 'Created'},
-					{field:'updateTime', width:180, title: 'Updated'},
-					{width:200, title: 'Actions', templet: '#Tool_Tasks'},
-				]],
-				done: function(){},
-				error: function(res, msg){ console.log(res, msg) }
-			});
+					{{type: 'checkbox', fixed: 'left'}},
+					{{field:'id', width:80, title: 'ID'}},
+					{{field:'name', width:200, title: '任务名称'}},
+					{{field:'desc', title: '任务描述'}},
+					{{field:'tableName', width:220, title: '数据表'}},
+					{{field:'createTime', width:180, title: '创建时间'}},
+					{{field:'updateTime', width:180, title: '修改时间'}},
+					{{width:150, title: '操作', templet: '#Tool_Tasks'}}
+				]]
+			}});
 
-			table.on('toolbar(Table_Tasks)', function(obj){
-				switch ( obj.event ) {
-					case 'Tasks_Search':
-						table.reloadData('Table_Tasks', {
-							where: { search: document.getElementById('searchTasks').value },
-						});
-					break;
-					case 'Tasks_Refresh':
-						table.reloadData('Table_Tasks');
-					break;
-					case 'Tasks_Add':
-						layer.open({
-							title: 'New Task',
-							type: 2,
-							shadeClose: true,
-							area: ['500px', '320px'],
-							content: '/admin/view/plugin/xlogserver/tasks/add?serviceId=' + G_ServiceId,
-						});
-					break;
-					case 'Tasks_Del':
-						var checkStatus = table.checkStatus('Table_Tasks');
-						var data = checkStatus.data;
-						var count = data.length;
-						if ( count === 0 ) {
-							layer.msg('Please select tasks to delete', {icon: 2});
-							return;
-						}
-						var ids = [];
-						var names = [];
-						for ( var i = 0; i < count; i++ ) {
-							ids.push(data[i].id);
-							names.push(data[i].name);
-						}
-						layer.confirm('Delete ' + count + ' tasks?<br>' + names.join(', ') + '<br><span style="color: red;">This cannot be undone!</span>', {icon: 3, title: 'Confirm Delete'}, function(index){
-							$.ajax({
-								url: '/admin/api/plugin/xlogserver/tasks?serviceId=' + G_ServiceId,
-								type: 'DELETE',
-								data: JSON.stringify(ids),
-								contentType: 'application/json',
-								dataType: 'json',
-								success: function(res){
-									if ( res.result ) {
-										layer.msg(res.message, {icon: 1});
-										table.reloadData('Table_Tasks');
-									} else {
-										layer.msg(res.message, {icon: 2});
-									}
-								}
-							});
-							layer.close(index);
-						});
-					break;
-				};
-			});
+			function reloadTable() {{
+				table.reloadData('Table_Tasks');
+			}}
 
-			table.on('tool(Table_Tasks)', function(obj){
+			function deleteTasks(ids, label) {{
+				layer.confirm('确定要删除' + label + '吗？<br>日志数据表会保留。', {{icon: 3, title: '删除确认'}}, function(index){{
+					$.ajax({{
+						url: apiUrl,
+						type: 'DELETE',
+						data: JSON.stringify(ids),
+						contentType: 'application/json',
+						dataType: 'json',
+						success: function(res){{
+							if (res.result) {{
+								layer.msg(res.message || 'deleted', {{icon: 1}});
+								reloadTable();
+							}} else {{
+								layer.msg(res.message || '删除失败', {{icon: 2}});
+							}}
+						}}
+					}});
+					layer.close(index);
+				}});
+			}}
+
+			table.on('toolbar(Table_Tasks)', function(obj){{
+				if (obj.event === 'back') {{
+					location.href = '/admin/view/plugin/xlogserver';
+				}} else if (obj.event === 'search') {{
+					table.reloadData('Table_Tasks', {{
+						page: {{curr: 1}},
+						where: {{ search: document.getElementById('searchTasks').value }}
+					}});
+				}} else if (obj.event === 'refresh') {{
+					reloadTable();
+				}} else if (obj.event === 'add') {{
+					layer.open({{
+						title: '新建任务',
+						type: 2,
+						shadeClose: true,
+						area: ['520px', '320px'],
+						content: '/admin/view/plugin/xlogserver/tasks/add?serviceId=' + G_ServiceId
+					}});
+				}} else if (obj.event === 'batchDelete') {{
+					var data = table.checkStatus('Table_Tasks').data;
+					var ids = data.map(function(row){{ return row.id; }});
+					if (!ids.length) {{
+						layer.msg('请选择要删除的任务', {{icon: 2}});
+						return;
+					}}
+					deleteTasks(ids, '选中的 ' + ids.length + ' 个任务');
+				}}
+			}});
+
+			table.on('tool(Table_Tasks)', function(obj){{
 				var data = obj.data;
-				if ( obj.event == 'logs' ) {
-					layer.open({
-						title: 'Logs - ' + data.name,
+				if (obj.event === 'logs') {{
+					layer.open({{
+						title: '日志查看 - ' + data.name,
 						type: 2,
 						shade: 0,
 						maxmin: true,
 						moveOut: true,
-						area: ['900px', '600px'],
-						content: '/admin/view/plugin/xlogserver/tasks/logs?serviceId=' + G_ServiceId + '&taskId=' + data.id,
-					});
-				} else if ( obj.event == 'edit' ) {
-					layer.open({
-						title: 'Edit Task',
+						area: ['980px', '640px'],
+						content: '/admin/view/plugin/xlogserver/tasks/logs?serviceId=' + G_ServiceId + '&taskId=' + data.id
+					}});
+				}} else if (obj.event === 'edit') {{
+					layer.open({{
+						title: '编辑任务',
 						type: 2,
 						shadeClose: true,
-						area: ['500px', '366px'],
-						content: '/admin/view/plugin/xlogserver/tasks/edit?serviceId=' + G_ServiceId + '&id=' + data.id,
-					});
-				} else if ( obj.event == 'delete' ) {
-					layer.confirm('Delete task "' + data.name + '"?<br>The log table will not be deleted.', {icon: 3, title: 'Confirm Delete'}, function(index){
-						$.ajax({
-							url: '/admin/api/plugin/xlogserver/tasks?serviceId=' + G_ServiceId,
-							type: 'DELETE',
-							data: JSON.stringify([data.id]),
-							contentType: 'application/json',
-							dataType: 'json',
-							success: function(res){
-								if ( res.result ) {
-									layer.msg(res.message, {icon: 1});
-									table.reloadData('Table_Tasks');
-								} else {
-									layer.msg(res.message, {icon: 2});
-								}
-							}
-						});
-						layer.close(index);
-					});
-				}
-			});
-		});
+						area: ['520px', '360px'],
+						content: '/admin/view/plugin/xlogserver/tasks/edit?serviceId=' + G_ServiceId + '&id=' + data.id
+					}});
+				}} else if (obj.event === 'delete') {{
+					deleteTasks([data.id], '任务【' + data.name + '】');
+				}}
+			}});
+
+			window.xlogReloadTasks = reloadTable;
+		}});
 	</script>
 </body>
 </html>

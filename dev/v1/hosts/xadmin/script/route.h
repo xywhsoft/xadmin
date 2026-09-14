@@ -7,13 +7,48 @@ void RouteHTTP_Init()
 	printf("        RouteHTTP_Init \n");
 	// 创建 HTTP 全局静态路由表
 	G_StaticRouteTableHTTP = xrtDictCreate(sizeof(RouteInfo), XRT_OBJMODE_SHARED);
+	G_DynamicRouteInvokeContext = xrtDictCreate(sizeof(ptr), XRT_OBJMODE_SHARED);
+	if ( G_DynamicRouteInvokeContext ) {
+		xrtOwnerActivateShared(&G_DynamicRouteInvokeContext->Owner);
+		xrtOwnerActivateShared(&G_DynamicRouteInvokeContext->AVLT.Owner);
+	}
+
+#define XADMIN_PUBLIC_ROUTE(path_literal) \
+	do { \
+		RouteInfo* pPublicRoute = xrtDictGet(G_StaticRouteTableHTTP, path_literal, strlen(path_literal)); \
+		if ( pPublicRoute ) { \
+			pPublicRoute->bAuth = FALSE; \
+			pPublicRoute->bAdmin = FALSE; \
+		} \
+	} while (0)
 	
 	
 	
 	// ==================== 后台路由 ====================
 	
 	// 添加 HTTP 静态路由 - Index
-	AddStaticRouteHTTP("/",										Request_Index);
+	AddStaticRouteHTTP("/",										Request_Site_Home);
+	AddStaticRouteHTTP("/features",								Request_Site_Features);
+	AddStaticRouteHTTP("/plugins",								Request_Site_Plugins);
+	AddStaticRouteHTTP("/capabilities",							Request_Site_Capabilities);
+	AddStaticRouteHTTP("/content-system",						Request_Site_ContentSystem);
+	AddStaticRouteHTTP("/docs",									Request_Site_Docs);
+	AddStaticRouteHTTP("/docs/plugin",							Request_Site_Docs);
+	AddStaticRouteHTTP("/docs/content",							Request_Site_Docs);
+	AddStaticRouteHTTP("/docs/capability",						Request_Site_Docs);
+	AddStaticRouteHTTP("/download",								Request_Site_Download);
+	AddStaticRouteHTTP("/demo",									Request_Site_Demo);
+	XADMIN_PUBLIC_ROUTE("/");
+	XADMIN_PUBLIC_ROUTE("/features");
+	XADMIN_PUBLIC_ROUTE("/plugins");
+	XADMIN_PUBLIC_ROUTE("/capabilities");
+	XADMIN_PUBLIC_ROUTE("/content-system");
+	XADMIN_PUBLIC_ROUTE("/docs");
+	XADMIN_PUBLIC_ROUTE("/docs/plugin");
+	XADMIN_PUBLIC_ROUTE("/docs/content");
+	XADMIN_PUBLIC_ROUTE("/docs/capability");
+	XADMIN_PUBLIC_ROUTE("/download");
+	XADMIN_PUBLIC_ROUTE("/demo");
 	AddStaticRouteHTTP("/admin",									Request_Index);
 	
 	// 添加 HTTP 静态路由 - Login
@@ -183,6 +218,29 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/view/attachment/edit",				Request_View_Attachment_Edit);
 	AddStaticRouteHTTP("/admin/view/attachment/upload",			Request_View_Attachment_Upload);
 	AddStaticRouteHTTP("/admin/view/attachment/stats",				Request_View_Attachment_Stats);
+
+	// Content generator
+	AddStaticRouteHTTP("/admin/view/content/page",				Request_View_Content_Page);
+	AddStaticRouteHTTP("/admin/content/pages",					Request_Content_Pages);
+	AddStaticRouteHTTP("/admin/content/page",					Request_Content_Page);
+	AddStaticRouteHTTP("/admin/content/page/save",				Request_Content_Page_Save);
+	AddStaticRouteHTTP("/admin/content/page/delete",			Request_Content_Page_Delete);
+	AddStaticRouteHTTP("/admin/view/content",					Request_View_Content_Index);
+	AddStaticRouteHTTP("/admin/view/content/editor",				Request_View_Content_Editor);
+	AddStaticRouteHTTP("/admin/view/content/packs",				Request_View_Content_Packs);
+	AddStaticRouteHTTP("/admin/view/content/pack-store",			Request_View_Content_PackStore);
+	AddStaticRouteHTTP("/admin/content/types",					Request_Content_Types);
+	AddStaticRouteHTTP("/admin/content/type",					Request_Content_Type);
+	AddStaticRouteHTTP("/admin/content/save",					Request_Content_Save);
+	AddStaticRouteHTTP("/admin/content/delete",					Request_Content_Delete);
+	AddStaticRouteHTTP("/admin/content/revisions",				Request_Content_Revisions);
+	AddStaticRouteHTTP("/admin/content/generations",				Request_Content_Generations);
+	AddStaticRouteHTTP("/admin/content/advisor",					Request_Content_Advisor);
+	AddStaticRouteHTTP("/admin/content/generate",				Request_Content_Generate);
+	AddStaticRouteHTTP("/admin/content/packs",					Request_Content_Packs);
+	AddStaticRouteHTTP("/admin/content/pack",					Request_Content_Pack);
+	AddStaticRouteHTTP("/admin/content/pack/options",				Request_Content_Pack_Options);
+	AddStaticRouteHTTP("/admin/content/templates",				Request_Content_Templates);
 	
 	// ==================== 前台API路由 ====================
 	
@@ -235,35 +293,8 @@ void RouteHTTP_Init()
 	AddStaticRouteHTTP("/admin/plugin/export",						Request_Plugin_Export);
 	AddStaticRouteHTTP("/admin/plugin/import",						Request_Plugin_Import);
 	AddStaticRouteHTTP("/admin/plugin/settings",					Request_Plugin_Settings);
-	
-	// ==================== 传奇功能路由 ====================
-	{
-		RouteInfo* pInfo;
-		pInfo = (RouteInfo*)xrtDictSet(G_StaticRouteTableHTTP, "/mir/test", 9, NULL);
-		if ( pInfo ) {
-			pInfo->Proc = Request_MIR_Test;
-			pInfo->pPluginRouteToken = NULL;
-			pInfo->bAuth = FALSE;
-			pInfo->bAdmin = FALSE;
-			pInfo->bPutLog = FALSE;
-			pInfo->bActive = FALSE;
-			pInfo->AuthID = 0;
-			pInfo->AuthLevel = 0;
-		}
-		pInfo = (RouteInfo*)xrtDictSet(G_StaticRouteTableHTTP, "/mir/api/push", 14, NULL);
-		if ( pInfo ) {
-			pInfo->Proc = Request_MIR_Push;
-			pInfo->pPluginRouteToken = NULL;
-			pInfo->bAuth = FALSE;
-			pInfo->bAdmin = FALSE;
-			pInfo->bPutLog = FALSE;
-			pInfo->bActive = FALSE;
-			pInfo->AuthID = 0;
-			pInfo->AuthLevel = 0;
-			G_MIRPushRoute = pInfo;
-		}
-	}
 
+#undef XADMIN_PUBLIC_ROUTE
 }
 
 
@@ -274,6 +305,31 @@ void RouteHTTP_Init()
 void RouteHTTP_Unit()
 {
 	printf("        RouteHTTP_Unit \n");
+	if ( G_DynamicRouteTableHTTP.lstRoutes ) {
+		for ( uint32 i = 0; i < xrtListCount(G_DynamicRouteTableHTTP.lstRoutes); i++ ) {
+			DynamicRouteInfo* pRoute = (DynamicRouteInfo*)xrtListGetPtr(G_DynamicRouteTableHTTP.lstRoutes, i);
+			DynamicRoute_Free(pRoute);
+			xrtListSetPtr(G_DynamicRouteTableHTTP.lstRoutes, i, NULL, NULL);
+		}
+		xrtListDestroy(G_DynamicRouteTableHTTP.lstRoutes);
+		G_DynamicRouteTableHTTP.lstRoutes = NULL;
+	}
+	if ( G_DynamicRouteTableHTTP.pRegexSet ) {
+		xrtRegexSetDestroy(G_DynamicRouteTableHTTP.pRegexSet);
+		G_DynamicRouteTableHTTP.pRegexSet = NULL;
+	}
+	if ( G_DynamicRouteTableHTTP.sLastError ) {
+		xrtFree(G_DynamicRouteTableHTTP.sLastError);
+		G_DynamicRouteTableHTTP.sLastError = NULL;
+	}
+	if ( G_DynamicRouteTableHTTP.sLastWarning ) {
+		xrtFree(G_DynamicRouteTableHTTP.sLastWarning);
+		G_DynamicRouteTableHTTP.sLastWarning = NULL;
+	}
+	if ( G_DynamicRouteInvokeContext ) {
+		xrtDictDestroy(G_DynamicRouteInvokeContext);
+		G_DynamicRouteInvokeContext = NULL;
+	}
 	if ( G_StaticRouteTableHTTP ) {
 		xrtDictDestroy(G_StaticRouteTableHTTP);
 		G_StaticRouteTableHTTP = NULL;

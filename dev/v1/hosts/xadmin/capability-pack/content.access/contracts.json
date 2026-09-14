@@ -1,0 +1,41 @@
+{
+  "permissions": ["access.view", "access.manage"],
+  "adminPages": ["access"],
+  "publicApis": ["access.check"],
+  "adminApis": ["access.rule.list", "access.rule.save", "access.rule.delete", "access.rule.stats"],
+  "tables": ["content_access_rule"],
+  "events": ["content.beforeRead", "category.accessInherit"],
+  "rules": {
+    "inheritFromCategory": true,
+    "categoryRuleTarget": "content_id = -category_id",
+    "contentRulePriority": "content rule overrides category rule",
+    "ruleSourceOutput": ["none", "content", "category"],
+    "passwordHash": "xsha256i salted iterated hash with passwordHashIterations; xsha256/xrt64/plaintext compatible",
+    "paidMode": "returns payRequired and price; allows trusted session claim from paidSessionKey",
+    "configKeys": ["passwordHashIterations", "maxPasswordInputBytes", "maxRequestBytes", "paidSessionKey", "allowQueryReadLevel", "maxReadLevel", "maxListRows"],
+    "listLimit": "admin rule list clamps request limit by maxListRows",
+    "adminRuleFilters": "admin rule list supports optional targetType/targetId/accessMode/status filters with bound SQL and maxListRows limit",
+    "passwordInputLimit": "admin save and public password check clamp password bytes by maxPasswordInputBytes",
+    "requestLimit": "admin rule save/delete reject request bodies beyond maxRequestBytes before JSON parse",
+    "modeValidation": "admin rule save accepts only public/login/level/group/password/paid/private modes",
+    "statusValidation": "admin rule save normalizes status to enabled(1) or disabled(0)",
+    "adminStats": "access.rule.stats returns rule totals, content/category rule counts and access mode aggregates for admin diagnostics",
+    "adminStatsUi": "ability page renders rule totals and access mode aggregates as tables, while retaining raw JSON for diagnostics",
+    "readLevelSource": "session authLevel/__authLevel__ by default; readLevel query override only when allowQueryReadLevel is enabled for debugging",
+    "readLevelLimit": "level rules and runtime read level are clamped by maxReadLevel"
+  },
+  "runtime": {
+    "configKeys": ["passwordHashIterations", "maxPasswordInputBytes", "maxRequestBytes", "paidSessionKey", "allowQueryReadLevel", "maxReadLevel", "maxListRows"],
+    "listLimit": "admin rule list clamps request limit by maxListRows",
+    "adminRuleFilters": "admin rule list supports optional targetType/targetId/accessMode/status filters with bound SQL and maxListRows limit",
+    "passwordInputLimit": "admin save and public password check clamp password bytes by maxPasswordInputBytes",
+    "requestLimit": "admin rule save/delete reject request bodies beyond maxRequestBytes before JSON parse",
+    "modeValidation": "admin rule save accepts only public/login/level/group/password/paid/private modes",
+    "statusValidation": "admin rule save normalizes status to enabled(1) or disabled(0)",
+    "adminStats": "access.rule.stats returns rule totals, content/category rule counts and access mode aggregates for admin diagnostics",
+    "adminStatsUi": "ability page renders rule totals and access mode aggregates as tables, while retaining raw JSON for diagnostics",
+    "readLevelSource": "session authLevel/__authLevel__ by default; readLevel query override only when allowQueryReadLevel is enabled for debugging",
+    "readLevelLimit": "level rules and runtime read level are clamped by maxReadLevel"
+  },
+  "tasks": []
+}

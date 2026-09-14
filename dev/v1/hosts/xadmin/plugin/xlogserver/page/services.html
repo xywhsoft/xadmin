@@ -2,166 +2,147 @@
 <html>
 <head>
 	<meta charset="utf-8">
-	<title>Log Services</title>
+	<title>Log Service</title>
 	<meta name="renderer" content="webkit">
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link href="/layui/css/layui.css" rel="stylesheet">
 	<style>
-		body { padding: 0; margin: 0; background-color: #f2f2f2; }
-		.layui-card { margin: 15px; }
+		body { margin: 0; padding: 0; background: #f5f5f5; }
+		.xlog-page { padding: 16px; }
 	</style>
 </head>
 <body>
-<div class="layui-card">
-	<div class="layui-card-body" style="padding: 16px;">
+	<div class="xlog-page">
 		<table class="layui-hide" id="Table_Services" lay-filter="Table_Services"></table>
 	</div>
-</div>
 
-<script type="text/html" id="Toolbar_Services">
-	<div class="layui-inline">
-		<input type="text" id="searchServices" placeholder="Search services..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
-	</div>
-	<div class="layui-inline">
-		<button class="layui-btn layui-btn-sm" lay-event="Services_Search"><i class="layui-icon layui-icon-search"></i> Search</button>
-		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Services_Refresh"><i class="layui-icon layui-icon-refresh"></i> Refresh</button>
-	</div>
-	<div class="layui-inline" style="float: right;">
-		<button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="Services_Add"><i class="layui-icon layui-icon-add-1"></i> New Service</button>
-		<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="Services_Del"><i class="layui-icon layui-icon-delete"></i> Delete</button>
-	</div>
-</script>
+	<script type="text/html" id="Toolbar_Services">
+		<div class="layui-inline">
+			<input type="text" id="searchServices" placeholder="搜索服务名称或描述..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
+		</div>
+		<div class="layui-inline">
+			<button class="layui-btn layui-btn-sm" lay-event="search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+			<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+		</div>
+		<div class="layui-inline" style="float: right;">
+			<button class="layui-btn layui-btn-sm layui-btn-normal" lay-event="add"><i class="layui-icon layui-icon-add-1"></i> 新建服务</button>
+			<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="batchDelete"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>
+		</div>
+	</script>
 
-<script type="text/html" id="Tool_Services">
-	<div class="layui-clear-space">
-		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">Edit</a>
-		<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="delete">Delete</a>
-	</div>
-</script>
+	<script type="text/html" id="Tool_Services">
+		<div class="layui-clear-space">
+			<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="tasks">任务</a>
+			<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+			<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="delete">删除</a>
+		</div>
+	</script>
 
-<script src="/layui/layui.js"></script>
-<script>
-	layui.use(['table', 'layer'], function(){
-		var table = layui.table;
-		var layer = layui.layer;
-		var $ = layui.$;
+	<script src="/layui/layui.js"></script>
+	<script>
+		layui.use(['table'], function(){
+			var table = layui.table;
+			var layer = layui.layer;
+			var $ = layui.$;
+			var apiUrl = '/admin/api/plugin/xlogserver/services';
 
-		table.render({
-			elem: '#Table_Services',
-			toolbar: '#Toolbar_Services',
-			url: '/admin/api/plugin/xlogserver/services',
-			defaultToolbar: ['filter', 'exports', 'print'],
-			height: 'full-135',
-			cellMinWidth: 60,
-			skin: "line",
-			totalRow: false,
-			page: {
-				limit: 20,
-				groups: 11,
-				layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip'],
-			},
-			cols: [[
-				{type: 'checkbox', fixed: 'left'},
-				{field:'id', width:80, title: 'ID'},
-				{field:'name', width:200, title: 'Service'},
-				{field:'desc', title: 'Description'},
-				{field:'db', width:360, title: 'Database'},
-				{field:'createTime', width:180, title: 'Created'},
-				{field:'updateTime', width:180, title: 'Updated'},
-				{width:120, title: 'Actions', templet: '#Tool_Services'},
-			]],
-			done: function(){},
-			error: function(res, msg){ console.log(res, msg) }
-		});
+			table.render({
+				elem: '#Table_Services',
+				toolbar: '#Toolbar_Services',
+				url: apiUrl,
+				defaultToolbar: ['filter', 'exports', 'print'],
+				height: 'full-50',
+				cellMinWidth: 80,
+				skin: 'line',
+				page: {
+					limit: 20,
+					groups: 11,
+					layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+				},
+				cols: [[
+					{type: 'checkbox', fixed: 'left'},
+					{field:'id', width:80, title: 'ID'},
+					{field:'name', width:200, title: '服务名称'},
+					{field:'desc', title: '服务描述'},
+					{field:'db', width:300, title: '数据库文件'},
+					{field:'createTime', width:180, title: '创建时间'},
+					{field:'updateTime', width:180, title: '修改时间'},
+					{width:160, title: '操作', templet: '#Tool_Services'}
+				]]
+			});
 
-		table.on('toolbar(Table_Services)', function(obj){
-			switch ( obj.event ) {
-				case 'Services_Search':
-					table.reloadData('Table_Services', {
-						where: { search: "%" + document.getElementById('searchServices').value + "%" },
-					});
-				break;
-				case 'Services_Refresh':
-					table.reloadData('Table_Services');
-				break;
-				case 'Services_Add':
-					layer.open({
-						title: 'New Service',
-						type: 2,
-						shadeClose: true,
-						area: ['500px', '320px'],
-						content: '/admin/view/plugin/xlogserver/services/add',
-					});
-				break;
-				case 'Services_Del':
-					var checkStatus = table.checkStatus('Table_Services');
-					var data = checkStatus.data;
-					var count = data.length;
-					if ( count === 0 ) {
-						layer.msg('Please select services to delete', {icon: 2});
-						return;
-					}
-					var ids = [];
-					var names = [];
-					for ( var i = 0; i < count; i++ ) {
-						ids.push(data[i].id);
-						names.push(data[i].name);
-					}
-					layer.confirm('Delete ' + count + ' services?<br>' + names.join(', ') + '<br><span style="color: red;">This cannot be undone!</span>', {icon: 3, title: 'Confirm Delete'}, function(index){
-						$.ajax({
-							url: '/admin/api/plugin/xlogserver/services',
-							type: 'DELETE',
-							data: JSON.stringify(ids),
-							contentType: 'application/json',
-							dataType: 'json',
-							success: function(res){
-								if ( res.result ) {
-									layer.msg(res.message, {icon: 1});
-									table.reloadData('Table_Services');
-								} else {
-									layer.msg(res.message, {icon: 2});
-								}
-							}
-						});
-						layer.close(index);
-					});
-				break;
-			};
-		});
+			function reloadTable() {
+				table.reloadData('Table_Services');
+			}
 
-		table.on('tool(Table_Services)', function(obj){
-			var data = obj.data;
-			if ( obj.event == 'edit' ) {
-				layer.open({
-					title: 'Edit Service',
-					type: 2,
-					shadeClose: true,
-					area: ['500px', '366px'],
-					content: '/admin/view/plugin/xlogserver/services/edit?id=' + data.id,
-				});
-			} else if ( obj.event == 'delete' ) {
-				layer.confirm('Delete service "' + data.name + '"?<br>Database file will not be deleted.', {icon: 3, title: 'Confirm Delete'}, function(index){
+			function deleteServices(ids, label) {
+				layer.confirm('确定要删除' + label + '吗？<br>服务数据库文件会保留。', {icon: 3, title: '删除确认'}, function(index){
 					$.ajax({
-						url: '/admin/api/plugin/xlogserver/services',
+						url: apiUrl,
 						type: 'DELETE',
-						data: JSON.stringify([data.id]),
+						data: JSON.stringify(ids),
 						contentType: 'application/json',
 						dataType: 'json',
 						success: function(res){
-							if ( res.result ) {
-								layer.msg(res.message, {icon: 1});
-								table.reloadData('Table_Services');
+							if (res.result) {
+								layer.msg(res.message || 'deleted', {icon: 1});
+								reloadTable();
 							} else {
-								layer.msg(res.message, {icon: 2});
+								layer.msg(res.message || '删除失败', {icon: 2});
 							}
 						}
 					});
 					layer.close(index);
 				});
 			}
+
+			table.on('toolbar(Table_Services)', function(obj){
+				if (obj.event === 'search') {
+					table.reloadData('Table_Services', {
+						page: {curr: 1},
+						where: { search: document.getElementById('searchServices').value }
+					});
+				} else if (obj.event === 'refresh') {
+					reloadTable();
+				} else if (obj.event === 'add') {
+					layer.open({
+						title: '新建服务',
+						type: 2,
+						shadeClose: true,
+						area: ['520px', '320px'],
+						content: '/admin/view/plugin/xlogserver/services/add'
+					});
+				} else if (obj.event === 'batchDelete') {
+					var data = table.checkStatus('Table_Services').data;
+					var ids = data.map(function(row){ return row.id; });
+					if (!ids.length) {
+						layer.msg('请选择要删除的服务', {icon: 2});
+						return;
+					}
+					deleteServices(ids, '选中的 ' + ids.length + ' 个服务');
+				}
+			});
+
+			table.on('tool(Table_Services)', function(obj){
+				var data = obj.data;
+				if (obj.event === 'tasks') {
+					location.href = '/admin/view/plugin/xlogserver/tasks?serviceId=' + data.id;
+				} else if (obj.event === 'edit') {
+					layer.open({
+						title: '编辑服务',
+						type: 2,
+						shadeClose: true,
+						area: ['520px', '360px'],
+						content: '/admin/view/plugin/xlogserver/services/edit?id=' + data.id
+					});
+				} else if (obj.event === 'delete') {
+					deleteServices([data.id], '服务【' + data.name + '】');
+				}
+			});
+
+			window.xlogReloadServices = reloadTable;
 		});
-	});
-</script>
+	</script>
 </body>
 </html>

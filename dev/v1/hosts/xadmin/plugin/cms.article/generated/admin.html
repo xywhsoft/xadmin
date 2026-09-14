@@ -1,2707 +1,391 @@
-<!doctype html>
-<html lang="zh-CN">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>内容管理后台</title>
-  <link href="/layui/css/layui.css" rel="stylesheet">
-  <link rel="stylesheet" href="/lib/editormd/css/editormd.min.css">
-  <link rel="stylesheet" href="/lib/wangEditor/css/style.css">
-  <link rel="stylesheet" href="/lib/CodeMirror/lib/codemirror.css">
-  <link rel="stylesheet" href="/lib/CodeMirror/theme/monokai.css">
-  <style>
-    :root {
-      --bg: #f5f7fb;
-      --panel: #ffffff;
-      --panel-strong: #ffffff;
-      --ink: #243047;
-      --muted: #667085;
-      --line: #e7edf3;
-      --accent: #1677ff;
-      --accent-strong: #0958d9;
-      --warn: #b45309;
-      --danger: #b91c1c;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      color: var(--ink);
-      font-family: "Segoe UI", "PingFang SC", sans-serif;
-      background: var(--bg);
-    }
-    .shell { max-width: 1560px; margin: 0 auto; padding: 20px; }
-    .hero {
-      border-radius: 8px;
-      padding: 20px 22px;
-      margin-bottom: 18px;
-      color: var(--ink);
-      background: #fff;
-      border: 1px solid var(--line);
-      box-shadow: 0 1px 2px rgba(16,24,40,.06);
-    }
-    .hero h1 { margin: 0 0 8px; font-size: 22px; }
-    .hero p { margin: 0; max-width: 880px; color: var(--muted); line-height: 1.7; font-size: 14px; }
-    .hero-note {
-      margin-top: 12px;
-      max-width: 880px;
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-    }
-    .hero-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .hero-chip {
-      display: inline-flex;
-      align-items: center;
-      padding: 6px 10px;
-      border-radius: 999px;
-      background: #eef4ff;
-      color: var(--accent-strong);
-      font-size: 12px;
-      font-weight: 700;
-      border: 1px solid #d6e4ff;
-    }
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 14px;
-    }
-    .layout { display: grid; grid-template-columns: 360px 1fr; gap: 18px; }
-    .view-panel[hidden] { display: none !important; }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 18px;
-      box-shadow: 0 1px 3px rgba(16,24,40,.06);
-    }
-    .stack { display: flex; flex-direction: column; gap: 14px; }
-    .toolbar, .toolbar-between {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    .toolbar-between { justify-content: space-between; }
-    .button {
-      border-radius: 4px;
-      padding: 9px 14px;
-      font-weight: 700;
-      cursor: pointer;
-      border: 1px solid transparent;
-      background: #fff;
-    }
-    .button.primary { background: var(--accent); color: #fff; }
-    .button.ghost { background: #fff; color: var(--ink); border-color: #d0d5dd; }
-    .button.warn { background: #fff7ed; color: #b45309; border-color: #fed7aa; }
-    .button.danger { background: #fff1f0; color: #cf1322; border-color: #ffccc7; }
-    .button:disabled { opacity: .55; cursor: not-allowed; }
-    .input, .select {
-      min-height: 40px;
-      border-radius: 4px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--ink);
-      padding: 0 14px;
-      font-size: 13px;
-      outline: none;
-    }
-    .input {
-      min-width: 180px;
-      flex: 1 1 180px;
-    }
-    .select {
-      min-width: 120px;
-    }
-    .status { min-height: 18px; font-size: 13px; color: var(--accent); }
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .summary-card {
-      border-radius: 6px;
-      padding: 14px;
-      border: 1px solid var(--line);
-      background: var(--panel-strong);
-    }
-    .summary-card span {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .summary-card strong {
-      display: block;
-      margin-top: 8px;
-      font-size: 20px;
-    }
-    .selection-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      color: var(--muted);
-      font-size: 12px;
-    }
-    .meta {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .meta-card {
-      border-radius: 6px;
-      padding: 14px;
-      border: 1px solid var(--line);
-      background: var(--panel-strong);
-    }
-    .meta-card span {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      text-transform: none;
-      letter-spacing: 0;
-    }
-    .meta-card strong {
-      display: block;
-      margin-top: 8px;
-      font-size: 22px;
-    }
-    .meta-card small {
-      display: block;
-      margin-top: 6px;
-      color: var(--muted);
-      font-size: 11px;
-      line-height: 1.5;
-    }
-    .record-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      max-height: 820px;
-      overflow: auto;
-    }
-    .record-item {
-      display: flex;
-      gap: 12px;
-      align-items: flex-start;
-      padding: 14px;
-      border-radius: 6px;
-      border: 1px solid transparent;
-      background: #fff;
-      cursor: pointer;
-      transition: .15s ease;
-    }
-    .record-cover {
-      width: 60px;
-      height: 60px;
-      border-radius: 14px;
-      object-fit: cover;
-      border: 1px solid rgba(148,163,184,.24);
-      background: rgba(15,23,42,.08);
-      flex: 0 0 auto;
-    }
-    .record-copy {
-      min-width: 0;
-      flex: 1 1 auto;
-    }
-    .record-item.active {
-      border-color: #91caff;
-      background: #f0f7ff;
-    }
-    .record-item strong {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 15px;
-    }
-    .record-item span {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .record-item-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 10px;
-    }
-    .badge-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-bottom: 8px;
-    }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-    }
-    .badge.live { background: #dcfce7; color: #166534; }
-    .badge.draft { background: #fef3c7; color: #92400e; }
-    .badge.hidden { background: #e5e7eb; color: #475569; }
-    .form-shell {
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: var(--panel-strong);
-      overflow: hidden;
-    }
-    .form-frame {
-      min-height: 460px;
-      padding: 18px 18px 10px;
-    }
-    .form-frame .xform-group-fields.xform-layout-two-column {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      column-gap: 16px;
-    }
-    .form-frame .xform-group-fields.xform-layout-two-column .layui-form-item {
-      margin-bottom: 18px;
-    }
-    .form-frame .xform-group-fields.xform-layout-two-column .xform-field-span-2 {
-      grid-column: 1 / -1;
-    }
-    .form-empty {
-      padding: 80px 20px;
-      text-align: center;
-      color: var(--muted);
-    }
-    .preview {
-      margin: 0;
-      white-space: pre-wrap;
-      word-break: break-word;
-      line-height: 1.6;
-      color: #334155;
-      font-family: Consolas, "Courier New", monospace;
-      font-size: 12px;
-    }
-    .asset-preview {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-    }
-    .asset-card {
-      padding: 14px;
-      border-radius: 6px;
-      border: 1px solid rgba(148,163,184,.18);
-      background: #fff;
-    }
-    .asset-card strong {
-      display: block;
-      margin-bottom: 10px;
-      font-size: 14px;
-    }
-    .asset-card span {
-      display: block;
-      margin-bottom: 8px;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .asset-gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
-      gap: 10px;
-    }
-    .asset-gallery.files {
-      grid-template-columns: 1fr;
-    }
-    .asset-gallery a {
-      text-decoration: none;
-    }
-    .asset-thumb {
-      display: block;
-      width: 100%;
-      height: 92px;
-      object-fit: cover;
-      border-radius: 14px;
-      border: 1px solid rgba(148,163,184,.24);
-      background: rgba(15,23,42,.08);
-    }
-    .asset-file-link {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      color: #0f172a;
-      background: rgba(241,245,249,.92);
-      border: 1px solid rgba(148,163,184,.2);
-      word-break: break-all;
-    }
-    .asset-empty {
-      padding: 14px;
-      border-radius: 6px;
-      border: 1px dashed rgba(148,163,184,.35);
-      color: var(--muted);
-      font-size: 13px;
-      background: #fafcff;
-    }
-    .hint {
-      color: var(--muted);
-      font-size: 13px;
-      line-height: 1.6;
-    }
-    .slot-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .slot-card {
-      min-width: 180px;
-      padding: 12px 14px;
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: #fff;
-    }
-    .slot-card.mounted {
-      border-color: rgba(15,118,110,.26);
-      background: rgba(220,252,231,.72);
-    }
-    .slot-card.configured {
-      border-color: rgba(180,83,9,.28);
-      background: rgba(254,243,199,.72);
-    }
-    .slot-card.unresolved {
-      border-color: rgba(100,116,139,.26);
-      background: rgba(241,245,249,.82);
-    }
-    .slot-card.invalid {
-      border-color: rgba(185,28,28,.24);
-      background: rgba(254,226,226,.78);
-    }
-    .slot-card strong {
-      display: block;
-      font-size: 14px;
-      margin-bottom: 6px;
-    }
-    .slot-card span {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .slot-card a {
-      color: var(--accent-strong);
-      font-size: 12px;
-      text-decoration: none;
-    }
-    .slot-card .toolbar {
-      margin-top: 8px;
-    }
-    .mount-layout {
-      display: grid;
-      grid-template-columns: 280px 1fr;
-      gap: 14px;
-      align-items: start;
-    }
-    .mount-list {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      max-height: 420px;
-      overflow: auto;
-    }
-    .mount-item {
-      padding: 12px 14px;
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: #fff;
-      cursor: pointer;
-      transition: .15s ease;
-    }
-    .mount-item.active {
-      border-color: #91caff;
-      background: #f0f7ff;
-    }
-    .mount-item strong {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-    }
-    .mount-item span {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .mount-preview {
-      min-height: 120px;
-      max-height: 260px;
-      overflow: auto;
-    }
-    .workspace-shell {
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: var(--panel-strong);
-      overflow: hidden;
-    }
-    .workspace-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
-      background: #fafcff;
-    }
-    .workspace-title {
-      font-size: 14px;
-      font-weight: 700;
-    }
-    .workspace-frame {
-      width: 100%;
-      min-height: 560px;
-      border: 0;
-      background: #fff;
-    }
-    .workspace-empty {
-      min-height: 240px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
-      color: var(--muted);
-      text-align: center;
-      line-height: 1.7;
-    }
-    .provider-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .provider-card {
-      min-width: 220px;
-      padding: 12px 14px;
-      border-radius: 6px;
-      border: 1px solid var(--line);
-      background: #fff;
-    }
-    .provider-card strong {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-    }
-    .provider-card span {
-      display: block;
-      color: var(--muted);
-      font-size: 12px;
-      line-height: 1.5;
-    }
-    .editor-tabbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    .tab-button {
-      border-radius: 999px;
-      padding: 8px 14px;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--muted);
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .tab-button.active {
-      color: var(--accent-strong);
-      border-color: #bfdbfe;
-      background: #eff6ff;
-    }
-    .tab-panel[hidden] { display: none !important; }
-    @media (max-width: 1180px) {
-      .layout { grid-template-columns: 1fr; }
-      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .mount-layout { grid-template-columns: 1fr; }
-      .form-frame .xform-group-fields.xform-layout-two-column { grid-template-columns: 1fr; }
-    }
-    @media (max-width: 760px) {
-      .summary-grid { grid-template-columns: 1fr; }
-      .meta { grid-template-columns: 1fr; }
-      .hero h1 { font-size: 28px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="shell">
-    <section class="hero">
-      <h1 id="ma_title">内容管理</h1>
-      <p id="ma_desc">受管生成插件后台，直接复用 xadmin form 体系渲染内容模型，让记录编辑、草稿保存与模型升级保持同一条运行时路径。</p>
-      <div class="hero-note" id="ma_meta_note"></div>
-      <div class="hero-meta" id="ma_meta_tags"></div>
-      <div class="hero-actions">
-        <button class="button ghost" id="ma_view_list_btn" onclick="maShowListView()">内容管理</button>
-        <button class="button ghost" id="ma_view_editor_btn" onclick="maOpenEditorView()">内容编辑</button>
-        <button class="button ghost" id="ma_view_mount_btn" onclick="maOpenMountView()">扩展挂载</button>
-      </div>
-    </section>
-    <div class="layout">
-      <aside class="panel stack">
-        <div class="toolbar-between">
-          <h2 style="margin:0;">记录列表</h2>
-          <div class="toolbar">
-            <button class="button ghost" onclick="maNew()">新建</button>
-            <button class="button ghost" onclick="maRefresh()">刷新</button>
-          </div>
-        </div>
-        <div class="toolbar">
-          <input class="input" id="ma_search" type="text" placeholder="搜索标题、摘要、Slug..." onkeydown="maHandleSearchKey(event)">
-          <select class="select" id="ma_filter_status" onchange="maApplyListFilters()">
-            <option value="">全部状态</option>
-          </select>
-          <select class="select" id="ma_filter_draft" onchange="maApplyListFilters()">
-            <option value="-1">全部记录</option>
-            <option value="0">正式记录</option>
-            <option value="1">仅草稿</option>
-          </select>
-          <select class="select" id="ma_sort_by" onchange="maApplyListFilters()"></select>
-          <select class="select" id="ma_sort_dir" onchange="maApplyListFilters()">
-            <option value="">默认方向</option>
-            <option value="desc">降序</option>
-            <option value="asc">升序</option>
-          </select>
-          <button class="button ghost" onclick="maApplyListFilters()">搜索</button>
-        </div>
-        <div class="toolbar" id="ma_field_filters"></div>
-        <div class="status" id="ma_nav_status"></div>
-        <div class="record-list" id="ma_list"><div class="form-empty">加载中...</div></div>
-      </aside>
-      <main class="stack">
-        <section class="panel stack view-panel" id="ma_list_view">
-          <div class="toolbar-between">
-            <div>
-              <h2 style="margin:0;">内容管理</h2>
-              <div class="hint">先在左侧列表里筛选、定位和选择记录，再进入内容编辑或扩展挂载视图。</div>
-            </div>
-            <div class="toolbar">
-              <button class="button primary" onclick="maNew()">新建内容</button>
-              <button class="button ghost" onclick="maRefresh()">刷新列表</button>
-              <button class="button ghost" onclick="maOpenEditorForCurrent()">编辑当前记录</button>
-              <button class="button ghost" onclick="maOpenMountView()">扩展挂载</button>
-            </div>
-          </div>
-          <div class="summary-grid">
-            <div class="summary-card"><span>当前插件</span><strong id="ma_summary_plugin">cms.article</strong></div>
-            <div class="summary-card"><span>已加载记录</span><strong id="ma_summary_count">0</strong></div>
-            <div class="summary-card"><span>当前选中</span><strong id="ma_summary_selected">未选择</strong></div>
-            <div class="summary-card"><span>能力槽位</span><strong id="ma_summary_slots">0</strong></div>
-          </div>
-          <div class="selection-meta" id="ma_summary_selection_meta"></div>
-          <div class="hint" id="ma_summary_selection_desc">请先从左侧列表选择一条记录，或点击“新建内容”进入独立编辑视图。</div>
-        </section>
-        <section class="panel stack view-panel" data-view="editor" id="ma_editor_view" hidden>
-          <div class="toolbar-between">
-            <div>
-              <h2 style="margin:0;">内容编辑</h2>
-              <div class="hint">在独立编辑上下文中维护当前记录，保存后仍停留在编辑态。</div>
-            </div>
-            <div class="toolbar">
-              <button class="button ghost" onclick="maShowListView()">返回列表</button>
-              <button class="button ghost" onclick="maOpenMountView()">扩展挂载</button>
-            </div>
-          </div>
-          <div class="editor-tabbar">
-            <button class="tab-button" id="ma_tab_form_btn" onclick="maSetEditorTab('form')">基础内容</button>
-            <button class="tab-button" id="ma_tab_preview_btn" onclick="maSetEditorTab('preview')">数据预览</button>
-          </div>
-          <div class="tab-panel" id="ma_editor_tab_form">
-          <div class="meta">
-            <div class="meta-card"><span>插件</span><strong id="ma_meta_plugin">cms.article</strong></div>
-            <div class="meta-card"><span>当前记录</span><strong id="ma_meta_id">新建</strong></div>
-            <div class="meta-card"><span>流程状态</span><strong id="ma_meta_flow">已发布</strong></div>
-            <div class="meta-card"><span>记录数</span><strong id="ma_meta_count">0</strong></div>
-            <div class="meta-card"><span>能力槽位</span><strong id="ma_meta_slots">0</strong><small id="ma_meta_slot_detail">还没有加载能力契约。</small></div>
-          </div>
-          <div class="toolbar">
-            <button class="button primary" id="ma_save_btn" onclick="maSave(false)">保存</button>
-            <button class="button warn" id="ma_draft_btn" onclick="maSave(true)">保存草稿</button>
-            <button class="button danger" onclick="maDelete()">删除</button>
-          </div>
-          <div class="status" id="ma_form_status"></div>
-          <div class="hint">字段由内容模型实时映射为 xadmin form schema。切换记录会重建表单实例，保持生成插件和模型定义一致。</div>
-          <div class="slot-list" id="ma_slots"><div class="hint">还没有声明能力槽位。</div></div>
-          <div class="form-shell">
-            <div class="form-frame" id="ma_form"><div class="form-empty">正在加载表单结构...</div></div>
-          </div>
-          <div class="toolbar-between">
-            <h3 style="margin:0;">资源预览</h3>
-            <span class="hint">实时预览当前表单中的图片和文件字段。</span>
-          </div>
-          <div id="ma_asset_preview" class="asset-preview"><div class="asset-empty">当前没有资源字段。</div></div>
-          </div>
-        </section>
-        <section class="panel stack view-panel" data-view="mount" id="ma_workspace_view" hidden>
-          <div class="toolbar-between">
-            <div>
-              <h2 style="margin:0;">扩展挂载</h2>
-              <div class="hint">把能力工作区和挂载注册表独立出来，避免和内容表单混在同一主流程。</div>
-            </div>
-            <div class="toolbar">
-              <button class="button ghost" onclick="maShowListView()">返回列表</button>
-              <button class="button ghost" onclick="maOpenEditorForCurrent()">编辑当前记录</button>
-            </div>
-          </div>
-          <div class="toolbar-between">
-            <h3 style="margin:0;">能力工作区</h3>
-            <span class="hint">在当前记录作用域内内嵌打开已挂载的能力面板。</span>
-          </div>
-          <div class="toolbar">
-            <button class="button ghost" type="button" onclick="maRefreshWorkspace()">刷新工作区</button>
-            <button class="button ghost" type="button" onclick="maOpenWorkspaceNewTab()">新标签打开</button>
-            <button class="button danger" type="button" onclick="maCloseWorkspace()">关闭工作区</button>
-          </div>
-          <div class="status" id="ma_workspace_status"></div>
-          <div class="workspace-shell">
-            <div class="workspace-toolbar">
-              <div class="workspace-title" id="ma_workspace_title">尚未打开能力面板</div>
-              <span class="hint" id="ma_workspace_scope">选择一个已挂载的能力槽位后即可在这里打开。</span>
-            </div>
-            <div id="ma_workspace_host"><div class="workspace-empty">选择一个已挂载的能力槽位后即可在这里打开。</div></div>
-          </div>
-        </section>
-        <section class="panel stack view-panel tab-panel" data-view="editor" id="ma_preview_view" hidden>
-          <div class="toolbar-between">
-            <h3 style="margin:0;">数据预览</h3>
-            <span class="hint">当前 XForm 收集结果</span>
-          </div>
-          <pre class="preview" id="ma_preview">{}</pre>
-        </section>
-        <section class="panel stack view-panel" data-view="mount" id="ma_mount_view" hidden>
-          <div class="toolbar-between">
-            <h3 style="margin:0;">能力挂载注册表</h3>
-            <span class="hint">用 XForm 维护 `custom/capability.mounts.json`，让受管插件以配置方式接入后续能力包。</span>
-          </div>
-          <div class="toolbar">
-            <button class="button ghost" onclick="maMountNew()">新建条目</button>
-            <button class="button ghost" onclick="maMountNewFromSlot()">从槽位新建</button>
-            <button class="button ghost" onclick="maRefreshProviderDiscovery()">刷新发现结果</button>
-            <button class="button ghost" onclick="maRecommendMissingMounts()">推荐缺失挂载</button>
-            <button class="button warn" onclick="maMountApplyCurrent()">应用条目</button>
-            <button class="button primary" onclick="maSaveMountRegistry()">保存注册表</button>
-            <button class="button danger" onclick="maMountDeleteCurrent()">删除条目</button>
-          </div>
-          <div class="status" id="ma_mount_status"></div>
-          <div class="mount-layout">
-            <div class="mount-list" id="ma_mount_list"><div class="form-empty">正在加载挂载注册表...</div></div>
-            <div class="form-shell">
-              <div class="form-frame" id="ma_mount_form"><div class="form-empty">正在加载挂载编辑器...</div></div>
-            </div>
-          </div>
-          <div class="provider-list" id="ma_provider_list"><div class="hint">正在加载能力提供方发现结果...</div></div>
-          <pre class="preview mount-preview" id="ma_mount_preview">{}</pre>
-        </section>
-      </main>
-    </div>
+<!-- Main table -->
+<div style="padding: 16px;">
+  <table class="layui-hide" id="Table_Content_MakePlugin_cms_article_Articles" lay-filter="Table_Content_MakePlugin_cms_article_Articles"></table>
+</div>
+
+<!-- Table toolbar -->
+<script type="text/html" id="Toolbar_Content_MakePlugin_cms_article_Articles">
+  <div class="layui-inline">
+    <input type="text" id="Search_Content_MakePlugin_cms_article_Articles" placeholder="&#25628;&#32034;&#26631;&#39064;&#12289;&#25688;&#35201;&#12289;Slug..." class="layui-input" style="width: 260px; height: 32px; margin-right: 10px;">
   </div>
+  <div class="layui-inline" id="CategoryWrap_Content_MakePlugin_cms_article_Articles" style="display:none;">
+    <select id="Category_Content_MakePlugin_cms_article_Articles" class="layui-select" style="height:32px; min-width:150px; margin-right:10px;">
+      <option value="">&#20840;&#37096;&#26639;&#30446;</option>
+    </select>
+  </div>
+  <div class="layui-inline" id="TagWrap_Content_MakePlugin_cms_article_Articles" style="display:none;">
+    <select id="Tag_Content_MakePlugin_cms_article_Articles" class="layui-select" style="height:32px; min-width:140px; margin-right:10px;">
+      <option value="">&#20840;&#37096;&#26631;&#31614;</option>
+    </select>
+  </div>
+  <div class="layui-inline" id="TopicWrap_Content_MakePlugin_cms_article_Articles" style="display:none;">
+    <select id="Topic_Content_MakePlugin_cms_article_Articles" class="layui-select" style="height:32px; min-width:140px; margin-right:10px;">
+      <option value="">&#20840;&#37096;&#19987;&#39064;</option>
+    </select>
+  </div>
+  <div class="layui-inline">
+    <button class="layui-btn layui-btn-sm" lay-event="Search_Content_MakePlugin_cms_article_Articles"><i class="layui-icon layui-icon-search"></i> &#25628;&#32034;</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_Content_MakePlugin_cms_article_Articles"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
+  </div>
+  <div class="layui-inline" style="float: right;">
+    <button class="layui-btn layui-btn-sm" lay-event="Add_Content_MakePlugin_cms_article_Articles"><i class="layui-icon layui-icon-addition"></i> &#26032;&#22686;&#20869;&#23481;</button>
+  </div>
+</script>
 
-  <script src="/layui/layui.js"></script>
-  <script>window.__xformDebug = false;</script>
-  <script src="/lib/xform/xform.js?v=20260408_01"></script>
-  <script>
-    const ma = {
-      meta: null,
-      items: [],
-      viewMode: "list",
-      editorTab: "form",
-      currentId: 0,
-      currentData: {},
-      currentDraft: false,
-      formInstance: null,
-      mountEditorInstance: null,
-      mountEditorIndex: -1,
-      mountDraft: null,
-      mountDirty: false,
-      mountSchemaSignature: "",
-      customMounts: { mounts: [] },
-      workspaceSlotKey: "",
-      workspaceHref: "",
-      workspaceTitle: "",
-      listQuery: "",
-      listStatus: "",
-      listDraft: -1,
-      listSortBy: "",
-      listSortDir: "",
-      listFieldFilters: {},
-      layer: null
+<!-- Row tools -->
+<script type="text/html" id="Tool_Content_MakePlugin_cms_article_Articles">
+  <div class="layui-clear-space">
+    <a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">&#32534;&#36753;</a>
+    <a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">&#21024;&#38500;</a>
+  </div>
+</script>
+
+<!-- Page logic -->
+<script>
+layui.use(['table', 'form'], function(){
+  var table = layui.table;
+  var form = layui.form;
+  var layer = layui.layer;
+  var $ = layui.$;
+  var pluginXid = 'cms.article';
+  var domBase = 'Content_MakePlugin_cms_article_Articles';
+  var pageKind = 'articles';
+  var ids = {
+    table: 'Table_' + domBase,
+    toolbar: 'Toolbar_' + domBase,
+    tool: 'Tool_' + domBase,
+    search: 'Search_' + domBase,
+    category: 'Category_' + domBase,
+    categoryWrap: 'CategoryWrap_' + domBase,
+    tag: 'Tag_' + domBase,
+    tagWrap: 'TagWrap_' + domBase,
+    topic: 'Topic_' + domBase,
+    topicWrap: 'TopicWrap_' + domBase
+  };
+  var state = {
+    meta: null,
+    categories: null,
+    tags: null,
+    topics: null,
+    categoryMap: {},
+    hasCategory: false,
+    hasTag: false,
+    hasTopic: false,
+    hasComment: false,
+    hasLike: false,
+    hasView: false
+  };
+
+  function t(key) {
+    var dict = {
+      addTitle: '\u65b0\u589e\u5185\u5bb9',
+      editTitle: '\u7f16\u8f91\u5185\u5bb9',
+      confirmDelete: '\u786e\u5b9a\u5220\u9664 "',
+      confirmDeleteEnd: '" \u5417\uff1f',
+      deleteConfirm: '\u5220\u9664\u786e\u8ba4',
+      deleteFailed: '\u5220\u9664\u5931\u8d25',
+      deleted: '\u5df2\u5220\u9664',
+      failed: '\u64cd\u4f5c\u5931\u8d25',
+      draft: '\u8349\u7a3f',
+      published: '\u5df2\u53d1\u5e03',
+      title: '\u6807\u9898',
+      status: '\u72b6\u6001',
+      summary: '\u6458\u8981',
+      createTime: '\u521b\u5efa\u65f6\u95f4',
+      updateTime: '\u4fee\u6539\u65f6\u95f4',
+      operation: '\u64cd\u4f5c'
     };
-
-    function maEscape(value) {
-      return String(value || "").replace(/[&<>\"']/g, (ch) => {
-        if (ch === "&") return "&amp;";
-        if (ch === "<") return "&lt;";
-        if (ch === ">") return "&gt;";
-        if (ch === "\"") return "&quot;";
-        return "&#39;";
-      });
-    }
-
-    function maClone(value) {
-      return JSON.parse(JSON.stringify(value == null ? {} : value));
-    }
-
-    function maPlainObject(value) {
-      if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-      return maClone(value);
-    }
-
-    function maOptionFieldName(name) {
-      return `providerOption__${name || ""}`;
-    }
-
-    function maSetStatus(id, message, color) {
-      const el = document.getElementById(id);
-      el.innerText = message || "";
-      el.style.color = color || "#0f766e";
-    }
-
-    function maToast(message, icon) {
-      if (ma.layer && ma.layer.msg) {
-        ma.layer.msg(message, { icon: icon || 0, time: 2200 });
-      }
-    }
-
-    function maHandleError(err) {
-      const message = err && err.message ? err.message : String(err);
-      maSetStatus("ma_nav_status", message, "#b91c1c");
-      maSetStatus("ma_form_status", message, "#b91c1c");
-      maSetStatus("ma_mount_status", message, "#b91c1c");
-      maToast(message, 2);
-      return message;
-    }
-
-    function maCurrentItem() {
-      return ma.items.find((item) => item && item.id === ma.currentId) || null;
-    }
-
-    function maSyncView() {
-      const listView = document.getElementById("ma_list_view");
-      const editorViews = document.querySelectorAll('[data-view="editor"]');
-      const mountViews = document.querySelectorAll('[data-view="mount"]');
-      const isList = ma.viewMode === "list";
-      const isEditor = ma.viewMode === "editor";
-      if (listView) listView.hidden = !isList;
-      editorViews.forEach((el) => { el.hidden = !isEditor; });
-      mountViews.forEach((el) => { el.hidden = ma.viewMode !== "mount"; });
-      const listBtn = document.getElementById("ma_view_list_btn");
-      const editorBtn = document.getElementById("ma_view_editor_btn");
-      const mountBtn = document.getElementById("ma_view_mount_btn");
-      if (listBtn) {
-        listBtn.classList.toggle("primary", isList);
-        listBtn.classList.toggle("ghost", !isList);
-      }
-      if (editorBtn) {
-        editorBtn.classList.toggle("primary", isEditor);
-        editorBtn.classList.toggle("ghost", !isEditor);
-      }
-      if (mountBtn) {
-        mountBtn.classList.toggle("primary", ma.viewMode === "mount");
-        mountBtn.classList.toggle("ghost", ma.viewMode !== "mount");
-      }
-      maSyncEditorTabs();
-    }
-
-    function maSyncEditorTabs() {
-      const isForm = ma.editorTab !== "preview";
-      const formPanel = document.getElementById("ma_editor_tab_form");
-      const previewPanel = document.getElementById("ma_preview_view");
-      const formBtn = document.getElementById("ma_tab_form_btn");
-      const previewBtn = document.getElementById("ma_tab_preview_btn");
-      if (formPanel) formPanel.hidden = !isForm;
-      if (previewPanel) previewPanel.hidden = (ma.viewMode !== "editor") || isForm;
-      if (formBtn) formBtn.classList.toggle("active", isForm);
-      if (previewBtn) previewBtn.classList.toggle("active", !isForm);
-    }
-
-    function maSetEditorTab(tab) {
-      ma.editorTab = tab === "preview" ? "preview" : "form";
-      maSyncView();
-    }
-
-    function maShowListView() {
-      ma.viewMode = "list";
-      maSyncView();
-    }
-
-    function maOpenEditorView() {
-      ma.viewMode = "editor";
-      if (!ma.editorTab) ma.editorTab = "form";
-      maSyncView();
-    }
-
-    function maOpenMountView() {
-      ma.viewMode = "mount";
-      maSyncView();
-    }
-
-    function maOpenEditorForCurrent() {
-      if (ma.currentId <= 0) {
-        maToast("请先选择一条记录，或直接新建内容。", 0);
-        return;
-      }
-      maOpenEditorView();
-    }
-
-    function maRenderListSummary() {
-      const current = maCurrentItem();
-      const descEl = document.getElementById("ma_summary_selection_desc");
-      const metaEl = document.getElementById("ma_summary_selection_meta");
-      const pluginEl = document.getElementById("ma_summary_plugin");
-      const countEl = document.getElementById("ma_summary_count");
-      const selectedEl = document.getElementById("ma_summary_selected");
-      const slotsEl = document.getElementById("ma_summary_slots");
-      if (pluginEl) pluginEl.innerText = (ma.meta && ma.meta.pluginXid) || "cms.article";
-      if (countEl) countEl.innerText = String(ma.items.length);
-      if (selectedEl) selectedEl.innerText = current ? `#${current.id}` : "未选择";
-      if (slotsEl) slotsEl.innerText = String(maCapabilitySlots().length);
-      if (!descEl || !metaEl) return;
-      if (!current) {
-        descEl.innerText = "请先从左侧列表选择一条记录，或点击“新建内容”进入独立编辑视图。";
-        metaEl.innerHTML = "";
-        return;
-      }
-      descEl.innerText = "当前已选中一条记录。你可以进入内容编辑继续修改表单内容，或前往扩展挂载处理能力配置。";
-      metaEl.innerHTML = [
-        `<span>记录 ID：${maEscape(current.id)}</span>`,
-        `<span>标题：${maEscape(maRecordTitle(current) || "未命名记录")}</span>`,
-        `<span>流程状态：${maEscape(maCurrentFlowLabel(current))}</span>`
-      ].join("");
-    }
-
-    function maEnsureXForm() {
-      if (!window.XForm || window.XForm.version !== "20260408_01") {
-        throw new Error("XForm 运行时不可用或版本不匹配");
-      }
-    }
-
-    function maFields() {
-      return (((ma.meta || {}).spec || {}).entity || {}).fields || [];
-    }
-
-    function maRecordTitle(source) {
-      const row = source && typeof source === "object" ? source : {};
-      const data = row.data && typeof row.data === "object" ? row.data : row;
-      const spec = ((ma.meta || {}).spec || {});
-      const entity = spec.entity || {};
-      const titleField = entity.titleField || "title";
-      const value = data[titleField];
-      if (value == null || value === "") {
-        return row.title || data.title || "";
-      }
-      return String(value);
-    }
-
-    function maListFields() {
-      const configured = (((((ma.meta || {}).spec || {}).ui || {}).list || {}).columns) || [];
-      const fields = maFields().filter((field) => field && field.name);
-      const fieldMap = {};
-      if (!Array.isArray(configured) || !configured.length) {
-        return fields.filter((field) => field.showInList !== false);
-      }
-      for (const field of fields) {
-        fieldMap[field.name] = field;
-      }
-      return configured.map((name) => fieldMap[name]).filter((field) => field && field.showInList !== false);
-    }
-
-    function maMetadata() {
-      return ((((ma.meta || {}).spec || {}).metadata) || {});
-    }
-
-    function maPolicies() {
-      return ((((ma.meta || {}).spec || {}).policies) || {});
-    }
-
-    function maMetadataItems() {
-      const metadata = maMetadata();
-      const labels = Array.isArray(metadata.labels) ? metadata.labels.filter(Boolean).map((item) => `label:${item}`) : [];
-      const tags = Array.isArray(metadata.tags) ? metadata.tags.filter(Boolean).map((item) => `tag:${item}`) : [];
-      const policies = maPolicies();
-      const policyItems = [];
-      if (policies.statusFlow) policyItems.push(`statusFlow:${policies.statusFlow}`);
-      if (policies.authorMode) policyItems.push(`authorMode:${policies.authorMode}`);
-      if (policies.publishMode) policyItems.push(`publishMode:${policies.publishMode}`);
-      if (policies.deleteMode) policyItems.push(`deleteMode:${policies.deleteMode}`);
-      return [...labels, ...tags, ...policyItems];
-    }
-
-    function maMetadataNotes() {
-      const notes = maMetadata().notes;
-      return typeof notes === "string" ? notes.trim() : "";
-    }
-
-    function maRenderHeroMetadata() {
-      const host = document.getElementById("ma_meta_tags");
-      const items = maMetadataItems();
-      if (!host) return;
-      host.innerHTML = items.map((item) => `<span class="hero-chip">${maEscape(item)}</span>`).join("");
-      host.style.display = items.length ? "flex" : "none";
-      const noteEl = document.getElementById("ma_meta_note");
-      const note = maMetadataNotes();
-      if (noteEl) {
-        noteEl.innerText = note;
-        noteEl.style.display = note ? "block" : "none";
-      }
-    }
-
-    function maDraftEnabled() {
-      return !!((ma.meta || {}).draftEnabled);
-    }
-
-    function maStatusFlow() {
-      return String((maPolicies().statusFlow || "draft-published")).trim() || "draft-published";
-    }
-
-    function maStatusOptions() {
-      return maStatusFlow() === "draft-review-published"
-        ? [
-            { value: 0, label: "隐藏" },
-            { value: 1, label: "待审核" },
-            { value: 2, label: "已发布" }
-          ]
-        : [
-            { value: 0, label: "隐藏" },
-            { value: 1, label: "已发布" }
-          ];
-    }
-
-    function maStatusField() {
-      return maFields().find((field) => {
-        if (!field || !field.name) return false;
-        const role = String((((field || {}).semantic || {}).role) || "").toLowerCase();
-        const configured = String(((((ma.meta || {}).spec || {}).entity || {}).statusField) || "");
-        return role === "status" || (configured && field.name === configured);
-      }) || null;
-    }
-
-    function maStatusLabel(value) {
-      const match = maStatusOptions().find((item) => String(item.value) === String(value));
-      return match ? match.label : String(value == null ? "" : value);
-    }
-
-    function maStatusBadge(item) {
-      if (item && item.isDraft) {
-        return { className: "draft", label: "草稿" };
-      }
-      if (Number((item || {}).status) <= 0) {
-        return { className: "hidden", label: "隐藏" };
-      }
-      if (maStatusFlow() === "draft-review-published" && Number((item || {}).status) === 1) {
-        return { className: "draft", label: "待审核" };
-      }
-      return { className: "live", label: maStatusLabel((item || {}).status) || "已发布" };
-    }
-
-    function maCurrentStatusValue() {
-      const field = maStatusField();
-      const source = ma.currentData || {};
-      return field && field.name ? Number(source[field.name] || 0) : 0;
-    }
-
-    function maApplyPrimaryStatus(data, asDraft) {
-      const field = maStatusField();
-      const next = data && typeof data === "object" ? data : {};
-      const current = field && field.name ? Number(next[field.name] || 0) : 0;
-      if (!field || !field.name || asDraft) return next;
-      if (maStatusFlow() === "draft-review-published") {
-        if (ma.currentDraft || ma.currentId <= 0) {
-          next[field.name] = current > 0 ? Math.min(current, 2) : 1;
-        } else if (current > 2) {
-          next[field.name] = 2;
-        }
-        return next;
-      }
-      if (ma.currentDraft || ma.currentId <= 0) {
-        next[field.name] = 1;
-      } else if (current > 0) {
-        next[field.name] = 1;
-      }
-      return next;
-    }
-
-    function maCurrentFlowLabel(currentItem) {
-      if (ma.currentId <= 0) return "新建";
-      if (ma.currentDraft) return "草稿";
-      return maStatusLabel(currentItem ? currentItem.status : maCurrentStatusValue()) || "隐藏";
-    }
-
-    function maPrimaryActionLabel() {
-      if (maStatusFlow() === "draft-review-published") {
-        return ma.currentDraft || ma.currentId <= 0 ? "提交审核" : "保存状态";
-      }
-      return ma.currentDraft || ma.currentId <= 0 ? "发布" : "保存";
-    }
-
-    function maSaveSuccessMessage(isDraft) {
-      const statusValue = maCurrentStatusValue();
-      if (isDraft) return "草稿已保存。";
-      if (maStatusFlow() === "draft-review-published" && Number(statusValue) === 1) return "已提交审核。";
-      if (Number(statusValue) > 0) return `${maStatusLabel(statusValue)}已保存。`;
-      return "记录已保存。";
-    }
-
-    function maListPageSize() {
-      const pageSize = Number((((((ma.meta || {}).spec || {}).ui || {}).list || {}).pageSize) || 0);
-      if (!Number.isFinite(pageSize) || pageSize <= 0) return 200;
-      return Math.min(pageSize, 200);
-    }
-
-    function maCloneDefaultValue(value) {
-      if (value == null || typeof value !== "object") return value;
-      return JSON.parse(JSON.stringify(value));
-    }
-
-    function maBuildDefaultData() {
-      const data = {};
-      for (const field of maFields()) {
-        if (!field || !field.name) continue;
-        if (!Object.prototype.hasOwnProperty.call(field, "defaultValue")) continue;
-        data[field.name] = maCloneDefaultValue(field.defaultValue);
-      }
-      return data;
-    }
-
-    function maMergeWithDefaults(values) {
-      const merged = maBuildDefaultData();
-      const source = values && typeof values === "object" ? values : {};
-      for (const key of Object.keys(source)) {
-        merged[key] = maCloneDefaultValue(source[key]);
-      }
-      return merged;
-    }
-
-    function maFilterableFields() {
-      return maFields().filter((field) => field && field.name && field.filterable);
-    }
-
-    function maFieldStorageType(field) {
-      return String((((field || {}).storage || {}).type || "")).toLowerCase();
-    }
-
-    function maFieldComponentType(field) {
-      return String((((field || {}).component || {}).type || "")).toLowerCase();
-    }
-
-    function maFieldQueryKey(field) {
-      return `f_${(field && field.name) || ""}`;
-    }
-
-    function maFieldFilterId(field) {
-      return `ma_filter_field_${(field && field.name) || ""}`;
-    }
-
-    function maFieldFilterValue(name) {
-      const source = ma.listFieldFilters || {};
-      return Object.prototype.hasOwnProperty.call(source, name) ? String(source[name] || "") : "";
-    }
-
-    function maFieldFilterControl(field) {
-      const componentType = maFieldComponentType(field);
-      const storageType = maFieldStorageType(field);
-      const options = maFieldOptions(field);
-      const id = maFieldFilterId(field);
-      const label = field.title || field.name;
-
-      if (Array.isArray(options) && options.length) {
-        const optionHtml = options.map((item) => {
-          if (item && typeof item === "object" && "value" in item) {
-            return `<option value="${maEscape(item.value)}">${maEscape(item.label || item.title || item.text || item.value)}</option>`;
-          }
-          return `<option value="${maEscape(item)}">${maEscape(item)}</option>`;
-        }).join("");
-        return `<select class="select" id="${maEscape(id)}" onchange="maApplyListFilters()"><option value="">全部${maEscape(label)}</option>${optionHtml}</select>`;
-      }
-      if (componentType === "switch" || storageType === "bool") {
-        return `<select class="select" id="${maEscape(id)}" onchange="maApplyListFilters()"><option value="">全部${maEscape(label)}</option><option value="true">启用</option><option value="false">停用</option></select>`;
-      }
-      if (storageType === "integer" || storageType === "real" || storageType === "datetime") {
-        return `<input class="input" id="${maEscape(id)}" type="text" placeholder="${maEscape(label)}" onkeydown="maHandleSearchKey(event)">`;
-      }
-      return `<input class="input" id="${maEscape(id)}" type="text" placeholder="${maEscape(label)}" onkeydown="maHandleSearchKey(event)">`;
-    }
-
-    function maRenderFieldFilters() {
-      const host = document.getElementById("ma_field_filters");
-      const fields = maFilterableFields();
-      if (!host) return;
-      if (!fields.length) {
-        host.innerHTML = "";
-        return;
-      }
-      host.innerHTML = fields.map((field) => maFieldFilterControl(field)).join("");
-      for (const field of fields) {
-        const el = document.getElementById(maFieldFilterId(field));
-        if (el) el.value = maFieldFilterValue(field.name);
-      }
-    }
-
-    function maReadFieldFiltersFromDom() {
-      const next = {};
-      for (const field of maFilterableFields()) {
-        const el = document.getElementById(maFieldFilterId(field));
-        const value = String((el || {}).value || "").trim();
-        if (value !== "") {
-          next[field.name] = value;
-        }
-      }
-      return next;
-    }
-
-    function maApplyUrlState() {
-      const params = new URLSearchParams(window.location.search);
-      const nextFieldFilters = {};
-      ma.listQuery = String(params.get("q") || "");
-      ma.listStatus = String(params.get("status") || "");
-      ma.listDraft = params.has("draft") ? Number(params.get("draft") || -1) : -1;
-      ma.listSortBy = String(params.get("sortBy") || "");
-      ma.listSortDir = String(params.get("sortDir") || "");
-      for (const field of maFilterableFields()) {
-        const value = String(params.get(maFieldQueryKey(field)) || "").trim();
-        if (value !== "") {
-          nextFieldFilters[field.name] = value;
-        }
-      }
-      ma.listFieldFilters = nextFieldFilters;
-      const searchEl = document.getElementById("ma_search");
-      if (searchEl) searchEl.value = ma.listQuery || "";
-    }
-
-    function maSyncListUrl() {
-      const params = new URLSearchParams();
-      if (ma.listQuery) params.set("q", ma.listQuery);
-      if (ma.listStatus !== "") params.set("status", ma.listStatus);
-      if (ma.listDraft >= 0) params.set("draft", String(ma.listDraft));
-      if (ma.listSortBy) params.set("sortBy", ma.listSortBy);
-      if (ma.listSortDir) params.set("sortDir", ma.listSortDir);
-      for (const field of maFilterableFields()) {
-        const value = String(((ma.listFieldFilters || {})[field.name] || "")).trim();
-        if (value !== "") {
-          params.set(maFieldQueryKey(field), value);
-        }
-      }
-      const next = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ""}`;
-      window.history.replaceState({}, "", next);
-    }
-
-    function maSortOptions() {
-      const options = [
-        { value: "", label: "默认排序" },
-        { value: "updateTime", label: "更新时间" },
-        { value: "createTime", label: "创建时间" },
-        { value: "title", label: "标题" },
-        { value: "status", label: "状态" },
-        { value: "id", label: "ID" },
-        { value: "publishedAt", label: "发布时间" },
-        { value: "slug", label: "别名" }
-      ];
-      for (const field of maFields()) {
-        if (!field || !field.name || !field.sortable) continue;
-        if (options.some((item) => item.value === field.name)) continue;
-        options.push({ value: field.name, label: field.title || field.name });
-      }
-      return options;
-    }
-
-    function maRenderListControls() {
-      const sortEl = document.getElementById("ma_sort_by");
-      if (sortEl) {
-        const options = maSortOptions();
-        sortEl.innerHTML = options.map((item) => `<option value="${maEscape(item.value)}">${maEscape(item.label)}</option>`).join("");
-        sortEl.value = ma.listSortBy || "";
-      }
-      const statusEl = document.getElementById("ma_filter_status");
-      if (statusEl) {
-        statusEl.innerHTML = [`<option value="">全部状态</option>`]
-          .concat(maStatusOptions().map((item) => `<option value="${maEscape(item.value)}">${maEscape(item.label)}</option>`))
-          .join("");
-        statusEl.value = ma.listStatus || "";
-      }
-      const draftEl = document.getElementById("ma_filter_draft");
-      if (draftEl) draftEl.value = String(ma.listDraft);
-      const dirEl = document.getElementById("ma_sort_dir");
-      if (dirEl) dirEl.value = ma.listSortDir || "";
-      maRenderFieldFilters();
-    }
-
-    function maApplyListFilters() {
-      ma.listQuery = String((document.getElementById("ma_search") || {}).value || "").trim();
-      ma.listStatus = String((document.getElementById("ma_filter_status") || {}).value || "").trim();
-      ma.listDraft = Number((document.getElementById("ma_filter_draft") || {}).value || -1);
-      ma.listSortBy = String((document.getElementById("ma_sort_by") || {}).value || "").trim();
-      ma.listSortDir = String((document.getElementById("ma_sort_dir") || {}).value || "").trim();
-      ma.listFieldFilters = maReadFieldFiltersFromDom();
-      maSyncListUrl();
-      maShowListView();
-      maRefresh();
-    }
-
-    function maHandleSearchKey(event) {
-      if (event && event.key === "Enter") {
-        maApplyListFilters();
-      }
-    }
-
-    function maDeclaredSlots() {
-      return ((((ma.meta || {}).contracts || {}).capabilitySlots)
-        || (((((ma.meta || {}).managed || {}).contracts || {}).capabilitySlots))
-        || []);
-    }
-
-    function maCapabilitySlots() {
-      const mountItems = (((ma.meta || {}).mounts || {}).mounts) || [];
-      if (mountItems.length) return mountItems.map((item) => item.slot || {});
-      return maDeclaredSlots();
-    }
-
-    function maMountRegistry() {
-      return ((ma.meta || {}).mounts) || { mounts: [] };
-    }
-
-    function maMountRegistryMap() {
-      const map = {};
-      for (const item of (maMountRegistry().mounts || [])) {
-        if (!item) continue;
-        const key = item.slotKey || ((item.slot || {}).key) || "";
-        if (key) map[key] = item;
-      }
-      return map;
-    }
-
-    function maCurrentContentContext() {
-      if (ma.currentId <= 0) return null;
-      return {
-        contentPlugin: ((ma.meta || {}).pluginXid) || "cms.article",
-        contentId: ma.currentId
-      };
-    }
-
-    function maBuildScopedHref(baseHref) {
-      const context = maCurrentContentContext();
-      if (!baseHref) return "";
-      try {
-        const url = new URL(baseHref, window.location.origin);
-        if (context) {
-          url.searchParams.set("contentPlugin", context.contentPlugin);
-          url.searchParams.set("contentId", String(context.contentId));
-        }
-        return url.origin === window.location.origin
-          ? `${url.pathname}${url.search}${url.hash}`
-          : url.toString();
-      } catch (err) {
-        return baseHref;
-      }
-    }
-
-    function maBuildMountHref(item, baseHref) {
-      const mount = ((item || {}).mount) || {};
-      const options = mount.options || {};
-      const slotKey = ((item || {}).slot || {}).key || (item || {}).slotKey || "";
-      const href = maBuildScopedHref(baseHref);
-      if (!href) return "";
-      try {
-        const url = new URL(href, window.location.origin);
-        if (slotKey) url.searchParams.set("mountSlotKey", slotKey);
-        if (options && Object.keys(options).length) {
-          url.searchParams.set("mountOptions", JSON.stringify(options));
-        }
-        return url.origin === window.location.origin
-          ? `${url.pathname}${url.search}${url.hash}`
-          : url.toString();
-      } catch (err) {
-        return href;
-      }
-    }
-
-    function maCurrentScopeText() {
-      const context = maCurrentContentContext();
-      if (!context) return "当前是全局能力作用域，选择记录后会自动绑定。";
-      return `已绑定到 ${context.contentPlugin} #${context.contentId}。`;
-    }
-
-    function maFindMountItem(slotKey) {
-      return (maMountRegistry().mounts || []).find((item) => {
-        const key = ((item || {}).slot || {}).key || (item || {}).slotKey || "";
-        return key === slotKey;
-      }) || null;
-    }
-
-    function maMountAdminHref(item) {
-      const mount = (item || {}).mount || {};
-      const adminEntry = mount.adminEntry || {};
-      return maBuildMountHref(item, adminEntry.href || "");
-    }
-
-    function maRenderWorkspace() {
-      const host = document.getElementById("ma_workspace_host");
-      const titleEl = document.getElementById("ma_workspace_title");
-      const scopeEl = document.getElementById("ma_workspace_scope");
-      if (!ma.workspaceHref) {
-        titleEl.innerText = "尚未打开能力面板";
-        scopeEl.innerText = "选择一个已挂载的能力槽位后即可在这里打开。";
-        host.innerHTML = "<div class='workspace-empty'>选择一个已挂载的能力槽位后即可在这里打开。</div>";
-        return;
-      }
-      titleEl.innerText = ma.workspaceTitle || ma.workspaceSlotKey || "已挂载能力";
-      scopeEl.innerText = maCurrentScopeText();
-      host.innerHTML = `<iframe class="workspace-frame" src="${maEscape(ma.workspaceHref)}" loading="lazy"></iframe>`;
-    }
-
-    function maSyncWorkspaceForContext() {
-      if (!ma.workspaceSlotKey) {
-        maRenderWorkspace();
-        return;
-      }
-      const item = maFindMountItem(ma.workspaceSlotKey);
-      const href = maMountAdminHref(item);
-      if (!href) {
-        ma.workspaceHref = "";
-        ma.workspaceTitle = "";
-        maSetStatus("ma_workspace_status", `槽位 ${ma.workspaceSlotKey} 对应的挂载能力已不可用。`, "#b91c1c");
-        maRenderWorkspace();
-        return;
-      }
-      ma.workspaceHref = href;
-      ma.workspaceTitle = (((item || {}).mount || {}).adminEntry || {}).title || (((item || {}).slot || {}).title) || ma.workspaceSlotKey;
-      maRenderWorkspace();
-    }
-
-    function maOpenWorkspace(slotKey) {
-      const item = maFindMountItem(slotKey);
-      const href = maMountAdminHref(item);
-      if (!href) {
-        maSetStatus("ma_workspace_status", `槽位 ${slotKey} 没有可打开的后台入口。`, "#b91c1c");
-        return;
-      }
-      ma.workspaceSlotKey = slotKey || "";
-      ma.workspaceHref = href;
-      ma.workspaceTitle = (((item || {}).mount || {}).adminEntry || {}).title || (((item || {}).slot || {}).title) || slotKey || "已挂载能力";
-      maRenderWorkspace();
-      maSetStatus("ma_workspace_status", `已在工作区打开 ${ma.workspaceTitle}。`);
-    }
-
-    function maRefreshWorkspace() {
-      if (!ma.workspaceSlotKey) {
-        maSetStatus("ma_workspace_status", "当前工作区没有打开任何挂载能力。");
-        maRenderWorkspace();
-        return;
-      }
-      maSyncWorkspaceForContext();
-      if (ma.workspaceHref) {
-        maSetStatus("ma_workspace_status", `槽位 ${ma.workspaceSlotKey} 的工作区已刷新。`);
-      }
-    }
-
-    function maOpenWorkspaceNewTab() {
-      if (!ma.workspaceHref) {
-        maSetStatus("ma_workspace_status", "当前工作区没有打开任何挂载能力。");
-        return;
-      }
-      window.open(ma.workspaceHref, "_blank", "noopener,noreferrer");
-    }
-
-    function maCloseWorkspace() {
-      ma.workspaceSlotKey = "";
-      ma.workspaceHref = "";
-      ma.workspaceTitle = "";
-      maRenderWorkspace();
-      maSetStatus("ma_workspace_status", "工作区已关闭。");
-    }
-
-    function maSlotStateClass(status) {
-      if (status === "mounted") return " mounted";
-      if (status === "configured") return " configured";
-      if (status === "unresolved") return " unresolved";
-      return " invalid";
-    }
-
-    function maSlotStateText(status) {
-      switch (status) {
-        case "mounted": return "已挂载";
-        case "configured": return "已配置";
-        case "unresolved": return "待处理";
-        case "invalid-slot": return "槽位无效";
-        case "invalid-provider": return "提供方无效";
-        case "provider-mismatch": return "提供方不匹配";
-        case "surface-mismatch": return "挂载面不匹配";
-        case "invalid-route": return "路由无效";
-        default: return status || "未知";
-      }
-    }
-
-    function maMountSummaryText(registry, slotCount) {
-      const declared = Number((registry || {}).declaredCount || slotCount || 0);
-      const configured = Number((registry || {}).configuredCount || 0);
-      const unresolved = Number((registry || {}).unresolvedCount || 0);
-      const invalid = Number((registry || {}).invalidCount || 0);
-      const extras = Math.max(Number((registry || {}).total || 0) - declared, 0);
-      const parts = [];
-      if (configured) parts.push(`${configured} 个已配置`);
-      if (unresolved) parts.push(`${unresolved} 个待处理`);
-      if (invalid) parts.push(`${invalid} 个异常`);
-      if (extras) parts.push(`${extras} 个额外挂载项`);
-      return parts.join(" / ") || "所有声明的槽位都已挂载。";
-    }
-
-    function maFieldOptions(field) {
-      return field.list
-        || field.options
-        || ((field.component || {}).list)
-        || ((field.component || {}).options)
-        || (((field.component || {}).props || {}).list)
-        || (((field.component || {}).props || {}).options)
-        || ((() => {
-          const role = String((((field || {}).semantic || {}).role) || "").toLowerCase();
-          const statusField = maStatusField();
-          if (role === "status" || (statusField && statusField.name === (field || {}).name)) {
-            return maStatusOptions();
-          }
-          return null;
-        })())
-        || [];
-    }
-
-    function maFindField(name) {
-      return maFields().find((field) => field && field.name === name) || null;
-    }
-
-    function maFieldLabel(field, value) {
-      const options = maFieldOptions(field);
-      for (const item of options) {
-        if (!item) continue;
-        if (typeof item === "object" && "value" in item) {
-          if (String(item.value) === String(value)) return item.label || item.title || item.text || item.value;
-        } else if (String(item) === String(value)) {
-          return item;
-        }
-      }
-      return value;
-    }
-
-    function maDisplayValue(field, value) {
-      if (value == null || value === "") return "";
-      const componentType = String((((field || {}).component || {}).type || "")).toLowerCase();
-      if (componentType === "image" || componentType === "images" || componentType === "file" || componentType === "files") {
-        const items = maAssetValues(value);
-        if (!items.length) return "";
-        if (componentType === "image") return maAssetLabel(items[0]) || "图片";
-        if (componentType === "file") return maAssetLabel(items[0]) || "文件";
-        if (componentType === "images") return items.length === 1 ? (maAssetLabel(items[0]) || "1 张图片") : `${items.length} 张图片`;
-        return items.length === 1 ? (maAssetLabel(items[0]) || "1 个文件") : `${items.length} 个文件`;
-      }
-      if (Array.isArray(value)) {
-        return value.map((item) => maDisplayValue(field, item)).filter(Boolean).join(", ");
-      }
-      if (componentType === "switch" || typeof value === "boolean") {
-        return value ? "启用" : "停用";
-      }
-      if (componentType === "select" || componentType === "radio" || componentType === "checkbox" || componentType === "checklist") {
-        return String(maFieldLabel(field, value));
-      }
-      if (typeof value === "object") {
-        try {
-          return JSON.stringify(value);
-        } catch (err) {
-          return String(value);
-        }
-      }
-      return String(value);
-    }
-
-    function maAssetValues(value) {
-      if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
-      if (typeof value === "string") {
-        const text = value.trim();
-        if (!text) return [];
-        if (text.startsWith("[")) {
-          try {
-            return maAssetValues(JSON.parse(text));
-          } catch (err) {
-            return [text];
-          }
-        }
-        return text.split(/\r?\n|,/).map((item) => String(item || "").trim()).filter(Boolean);
-      }
-      if (value == null) return [];
-      return [String(value).trim()].filter(Boolean);
-    }
-
-    function maAssetLabel(url) {
-      const clean = String(url || "").split("#")[0].split("?")[0];
-      const parts = clean.split("/");
-      return parts[parts.length - 1] || String(url || "");
-    }
-
-    function maRecordCover(item) {
-      if (item && item.cover) return item.cover;
-      const data = (item && item.data) || {};
-      for (const field of maFields()) {
-        if (!field || !field.name) continue;
-        const componentType = String((((field || {}).component || {}).type || "")).toLowerCase();
-        if (componentType !== "image" && componentType !== "images") continue;
-        const items = maAssetValues(data[field.name]);
-        if (items.length) return items[0];
-      }
-      return "";
-    }
-
-    function maAssetFields() {
-      return maFields().filter((field) => {
-        const componentType = String((((field || {}).component || {}).type || "")).toLowerCase();
-        return componentType === "image" || componentType === "images" || componentType === "file" || componentType === "files";
-      });
-    }
-
-    function maRenderAssetPreview(payload) {
-      const host = document.getElementById("ma_asset_preview");
-      const data = payload && typeof payload === "object" ? payload : {};
-      const fields = maAssetFields();
-      if (!host) return;
-      if (!fields.length) {
-        host.innerHTML = "<div class='asset-empty'>当前没有资源字段。</div>";
-        return;
-      }
-      const cards = fields.map((field) => {
-        const componentType = String((((field || {}).component || {}).type || "")).toLowerCase();
-        const items = maAssetValues(data[field.name]);
-        const label = maEscape(field.title || field.name);
-        const hint = componentType === "image" || componentType === "images"
-          ? (items.length ? `${items.length} 张图片` : "未选择图片")
-          : (items.length ? `${items.length} 个文件` : "未选择文件");
-        let content = "<div class='asset-empty'>空</div>";
-        if (items.length) {
-          if (componentType === "image" || componentType === "images") {
-            content = `<div class="asset-gallery">${items.map((url) => `<a href="${maEscape(url)}" target="_blank" rel="noopener noreferrer"><img class="asset-thumb" src="${maEscape(url)}" alt="${maEscape(maAssetLabel(url) || "image")}" loading="lazy"></a>`).join("")}</div>`;
-          } else {
-            content = `<div class="asset-gallery files">${items.map((url) => `<a class="asset-file-link" href="${maEscape(url)}" target="_blank" rel="noopener noreferrer"><i class="layui-icon layui-icon-link"></i><span>${maEscape(maAssetLabel(url) || url)}</span></a>`).join("")}</div>`;
-          }
-        }
-        return `<article class="asset-card"><strong>${label}</strong><span>${maEscape(hint)}</span>${content}</article>`;
-      });
-      host.innerHTML = cards.join("");
-    }
-
-    function maOptionsSummary(options) {
-      const source = options || {};
-      const keys = Object.keys(source);
-      if (!keys.length) return "";
-      return keys.slice(0, 2).map((key) => {
-        const value = source[key];
-        if (typeof value === "object") {
-          try {
-            return `${key}: ${JSON.stringify(value)}`;
-          } catch (err) {
-            return `${key}: [object]`;
-          }
-        }
-        return `${key}: ${String(value)}`;
-      }).join(" | ");
-    }
-
-    function maProviderOptionField(provider, name) {
-      const schema = maProviderOptionSchema(provider);
-      if (!schema || !Array.isArray(schema.groups)) return null;
-      for (const group of schema.groups) {
-        for (const field of ((group || {}).fields || [])) {
-          if (field && field.name === name) return field;
-        }
-      }
-      return null;
-    }
-
-    function maOptionsSummaryForMount(slotKey, mount) {
-      const source = (mount && mount.options) || {};
-      const keys = Object.keys(source);
-      if (!keys.length) return "";
-      const provider = maResolveProviderDefinition(
-        slotKey || "",
-        (mount && mount.providerPlugin) || "",
-        (mount && mount.serviceXid) || ""
-      );
-      const parts = [];
-      for (const key of keys) {
-        const field = maProviderOptionField(provider, key);
-        const text = field ? maDisplayValue(field, source[key]) : maOptionsSummary({ [key]: source[key] });
-        if (!text) continue;
-        parts.push(field ? `${field.title || key}: ${text}` : text);
-        if (parts.length >= 2) break;
-      }
-      return parts.join(" | ");
-    }
-
-    function maListSummary(item) {
-      const data = (item && item.data) || {};
-      const fields = maListFields();
-      const parts = [];
-      for (const field of fields) {
-        if (!field || !field.name) continue;
-        const role = String((((field || {}).semantic || {}).role) || "").toLowerCase();
-        if (role === "title") continue;
-        const text = maDisplayValue(field, data[field.name]);
-        if (text) parts.push(`${field.title || field.name}: ${text}`);
-        if (parts.length >= 2) break;
-      }
-      return parts.join(" | ") || ((item && item.summary) || "");
-    }
-
-    function maRenderList() {
-      const host = document.getElementById("ma_list");
-      if (!ma.items.length) {
-        host.innerHTML = "<div class='form-empty'>还没有记录。</div>";
-        maRenderListSummary();
-        return;
-      }
-      host.innerHTML = ma.items.map((item) => {
-        const active = item.id === ma.currentId ? " active" : "";
-        const badgeInfo = maStatusBadge(item);
-        const badge = `<span class='badge ${maEscape(badgeInfo.className)}'>${maEscape(badgeInfo.label)}</span>`;
-        const summary = maListSummary(item);
-        const cover = maRecordCover(item);
-        const coverHtml = cover ? `<img class="record-cover" src="${maEscape(cover)}" alt="${maEscape(item.title || `#${item.id}`)}" loading="lazy">` : "";
-        return `<article class="record-item${active}" onclick="maLoadRecord(${item.id})">${coverHtml}<div class="record-copy"><div class="badge-row">${badge}</div><strong>${maEscape(item.title || `#${item.id}`)}</strong><span>${maEscape(summary || "还没有配置列表字段。")}</span><span>${maEscape(item.updateTimeText || item.createTimeText || "")}</span><div class="record-item-actions"><button class="button ghost" onclick="event.stopPropagation();maOpenEditorForId(${item.id})">编辑</button><button class="button ghost" onclick="event.stopPropagation();maOpenMountViewForId(${item.id})">挂载</button></div></div></article>`;
-      }).join("");
-      maRenderListSummary();
-    }
-
-    function maUpdateMeta() {
-      const currentItem = ma.items.find((item) => item.id === ma.currentId) || null;
-      const registry = maMountRegistry();
-      const slots = maCapabilitySlots();
-      const flow = maCurrentFlowLabel(currentItem);
-      document.getElementById("ma_meta_plugin").innerText = (ma.meta && ma.meta.pluginXid) || "cms.article";
-      document.getElementById("ma_meta_id").innerText = ma.currentId > 0 ? `#${ma.currentId}` : "新建";
-      document.getElementById("ma_meta_flow").innerText = flow;
-      document.getElementById("ma_meta_count").innerText = String(ma.items.length);
-      document.getElementById("ma_meta_slots").innerText = `${registry.mountedCount || 0}/${registry.declaredCount || slots.length}`;
-      document.getElementById("ma_meta_slot_detail").innerText = maMountSummaryText(registry, slots.length);
-      document.getElementById("ma_draft_btn").style.display = maDraftEnabled() ? "inline-flex" : "none";
-      const saveBtn = document.getElementById("ma_save_btn");
-      if (saveBtn) saveBtn.innerText = maPrimaryActionLabel();
-      maRenderCapabilitySlots();
-      maSyncWorkspaceForContext();
-      maRenderListSummary();
-    }
-
-    function maRenderCapabilitySlots() {
-      const host = document.getElementById("ma_slots");
-      const registry = maMountRegistry();
-      const mounts = registry.mounts || [];
-      if (!mounts.length) {
-        host.innerHTML = "<div class='hint'>还没有声明能力槽位。</div>";
-        return;
-      }
-      host.innerHTML = mounts.map((item) => {
-        const slot = item.slot || {};
-        const mount = item.mount || {};
-        const key = slot.key || item.slotKey || "slot";
-        const title = slot.title || slot.name || key;
-        const desc = slot.desc || "为后续能力包预留的接入点。";
-        const status = item.status || "unresolved";
-        const provider = item.provider || mount.providerPlugin || mount.serviceXid || slot.serviceXid || "";
-        const surface = ((mount.mount || {}).surface) || mount.surface || ((slot.mount || {}).surface) || "";
-        const message = item.message || "";
-        const candidates = maProviderCandidates(key);
-        const recommended = candidates.length === 1 ? candidates[0] : null;
-        const candidateText = candidates.length
-          ? `已发现 ${candidates.length} 个提供方候选`
-          : "尚未发现可用提供方";
-        const adminEntry = mount.adminEntry || {};
-        const scopeText = maCurrentScopeText();
-        const linkHref = maBuildMountHref(item, adminEntry.href || "");
-        const link = linkHref ? `<a href="${maEscape(linkHref)}" target="_blank" rel="noreferrer">${maEscape(adminEntry.title || "打开后台挂载页")}</a>` : "";
-        const openInline = linkHref ? `<button class="button primary" type="button" onclick='maOpenWorkspace(${JSON.stringify(key)})'>内嵌打开</button>` : "";
-        const actions = `<div class="toolbar">${openInline}<button class="button ghost" type="button" onclick='maEditSlotMount(${JSON.stringify(key)})'>编辑挂载</button>${recommended ? `<button class="button primary" type="button" onclick='maQuickMountRecommended(${JSON.stringify(key)})'>使用 ${maEscape(recommended.pluginTitle || recommended.pluginXid || recommended.key || "提供方")}</button>` : ""}</div>`;
-        const optionSummary = maOptionsSummaryForMount(key, mount);
-        return `<article class="slot-card${maSlotStateClass(status)}"><strong>${maEscape(title)}</strong><span>${maEscape(key)} | ${maEscape(maSlotStateText(status))}</span><span>${maEscape(provider || "尚未绑定提供方")}</span>${surface ? `<span>${maEscape(`挂载面：${surface}`)}</span>` : ""}<span>${maEscape(desc)}</span><span>${maEscape(scopeText)}</span><span>${maEscape(candidateText)}</span>${optionSummary ? `<span>${maEscape(`选项：${optionSummary}`)}</span>` : ""}${message ? `<span>${maEscape(message)}</span>` : ""}${actions}${link}</article>`;
-      }).join("");
-    }
-
-    function maSyncPreview() {
-      let payload = ma.currentData || {};
-      if (ma.formInstance) {
-        try {
-          payload = ma.formInstance.collect();
-        } catch (err) {
-          payload = { _error: err && err.message ? err.message : String(err) };
-        }
-      }
-      document.getElementById("ma_preview").textContent = JSON.stringify(payload, null, 2);
-      maRenderAssetPreview(payload);
-    }
-
-    async function maRenderForm(values) {
-      maEnsureXForm();
-      const host = document.getElementById("ma_form");
-      const schema = ((ma.meta || {}).schema) || { title: "Content", groups: [] };
-      const initialValues = maMergeWithDefaults(values || {});
-      host.innerHTML = "<div class='form-empty'>Rendering form...</div>";
-      ma.formInstance = await window.XForm.render(
-        host,
-        schema,
-        initialValues,
-        ((ma.meta || {}).fieldTypes) || {},
-        {}
-      );
-      if (ma.formInstance && ma.formInstance.formEl) {
-        ma.formInstance.formEl.addEventListener("input", maSyncPreview);
-        ma.formInstance.formEl.addEventListener("change", maSyncPreview);
-      }
-      maSyncPreview();
-    }
-
-    function maCustomMountRoot() {
-      return ma.customMounts || { mounts: [] };
-    }
-
-    function maSanitizeCustomMountRoot(root) {
-      const source = root && typeof root === "object" ? root : {};
-      const mounts = Array.isArray(source.mounts) ? source.mounts : [];
-      return {
-        mounts: mounts
-          .map((entry) => maCompactMountEntry(entry))
-          .filter((entry) => entry && entry.slotKey)
-      };
-    }
-
-    function maCustomMountList() {
-      const mounts = maCustomMountRoot().mounts;
-      return Array.isArray(mounts) ? mounts : [];
-    }
-
-    function maProviderCatalog() {
-      return (maProviderDiscovery().providers || []).filter(Boolean);
-    }
-
-    function maProviderMatches(provider, providerPlugin, serviceXid) {
-      if (!provider) return false;
-      if (providerPlugin) {
-        return provider.pluginXid === providerPlugin
-          || provider.key === providerPlugin
-          || (provider.serviceXidList || []).some((item) => String(item) === String(providerPlugin));
-      }
-      if (serviceXid) {
-        return (provider.serviceXidList || []).some((item) => String(item) === String(serviceXid))
-          || (((provider.defaults || {}).serviceXid) || "") === serviceXid;
-      }
-      return false;
-    }
-
-    function maResolveProviderDefinition(slotKey, providerPlugin, serviceXid) {
-      const candidates = slotKey ? maProviderCandidates(slotKey) : [];
-      if (providerPlugin || serviceXid) {
-        return candidates.find((provider) => maProviderMatches(provider, providerPlugin, serviceXid))
-          || maProviderCatalog().find((provider) => maProviderMatches(provider, providerPlugin, serviceXid))
-          || null;
-      }
-      return candidates.length === 1 ? candidates[0] : null;
-    }
-
-    function maProviderOptionSchema(provider) {
-      return provider
-        ? (provider.optionSchema || provider.mountOptionsSchema || provider.configSchema || provider.mountSchema || null)
-        : null;
-    }
-
-    function maProviderOptionFieldNames(provider) {
-      const schema = maProviderOptionSchema(provider);
-      const names = [];
-      if (!schema || !Array.isArray(schema.groups)) return names;
-      for (const group of schema.groups) {
-        for (const field of ((group || {}).fields || [])) {
-          if (field && field.name) names.push(field.name);
-        }
-      }
-      return names;
-    }
-
-    function maExpandProviderOptionGroups(provider) {
-      const schema = maProviderOptionSchema(provider);
-      if (!schema || !Array.isArray(schema.groups) || !schema.groups.length) return [];
-      return schema.groups.map((group, index) => {
-        const next = maClone(group);
-        next.key = `provider_${next.key || index}`;
-        next.title = next.title || (schema.title || "提供方选项");
-        next.desc = next.desc || schema.desc || "提供方专属挂载选项。";
-        next.fields = ((group || {}).fields || []).map((field) => {
-          const out = maClone(field);
-          out.name = maOptionFieldName(field.name || "");
-          return out;
-        });
-        return next;
-      });
-    }
-
-    function maProviderOptionsFromEntry(source, provider) {
-      const values = {};
-      const options = maPlainObject((source || {}).options);
-      for (const name of maProviderOptionFieldNames(provider)) {
-        values[maOptionFieldName(name)] = options[name];
-      }
-      return values;
-    }
-
-    function maMountSchemaSignature(values) {
-      const provider = maResolveProviderDefinition(
-        (values || {}).slotKey || "",
-        (values || {}).providerPlugin || "",
-        (values || {}).serviceXid || ""
-      );
-      const schema = maProviderOptionSchema(provider);
-      const names = maProviderOptionFieldNames(provider);
-      return JSON.stringify({
-        slotKey: (values || {}).slotKey || "",
-        providerPlugin: (values || {}).providerPlugin || "",
-        serviceXid: (values || {}).serviceXid || "",
-        providerKey: provider ? `${provider.pluginXid || ""}:${provider.key || ""}` : "",
-        optionKeys: names,
-        schemaTitle: schema ? (schema.title || "") : ""
-      });
-    }
-
-    function maFindDeclaredSlot(slotKey) {
-      return maDeclaredSlots().find((slot) => slot && slot.key === slotKey) || null;
-    }
-
-    function maFindCustomMountIndex(slotKey) {
-      return maCustomMountList().findIndex((item) => item && item.slotKey === slotKey);
-    }
-
-    async function maEditSlotMount(slotKey) {
-      if (!maMountCanDiscardDirty()) return;
-      const index = maFindCustomMountIndex(slotKey);
-      if (index >= 0) {
-        await maMountSelect(index);
-        return;
-      }
-      ma.mountEditorIndex = -1;
-      await maRenderMountForm(maMountSeedFromSlot(slotKey));
-      maRenderMountList();
-      maSetStatus("ma_mount_status", `正在为槽位 ${slotKey} 编辑新的挂载条目。`);
-    }
-
-    function maMountSeedFromSlot(slotKey) {
-      const slot = maFindDeclaredSlot(slotKey) || {};
-      const slotMount = slot.mount || {};
-      return {
-        slotKey: slotKey || "",
-        providerPlugin: slot.serviceXid || "",
-        serviceXid: slot.serviceXid || "",
-        status: "",
-        note: "",
-        mount: {
-          surface: slotMount.surface || "",
-          mode: slotMount.mode || ""
-        },
-        adminEntry: {
-          title: slot.title || slotKey || "",
-          href: slot.routeBase || ""
-        },
-        publicEntry: {
-          title: slot.title || slotKey || "",
-          href: slot.routeBase || ""
-        }
-      };
-    }
-
-    function maNormalizeMountEntry(raw) {
-      const source = raw || {};
-      const nestedMount = source.mount || {};
-      return {
-        slotKey: source.slotKey || source.key || "",
-        providerPlugin: source.providerPlugin || "",
-        serviceXid: source.serviceXid || "",
-        status: source.status || "",
-        note: source.note || "",
-        options: maPlainObject(source.options),
-        mount: {
-          surface: nestedMount.surface || source.surface || "",
-          mode: nestedMount.mode || source.mode || ""
-        },
-        adminEntry: {
-          title: ((source.adminEntry || {}).title) || "",
-          href: ((source.adminEntry || {}).href) || ""
-        },
-        publicEntry: {
-          title: ((source.publicEntry || {}).title) || "",
-          href: ((source.publicEntry || {}).href) || ""
-        }
-      };
-    }
-
-    function maCompactMountEntry(entry) {
-      const source = maNormalizeMountEntry(entry);
-      const out = {
-        slotKey: source.slotKey
-      };
-      if (source.providerPlugin) out.providerPlugin = source.providerPlugin;
-      if (source.serviceXid) out.serviceXid = source.serviceXid;
-      if (source.status) out.status = source.status;
-      if (source.note) out.note = source.note;
-      if (source.options && Object.keys(source.options).length) out.options = maClone(source.options);
-      if (source.mount.surface || source.mount.mode) {
-        out.mount = {};
-        if (source.mount.surface) out.mount.surface = source.mount.surface;
-        if (source.mount.mode) out.mount.mode = source.mount.mode;
-      }
-      if (source.adminEntry.title || source.adminEntry.href) {
-        out.adminEntry = {};
-        if (source.adminEntry.title) out.adminEntry.title = source.adminEntry.title;
-        if (source.adminEntry.href) out.adminEntry.href = source.adminEntry.href;
-      }
-      if (source.publicEntry.title || source.publicEntry.href) {
-        out.publicEntry = {};
-        if (source.publicEntry.title) out.publicEntry.title = source.publicEntry.title;
-        if (source.publicEntry.href) out.publicEntry.href = source.publicEntry.href;
-      }
-      return out;
-    }
-
-    function maMountFormValues(entry) {
-      const source = maNormalizeMountEntry(entry);
-      const values = {
-        slotKey: source.slotKey || "",
-        providerPlugin: source.providerPlugin || "",
-        serviceXid: source.serviceXid || "",
-        status: source.status || "",
-        mountSurface: source.mount.surface || "",
-        mountMode: source.mount.mode || "",
-        adminEntryTitle: source.adminEntry.title || "",
-        adminEntryHref: source.adminEntry.href || "",
-        publicEntryTitle: source.publicEntry.title || "",
-        publicEntryHref: source.publicEntry.href || "",
-        note: source.note || ""
-      };
-      Object.assign(
-        values,
-        maProviderOptionsFromEntry(
-          source,
-          maResolveProviderDefinition(source.slotKey, source.providerPlugin, source.serviceXid)
-        )
-      );
-      return values;
-    }
-
-    function maMountFromFormValues(values) {
-      const provider = maResolveProviderDefinition(values.slotKey || "", values.providerPlugin || "", values.serviceXid || "");
-      const previous = maNormalizeMountEntry(ma.mountDraft || {});
-      const keepPreviousOptions = previous.slotKey === (values.slotKey || "")
-        && previous.providerPlugin === (values.providerPlugin || "")
-        && previous.serviceXid === (values.serviceXid || "");
-      const options = maPlainObject(keepPreviousOptions ? previous.options : {});
-      for (const name of maProviderOptionFieldNames(provider)) {
-        const fieldValue = values[maOptionFieldName(name)];
-        if (fieldValue == null || fieldValue === "" || (Array.isArray(fieldValue) && !fieldValue.length)) {
-          delete options[name];
-        } else {
-          options[name] = fieldValue;
-        }
-      }
-      return maCompactMountEntry({
-        slotKey: values.slotKey || "",
-        providerPlugin: values.providerPlugin || "",
-        serviceXid: values.serviceXid || "",
-        status: values.status || "",
-        note: values.note || "",
-        options,
-        mount: {
-          surface: values.mountSurface || "",
-          mode: values.mountMode || ""
-        },
-        adminEntry: {
-          title: values.adminEntryTitle || "",
-          href: values.adminEntryHref || ""
-        },
-        publicEntry: {
-          title: values.publicEntryTitle || "",
-          href: values.publicEntryHref || ""
-        }
-      });
-    }
-
-    function maMountEditorSchema(currentValues) {
-      const slots = maDeclaredSlots();
-      const providers = maProviderCatalog();
-      const providerOptions = [{ value: "", label: "自动 / 手动" }];
-      const slotOptions = slots.map((slot) => ({
-        value: slot.key || "",
-        label: `${slot.title || slot.key || "slot"} (${slot.key || ""})`
-      }));
-      if (currentValues && currentValues.slotKey && !slotOptions.some((item) => item.value === currentValues.slotKey)) {
-        slotOptions.unshift({ value: currentValues.slotKey, label: `${currentValues.slotKey} (custom)` });
-      }
-      for (const provider of providers) {
-        const value = provider.pluginXid || provider.key || "";
-        if (!value || providerOptions.some((item) => item.value === value)) continue;
-        providerOptions.push({
-          value,
-          label: `${provider.pluginTitle || provider.title || value} (${provider.key || value})`
-        });
-      }
-      if (currentValues && currentValues.providerPlugin && !providerOptions.some((item) => item.value === currentValues.providerPlugin)) {
-        providerOptions.push({ value: currentValues.providerPlugin, label: `${currentValues.providerPlugin}（自定义）` });
-      }
-      const selectedProvider = maResolveProviderDefinition(
-        (currentValues || {}).slotKey || "",
-        (currentValues || {}).providerPlugin || "",
-        (currentValues || {}).serviceXid || ""
-      );
-      const providerGroups = maExpandProviderOptionGroups(selectedProvider);
-      return {
-        title: "挂载条目",
-        desc: "能力槽位挂载条目保存在 custom/capability.mounts.json。",
-        groups: [
-          {
-            key: "identity",
-            title: "契约绑定",
-            desc: "把受管插件槽位绑定到提供方插件契约。",
-            fields: [
-              { name: "slotKey", type: "select", label: "槽位键", required: true, list: slotOptions, desc: "必须匹配已声明的能力槽位。" },
-              { name: "providerPlugin", type: "select", label: "提供方插件", list: providerOptions, desc: "选择已发现的提供方插件，或保留自动后再手动配置。" },
-              { name: "serviceXid", type: "text", label: "服务别名", desc: "如果提供方仍使用 serviceXid，可在这里填写兼容别名。" },
-              {
-                name: "status",
-                type: "select",
-                label: "声明状态",
-                list: [
-                  { value: "", label: "自动" },
-                  { value: "mounted", label: "已挂载" },
-                  { value: "configured", label: "已配置" },
-                  { value: "unresolved", label: "待处理" }
-                ],
-                desc: "留空时由运行时根据契约自动推断状态。"
-              }
-            ]
-          },
-          {
-            key: "surface",
-            title: "挂载位置",
-            desc: "一般应跟随 content-system 中槽位契约的挂载面。",
-            fields: [
-              {
-                name: "mountSurface",
-                type: "select",
-                label: "挂载面",
-                list: [
-                  { value: "", label: "自动" },
-                  { value: "admin.record-list", label: "admin.record-list" },
-                  { value: "admin.record-detail", label: "admin.record-detail" },
-                  { value: "admin.record-form", label: "admin.record-form" },
-                  { value: "public.record-list", label: "public.record-list" },
-                  { value: "public.record-detail", label: "public.record-detail" }
-                ]
-              },
-              {
-                name: "mountMode",
-                type: "select",
-                label: "模式",
-                list: [
-                  { value: "", label: "自动" },
-                  { value: "optional", label: "可选" },
-                  { value: "required", label: "必需" }
-                ]
-              }
-            ]
-          },
-          {
-            key: "entries",
-            title: "入口路由",
-            desc: "这些路由会在受管后台和前台中作为能力入口展示。",
-            fields: [
-              { name: "adminEntryTitle", type: "text", label: "后台入口标题" },
-              { name: "adminEntryHref", type: "text", label: "后台入口地址", desc: "必须以 / 开头" },
-              { name: "publicEntryTitle", type: "text", label: "前台入口标题" },
-              { name: "publicEntryHref", type: "text", label: "前台入口地址", desc: "必须以 / 开头" }
-            ]
-          },
-          {
-            key: "notes",
-            title: "备注",
-            fields: [
-              { name: "note", type: "textarea", label: "备注", props: { height: "120px" }, desc: "给维护者看的可选说明。" }
-            ]
-          },
-          ...providerGroups
-        ]
-      };
-    }
-
-    function maSyncMountPreview() {
-      let payload = ma.mountDraft || {};
-      if (ma.mountEditorInstance) {
-        try {
-          payload = maMountFromFormValues(ma.mountEditorInstance.collect());
-        } catch (err) {
-          payload = { _error: err && err.message ? err.message : String(err) };
-        }
-      }
-      document.getElementById("ma_mount_preview").textContent = JSON.stringify(payload, null, 2);
-    }
-
-    async function maRenderMountForm(entry) {
-      maEnsureXForm();
-      const host = document.getElementById("ma_mount_form");
-      const values = maMountFormValues(entry);
-      const schema = maMountEditorSchema(values);
-      host.innerHTML = "<div class='form-empty'>正在加载挂载编辑器...</div>";
-      ma.mountDraft = maNormalizeMountEntry(entry);
-      ma.mountEditorInstance = await window.XForm.render(host, schema, values, {}, {});
-      if (ma.mountEditorInstance && ma.mountEditorInstance.formEl) {
-        ma.mountEditorInstance.formEl.addEventListener("input", () => {
-          ma.mountDirty = true;
-          maSyncMountPreview();
-          maRenderProviderCandidates();
-        });
-        ma.mountEditorInstance.formEl.addEventListener("change", () => {
-          ma.mountDirty = true;
-          maSyncMountPreview();
-          maRenderProviderCandidates();
-          Promise.resolve(maMaybeRefreshMountEditorSchema()).catch((err) => maHandleError(err));
-        });
-      }
-      ma.mountSchemaSignature = maMountSchemaSignature(values);
-      ma.mountDirty = false;
-      maSyncMountPreview();
-      maRenderProviderCandidates();
-    }
-
-    async function maMaybeRefreshMountEditorSchema() {
-      if (!ma.mountEditorInstance) return;
-      let values;
-      try {
-        values = ma.mountEditorInstance.collect();
-      } catch (err) {
-        return;
-      }
-      const nextSignature = maMountSchemaSignature(values);
-      if (nextSignature === ma.mountSchemaSignature) return;
-      const currentIndex = ma.mountEditorIndex;
-      const wasDirty = ma.mountDirty;
-      const entry = maMountFromFormValues(values);
-      await maRenderMountForm(entry);
-      ma.mountEditorIndex = currentIndex;
-      ma.mountDirty = wasDirty;
-      maRenderMountList();
-      maSetStatus("ma_mount_status", "提供方 schema 已变化，挂载编辑器已刷新。");
-    }
-
-    function maMountCanDiscardDirty() {
-      if (!ma.mountDirty) return true;
-      return window.confirm("当前挂载编辑器有未应用的修改，确定放弃吗？");
-    }
-
-    function maRenderMountList() {
-      const host = document.getElementById("ma_mount_list");
-      const list = maCustomMountList();
-      const registryMap = maMountRegistryMap();
-      if (!list.length) {
-        host.innerHTML = "<div class='form-empty'>还没有挂载条目，可以使用“从槽位新建”根据已声明契约生成一条。</div>";
-        return;
-      }
-      host.innerHTML = list.map((entry, index) => {
-        const mount = maNormalizeMountEntry(entry);
-        const active = index === ma.mountEditorIndex ? " active" : "";
-        const merged = registryMap[mount.slotKey] || {};
-        const status = merged.status || mount.status || "configured";
-        const provider = mount.providerPlugin || mount.serviceXid || ((merged.slot || {}).serviceXid) || "";
-        const surface = (mount.mount || {}).surface || (((merged.slot || {}).mount || {}).surface) || "";
-        const optionSummary = maOptionsSummaryForMount(mount.slotKey || "", mount);
-        return `<article class="mount-item${active}" onclick="maMountSelect(${index})"><strong>${maEscape(mount.slotKey || `entry-${index + 1}`)}</strong><span>${maEscape(maSlotStateText(status))}</span><span>${maEscape(provider || "尚未绑定提供方")}</span>${surface ? `<span>${maEscape(`挂载面：${surface}`)}</span>` : ""}${optionSummary ? `<span>${maEscape(`选项：${optionSummary}`)}</span>` : ""}</article>`;
-      }).join("");
-    }
-
-    async function maMountSelect(index) {
-      if (!maMountCanDiscardDirty()) return;
-      const list = maCustomMountList();
-      const entry = list[index];
-      if (!entry) return;
-      ma.mountEditorIndex = index;
-      await maRenderMountForm(entry);
-      maRenderMountList();
-      maSetStatus("ma_mount_status", `正在编辑第 ${index + 1} 个挂载条目。`);
-    }
-
-    async function maMountNew() {
-      if (!maMountCanDiscardDirty()) return;
-      ma.mountEditorIndex = -1;
-      await maRenderMountForm(maMountSeedFromSlot(""));
-      maRenderMountList();
-      maSetStatus("ma_mount_status", "正在编辑新的挂载条目。");
-    }
-
-    async function maMountNewFromSlot() {
-      if (!maMountCanDiscardDirty()) return;
-      const existing = new Set(maCustomMountList().map((item) => (item && item.slotKey) || ""));
-      const slot = maDeclaredSlots().find((item) => item && item.key && !existing.has(item.key)) || maDeclaredSlots()[0] || null;
-      ma.mountEditorIndex = -1;
-      await maRenderMountForm(maMountSeedFromSlot(slot ? slot.key : ""));
-      maRenderMountList();
-      maSetStatus("ma_mount_status", slot ? `已根据槽位 ${slot.key} 生成初始挂载条目。` : "当前没有可用的声明槽位，正在编辑空白挂载条目。");
-    }
-
-    function maMountApplyCurrent() {
-      if (!ma.mountEditorInstance) {
-        maToast("挂载编辑器尚未就绪", 2);
-        return false;
-      }
-      const check = ma.mountEditorInstance.validate();
-      if (!check.result) {
-        maToast(check.message || "挂载校验失败", 2);
-        maSetStatus("ma_mount_status", check.message || "挂载校验失败", "#b91c1c");
-        return false;
-      }
-      const entry = maMountFromFormValues(ma.mountEditorInstance.collect());
-      const list = maCustomMountList();
-      if (ma.mountEditorIndex >= 0 && ma.mountEditorIndex < list.length) {
-        list[ma.mountEditorIndex] = entry;
-      } else {
-        list.push(entry);
-        ma.mountEditorIndex = list.length - 1;
-      }
-      ma.customMounts = { mounts: list };
-      ma.mountDraft = maNormalizeMountEntry(entry);
-      ma.mountDirty = false;
-      maRenderMountList();
-      maSetStatus("ma_mount_status", `槽位 ${entry.slotKey || "slot"} 的挂载条目已应用到本地，保存注册表后才会持久化。`);
-      maToast("挂载条目已应用", 1);
-      maSyncMountPreview();
-      return true;
-    }
-
-    async function maMountDeleteCurrent() {
-      if (ma.mountEditorIndex < 0) {
-        maToast("请先选择一个已有挂载条目", 0);
-        return;
-      }
-      if (!window.confirm("确定删除当前挂载条目吗？")) {
-        return;
-      }
-      const list = maCustomMountList();
-      const nextIndex = Math.min(ma.mountEditorIndex, list.length - 2);
-      list.splice(ma.mountEditorIndex, 1);
-      ma.customMounts = { mounts: list };
-      ma.mountEditorIndex = -1;
-      ma.mountDirty = false;
-      maRenderMountList();
-      if (list.length) {
-        await maMountSelect(nextIndex < 0 ? 0 : nextIndex);
-      } else {
-        await maMountNewFromSlot();
-      }
-      maSetStatus("ma_mount_status", "挂载条目已从本地移除，保存注册表后才会持久化删除。");
-      maToast("挂载条目已删除", 1);
-    }
-
-    async function maSaveMountRegistry() {
-      if (ma.mountEditorInstance) {
-        const applied = maMountApplyCurrent();
-        if (!applied) return;
-      }
-      const response = await fetch("/admin/api/plugin/cms.article/contracts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(maSanitizeCustomMountRoot(maCustomMountRoot()))
-      });
-      const result = await response.json();
-      if (!result || !result.result) {
-        throw new Error((result && result.message) || "挂载注册表保存失败");
-      }
-      if (!ma.meta) ma.meta = {};
-      if (result.data) ma.meta.contracts = result.data;
-      if (result.mounts) ma.meta.mounts = result.mounts;
-      if (result.customMounts) {
-        ma.meta.customMounts = result.customMounts;
-        ma.customMounts = maClone(result.customMounts);
-      }
-      if (result.mountSample) ma.meta.mountSample = result.mountSample;
-      if (result.providerDiscovery) ma.meta.providerDiscovery = result.providerDiscovery;
-      maRenderCapabilitySlots();
-      maRenderMountList();
-      maRenderProviderCandidates();
-      maUpdateMeta();
-      maSetStatus("ma_mount_status", result.message || "挂载注册表已保存。");
-      maToast("挂载注册表已保存", 1);
-    }
-
-    async function maPrepareMountEditor() {
-      ma.customMounts = maSanitizeCustomMountRoot(maClone(((ma.meta || {}).customMounts) || { mounts: [] }));
-      ma.mountEditorIndex = -1;
-      ma.mountDirty = false;
-      maRenderMountList();
-      if (maCustomMountList().length) {
-        await maMountSelect(0);
-      } else {
-        await maMountNewFromSlot();
-      }
-    }
-
-    function maProviderDiscovery() {
-      return ((ma.meta || {}).providerDiscovery) || { providers: [], slots: [] };
-    }
-
-    function maCurrentMountSlotKey() {
-      if (ma.mountEditorInstance) {
-        try {
-          return (ma.mountEditorInstance.collect().slotKey) || "";
-        } catch (err) {
-          return (ma.mountDraft || {}).slotKey || "";
-        }
-      }
-      return (ma.mountDraft || {}).slotKey || "";
-    }
-
-    function maProviderCandidates(slotKey) {
-      const slots = maProviderDiscovery().slots || [];
-      const match = slots.find((item) => item && item.slotKey === slotKey) || null;
-      return match ? (match.providers || []) : [];
-    }
-
-    function maRenderProviderCandidates() {
-      const host = document.getElementById("ma_provider_list");
-      const discovery = maProviderDiscovery();
-      const slotKey = maCurrentMountSlotKey();
-      const allProviders = discovery.providers || [];
-      const candidates = slotKey ? maProviderCandidates(slotKey) : [];
-      if (!allProviders.length) {
-        host.innerHTML = "<div class='hint'>在 hosts/xadmin/plugin/*/capability.provider.json 下没有发现能力提供方声明。</div>";
-        return;
-      }
-      if (!slotKey) {
-        host.innerHTML = `<div class='hint'>已发现 ${allProviders.length} 个提供方。请先在挂载编辑器里选择槽位键，再查看兼容候选。</div>`;
-        return;
-      }
-      if (!candidates.length) {
-        host.innerHTML = `<div class='hint'>已发现 ${allProviders.length} 个提供方，但没有任何一个匹配槽位 ${maEscape(slotKey)}。</div>`;
-        return;
-      }
-      host.innerHTML = candidates.map((provider, index) => {
-        const serviceList = (provider.serviceXidList || []).join(", ");
-        const surfaceList = (provider.surfaceList || []).join(", ");
-        const adminEntry = provider.adminEntry || {};
-        const publicEntry = provider.publicEntry || {};
-        const optionNames = maProviderOptionFieldNames(provider);
-        const actionArg = JSON.stringify(slotKey);
-        return `<article class="provider-card"><strong>${maEscape(provider.title || provider.pluginTitle || provider.pluginXid || provider.key || "提供方")}</strong><span>${maEscape((provider.pluginTitle || provider.pluginXid || "") + (provider.key ? ` / ${provider.key}` : ""))}</span>${provider.desc ? `<span>${maEscape(provider.desc)}</span>` : ""}${serviceList ? `<span>${maEscape(`serviceXid：${serviceList}`)}</span>` : ""}${surfaceList ? `<span>${maEscape(`挂载面：${surfaceList}`)}</span>` : ""}${optionNames.length ? `<span>${maEscape(`选项字段：${optionNames.join(", ")}`)}</span>` : ""}${adminEntry.href ? `<span>${maEscape(`后台：${adminEntry.href}`)}</span>` : ""}${publicEntry.href ? `<span>${maEscape(`前台：${publicEntry.href}`)}</span>` : ""}<div class="toolbar" style="margin-top:8px;"><button class="button ghost" type="button" onclick='maApplyProviderCandidate(${actionArg}, ${index})'>使用提供方</button></div></article>`;
-      }).join("");
-    }
-
-    async function maApplyProviderCandidate(slotKey, providerIndex) {
-      const candidates = maProviderCandidates(slotKey);
-      const provider = candidates[providerIndex];
-
-      if (!provider || !ma.mountEditorInstance) {
-        maToast("当前提供方候选不可用", 2);
-        return;
-      }
-      const seed = maSeedMountFromProvider(slotKey, provider);
-      const currentIndex = ma.mountEditorIndex;
-      await maRenderMountForm(seed);
-      ma.mountEditorIndex = currentIndex;
-      maRenderMountList();
-      ma.mountDirty = true;
-      maSyncMountPreview();
-      maRenderProviderCandidates();
-      maSetStatus("ma_mount_status", `已将提供方 ${provider.pluginXid || provider.key || "提供方"} 应用到槽位 ${slotKey}。`);
-      maToast("提供方已应用到挂载编辑器", 1);
-    }
-
-    function maSeedMountFromProvider(slotKey, provider) {
-      const defaults = provider ? (provider.defaults || {}) : {};
-      const defaultMount = defaults.mount || {};
-      const defaultAdmin = defaults.adminEntry || {};
-      const defaultPublic = defaults.publicEntry || {};
-      const serviceList = provider ? (provider.serviceXidList || []) : [];
-      const surfaceList = provider ? (provider.surfaceList || []) : [];
-      const slot = maFindDeclaredSlot(slotKey) || {};
-      const slotMount = slot.mount || {};
-      return maCompactMountEntry({
-        slotKey: slotKey || "",
-        providerPlugin: (provider && provider.pluginXid) || "",
-        serviceXid: defaults.serviceXid || serviceList[0] || slot.serviceXid || "",
-        status: defaults.status || "",
-        note: defaults.note || `根据提供方 ${(provider && (provider.pluginXid || provider.key)) || "提供方"} 生成。`,
-        options: maClone(defaults.options || {}),
-        mount: {
-          surface: defaultMount.surface || surfaceList[0] || slotMount.surface || "",
-          mode: defaultMount.mode || slotMount.mode || ""
-        },
-        adminEntry: {
-          title: defaultAdmin.title || ((provider || {}).adminEntry || {}).title || slot.title || slotKey || "",
-          href: defaultAdmin.href || ((provider || {}).adminEntry || {}).href || slot.routeBase || ""
-        },
-        publicEntry: {
-          title: defaultPublic.title || ((provider || {}).publicEntry || {}).title || slot.title || slotKey || "",
-          href: defaultPublic.href || ((provider || {}).publicEntry || {}).href || slot.routeBase || ""
-        }
-      });
-    }
-
-    async function maQuickMountRecommended(slotKey) {
-      const candidates = maProviderCandidates(slotKey);
-      if (candidates.length !== 1) {
-        maToast("这个槽位需要手动选择提供方", 0);
-        return;
-      }
-      await maEditSlotMount(slotKey);
-      await maApplyProviderCandidate(slotKey, 0);
-      const applied = maMountApplyCurrent();
-      if (!applied) return;
-      maRenderCapabilitySlots();
-      maUpdateMeta();
-      maSetStatus("ma_mount_status", `已为槽位 ${slotKey} 应用推荐提供方，保存注册表后才会持久化。`);
-    }
-
-    async function maRefreshProviderDiscovery() {
-      const response = await fetch("/admin/api/plugin/cms.article/contracts", { cache: "no-store" });
-      const result = await response.json();
-      if (!result || !result.result) {
-        throw new Error((result && result.message) || "提供方发现刷新失败");
-      }
-      if (!ma.meta) ma.meta = {};
-      if (result.data) ma.meta.contracts = result.data;
-      if (result.mounts) ma.meta.mounts = result.mounts;
-      if (result.mountSample) ma.meta.mountSample = result.mountSample;
-      if (result.providerDiscovery) ma.meta.providerDiscovery = result.providerDiscovery;
-      maRenderCapabilitySlots();
-      maRenderMountList();
-      maRenderProviderCandidates();
-      maUpdateMeta();
-      maSetStatus("ma_mount_status", "已根据运行时契约刷新提供方发现结果。");
-      maToast("提供方发现结果已刷新", 1);
-    }
-
-    async function maRecommendMissingMounts() {
-      if (!maMountCanDiscardDirty()) return;
-      const list = maCustomMountList();
-      const existing = new Set(list.map((item) => (item && item.slotKey) || ""));
-      let added = 0;
-      let skipped = 0;
-
-      for (const slot of maDeclaredSlots()) {
-        const slotKey = (slot && slot.key) || "";
-        const candidates = slotKey ? maProviderCandidates(slotKey) : [];
-        if (!slotKey || existing.has(slotKey)) {
-          continue;
-        }
-        if (candidates.length === 1) {
-          list.push(maSeedMountFromProvider(slotKey, candidates[0]));
-          existing.add(slotKey);
-          added++;
-        } else {
-          skipped++;
-        }
-      }
-
-      ma.customMounts = { mounts: list };
-      ma.mountDirty = false;
-      maRenderMountList();
-      if (added > 0) {
-        await maMountSelect(Math.max(list.length - added, 0));
-      } else {
-        maRenderProviderCandidates();
-      }
-      maSetStatus("ma_mount_status", added > 0
-        ? `已根据发现结果推荐 ${added} 个挂载条目，仍有 ${skipped} 个槽位需要手动选择。`
-        : `当前没有可自动推荐的单候选提供方，${skipped} 个槽位需要手动选择。`);
-      maToast(added > 0 ? `已推荐 ${added} 个挂载条目` : "当前没有自动推荐结果", added > 0 ? 1 : 0);
-    }
-
-    async function maLoadMeta() {
-      const response = await fetch("/admin/api/plugin/cms.article/form-meta", { cache: "no-store" });
-      const result = await response.json();
-      if (!result || !result.result) throw new Error((result && result.message) || "表单元数据加载失败");
-      ma.meta = result.data || {};
-      document.getElementById("ma_title").innerText = ma.meta.title || "cms.article";
-      const description = ((((ma.meta || {}).spec || {}).identity || {}).description) || "基于 xadmin 表单运行时的内容管理后台。";
-      document.getElementById("ma_desc").innerText = description;
-      maRenderHeroMetadata();
-      maRenderListControls();
-      maRenderCapabilitySlots();
-      await maPrepareMountEditor();
-      maUpdateMeta();
-    }
-
-    async function maLoadList() {
-      const params = new URLSearchParams();
-      params.set("page", "1");
-      params.set("limit", String(maListPageSize()));
-      if (ma.listQuery) params.set("q", ma.listQuery);
-      if (ma.listStatus !== "") params.set("status", ma.listStatus);
-      if (ma.listDraft >= 0) params.set("draft", String(ma.listDraft));
-      if (ma.listSortBy) params.set("sortBy", ma.listSortBy);
-      if (ma.listSortDir) params.set("sortDir", ma.listSortDir);
-      for (const field of maFilterableFields()) {
-        const value = String(((ma.listFieldFilters || {})[field.name] || "")).trim();
-        if (value !== "") {
-          params.set(maFieldQueryKey(field), value);
-        }
-      }
-      const response = await fetch(`/admin/api/plugin/cms.article/list?${params.toString()}`, { cache: "no-store" });
-      const result = await response.json();
-      if (!result || !result.result) throw new Error((result && result.message) || "列表加载失败");
-      ma.items = result.data || [];
-      maSyncListUrl();
-      maRenderList();
-      maUpdateMeta();
-      maSetStatus("ma_nav_status", `${ma.items.length} 条记录已加载${ma.listQuery ? `，关键词“${ma.listQuery}”` : ""}。`);
-    }
-
-    async function maLoadRecord(id) {
-      ma.currentId = id;
-      maRenderList();
-      maUpdateMeta();
-      maSetStatus("ma_form_status", "正在加载记录...");
-      const response = await fetch(`/admin/api/plugin/cms.article/get?id=${encodeURIComponent(id)}`, { cache: "no-store" });
-      const result = await response.json();
-      if (!result || !result.result) throw new Error((result && result.message) || "记录加载失败");
-      const record = result.data || {};
-      ma.currentData = maMergeWithDefaults(record.data || {});
-      ma.currentDraft = !!record.isDraft;
-      await maRenderForm(ma.currentData);
-      maRenderList();
-      maUpdateMeta();
-      maSetStatus("ma_form_status", `已加载记录 #${id}。`);
-    }
-
-    async function maOpenEditorForId(id) {
-      await maLoadRecord(id);
-      maOpenEditorView();
-    }
-
-    async function maOpenMountViewForId(id) {
-      await maLoadRecord(id);
-      maOpenMountView();
-    }
-
-    async function maNew() {
-      ma.currentId = 0;
-      ma.currentData = maBuildDefaultData();
-      ma.currentDraft = false;
-      maRenderList();
-      maUpdateMeta();
-      await maRenderForm(ma.currentData);
-      maOpenEditorView();
-      maSetStatus("ma_form_status", "正在编辑新记录。");
-    }
-
-    async function maSave(asDraft) {
-      if (!ma.formInstance) {
-        maToast("表单尚未准备完成", 2);
-        return;
-      }
-      if (!(maDraftEnabled() && asDraft)) {
-        const check = ma.formInstance.validate();
-        if (!check.result) {
-          maToast(check.message || "校验失败", 2);
-          maSetStatus("ma_form_status", check.message || "校验失败", "#b91c1c");
-          return;
-        }
-      }
-      const payload = {
-        id: ma.currentId,
-        isDraft: maDraftEnabled() ? !!asDraft : false,
-        data: ma.formInstance.collect()
-      };
-      payload.data = maApplyPrimaryStatus(payload.data, payload.isDraft);
-      const response = await fetch("/admin/api/plugin/cms.article/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const result = await response.json();
-      if (!result || !result.result) {
-        throw new Error((result && result.message) || "保存失败");
-      }
-      ma.currentId = result.id || ma.currentId;
-      ma.currentDraft = result.isDraft != null ? !!result.isDraft : payload.isDraft;
-      if (result && result.status != null) {
-        const field = maStatusField();
-        if (field && field.name) {
-          payload.data[field.name] = Number(result.status);
-        }
-      }
-      ma.currentData = payload.data;
-      maSetStatus("ma_form_status", maSaveSuccessMessage(payload.isDraft));
-      maToast(maSaveSuccessMessage(payload.isDraft).replace(/\.$/, ""), 1);
-      await maLoadList();
-      if (ma.currentId > 0) {
-        await maLoadRecord(ma.currentId);
-        maOpenEditorView();
-      }
-    }
-
-    async function maDelete() {
-      if (ma.currentId <= 0) {
-        maToast("当前记录还没有创建", 0);
-        return;
-      }
-      if (!window.confirm(`确定删除记录 #${ma.currentId} 吗？`)) {
-        return;
-      }
-      const response = await fetch("/admin/api/plugin/cms.article/delete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: ma.currentId })
-      });
-      const result = await response.json();
-      if (!result || !result.result) {
-        throw new Error((result && result.message) || "删除失败");
-      }
-      maToast("已删除", 1);
-      ma.currentId = 0;
-      ma.currentData = {};
-      ma.currentDraft = false;
-      await maLoadList();
-      if (ma.items.length) {
-        await maLoadRecord(ma.items[0].id);
-        maShowListView();
-      } else {
-        await maNew();
-      }
-    }
-
-    async function maRefresh() {
-      await maLoadList();
-      if (ma.currentId > 0) {
-        const exists = ma.items.some((item) => item.id === ma.currentId);
-        if (exists) {
-          await maLoadRecord(ma.currentId);
-          return;
-        }
-      }
-      if (ma.items.length) {
-        await maLoadRecord(ma.items[0].id);
-        maShowListView();
-      } else {
-        await maNew();
-      }
-    }
-
-    layui.use(["layer"], function(){
-      ma.layer = layui.layer;
-      window.addEventListener("unhandledrejection", function(event) {
-        maHandleError(event.reason);
-        event.preventDefault();
-      });
-      (async function boot() {
-        try {
-          await maLoadMeta();
-          maApplyUrlState();
-          maRenderListControls();
-          maSyncView();
-          await maRefresh();
-        } catch (err) {
-          const message = maHandleError(err);
-          document.getElementById("ma_form").innerHTML = `<div class="form-empty">${maEscape(message)}</div>`;
-          document.getElementById("ma_mount_form").innerHTML = `<div class="form-empty">${maEscape(message)}</div>`;
-        }
-      })();
+    return dict[key] || key;
+  }
+
+  function byId(id) {
+    return document.getElementById(id);
+  }
+
+  function textOf(value) {
+    return value == null ? '' : String(value);
+  }
+
+  function escapeHtml(value) {
+    return textOf(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function rowTitle(row) {
+    return textOf((row && (row.title || (row.data && row.data.title))) || '-');
+  }
+
+  function statusTemplate(row) {
+    if (row && row.isDraft) return '<span class="layui-badge layui-bg-orange">' + t('draft') + '</span>';
+    return '<span class="layui-badge layui-bg-green">' + t('published') + '</span>';
+  }
+
+  function searchValue() {
+    var el = byId(ids.search);
+    return el ? el.value : '';
+  }
+
+  function categoryValue() {
+    if (!state.hasCategory) return '';
+    var el = byId(ids.category);
+    return el ? el.value : '';
+  }
+
+  function tagValue() {
+    var el = byId(ids.tag);
+    return el ? el.value : '';
+  }
+
+  function topicValue() {
+    var el = byId(ids.topic);
+    return el ? el.value : '';
+  }
+
+  function reloadTable(resetPage) {
+    var options = { where: { q: searchValue(), categoryId: categoryValue(), tagId: tagValue(), topicId: topicValue() } };
+    if (resetPage !== false) options.page = { curr: 1 };
+    table.reloadData(ids.table, options);
+  }
+
+  function categoryLabel(row) {
+    var level = Number((row && row.level) || 0);
+    var prefix = '';
+    for (var i = 0; i < level; i++) prefix += '\u3000\u3000';
+    return prefix + textOf((row && row.title) || '');
+  }
+
+  async function loadCategories() {
+    if (state.categories) return state.categories;
+    var response = await fetch('/admin/api/plugin/' + pluginXid + '/category/list', { cache: 'no-store' });
+    var result = await response.json();
+    if (!result || !result.result) {
+      state.categories = [];
+      return state.categories;
+    }
+    state.categories = Array.isArray(result.data) ? result.data : [];
+    return state.categories;
+  }
+
+  async function loadMeta() {
+    if (state.meta) return state.meta;
+    var response = await fetch('/admin/api/plugin/' + pluginXid + '/form-meta', { cache: 'no-store' });
+    var result = await response.json();
+    state.meta = result && result.result ? (result.data || {}) : {};
+    state.hasCategory = hasMountedPack(state.meta, 'content.category');
+    state.hasTag = hasMountedPack(state.meta, 'content.tag');
+    state.hasTopic = hasMountedPack(state.meta, 'content.topic');
+    state.hasComment = hasMountedPack(state.meta, 'content.comment');
+    state.hasLike = hasMountedPack(state.meta, 'content.like');
+    state.hasView = hasMountedPack(state.meta, 'content.view-stat');
+    return state.meta;
+  }
+
+  function hasMountedPack(meta, packId) {
+    var packs = meta && meta.contracts && meta.contracts.abilityPacks;
+    if (!Array.isArray(packs)) return false;
+    return packs.some(function(pack){ return pack && pack.packId === packId; });
+  }
+
+  async function loadTags() {
+    if (!state.hasTag) return [];
+    if (state.tags) return state.tags;
+    var response = await fetch('/api/plugin/' + pluginXid + '/tag/list', { cache: 'no-store' });
+    var result = await response.json();
+    state.tags = result && result.result && Array.isArray(result.data) ? result.data : [];
+    return state.tags;
+  }
+
+  async function loadTopics() {
+    if (!state.hasTopic) return [];
+    if (state.topics) return state.topics;
+    var response = await fetch('/api/plugin/' + pluginXid + '/topic/list', { cache: 'no-store' });
+    var result = await response.json();
+    state.topics = result && result.result && Array.isArray(result.data) ? result.data : [];
+    return state.topics;
+  }
+
+  function categoryOptions(categories, includeEmpty) {
+    var list = [];
+    if (includeEmpty) list.push({ value: 0, label: '\u672a\u5f52\u7c7b' });
+    (categories || []).forEach(function(row){
+      list.push({ value: Number(row.id || 0), label: categoryLabel(row) });
     });
-  </script>
-</body>
-</html>
+    return list;
+  }
+
+  function categoryTitle(id) {
+    var key = String(id || 0);
+    if (key === '0') return '\u672a\u5f52\u7c7b';
+    return state.categoryMap[key] || '-';
+  }
+
+  async function renderCategoryFilter() {
+    var el = byId(ids.category);
+    if (!el) return;
+    if (!state.hasCategory) {
+      var wrap = byId(ids.categoryWrap);
+      if (wrap) wrap.style.display = 'none';
+      return;
+    }
+    var categories = await loadCategories();
+    state.categoryMap = {};
+    (categories || []).forEach(function(row){
+      state.categoryMap[String(row.id || 0)] = categoryLabel(row);
+    });
+    el.innerHTML = '<option value="">\u5168\u90e8\u680f\u76ee</option>' + categoryOptions(categories, false).map(function(item){
+      return '<option value="' + escapeHtml(item.value) + '">' + escapeHtml(item.label) + '</option>';
+    }).join('');
+    var wrap = byId(ids.categoryWrap);
+    if (wrap) wrap.style.display = 'inline-block';
+    form.render('select');
+  }
+
+  async function renderTaxonomyFilters() {
+    var tagWrap = byId(ids.tagWrap);
+    var topicWrap = byId(ids.topicWrap);
+    var tagEl = byId(ids.tag);
+    var topicEl = byId(ids.topic);
+    if (state.hasTag && tagWrap && tagEl) {
+      tagWrap.style.display = '';
+      tagEl.innerHTML = '<option value="">\u5168\u90e8\u6807\u7b7e</option>' + (await loadTags()).map(function(row){
+        return '<option value="' + escapeHtml(row.id || 0) + '">' + escapeHtml(row.name || row.id) + '</option>';
+      }).join('');
+    }
+    if (state.hasTopic && topicWrap && topicEl) {
+      topicWrap.style.display = '';
+      topicEl.innerHTML = '<option value="">\u5168\u90e8\u4e13\u9898</option>' + (await loadTopics()).map(function(row){
+        return '<option value="' + escapeHtml(row.id || 0) + '">' + escapeHtml(row.title || row.id) + '</option>';
+      }).join('');
+    }
+    form.render('select');
+  }
+
+  function openEditor(id) {
+    var currentId = Number(id || 0);
+    var url = '/admin/view/plugin/' + pluginXid + '/editor';
+    if (currentId > 0) url += '?id=' + encodeURIComponent(currentId);
+    layer.open({
+      title: currentId > 0 ? t('editTitle') : t('addTitle'),
+      type: 2,
+      area: ['78%', '86%'],
+      shadeClose: false,
+      content: url,
+      end: function(){ reloadTable(false); }
+    });
+  }
+
+  function deleteRecord(row) {
+    var id = row && row.id;
+    if (!id) return;
+    layer.confirm(t('confirmDelete') + rowTitle(row) + t('confirmDeleteEnd'), { icon: 3, title: t('deleteConfirm') }, function(index){
+      fetch('/admin/api/plugin/' + pluginXid + '/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id })
+      }).then(function(response){ return response.json(); }).then(function(result){
+        if (!result || !result.result) throw new Error((result && result.message) || t('deleteFailed'));
+        layer.msg(t('deleted'), { icon: 1 });
+        reloadTable(false);
+      }).catch(handleError);
+      layer.close(index);
+    });
+  }
+
+  function handleError(error) {
+    var message = error && error.message ? error.message : String(error || t('failed'));
+    layer.msg(message, { icon: 2 });
+  }
+
+  function tableColumns() {
+    var cols = [
+      { field: 'id', width: 80, title: 'ID' },
+      { title: t('title'), minWidth: 220, templet: function(d){ return '<code>' + escapeHtml(rowTitle(d)) + '</code>'; } },
+      { title: t('status'), width: 100, templet: statusTemplate },
+      { field: 'summary', minWidth: 180, title: t('summary'), templet: function(d){ return escapeHtml(d.summary || '-'); } },
+    ];
+    if (state.hasCategory) cols.push({ field: 'categoryId', width: 150, title: '\u680f\u76ee', templet: function(d){ return escapeHtml(categoryTitle(d.categoryId)); } });
+    if (state.hasTag) cols.push({ field: 'tagNamesText', minWidth: 140, title: '\u6807\u7b7e', templet: function(d){ return escapeHtml(d.tagNamesText || '-'); } });
+    if (state.hasTopic) cols.push({ field: 'topicTitlesText', minWidth: 140, title: '\u4e13\u9898', templet: function(d){ return escapeHtml(d.topicTitlesText || '-'); } });
+    if (state.hasComment) cols.push({ field: 'visibleCommentCount', width: 100, title: '\u8bc4\u8bba', templet: function(d){ return escapeHtml(d.visibleCommentCount || 0); } });
+    if (state.hasLike) cols.push({ field: 'likeCount', width: 100, title: '\u70b9\u8d5e', templet: function(d){ return escapeHtml(d.likeCount || 0); } });
+    if (state.hasView) cols.push({ field: 'viewCount', width: 100, title: '\u8bbf\u95ee', templet: function(d){ return escapeHtml(d.viewCount || 0); } });
+    cols = cols.concat([
+      { field: 'createTimeText', width: 170, title: t('createTime') },
+      { field: 'updateTimeText', width: 170, title: t('updateTime') },
+      { width: 140, title: t('operation'), fixed: 'right', templet: '#' + ids.tool }
+    ]);
+    return [cols];
+  }
+
+  function renderTable() {
+    table.render({
+      elem: '#' + ids.table,
+      toolbar: '#' + ids.toolbar,
+      url: '/admin/api/plugin/' + pluginXid + (pageKind === 'drafts' ? '/drafts' : '/list'),
+      method: 'get',
+      where: { q: '', categoryId: '', tagId: '', topicId: '' },
+      request: { pageName: 'page', limitName: 'limit' },
+      parseData: function(result){
+        return {
+          code: result && result.result ? 0 : 1,
+          msg: (result && result.message) || '',
+          count: (result && result.count) || 0,
+          data: (result && result.data) || []
+        };
+      },
+      defaultToolbar: ['filter', 'exports', 'print'],
+      height: 'full-135',
+      cellMinWidth: 80,
+      skin: 'line',
+      page: {
+        limit: 20,
+        groups: 11,
+        layout: ['count', 'prev', 'page', 'next', 'limit', 'refresh', 'skip']
+      },
+      cols: tableColumns()
+    });
+  }
+
+  table.on('toolbar(' + ids.table + ')', function(obj){
+    switch (obj.event) {
+      case 'Search_Content_MakePlugin_cms_article_Articles':
+        reloadTable(true);
+        break;
+      case 'Refresh_Content_MakePlugin_cms_article_Articles':
+        reloadTable(false);
+        break;
+      case 'Add_Content_MakePlugin_cms_article_Articles':
+        openEditor(0);
+        break;
+    }
+  });
+
+  table.on('tool(' + ids.table + ')', function(obj){
+    if (obj.event === 'edit') {
+      openEditor((obj.data || {}).id);
+    } else if (obj.event === 'delete') {
+      deleteRecord(obj.data || {});
+    }
+  });
+
+  async function initPage() {
+    await loadMeta();
+    renderTable();
+    await renderCategoryFilter();
+    await renderTaxonomyFilters();
+    byId(ids.search).addEventListener('keydown', function(event){
+      if (event.key === 'Enter') reloadTable(true);
+    });
+    if (state.hasCategory && byId(ids.category)) byId(ids.category).addEventListener('change', function(){ reloadTable(true); });
+    if (byId(ids.tag)) byId(ids.tag).addEventListener('change', function(){ reloadTable(true); });
+    if (byId(ids.topic)) byId(ids.topic).addEventListener('change', function(){ reloadTable(true); });
+    reloadTable(false);
+  }
+
+  initPage().catch(handleError);
+});
+</script>

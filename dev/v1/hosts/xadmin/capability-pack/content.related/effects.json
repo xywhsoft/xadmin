@@ -1,0 +1,15 @@
+{
+  "tables": ["content_related"],
+  "fields": [],
+  "adminPages": ["related"],
+  "publicApis": ["related.list"],
+  "adminApis": ["related.list", "related.save", "related.delete", "related.rebuild"],
+  "permissions": ["related.view", "related.manage"],
+  "events": ["content.afterSave", "related.afterBind"],
+  "runtime": {
+    "saveSync": true,
+    "peerSync": true,
+    "configKeys": ["ruleLimit"]
+  },
+  "tasks": []
+}

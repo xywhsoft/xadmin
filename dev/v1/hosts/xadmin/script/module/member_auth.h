@@ -275,6 +275,9 @@ void MemberAuth_LoadURIS()
 		str uri = (str)sqlite3_column_text(stmt_cache_muris, 2);
 		size_t iSize = strlen(uri);
 		RouteInfo* pInfo = xrtDictGet(G_StaticRouteTableHTTP, uri, iSize);
+		if ( pInfo == NULL ) {
+			pInfo = FindDynamicRouteHTTP(uri);
+		}
 		if ( pInfo && !pInfo->bAdmin ) {
 			// 前台路由存在，更�?AuthID
 			pInfo->AuthID = authID;

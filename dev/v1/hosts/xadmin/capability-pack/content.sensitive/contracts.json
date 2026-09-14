@@ -1,0 +1,57 @@
+{
+  "permissions": [
+    "sensitive.view",
+    "sensitive.manage"
+  ],
+  "adminPages": [
+    "sensitive_words",
+    "sensitive_logs"
+  ],
+  "publicApis": [
+    "sensitive.check"
+  ],
+  "adminApis": [
+    "sensitive.word.save",
+    "sensitive.word.delete",
+    "sensitive.word.import",
+    "sensitive.log.list",
+    "sensitive.stats",
+    "sensitive.log.cleanup"
+  ],
+  "tables": [
+    "sensitive_word",
+    "sensitive_hit_log"
+  ],
+  "events": [
+    "content.beforeSave",
+    "content.beforePublish",
+    "comment.beforeCreate"
+  ],
+  "runtime": {
+    "configKeys": ["strategy", "fields", "logRetentionDays", "statsRecentDays", "matchMode", "maxWordLength", "maxHitsPerScan", "maxCheckBytes", "maxLogListRows", "maxCleanupRows", "maxRequestBytes", "maxImportRows"],
+    "wordLimit": "maxWordLength",
+    "hitLimit": "maxHitsPerScan",
+    "checkPayloadLimit": "maxCheckBytes",
+    "requestLimit": "maxRequestBytes",
+    "logListLimit": "admin sensitive hit log list clamps request limit by maxLogListRows",
+    "logListFilters": "admin sensitive hit log list supports optional targetType/targetId/word/fieldName/action filters with bound SQL and maxLogListRows limit",
+    "statsSummary": "sensitive.stats returns bounded aggregate word/log/recent-hit counts without changing scan hot-path behavior",
+    "statsTopHits": "sensitive.stats returns bounded recent topWords and topGroups from hit logs for admin-only dictionary operations",
+    "statsUi": "ability page renders sensitive.stats as word and hit-log aggregate tables while retaining raw JSON diagnostics",
+    "importResultUi": "ability page renders sensitive.word.import as bounded summary and per-word result tables while retaining raw JSON diagnostics",
+    "checkResultUi": "ability page renders sensitive.check as pass/hit summary and hit detail tables while retaining raw JSON diagnostics",
+    "cleanupResultUi": "ability page renders sensitive.log.cleanup as bounded cleanup result table while retaining raw JSON diagnostics",
+    "statsWindow": "statsRecentDays",
+    "cleanupLimit": "maxCleanupRows",
+    "importLimit": "maxImportRows",
+    "groupManagement": "sensitive_word.group_key supports admin grouping and bounded pack list filtering without changing scan hot-path scope matching",
+    "scopes": ["all", "content", "comment", "check"],
+    "matchModes": ["substring", "asciiWord", "cjkLoose"],
+    "cjkLooseMatch": "cjkLoose scan mode ignores whitespace, common ASCII/CJK punctuation, zero-width characters and BOM-like format characters before substring matching for low-cost Chinese obfuscation detection",
+    "cjkLooseZeroWidth": "cjkLoose normalization drops U+200B/U+200C/U+200D/U+200E/U+200F/U+2028..U+202F/U+2060/U+FEFF style separators without adding external segmentation dependencies",
+    "boundedImportLimit": "maxImportRows",
+    "importModes": ["preview", "confirm"],
+    "statusValidation": "sensitive word save and import normalize status to enabled/disabled values before writing"
+  },
+  "tasks": []
+}

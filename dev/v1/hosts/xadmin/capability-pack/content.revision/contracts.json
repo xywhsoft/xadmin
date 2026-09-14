@@ -1,0 +1,30 @@
+{
+  "permissions": ["revision.view", "revision.restore", "revision.manage"],
+  "adminPages": ["revisions"],
+  "publicApis": [],
+  "adminApis": ["revision.list", "revision.detail", "revision.diff", "revision.restore", "revision.restore-preview", "revision.stats"],
+  "tables": ["content_revision"],
+  "events": ["content.beforeSave", "revision.beforeRestore", "revision.afterRestore"],
+  "runtime": {
+    "editorVersionDialog": true,
+    "editorDiffRestore": true,
+    "configKeys": ["maxSnapshotsPerContent", "maxListRows", "maxRequestBytes"],
+    "listLimit": "admin revision list clamps request limit by maxListRows",
+    "adminContentFilter": "revision admin page can filter bounded history by contentId",
+    "adminListFilters": ["contentId", "action", "status"],
+    "requestLimit": "admin restore rejects request bodies beyond maxRequestBytes before JSON parse",
+    "retentionPolicy": "per-content newest-first",
+    "adminStats": "revision.stats returns revision totals, distinct content count, actionStats and statusStats for admin diagnostics",
+    "adminStatsUi": "ability page renders revision totals, action aggregates and status aggregates as tables, while retaining raw JSON for diagnostics",
+    "restoreResultUi": "revision.restore returns revisionId, contentId, title, status, categoryId, isDraft and updateTime; ability page renders the restore result as a table while retaining raw JSON diagnostics",
+    "typedDiff": "diff rows include fieldType, diffMode, beforeKind, afterKind, changeKind, typeChanged, beforeLength, afterLength, beforeLineCount, afterLineCount, beforeValue, and afterValue for structured rendering",
+    "numericDiff": "numeric diff rows include beforeNumber, afterNumber, and numberDelta when both sides are numeric",
+    "booleanDiff": "boolean diff rows include beforeBool and afterBool when both sides are booleans",
+    "datetimeDiff": "date/time/datetime diff rows use diffMode=datetime and include beforeTimeText/afterTimeText for integer timestamps",
+    "enumDiff": "select/radio/checkbox/checklist/combobox diff rows use diffMode=enum and include beforeLabel/afterLabel when field options resolve the stored values",
+    "relationDiff": "categoryId and custom content relation diff rows use diffMode=relation and include beforeLabel/afterLabel with category title/path or content title when resolvable",
+    "customRelationDiff": "custom fields using relation/reference/content component types, relationTarget=content, or *ContentId names resolve content_item titles in admin diff views",
+    "categoryBindRestoreSync": "revision.restore updates content_category_bind when content.category is enabled so restore does not reintroduce legacy category_id drift"
+  },
+  "tasks": []
+}

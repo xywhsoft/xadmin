@@ -493,6 +493,10 @@ void PS_ManagerClearPackageMetadata(PluginSystemPackage* pPackage)
 	PS_FreeString(&pPackage->sRootPath);
 	PS_FreeString(&pPackage->sManifestPath);
 	PS_FreeString(&pPackage->sEntry);
+	PS_FreeString(&pPackage->sPageDir);
+	PS_FreeString(&pPackage->sTemplateDir);
+	PS_FreeString(&pPackage->sOptionDir);
+	PS_FreeString(&pPackage->sStaticDir);
 }
 
 void PS_ManagerAdoptPackageMetadata(PluginSystemPackage* pDest, PluginSystemPackage* pSrc)
@@ -513,6 +517,10 @@ void PS_ManagerAdoptPackageMetadata(PluginSystemPackage* pDest, PluginSystemPack
 	pDest->sRootPath = pSrc->sRootPath;
 	pDest->sManifestPath = pSrc->sManifestPath;
 	pDest->sEntry = pSrc->sEntry;
+	pDest->sPageDir = pSrc->sPageDir;
+	pDest->sTemplateDir = pSrc->sTemplateDir;
+	pDest->sOptionDir = pSrc->sOptionDir;
+	pDest->sStaticDir = pSrc->sStaticDir;
 	pDest->tblManifest = pSrc->tblManifest;
 	pDest->tblDefaultConfig = pSrc->tblDefaultConfig;
 	pDest->tblConfigSchema = pSrc->tblConfigSchema;
@@ -527,6 +535,10 @@ void PS_ManagerAdoptPackageMetadata(PluginSystemPackage* pDest, PluginSystemPack
 	pSrc->sRootPath = NULL;
 	pSrc->sManifestPath = NULL;
 	pSrc->sEntry = NULL;
+	pSrc->sPageDir = NULL;
+	pSrc->sTemplateDir = NULL;
+	pSrc->sOptionDir = NULL;
+	pSrc->sStaticDir = NULL;
 	pSrc->tblManifest = NULL;
 	pSrc->tblDefaultConfig = NULL;
 	pSrc->tblConfigSchema = NULL;
@@ -1324,6 +1336,16 @@ bool PluginSystem_Generate(const XAdminGeneratedPluginSpec* spec)
 	}
 
 	xrtDirCreateAll(sRootPath);
+	{
+		const char* dirs[] = {"page", "template", "option", "static", "inc", "lib", "src", "data"};
+		for ( size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++ ) {
+			str sDirPath = xrtPathJoin(2, sRootPath, (str)dirs[i]);
+			if ( sDirPath ) {
+				xrtDirCreateAll(sDirPath);
+				xrtFree(sDirPath);
+			}
+		}
+	}
 	for ( size_t i = 0; i < spec->file_count; i++ ) {
 		if ( !PS_ManagerWriteGeneratedFile(sRootPath, &spec->files[i]) ) {
 			xrtFree(sRootPath);

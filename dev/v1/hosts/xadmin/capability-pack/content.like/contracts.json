@@ -1,0 +1,39 @@
+{
+  "permissions": [
+    "like.view",
+    "like.manage"
+  ],
+  "adminPages": [
+    "likes"
+  ],
+  "publicApis": [
+    "like.create",
+    "like.cancel",
+    "like.status",
+    "like.count"
+  ],
+  "adminApis": [
+    "like.list",
+    "like.counter.list",
+    "like.stats"
+  ],
+  "tables": [
+    "like_record",
+    "like_counter"
+  ],
+  "events": [
+    "content.afterDelete",
+    "like.afterCreate",
+    "like.afterCancel"
+  ],
+  "runtime": {
+    "dedup": "member/ip/cookie actor key strategy",
+    "configKeys": ["allowGuest", "dedup", "maxAdminListRows", "maxRequestBytes"],
+    "requestLimit": "public like create/cancel and admin like status reject request bodies beyond maxRequestBytes before JSON parse",
+    "accessIntegration": "public like status/create/cancel require readable content when content.access is enabled",
+    "adminListLimit": "admin like counter list clamps request limit by maxAdminListRows",
+    "adminStats": "like.stats returns content count, aggregate like count and record status counts for admin diagnostics",
+    "adminStatsUi": "ability page renders like.stats as a metric table"
+  },
+  "tasks": []
+}

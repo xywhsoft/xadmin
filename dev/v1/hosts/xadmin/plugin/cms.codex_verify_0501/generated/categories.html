@@ -1,0 +1,199 @@
+<style>
+.managed-category-page { padding: 16px; }
+.managed-category-editor { position: relative; height: 100%; min-height: 380px; box-sizing: border-box; padding: 18px 22px 74px; }
+.managed-category-editor .layui-form-label { width: 92px; }
+.managed-category-editor .layui-input-block { margin-left: 122px; }
+.managed-category-editor .managed-category-actions { position: absolute; left: 0; right: 0; bottom: 0; height: 58px; box-sizing: border-box; padding: 10px 22px; border-top: 1px solid #eee; background: #fff; text-align: right; }
+.managed-category-editor .managed-category-actions .layui-btn { min-width: 92px; }
+@media (max-width: 640px) {
+  .managed-category-editor .layui-form-label { width: 88px; }
+  .managed-category-editor .layui-input-block { margin-left: 118px; }
+}
+</style>
+
+<div class="managed-category-page">
+  <table class="layui-hide" id="Table_Content_MakePlugin_cms_codex_verify_0501_Categories" lay-filter="Table_Content_MakePlugin_cms_codex_verify_0501_Categories"></table>
+</div>
+
+<script type="text/html" id="Toolbar_Content_MakePlugin_cms_codex_verify_0501_Categories">
+  <div class="layui-inline">
+    <button class="layui-btn layui-btn-sm" lay-event="Add_Content_MakePlugin_cms_codex_verify_0501_Categories"><i class="layui-icon layui-icon-addition"></i> &#28155;&#21152;&#26639;&#30446;</button>
+    <button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Refresh_Content_MakePlugin_cms_codex_verify_0501_Categories"><i class="layui-icon layui-icon-refresh"></i> &#21047;&#26032;</button>
+  </div>
+</script>
+
+<script type="text/html" id="Tool_Content_MakePlugin_cms_codex_verify_0501_Categories">
+  <div class="layui-clear-space">
+    <a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">&#32534;&#36753;</a>
+    <a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">&#21024;&#38500;</a>
+  </div>
+</script>
+
+<div id="Editor_Content_MakePlugin_cms_codex_verify_0501_Categories" class="managed-category-editor" style="display:none;">
+  <form class="layui-form" lay-filter="Form_Content_MakePlugin_cms_codex_verify_0501_Categories">
+    <input type="hidden" name="id">
+    <div class="layui-form-item">
+      <label class="layui-form-label">&#26639;&#30446;&#21517;&#31216;</label>
+      <div class="layui-input-block">
+        <input type="text" name="title" required lay-verify="required" placeholder="&#35831;&#36755;&#20837;&#26639;&#30446;&#21517;&#31216;" autocomplete="off" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">&#26639;&#30446;&#21035;&#21517;</label>
+      <div class="layui-input-block">
+        <input type="text" name="slug" required lay-verify="required" placeholder="&#20363;&#22914; news &#25110; product" autocomplete="off" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">&#29238;&#26639;&#30446;ID</label>
+      <div class="layui-input-block">
+        <input type="number" name="parentId" placeholder="0" autocomplete="off" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">&#25490;&#24207;</label>
+      <div class="layui-input-block">
+        <input type="number" name="sort" placeholder="0" autocomplete="off" class="layui-input">
+      </div>
+    </div>
+    <div class="layui-form-item">
+      <label class="layui-form-label">&#29366;&#24577;</label>
+      <div class="layui-input-block">
+        <select name="status">
+          <option value="1">&#21551;&#29992;</option>
+          <option value="0">&#20572;&#29992;</option>
+        </select>
+      </div>
+    </div>
+    <div class="managed-category-actions">
+      <button type="button" class="layui-btn" id="Save_Content_MakePlugin_cms_codex_verify_0501_Categories"><i class="layui-icon layui-icon-ok"></i> &#20445;&#23384;</button>
+      <button type="button" class="layui-btn layui-btn-primary" id="Cancel_Content_MakePlugin_cms_codex_verify_0501_Categories"><i class="layui-icon layui-icon-close"></i> &#21462;&#28040;</button>
+    </div>
+  </form>
+</div>
+
+<script>
+layui.use(['table', 'form'], function(){
+  var table = layui.table;
+  var form = layui.form;
+  var layer = layui.layer;
+  var $ = layui.$;
+  var pluginXid = 'cms.codex_verify_0501';
+  var domBase = 'Content_MakePlugin_cms_codex_verify_0501_Categories';
+  var ids = {
+    table: 'Table_' + domBase,
+    toolbar: 'Toolbar_' + domBase,
+    tool: 'Tool_' + domBase,
+    editor: 'Editor_' + domBase,
+    form: 'Form_' + domBase,
+    save: 'Save_' + domBase,
+    cancel: 'Cancel_' + domBase
+  };
+  var state = { layerIndex: 0, current: null };
+
+  function byId(id) { return document.getElementById(id); }
+  function textOf(value) { return value == null ? '' : String(value); }
+  function escapeHtml(value) {
+    return textOf(value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function reloadTable() { table.reloadData(ids.table, { page: { curr: 1 } }); }
+  function normalizeRow(row) {
+    row = row || {};
+    return {
+      id: row.id || '',
+      parentId: row.parentId || 0,
+      title: row.title || '',
+      slug: row.slug || '',
+      sort: row.sort || 0,
+      status: row.status == null ? 1 : row.status
+    };
+  }
+  function openEditor(row) {
+    state.current = normalizeRow(row);
+    state.layerIndex = layer.open({
+      title: state.current.id ? '\u7f16\u8f91\u680f\u76ee' : '\u6dfb\u52a0\u680f\u76ee',
+      type: 1,
+      area: ['620px', '470px'],
+      shadeClose: false,
+      content: $('#' + ids.editor),
+      success: function(){
+        form.val(ids.form, state.current);
+        form.render();
+      },
+      end: function(){ byId(ids.editor).style.display = 'none'; }
+    });
+  }
+  function saveCategory() {
+    var data = form.val(ids.form);
+    data.id = Number(data.id || 0);
+    data.parentId = Number(data.parentId || 0);
+    data.sort = Number(data.sort || 0);
+    data.status = Number(data.status || 1);
+    fetch('/admin/api/plugin/' + pluginXid + '/category/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    }).then(function(response){ return response.json(); }).then(function(result){
+      if (!result || !result.result) throw new Error((result && result.message) || '\u4fdd\u5b58\u5931\u8d25');
+      layer.close(state.layerIndex);
+      layer.msg('\u5df2\u4fdd\u5b58', { icon: 1 });
+      reloadTable();
+    }).catch(function(error){ layer.msg(error.message || String(error), { icon: 2 }); });
+  }
+  function deleteCategory(row) {
+    layer.confirm('\u786e\u5b9a\u5220\u9664 "' + escapeHtml(row.title || '') + '" \u5417\uff1f', { icon: 3, title: '\u5220\u9664\u786e\u8ba4' }, function(index){
+      fetch('/admin/api/plugin/' + pluginXid + '/category/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: row.id })
+      }).then(function(response){ return response.json(); }).then(function(result){
+        if (!result || !result.result) throw new Error((result && result.message) || '\u5220\u9664\u5931\u8d25');
+        layer.msg('\u5df2\u5220\u9664', { icon: 1 });
+        reloadTable();
+      }).catch(function(error){ layer.msg(error.message || String(error), { icon: 2 }); });
+      layer.close(index);
+    });
+  }
+
+  table.render({
+    elem: '#' + ids.table,
+    toolbar: '#' + ids.toolbar,
+    url: '/admin/api/plugin/' + pluginXid + '/category/list',
+    method: 'get',
+    parseData: function(result){
+      return {
+        code: result && result.result ? 0 : 1,
+        msg: (result && result.message) || '',
+        count: (result && result.count) || 0,
+        data: (result && result.data) || []
+      };
+    },
+    defaultToolbar: ['filter', 'exports', 'print'],
+    height: 'full-135',
+    cellMinWidth: 80,
+    skin: 'line',
+    page: false,
+    cols: [[
+      { field: 'id', width: 80, title: 'ID' },
+      { field: 'title', minWidth: 240, title: '\u680f\u76ee\u540d\u79f0', templet: function(d){ return escapeHtml(d.title || '\u672a\u547d\u540d\u680f\u76ee'); } },
+      { field: 'parentId', width: 100, title: '\u7236\u680f\u76ee' },
+      { field: 'contentCount', width: 110, title: '\u5185\u5bb9\u6570' },
+      { field: 'sort', width: 90, title: '\u6392\u5e8f' },
+      { field: 'status', width: 100, title: '\u72b6\u6001', templet: function(d){ return d.status ? '<span class="layui-badge layui-bg-green">\u542f\u7528</span>' : '<span class="layui-badge">\u505c\u7528</span>'; } },
+      { field: 'updateTimeText', width: 170, title: '\u4fee\u6539\u65f6\u95f4' },
+      { width: 140, title: '\u64cd\u4f5c', fixed: 'right', templet: '#' + ids.tool }
+    ]]
+  });
+
+  table.on('toolbar(' + ids.table + ')', function(obj){
+    if (obj.event === 'Add_Content_MakePlugin_cms_codex_verify_0501_Categories') openEditor({});
+    if (obj.event === 'Refresh_Content_MakePlugin_cms_codex_verify_0501_Categories') reloadTable();
+  });
+  table.on('tool(' + ids.table + ')', function(obj){
+    if (obj.event === 'edit') openEditor(obj.data || {});
+    if (obj.event === 'delete') deleteCategory(obj.data || {});
+  });
+  byId(ids.save).onclick = saveCategory;
+  byId(ids.cancel).onclick = function(){ layer.close(state.layerIndex); };
+});
+</script>

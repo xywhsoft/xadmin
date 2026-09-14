@@ -5,6 +5,34 @@
 
 typedef void (*XAdminPluginSetGlobalDataProc)(int idx, void* ptr);
 
+void PS_TCCGenerationErrorHandler(void* pOpaque, const char* sMsg)
+{
+	PluginSystemGeneration* pGeneration = (PluginSystemGeneration*)pOpaque;
+	str sJoined;
+
+	if ( sMsg == NULL || sMsg[0] == '\0' ) {
+		return;
+	}
+
+	printf("        [PluginSystem][TCC] %s\n", sMsg);
+	if ( pGeneration == NULL ) {
+		return;
+	}
+
+	if ( pGeneration->sErrorMessage == NULL ) {
+		pGeneration->sErrorMessage = xrtCopyStr((str)sMsg, 0);
+		return;
+	}
+	if ( strlen(pGeneration->sErrorMessage) > 2048 ) {
+		return;
+	}
+	sJoined = xrtFormat("%s\n%s", pGeneration->sErrorMessage, sMsg);
+	if ( sJoined ) {
+		xrtFree(pGeneration->sErrorMessage);
+		pGeneration->sErrorMessage = sJoined;
+	}
+}
+
 void PS_TCCAddPathIfExists(TCCState* pTcc, str sRootPath, str sRelPath, bool bInclude)
 {
 	str sPath;
@@ -163,11 +191,13 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
 		return FALSE;
 	}
+	tcc_set_error_func(pTcc, pGeneration, PS_TCCGenerationErrorHandler);
 
 	PS_TCCRegisterPluginSdkSymbols(pTcc);
 	PS_TCCAddPublicInclude(pTcc);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "inc", TRUE);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "lib", FALSE);
+	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "src", TRUE);
 	PS_TCCAddPathIfExists(pTcc, pPackage->sRootPath, "include", TRUE);
 
 	tblManifest = PS_PackageManifestRef(pPackage);
@@ -200,7 +230,9 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	}
 
 	if ( !bCompiled ) {
-		pGeneration->sErrorMessage = xrtCopyStr("failed to compile plugin sources", 0);
+		if ( pGeneration->sErrorMessage == NULL ) {
+			pGeneration->sErrorMessage = xrtCopyStr("failed to compile plugin sources", 0);
+		}
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
 		if ( tblManifest ) {
 			xvoUnref(tblManifest);
@@ -210,7 +242,15 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 	}
 
 	if ( tcc_relocate(pTcc) < 0 ) {
-		pGeneration->sErrorMessage = xrtCopyStr("failed to relocate plugin image", 0);
+		if ( pGeneration->sErrorMessage ) {
+			str sRelocateError = xrtFormat("%s\nfailed to relocate plugin image", pGeneration->sErrorMessage);
+			if ( sRelocateError ) {
+				xrtFree(pGeneration->sErrorMessage);
+				pGeneration->sErrorMessage = sRelocateError;
+			}
+		} else {
+			pGeneration->sErrorMessage = xrtCopyStr("failed to relocate plugin image", 0);
+		}
 		pGeneration->iState = PS_GENERATION_STATE_FAILED;
 		if ( tblManifest ) {
 			xvoUnref(tblManifest);
@@ -221,6 +261,29 @@ bool PS_CompileGeneration(PluginSystemPackage* pPackage, PluginSystemGeneration*
 
 	procSetGlobalData = (XAdminPluginSetGlobalDataProc)tcc_get_symbol(pTcc, "XAdmin_PluginSetGlobalData");
 	if ( procSetGlobalData ) {
+		memset(&pGeneration->tHostContext, 0, sizeof(pGeneration->tHostContext));
+		pGeneration->tHostContext.size = sizeof(pGeneration->tHostContext);
+		pGeneration->tHostContext.abi_version = XADMIN_ABI_VERSION;
+		pGeneration->tHostContext.exe_path = (const char*)ExePath;
+		pGeneration->tHostContext.app_path = (const char*)AppPath;
+		pGeneration->tHostContext.web_path = (const char*)WebPath;
+		pGeneration->tHostContext.db_path = (const char*)DBPath;
+		pGeneration->tHostContext.log_path = (const char*)LogPath;
+		pGeneration->tHostContext.temp_path = (const char*)TempPath;
+		pGeneration->tHostContext.page_path = (const char*)PagePath;
+		pGeneration->tHostContext.site_page_path = (const char*)SitePagePath;
+		pGeneration->tHostContext.tool_path = (const char*)ToolPath;
+		pGeneration->tHostContext.option_path = (const char*)OptionPath;
+		pGeneration->tHostContext.install_path = (const char*)InstallPath;
+		pGeneration->tHostContext.template_path = (const char*)TemplatePath;
+		pGeneration->tHostContext.attachment_path = (const char*)AttachmentPath;
+		pGeneration->tHostContext.plugin_xid = (const char*)pPackage->sXid;
+		pGeneration->tHostContext.plugin_root_path = (const char*)pPackage->sRootPath;
+		pGeneration->tHostContext.plugin_data_path = (const char*)pPackage->sDataPath;
+		pGeneration->tHostContext.plugin_private_db_path = (const char*)pPackage->sPrivateDbPath;
+		pGeneration->tHostContext.main_db = G_DB;
+		pGeneration->tHostContext.option_table = G_Option;
+		procSetGlobalData(XADMIN_GLOBAL_HOST_CONTEXT, &pGeneration->tHostContext);
 		procSetGlobalData(XADMIN_GLOBAL_MAIN_DB, G_DB);
 		procSetGlobalData(XADMIN_GLOBAL_OPTION_TABLE, G_Option);
 		procSetGlobalData(XADMIN_GLOBAL_PLUGIN_XID, pPackage->sXid);

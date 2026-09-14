@@ -1,0 +1,55 @@
+{
+  "groups": [
+    {
+      "key": "view-stat",
+      "title": "访问统计选项",
+      "fields": [
+        {
+          "name": "enableViewLog",
+          "type": "switch",
+          "label": "记录访问日志",
+          "value": true
+        },
+        {
+          "name": "rankEnabled",
+          "type": "switch",
+          "label": "启用排行接口",
+          "value": true
+        },
+        {
+          "name": "uniqueWindowSeconds",
+          "type": "number",
+          "label": "唯一访客窗口秒数",
+          "value": 0
+        },
+        {
+          "name": "maxRankRows",
+          "type": "number",
+          "label": "公开排行列表上限",
+          "value": 20,
+          "min": 1,
+          "max": 100,
+          "step": 1
+        },
+        {
+          "name": "maxAdminListRows",
+          "type": "number",
+          "label": "后台统计列表上限",
+          "value": 100,
+          "min": 1,
+          "max": 1000,
+          "step": 1
+        },
+        {
+          "name": "maxRequestBytes",
+          "type": "number",
+          "label": "访问统计请求体字节上限",
+          "value": 8192,
+          "min": 512,
+          "max": 65536,
+          "step": 512
+        }
+      ]
+    }
+  ]
+}

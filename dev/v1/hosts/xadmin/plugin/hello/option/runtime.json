@@ -1,0 +1,18 @@
+{
+	"title": "Hello Plugin Runtime",
+	"desc": "Demo option file loaded from the plugin option directory.",
+	"authLevel": 0,
+	"classList": [
+		{
+			"title": "Basic",
+			"options": [
+				{
+					"name": "welcome_message",
+					"title": "Welcome Message",
+					"type": "input",
+					"value": "Hello from plugin option"
+				}
+			]
+		}
+	]
+}

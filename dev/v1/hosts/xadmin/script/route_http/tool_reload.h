@@ -56,7 +56,7 @@ void Request_Tool_Reload_Host(XS_ServerObject objServer, XS_HostObject objHost, 
 		return;
 	}
 
-	iRet = xsRequestReloadCurrentHost(objServer, objHost, 1);
+	iRet = xsReloadCurrentHost(objServer, objHost, 1);
 	bOK = (iRet == 0);
 	tblRet = xvoCreateTable();
 	tblData = xvoCreateTable();
@@ -83,7 +83,7 @@ void Request_Tool_Reload_Server(XS_ServerObject objServer, XS_HostObject objHost
 		return;
 	}
 
-	iRet = xsRequestReloadServer(objServer, 1);
+	iRet = xsReloadServer(objServer);
 	bOK = (iRet == 0);
 	tblRet = xvoCreateTable();
 	tblData = xvoCreateTable();
@@ -112,7 +112,7 @@ void Request_Tool_Reload_XS(XS_ServerObject objServer, XS_HostObject objHost, XS
 		return;
 	}
 
-	iRet = xsRequestReloadAllServer(1);
+	iRet = xsReloadAllServer(1);
 	bOK = (iRet == 0);
 
 	tblRet = xvoCreateTable();

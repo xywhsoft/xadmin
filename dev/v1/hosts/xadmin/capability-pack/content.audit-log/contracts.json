@@ -1,0 +1,26 @@
+{
+  "permissions": ["audit_log.view", "audit_log.manage"],
+  "adminPages": ["audit_logs"],
+  "publicApis": [],
+  "adminApis": ["audit-log.list", "audit-log.detail", "audit-log.cleanup", "audit-log.stats"],
+  "tables": ["content_audit_log"],
+  "events": ["content.afterSave", "content.afterDelete", "content.afterPublish"],
+  "runtime": {
+    "diffSummary": true,
+    "ipSource": ["request.remote", "session.ip", "session.clientIp", "session.remoteAddr"],
+    "configKeys": ["defaultKeepDays", "maxListRows", "maxCleanupRows", "maxRequestBytes"],
+    "listFilters": ["targetType", "action", "targetId"],
+    "adminFilterUi": "ability page exposes targetType/action/targetId filters for the bounded audit log list",
+    "listLimit": "maxListRows",
+    "cleanupLimit": "maxCleanupRows",
+    "requestLimit": "cleanup rejects request bodies beyond maxRequestBytes before JSON parse",
+    "detailView": "admin detail endpoint returns parsed detailJson for one audit row",
+    "adminStats": "audit-log.stats returns total count, distinct operator/target counts, actionStats and targetTypeStats for admin diagnostics",
+    "operatorStats": "audit-log.stats returns bounded operatorStats grouped by operator type and id for admin-only activity diagnostics",
+    "adminStatsUi": "ability page renders audit totals, action aggregates and target type aggregates as tables, while retaining raw JSON for diagnostics",
+    "cleanupResultUi": "ability page renders audit-log.cleanup as deleted rows, keep days, cutoff time, bounded cleanup limit and backgroundTaskId table while retaining raw JSON diagnostics",
+    "backgroundTaskAuditCleanup": "audit-log.cleanup records content.audit.cleanup in content_background_task after bounded synchronous cleanup",
+    "cleanupTaskUi": "cleanup result exposes backgroundTaskId and queued so operators can follow the task dashboard"
+  },
+  "tasks": ["audit-log.cleanup", "content.audit.cleanup"]
+}

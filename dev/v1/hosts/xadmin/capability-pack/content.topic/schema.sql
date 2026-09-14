@@ -1,0 +1,24 @@
+CREATE TABLE IF NOT EXISTS topic (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+title TEXT NOT NULL DEFAULT '',
+slug TEXT NOT NULL DEFAULT '',
+summary TEXT NOT NULL DEFAULT '',
+cover TEXT NOT NULL DEFAULT '',
+sort INTEGER NOT NULL DEFAULT 0,
+status INTEGER NOT NULL DEFAULT 1,
+content_count INTEGER NOT NULL DEFAULT 0,
+create_time INTEGER NOT NULL DEFAULT 0,
+update_time INTEGER NOT NULL DEFAULT 0,
+delete_time INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS topic_content (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+topic_id INTEGER NOT NULL DEFAULT 0,
+content_id INTEGER NOT NULL DEFAULT 0,
+sort INTEGER NOT NULL DEFAULT 0,
+create_time INTEGER NOT NULL DEFAULT 0,
+UNIQUE(topic_id, content_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_topic_slug ON topic(slug) WHERE delete_time = 0;
+CREATE INDEX IF NOT EXISTS idx_topic_status_sort ON topic(status, sort, id);
+CREATE INDEX IF NOT EXISTS idx_topic_content_content ON topic_content(content_id, topic_id);

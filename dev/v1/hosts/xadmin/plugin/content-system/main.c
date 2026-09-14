@@ -22,7 +22,7 @@ static XAdminPluginHandle G_CSHandle = NULL;
 static const char* G_CSRootPath = NULL;
 static const char* G_CSPrivateDbPath = NULL;
 static CSConfigState G_CSConfig = {
-	"Content System",
+	"内容模型管理",
 	"layui-icon layui-icon-template-1",
 	990100
 };
@@ -94,7 +94,7 @@ XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int idx, void* ptr)
 void CS_ConfigReset(void)
 {
 	memset(&G_CSConfig, 0, sizeof(G_CSConfig));
-	snprintf(G_CSConfig.sMenuTitle, sizeof(G_CSConfig.sMenuTitle), "%s", "Content System");
+	snprintf(G_CSConfig.sMenuTitle, sizeof(G_CSConfig.sMenuTitle), "%s", "内容模型管理");
 	snprintf(G_CSConfig.sMenuIcon, sizeof(G_CSConfig.sMenuIcon), "%s", "layui-icon layui-icon-template-1");
 	G_CSConfig.iMenuSort = 990100;
 }
@@ -551,6 +551,34 @@ xvalue CS_GetSpecPresentationGroups(xvalue tblSpec)
 xvalue CS_GetSpecCapabilitySlots(xvalue tblSpec)
 {
 	return CS_GetTableValue(tblSpec, "capabilitySlots");
+}
+
+bool CS_SpecHasCapabilitySlot(xvalue tblSpec, const char* sKey)
+{
+	xvalue arrSlots = CS_GetSpecCapabilitySlots(tblSpec);
+
+	if ( (sKey == NULL) || (arrSlots == NULL) || (xvoType(arrSlots) != XVO_DT_ARRAY) ) {
+		return FALSE;
+	}
+	for ( uint32 i = 0; i < xvoArrayItemCount(arrSlots); i++ ) {
+		xvalue tblSlot = xvoArrayGetValue(arrSlots, i);
+		const char* sSlotKey;
+		xvalue objEnabled;
+		bool bEnabled = TRUE;
+
+		if ( (tblSlot == NULL) || (xvoType(tblSlot) != XVO_DT_TABLE) ) {
+			continue;
+		}
+		sSlotKey = xvoTableGetText(tblSlot, "key", 3);
+		objEnabled = xvoTableGetValue(tblSlot, "enabled", 7);
+		if ( objEnabled && (xvoType(objEnabled) == XVO_DT_BOOL) ) {
+			bEnabled = xvoGetBool(objEnabled) ? TRUE : FALSE;
+		}
+		if ( bEnabled && sSlotKey && (strcmp(sSlotKey, sKey) == 0) ) {
+			return TRUE;
+		}
+	}
+	return FALSE;
 }
 
 static xvalue CS_GetTableValue(xvalue tblData, const char* sKey)
@@ -2462,6 +2490,17 @@ void CS_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	}
 }
 
+void CS_RequestEditorView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+{
+	(void)objServer;
+	(void)objHost;
+	(void)objReq;
+	(void)objSession;
+	if ( !CS_SendAssetHtml(objResp, "editor.html") ) {
+		xsHttpReplyAuto(objResp, 500, "Content-Type: text/plain; charset=utf-8\r\n", "content-system editor page missing", 0);
+	}
+}
+
 void CS_RequestRevisions(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
 {
 	char sTypeId[32];
@@ -2963,14 +3002,84 @@ str CS_BuildManagedMainSource(const char* sPluginXid, const char* sTitle)
 	return sTemplate;
 }
 
+str CS_BuildPluginDomIdBase(const char* sPluginXid)
+{
+	const char* sBase = sPluginXid ? sPluginXid : "";
+	const char* sPrefix = "Content_MakePlugin_";
+	size_t iPrefixLen = strlen(sPrefix);
+	size_t iBaseLen = strlen(sBase);
+	char* sOut = (char*)xrtMalloc(iPrefixLen + iBaseLen + 1);
+	size_t iPos = 0;
+
+	if ( sOut == NULL ) {
+		return NULL;
+	}
+	memcpy(sOut, sPrefix, iPrefixLen);
+	iPos = iPrefixLen;
+	for ( size_t i = 0; i < iBaseLen; i++ ) {
+		char ch = sBase[i];
+		if ( ((ch >= 'a') && (ch <= 'z'))
+			|| ((ch >= 'A') && (ch <= 'Z'))
+			|| ((ch >= '0') && (ch <= '9')) ) {
+			sOut[iPos++] = ch;
+		} else {
+			sOut[iPos++] = '_';
+		}
+	}
+	sOut[iPos] = '\0';
+	return sOut;
+}
+
 str CS_BuildManagedHtml(const char* sPluginXid, const char* sPageTitle, bool bAdmin)
 {
 	str sTemplate = CS_LoadAssetText(bAdmin ? "managed_admin.template.html" : "managed_public.template.html");
+	str sDomIdBase = CS_BuildPluginDomIdBase(sPluginXid);
 	(void)sPageTitle;
 	if ( sTemplate == NULL ) {
+		if ( sDomIdBase ) xrtFree(sDomIdBase);
 		return NULL;
 	}
 	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_XID}}", sPluginXid);
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin");
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_PAGE_KIND}}", "articles");
+	if ( sDomIdBase ) xrtFree(sDomIdBase);
+	return sTemplate;
+}
+
+str CS_BuildManagedAdminPageHtml(const char* sPluginXid, const char* sPageKind)
+{
+	str sTemplate = CS_LoadAssetText("managed_admin.template.html");
+	str sDomIdBase = CS_BuildPluginDomIdBase(sPluginXid);
+	str sPageDomIdBase = NULL;
+
+	if ( sTemplate == NULL ) {
+		if ( sDomIdBase ) xrtFree(sDomIdBase);
+		return NULL;
+	}
+	sPageDomIdBase = xrtFormat("%s_%s", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin", (sPageKind && strcmp(sPageKind, "drafts") == 0) ? "Drafts" : "Articles");
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_XID}}", sPluginXid);
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sPageDomIdBase ? (const char*)sPageDomIdBase : (sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin"));
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_PAGE_KIND}}", sPageKind ? sPageKind : "articles");
+	if ( sPageDomIdBase ) xrtFree(sPageDomIdBase);
+	if ( sDomIdBase ) xrtFree(sDomIdBase);
+	return sTemplate;
+}
+
+str CS_BuildManagedCategoryHtml(const char* sPluginXid)
+{
+	str sTemplate = CS_LoadAssetText("managed_category.template.html");
+	str sDomIdBase = CS_BuildPluginDomIdBase(sPluginXid);
+	str sPageDomIdBase = NULL;
+
+	if ( sTemplate == NULL ) {
+		if ( sDomIdBase ) xrtFree(sDomIdBase);
+		return NULL;
+	}
+	sPageDomIdBase = xrtFormat("%s_Categories", sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin");
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_XID}}", sPluginXid);
+	sTemplate = CS_ReplaceTemplateToken(sTemplate, "{{PLUGIN_DOM_ID_BASE}}", sPageDomIdBase ? (const char*)sPageDomIdBase : (sDomIdBase ? (const char*)sDomIdBase : "Content_MakePlugin_Category"));
+	if ( sPageDomIdBase ) xrtFree(sPageDomIdBase);
+	if ( sDomIdBase ) xrtFree(sDomIdBase);
 	return sTemplate;
 }
 
@@ -3359,6 +3468,8 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	str sPluginJson = NULL;
 	str sMainSource = NULL;
 	str sAdminHtml = NULL;
+	str sDraftHtml = NULL;
+	str sCategoryHtml = NULL;
 	str sPublicHtml = NULL;
 	str sConfigDefaults = NULL;
 	str sConfigSchema = NULL;
@@ -3366,12 +3477,14 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	str sPlanJson = NULL;
 	str sMigrationPlanJson = NULL;
 	str sMigrationSql = NULL;
-	XAdminGeneratedFile files[14];
+	XAdminGeneratedFile files[16];
 	XAdminGeneratedPluginSpec spec;
 	xvalue tblRet = NULL;
 	sqlite3_stmt* stmt = NULL;
 	bool bHasGenerated = FALSE;
+	bool bCategoryPack = FALSE;
 	int iFieldCount = 0;
+	int iFileCount = 0;
 	int iGenerateRet = -1;
 	xtime iNow = xrtNow();
 
@@ -3416,6 +3529,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	if ( tblAdvisor ) {
 		sPlanJson = CS_StringifyJson(tblAdvisor);
 	}
+	bCategoryPack = CS_SpecHasCapabilitySlot(tblSpec, "content.category");
 	sMigrationPlanJson = CS_BuildMigrationPlanJson(sXid, snapshot.iTypeId, snapshot.iAppliedRevision, snapshot.iCurrentRevision, sSpecHash, tblAdvisor);
 	sMigrationSql = CS_BuildMigrationSql(sXid, snapshot.iTypeId, snapshot.iAppliedRevision, snapshot.iCurrentRevision, tblAdvisor);
 	sManagedJson = CS_BuildManagedJson(sXid, snapshot.iTypeId, snapshot.iCurrentRevision, sSpecHash, tblSpec, iNow);
@@ -3424,55 +3538,67 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	sMountSchemaJson = CS_BuildManagedMountSchemaJson();
 	sPluginJson = CS_BuildManagedPluginManifest(sXid, sTitle ? sTitle : sName, sDescription, tblSpec);
 	sMainSource = CS_BuildManagedMainSource(sXid, sTitle ? (const char*)sTitle : (const char*)sName);
-	sAdminHtml = CS_BuildManagedHtml(sXid, sTitle ? (const char*)sTitle : "Managed Content Plugin", TRUE);
+	sAdminHtml = CS_BuildManagedAdminPageHtml(sXid, "articles");
+	sDraftHtml = CS_BuildManagedAdminPageHtml(sXid, "drafts");
+	if ( bCategoryPack ) {
+		sCategoryHtml = CS_BuildManagedCategoryHtml(sXid);
+	}
 	sPublicHtml = CS_BuildManagedHtml(sXid, sTitle ? (const char*)sTitle : "Managed Content Plugin", FALSE);
 	sConfigDefaults = xrtCopyStr("{\n  \"pageSize\": 20\n}\n", 0);
 	sConfigSchema = xrtCopyStr("{\n  \"type\": \"object\",\n  \"properties\": {\n    \"pageSize\": {\n      \"type\": \"integer\",\n      \"title\": \"Page Size\"\n    }\n  },\n  \"additionalProperties\": false\n}\n", 0);
 	sCustomReadme = xrtCopyStr("This directory is reserved for user-owned extensions.\nPhase 1 generation does not overwrite files placed here.\n", 0);
 
 	memset(files, 0, sizeof(files));
-	files[0].relative_path = "plugin.json";
-	files[0].data = sPluginJson;
-	files[0].size = sPluginJson ? strlen(sPluginJson) : 0;
-	files[1].relative_path = "generated/main.c";
-	files[1].data = sMainSource;
-	files[1].size = sMainSource ? strlen(sMainSource) : 0;
-	files[2].relative_path = "generated/admin.html";
-	files[2].data = sAdminHtml;
-	files[2].size = sAdminHtml ? strlen(sAdminHtml) : 0;
-	files[3].relative_path = "generated/public.html";
-	files[3].data = sPublicHtml;
-	files[3].size = sPublicHtml ? strlen(sPublicHtml) : 0;
-	files[4].relative_path = "config.defaults.json";
-	files[4].data = sConfigDefaults;
-	files[4].size = sConfigDefaults ? strlen(sConfigDefaults) : 0;
-	files[5].relative_path = "config.schema.json";
-	files[5].data = sConfigSchema;
-	files[5].size = sConfigSchema ? strlen(sConfigSchema) : 0;
-	files[6].relative_path = "generated/spec.json";
-	files[6].data = sSpecJsonNorm;
-	files[6].size = sSpecJsonNorm ? strlen(sSpecJsonNorm) : 0;
-	files[7].relative_path = "runtime/managed.json";
-	files[7].data = sManagedJson;
-	files[7].size = sManagedJson ? strlen(sManagedJson) : 0;
-	files[8].relative_path = "custom/README.txt";
-	files[8].data = sCustomReadme;
-	files[8].size = sCustomReadme ? strlen(sCustomReadme) : 0;
-	files[9].relative_path = "runtime/contracts.json";
-	files[9].data = sContractsJson;
-	files[9].size = sContractsJson ? strlen(sContractsJson) : 0;
-	files[10].relative_path = "runtime/capability.mounts.example.json";
-	files[10].data = sMountSampleJson;
-	files[10].size = sMountSampleJson ? strlen(sMountSampleJson) : 0;
-	files[11].relative_path = "runtime/capability.mounts.schema.json";
-	files[11].data = sMountSchemaJson;
-	files[11].size = sMountSchemaJson ? strlen(sMountSchemaJson) : 0;
-	files[12].relative_path = "runtime/migration.plan.json";
-	files[12].data = sMigrationPlanJson;
-	files[12].size = sMigrationPlanJson ? strlen(sMigrationPlanJson) : 0;
-	files[13].relative_path = "generated/migration.sql";
-	files[13].data = sMigrationSql;
-	files[13].size = sMigrationSql ? strlen(sMigrationSql) : 0;
+	files[iFileCount].relative_path = "plugin.json";
+	files[iFileCount].data = sPluginJson;
+	files[iFileCount++].size = sPluginJson ? strlen(sPluginJson) : 0;
+	files[iFileCount].relative_path = "generated/main.c";
+	files[iFileCount].data = sMainSource;
+	files[iFileCount++].size = sMainSource ? strlen(sMainSource) : 0;
+	files[iFileCount].relative_path = "generated/admin.html";
+	files[iFileCount].data = sAdminHtml;
+	files[iFileCount++].size = sAdminHtml ? strlen(sAdminHtml) : 0;
+	files[iFileCount].relative_path = "generated/public.html";
+	files[iFileCount].data = sPublicHtml;
+	files[iFileCount++].size = sPublicHtml ? strlen(sPublicHtml) : 0;
+	files[iFileCount].relative_path = "config.defaults.json";
+	files[iFileCount].data = sConfigDefaults;
+	files[iFileCount++].size = sConfigDefaults ? strlen(sConfigDefaults) : 0;
+	files[iFileCount].relative_path = "config.schema.json";
+	files[iFileCount].data = sConfigSchema;
+	files[iFileCount++].size = sConfigSchema ? strlen(sConfigSchema) : 0;
+	files[iFileCount].relative_path = "generated/spec.json";
+	files[iFileCount].data = sSpecJsonNorm;
+	files[iFileCount++].size = sSpecJsonNorm ? strlen(sSpecJsonNorm) : 0;
+	files[iFileCount].relative_path = "runtime/managed.json";
+	files[iFileCount].data = sManagedJson;
+	files[iFileCount++].size = sManagedJson ? strlen(sManagedJson) : 0;
+	files[iFileCount].relative_path = "custom/README.txt";
+	files[iFileCount].data = sCustomReadme;
+	files[iFileCount++].size = sCustomReadme ? strlen(sCustomReadme) : 0;
+	files[iFileCount].relative_path = "runtime/contracts.json";
+	files[iFileCount].data = sContractsJson;
+	files[iFileCount++].size = sContractsJson ? strlen(sContractsJson) : 0;
+	files[iFileCount].relative_path = "runtime/capability.mounts.example.json";
+	files[iFileCount].data = sMountSampleJson;
+	files[iFileCount++].size = sMountSampleJson ? strlen(sMountSampleJson) : 0;
+	files[iFileCount].relative_path = "runtime/capability.mounts.schema.json";
+	files[iFileCount].data = sMountSchemaJson;
+	files[iFileCount++].size = sMountSchemaJson ? strlen(sMountSchemaJson) : 0;
+	files[iFileCount].relative_path = "runtime/migration.plan.json";
+	files[iFileCount].data = sMigrationPlanJson;
+	files[iFileCount++].size = sMigrationPlanJson ? strlen(sMigrationPlanJson) : 0;
+	files[iFileCount].relative_path = "generated/migration.sql";
+	files[iFileCount].data = sMigrationSql;
+	files[iFileCount++].size = sMigrationSql ? strlen(sMigrationSql) : 0;
+	files[iFileCount].relative_path = "generated/drafts.html";
+	files[iFileCount].data = sDraftHtml;
+	files[iFileCount++].size = sDraftHtml ? strlen(sDraftHtml) : 0;
+	if ( bCategoryPack ) {
+		files[iFileCount].relative_path = "generated/categories.html";
+		files[iFileCount].data = sCategoryHtml;
+		files[iFileCount++].size = sCategoryHtml ? strlen(sCategoryHtml) : 0;
+	}
 
 	memset(&spec, 0, sizeof(spec));
 	spec.xid = sXid;
@@ -3480,7 +3606,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	spec.version = CS_GENERATOR_VERSION;
 	spec.entry = "generated/main.c";
 	spec.auto_enable = 1;
-	spec.file_count = 14;
+	spec.file_count = iFileCount;
 	spec.files = files;
 
 	iGenerateRet = XAdmin_GeneratePlugin(G_CSHandle, &spec);
@@ -3576,6 +3702,8 @@ cleanup:
 	if ( sPluginJson ) xrtFree(sPluginJson);
 	if ( sMainSource ) xrtFree(sMainSource);
 	if ( sAdminHtml ) xrtFree(sAdminHtml);
+	if ( sDraftHtml ) xrtFree(sDraftHtml);
+	if ( sCategoryHtml ) xrtFree(sCategoryHtml);
 	if ( sPublicHtml ) xrtFree(sPublicHtml);
 	if ( sConfigDefaults ) xrtFree(sConfigDefaults);
 	if ( sConfigSchema ) xrtFree(sConfigSchema);
@@ -3657,11 +3785,18 @@ int CS_OnStart(XAdminPluginHandle handle)
 	route.admin_only = TRUE;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
+	memset(&route, 0, sizeof(route));
+	route.path = "/admin/view/plugin/content-system/editor";
+	route.proc = CS_RequestEditorView;
+	route.need_auth = TRUE;
+	route.admin_only = TRUE;
+	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
+
 	memset(&menu, 0, sizeof(menu));
-	menu.title = G_CSConfig.sMenuTitle;
+	menu.title = "内容模型管理";
 	menu.icon = G_CSConfig.sMenuIcon;
 	menu.type = 1;
-	menu.open_type = "_iframe";
+	menu.open_type = "_component";
 	menu.href = "/admin/view/plugin/content-system";
 	menu.sort = G_CSConfig.iMenuSort;
 	menu.visible = TRUE;
@@ -3675,7 +3810,7 @@ int CS_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)
 	(void)handle;
 	CS_ConfigReset();
 	if ( new_cfg ) {
-		CS_CopyText(G_CSConfig.sMenuTitle, sizeof(G_CSConfig.sMenuTitle), xvoTableGetText(new_cfg, "menuTitle", 9), "Content System");
+		CS_CopyText(G_CSConfig.sMenuTitle, sizeof(G_CSConfig.sMenuTitle), xvoTableGetText(new_cfg, "menuTitle", 9), "内容模型管理");
 		CS_CopyText(G_CSConfig.sMenuIcon, sizeof(G_CSConfig.sMenuIcon), xvoTableGetText(new_cfg, "menuIcon", 8), "layui-icon layui-icon-template-1");
 		if ( xvoTableGetInt(new_cfg, "menuSort", 8) > 0 ) {
 			G_CSConfig.iMenuSort = (int)xvoTableGetInt(new_cfg, "menuSort", 8);
