@@ -1,4 +1,51 @@
 #include "xs_plugin.h"
+#include "value_util.h"
+#include "util.h"
+#include <sqlite3.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+/* multipart 本地桩：宿主尚未接入 xrt extlibs 解码器；上传路由走错误分支。 */
+typedef struct { const char* sPtr; size_t iLen; } xrtmultipartboundaryview;
+typedef struct xrtmultipartpartview {
+	struct { const char* sPtr; size_t iLen; } tName;
+	struct { const char* sPtr; size_t iLen; } tBody;
+} xrtmultipartpartview;
+static bool xrtMultipartBoundaryFromContentType(const char* sContentType, xrtmultipartboundaryview* pBoundary)
+{
+	const char* sB;
+	if (!sContentType || !pBoundary) return false;
+	sB = strstr(sContentType, "boundary=");
+	if (!sB) return false;
+	sB += 9;
+	pBoundary->sPtr = sB;
+	pBoundary->iLen = strlen(sB);
+	return pBoundary->iLen > 0;
+}
+static bool xrtMultipartNextN(const char* sBody, size_t iBodyLen, const char* sBoundary, size_t iBoundaryLen, size_t* pOffset, xrtmultipartpartview* pPart)
+{
+	(void)sBody; (void)iBodyLen; (void)sBoundary; (void)iBoundaryLen; (void)pOffset; (void)pPart;
+	return false;
+}
+static bool xrtMultipartDecodeFileNameTo(const xrtmultipartpartview* pPart, char* sOut, size_t iOutSize, size_t* pNameLen)
+{
+	(void)pPart; (void)sOut; (void)iOutSize; (void)pNameLen;
+	return false;
+}
+/* 路径式文件信息（v3 原生为句柄/Stat 式，这里按路径包装） */
+static int64 FM_FileSize(const char* sPath)
+{
+	xfileinfo info;
+	if (!sPath || !xrtPathStat(sPath, false, &info)) return 0;
+	return (int64)info.Size;
+}
+static xtime FM_FileMTime(const char* sPath)
+{
+	xfileinfo info;
+	if (!sPath || !xrtPathStat(sPath, false, &info)) return 0;
+	return info.Modified;
+}
 
 typedef struct {
 	char sRootPath[512];
@@ -24,14 +71,14 @@ static bool FM_IsFileSystemMode(void)
 
 static bool FM_IsAbsolutePath(const char* sPath)
 {
-	if ( (sPath == NULL) || (sPath[0] == '\0') ) return FALSE;
-	if ( sPath[0] == '/' || sPath[0] == '\\' ) return TRUE;
+	if ( (sPath == NULL) || (sPath[0] == '\0') ) return false;
+	if ( sPath[0] == '/' || sPath[0] == '\\' ) return true;
 #if defined(_WIN32) || defined(_WIN64)
 	if ( ((sPath[0] >= 'A' && sPath[0] <= 'Z') || (sPath[0] >= 'a' && sPath[0] <= 'z')) && sPath[1] == ':' ) {
-		return TRUE;
+		return true;
 	}
 #endif
-	return FALSE;
+	return false;
 }
 
 static void FM_AssignResolvedPath(char* sDest, size_t iCap, const char* sValue, const char* sBasePath, const char* sFallback)
@@ -57,7 +104,7 @@ static void FM_AssignResolvedPath(char* sDest, size_t iCap, const char* sValue, 
 		return;
 	}
 
-	sResolved = xrtPathJoin(2, (str)sBasePath, (str)sInput);
+	sResolved = xrtPathJoin((str)sBasePath, (str)sInput);
 	if ( sResolved ) {
 		FM_NormalizePath(sResolved);
 		snprintf(sDest, iCap, "%s", (char*)sResolved);
@@ -85,8 +132,8 @@ static void FM_PrepareRuntimePaths(void)
 	FM_AssignResolvedPath(G_FMConfig.sToolPath, sizeof(G_FMConfig.sToolPath), G_FMConfig.sToolPath, G_FMRootPath, "tools");
 
 	if ( G_FMDataPath && G_FMDataPath[0] ) {
-		str sTemp = xrtPathJoin(2, (str)G_FMDataPath, "temp");
-		str sThumb = xrtPathJoin(2, (str)G_FMDataPath, "thumbnail");
+		str sTemp = xrtPathJoin((str)G_FMDataPath, "temp");
+		str sThumb = xrtPathJoin((str)G_FMDataPath, "thumbnail");
 		if ( sTemp ) {
 			FM_NormalizePath(sTemp);
 			snprintf(G_FMConfig.sTempPath, sizeof(G_FMConfig.sTempPath), "%s", (char*)sTemp);
@@ -133,26 +180,26 @@ static void FM_NormalizePath(char* path)
 
 static bool FM_IsPathSafe(const char* relPath)
 {
-	if ( relPath == NULL ) return FALSE;
-	if ( strstr(relPath, "..") != NULL ) return FALSE;
+	if ( relPath == NULL ) return false;
+	if ( strstr(relPath, "..") != NULL ) return false;
 	if ( FM_IsFileSystemMode() ) {
 #if defined(_WIN32) || defined(_WIN64)
-		if ( relPath[0] == '\0' ) return TRUE;
-		if ( relPath[0] == '/' || relPath[0] == '\\' ) return FALSE;
+		if ( relPath[0] == '\0' ) return true;
+		if ( relPath[0] == '/' || relPath[0] == '\\' ) return false;
 		if ( strchr(relPath, ':') != NULL ) {
 			if ( !(((relPath[0] >= 'A' && relPath[0] <= 'Z') || (relPath[0] >= 'a' && relPath[0] <= 'z')) && relPath[1] == ':') ) {
-				return FALSE;
+				return false;
 			}
-			if ( strchr(relPath + 2, ':') != NULL ) return FALSE;
+			if ( strchr(relPath + 2, ':') != NULL ) return false;
 		}
-		return TRUE;
+		return true;
 #else
 		return (relPath[0] == '\0' || relPath[0] == '/');
 #endif
 	}
-	if ( relPath[0] == '/' || relPath[0] == '\\' ) return FALSE;
-	if ( strchr(relPath, ':') != NULL ) return FALSE;
-	return TRUE;
+	if ( relPath[0] == '/' || relPath[0] == '\\' ) return false;
+	if ( strchr(relPath, ':') != NULL ) return false;
+	return true;
 }
 
 static str FM_ResolvePath(const char* relPath)
@@ -170,49 +217,49 @@ static str FM_ResolvePath(const char* relPath)
 			sBuf[2] = '\\';
 			sBuf[3] = '\0';
 		}
-		return xrtCopyStr(sBuf, 0);
+		return xrtStrDup(sBuf);
 #else
-		if ( sPart[0] == '\0' ) return xrtCopyStr("/", 0);
-		return xrtCopyStr((str)sPart, 0);
+		if ( sPart[0] == '\0' ) return xrtStrDup("/");
+		return xrtStrDup((str)sPart);
 #endif
 	}
 	if ( relPath && (relPath[0] == '/' || relPath[0] == '\\') ) {
 		sPart = relPath + 1;
 	}
-	sPath = xrtPathJoin(2, G_FMConfig.sRootPath, (str)sPart);
+	sPath = xrtPathJoin(G_FMConfig.sRootPath, (str)sPart);
 	if ( sPath ) FM_NormalizePath(sPath);
 	return sPath;
 }
 
-void FM_SendJsonCode(XS_ResponseObject objResp, int iCode, xvalue tblData)
+void FM_SendJsonCode(XS_ResponseObject objResp, int iCode, xvalue* tblData)
 {
 	size_t iSize = 0;
-	str sJson = xrtStringifyJSON(tblData, FALSE, &iSize);
+	str sJson = xrtJsonStringify(tblData, false, &iSize);
 	if ( sJson ) {
 		xsHttpReplyAuto(objResp, iCode, "Content-Type: application/json; charset=utf-8\r\n", sJson, iSize);
 		xrtFree(sJson);
 	}
-	xvoUnref(tblData);
+	xrtValueRelease(tblData);
 }
 
-void FM_SendJson(XS_ResponseObject objResp, xvalue tblData)
+void FM_SendJson(XS_ResponseObject objResp, xvalue* tblData)
 {
 	FM_SendJsonCode(objResp, 200, tblData);
 }
 
-xvalue FM_Ok(const char* sMessage)
+xvalue* FM_Ok(const char* sMessage)
 {
-	xvalue tblRet = xvoCreateTable();
-	xvoTableSetBool(tblRet, "result", 6, TRUE);
-	if ( sMessage ) xvoTableSetText(tblRet, "message", 7, (str)sMessage, 0, FALSE);
+	xvalue* tblRet = ValueObject();
+	ValueSetBool(tblRet, "result", true);
+	if ( sMessage ) ValueSetText(tblRet, "message", (str)sMessage);
 	return tblRet;
 }
 
-xvalue FM_Fail(const char* sMessage)
+xvalue* FM_Fail(const char* sMessage)
 {
-	xvalue tblRet = xvoCreateTable();
-	xvoTableSetBool(tblRet, "result", 6, FALSE);
-	if ( sMessage ) xvoTableSetText(tblRet, "message", 7, (str)sMessage, 0, FALSE);
+	xvalue* tblRet = ValueObject();
+	ValueSetBool(tblRet, "result", false);
+	if ( sMessage ) ValueSetText(tblRet, "message", (str)sMessage);
 	return tblRet;
 }
 
@@ -226,25 +273,25 @@ bool FM_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	str sPath;
 	ptr pData;
 	size_t iSize = 0;
-	if ( (G_FMRootPath == NULL) || (sFileName == NULL) ) return FALSE;
-	sPath = xrtPathJoin(2, G_FMRootPath, (str)sFileName);
+	if ( (G_FMRootPath == NULL) || (sFileName == NULL) ) return false;
+	sPath = xrtPathJoin(G_FMRootPath, (str)sFileName);
 	if ( (sPath == NULL) || !xrtFileExists(sPath) ) {
 		if ( sPath ) xrtFree(sPath);
-		return FALSE;
+		return false;
 	}
-	pData = xrtFileGetAll(sPath, &iSize);
+	pData = xrtFileReadAll(sPath, &iSize);
 	xrtFree(sPath);
-	if ( pData == NULL ) return FALSE;
+	if ( pData == NULL ) return false;
 	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
-	return TRUE;
+	return true;
 }
 
-xvalue FM_ParseJsonBody(XS_RequestObject objReq)
+xvalue* FM_ParseJsonBody(XS_RequestObject objReq)
 {
-	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-	if ( (tblForm == NULL) || (xvoType(tblForm) != XVO_DT_TABLE) ) {
-		if ( tblForm ) xvoUnref(tblForm);
+	xvalue* tblForm = JsonParseN((str)XAdmin_ReqBody(objReq), XAdmin_ReqBodyLen(objReq));
+	if ( (tblForm == NULL) || (xrtValueType(tblForm) != XVALUE_OBJECT) ) {
+		if ( tblForm ) xrtValueRelease(tblForm);
 		return NULL;
 	}
 	return tblForm;
@@ -256,7 +303,7 @@ str FM_ReadQuery(XS_RequestObject objReq, const char* sName)
 	memset(sBuf, 0, sizeof(sBuf));
 	xsReqQueryValue(objReq, sName, sBuf, sizeof(sBuf));
 	if ( sBuf[0] == '\0' ) return NULL;
-	return xrtCopyStr(sBuf, 0);
+	return xrtStrDup(sBuf);
 }
 
 static const char* FM_GetImageContentType(const char* sPath)
@@ -274,7 +321,7 @@ static const char* FM_GetImageContentType(const char* sPath)
 static bool FM_IsImageExt(const char* sPath)
 {
 	const char* ext = strrchr(sPath, '.');
-	if ( !ext ) return FALSE;
+	if ( !ext ) return false;
 	return (strcasecmp(ext, ".jpg") == 0 || strcasecmp(ext, ".jpeg") == 0 ||
 		strcasecmp(ext, ".png") == 0 || strcasecmp(ext, ".gif") == 0 ||
 		strcasecmp(ext, ".bmp") == 0 || strcasecmp(ext, ".webp") == 0);
@@ -290,87 +337,77 @@ static unsigned long FM_SimpleHash(const char* str)
 	return hash;
 }
 
-typedef struct {
-	str sPath;
-	size_t iSize;
-	int bDir;
-	ptr pData;
-	xvalue arrFile;
-} FM_ScanCtx;
-
-static void FM_AppendVirtualRootEntry(xvalue arrFile, const char* sName)
+static void FM_AppendVirtualRootEntry(xvalue* arrFile, const char* sName)
 {
-	xvalue tblInfo = xvoCreateTable();
-	xvoTableSetInt(tblInfo, "id", 2, (int)xvoArrayItemCount(arrFile));
-	xvoTableSetText(tblInfo, "name", 4, xrtCopyStr((str)sName, 0), 0, TRUE);
-	xvoTableSetText(tblInfo, "time", 4, (str)"-", 0, FALSE);
-	xvoTableSetText(tblInfo, "ext", 3, (str)"", 0, FALSE);
-	xvoTableSetText(tblInfo, "type", 4, (str)"drive", 0, FALSE);
-	xvoTableSetBool(tblInfo, "isdir", 5, TRUE);
-	xvoTableSetBool(tblInfo, "isroot", 6, TRUE);
-	xvoTableSetInt(tblInfo, "size", 4, 0);
-	xvoTableSetText(tblInfo, "access", 6, (str)"-", 0, FALSE);
-	xvoArrayAppendValue(arrFile, tblInfo, TRUE);
+	xvalue* tblInfo = ValueObject();
+	ValueSetInt(tblInfo, "id", (int)ValueCount(arrFile));
+	ValueSetOwnedText(tblInfo, "name", xrtStrDup((str)sName));
+	ValueSetText(tblInfo, "time", (str)"-");
+	ValueSetText(tblInfo, "ext", (str)"");
+	ValueSetText(tblInfo, "type", (str)"drive");
+	ValueSetBool(tblInfo, "isdir", true);
+	ValueSetBool(tblInfo, "isroot", true);
+	ValueSetInt(tblInfo, "size", 0);
+	ValueSetText(tblInfo, "access", (str)"-");
+	ValueArrayOwn(arrFile, tblInfo);
 }
 
-static void FM_ListVirtualRoots(xvalue arrFile)
+static void FM_ListVirtualRoots(xvalue* arrFile)
 {
-#if defined(_WIN32) || defined(_WIN64)
-	char sDrives[512];
-	char* pDrive;
-	memset(sDrives, 0, sizeof(sDrives));
-	GetLogicalDriveStringsA((DWORD)(sizeof(sDrives) - 1), sDrives);
-	pDrive = sDrives;
-	while ( pDrive[0] ) {
-		char sName[8];
-		memset(sName, 0, sizeof(sName));
-		snprintf(sName, sizeof(sName), "%c:", pDrive[0]);
-		FM_AppendVirtualRootEntry(arrFile, sName);
-		pDrive += strlen(pDrive) + 1;
+	xdirroots roots;
+	size_t i;
+
+	if ( !xrtDirRoots(&roots) ) return;
+	for ( i = 0; i < roots.Count; i++ ) {
+		str sItem = roots.Items[i];
+		size_t iLen;
+		if ( !sItem || !sItem[0] ) continue;
+		/* 展示名去掉尾部分隔符（"C:\" → "C:"；POSIX 根 "/" 保留） */
+		iLen = strlen(sItem);
+		while ( iLen > 1 && (sItem[iLen - 1] == '/' || sItem[iLen - 1] == '\\') ) {
+			sItem[--iLen] = '\0';
+		}
+		FM_AppendVirtualRootEntry(arrFile, sItem);
 	}
-#else
-	FM_AppendVirtualRootEntry(arrFile, "/");
-#endif
+	xrtDirRootsFree(&roots);
 }
 
-static int FM_ListProc(str sPath, size_t iSize, int bDir, ptr pData, ptr Param)
+static int FM_ListProc(const char* sPath, size_t iSize, bool bDir, void* pParam)
 {
 	str sName;
 	str sExt;
-	xvalue tblInfo;
+	xvalue* tblInfo;
 	xtime iTime;
 	str sTime;
-	xvalue arrFile = (xvalue)Param;
+	xvalue* arrFile = (xvalue*)pParam;
 
-	if ( bDir == 2 ) return FALSE;
-
-	sName = xrtPathGetNameExt(sPath, iSize);
-	sExt = xrtPathGetExt(sPath, iSize);
-	tblInfo = xvoCreateTable();
-	xvoTableSetInt(tblInfo, "id", 2, (int)xvoArrayItemCount(arrFile));
-	xvoTableSetText(tblInfo, "name", 4, sName, 0, TRUE);
-	iTime = xrtFileGetChangeTime(sPath);
-	sTime = xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME);
-	xvoTableSetText(tblInfo, "time", 4, sTime, 0, TRUE);
-	if ( sExt ) {
-		xvoTableSetText(tblInfo, "ext", 3, sExt, 0, TRUE);
+	sName = xrtPathName(sPath);
+	sExt = Util_ExtNoDot(sPath);
+	tblInfo = ValueObject();
+	ValueSetInt(tblInfo, "id", (int)ValueCount(arrFile));
+	ValueSetOwnedText(tblInfo, "name", sName ? sName : (str)"");
+	iTime = FM_FileMTime(sPath);
+	sTime = TimeText(iTime, TIME_TEXT_DATETIME);
+	ValueSetOwnedText(tblInfo, "time", sTime ? sTime : (str)"");
+	if ( sExt && sExt[0] ) {
+		ValueSetOwnedText(tblInfo, "ext", sExt);
 	} else {
-		xvoTableSetText(tblInfo, "ext", 3, (str)"", 0, FALSE);
+		ValueSetText(tblInfo, "ext", (str)"");
 	}
-	xvoTableSetText(tblInfo, "type", 4, (str)"-", 0, FALSE);
-	if ( bDir == 1 ) {
-		xvoTableSetBool(tblInfo, "isdir", 5, TRUE);
-		xvoTableSetInt(tblInfo, "size", 4, 0);
+	ValueSetText(tblInfo, "type", (str)"-");
+	if ( bDir ) {
+		ValueSetBool(tblInfo, "isdir", true);
+		ValueSetInt(tblInfo, "size", 0);
 	} else {
-		xvoTableSetBool(tblInfo, "isdir", 5, FALSE);
-		xvoTableSetInt(tblInfo, "size", 4, (int64)xrtFileGetSize(sPath));
+		ValueSetBool(tblInfo, "isdir", false);
+		ValueSetInt(tblInfo, "size", (int64)iSize);
 	}
-	xvoTableSetText(tblInfo, "access", 6, (str)"-", 0, FALSE);
-	xvoArrayAppendValue(arrFile, tblInfo, TRUE);
-	return FALSE;
+	ValueSetText(tblInfo, "access", (str)"-");
+	ValueArrayOwn(arrFile, tblInfo);
+	return false;
 }
 
-void FM_Req_ViewPage(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ViewPage(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	(void)objServer; (void)objHost; (void)objReq; (void)objSession;
 	if ( !FM_SendAssetHtml(objResp, "page/filemanager.html") ) {
@@ -378,12 +415,12 @@ void FM_Req_ViewPage(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	}
 }
 
-void FM_Req_ApiList(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiList(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	str sRelPath;
 	str sPath;
-	xvalue tblRet, arrFile;
-	bool bIsRootList = FALSE;
+	xvalue* tblRet, *arrFile;
+	bool bIsRootList = false;
 
 	(void)objServer; (void)objHost; (void)objSession;
 
@@ -397,26 +434,26 @@ void FM_Req_ApiList(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	sPath = FM_ResolvePath(sRelPath ? (char*)sRelPath : "");
 	if ( sRelPath ) xrtFree(sRelPath);
 
-	tblRet = xvoCreateTable();
-	xvoTableSetInt(tblRet, "code", 4, 0);
-	xvoTableSetText(tblRet, "msg", 3, (str)"ok", 0, FALSE);
-	arrFile = xvoCreateArray();
-	xvoTableSetValue(tblRet, "data", 4, arrFile, TRUE);
+	tblRet = ValueObject();
+	ValueSetInt(tblRet, "code", 0);
+	ValueSetText(tblRet, "msg", (str)"ok");
+	arrFile = ValueArray();
+	ValueSetOwn(tblRet, "data", arrFile);
 
 	if ( FM_IsFileSystemMode() && bIsRootList ) {
 		FM_ListVirtualRoots(arrFile);
 	} else if ( sPath && xrtDirExists(sPath) ) {
-		xrtDirScan(sPath, FALSE, FM_ListProc, arrFile);
+		DirScan(sPath, false, FM_ListProc, arrFile);
 	}
-	xvoTableSetInt(tblRet, "count", 5, (int64)xvoArrayItemCount(arrFile));
+	ValueSetInt(tblRet, "count", (int64)ValueCount(arrFile));
 
 	FM_SendJson(objResp, tblRet);
 	if ( sPath ) xrtFree(sPath);
 }
 
-void FM_Req_ApiCreate(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiCreate(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm;
+	xvalue* tblForm;
 	str sName, sFolderPath, sIsFileStr;
 	bool isFile;
 	str sPath, sPathName;
@@ -426,31 +463,31 @@ void FM_Req_ApiCreate(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	tblForm = FM_ParseJsonBody(objReq);
 	if ( !tblForm ) { FM_SendError(objResp, 400, "invalid json"); return; }
 
-	sName = xvoTableGetText(tblForm, "fileName", 8);
-	sFolderPath = xvoTableGetText(tblForm, "folderPath", 10);
+	sName = ValueText(tblForm, "fileName");
+	sFolderPath = ValueText(tblForm, "folderPath");
 	if ( !sName || !sName[0] || !sFolderPath ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "fileName and folderPath required");
 		return;
 	}
 
 	if ( !FM_IsPathSafe((char*)sFolderPath) || !FM_IsPathSafe((char*)sName) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "invalid path");
 		return;
 	}
 
-	sIsFileStr = xvoTableGetText(tblForm, "isfile", 6);
-	isFile = sIsFileStr ? atoi((char*)sIsFileStr) : FALSE;
+	sIsFileStr = ValueText(tblForm, "isfile");
+	isFile = sIsFileStr ? atoi((char*)sIsFileStr) : false;
 
 	sPath = FM_ResolvePath((char*)sFolderPath);
 	if ( !sPath || !xrtDirExists(sPath) ) {
 		if ( sPath ) xrtFree(sPath);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "folderPath not found");
 		return;
 	}
-	sPathName = xrtPathJoin(2, sPath, sName);
+	sPathName = xrtPathJoin(sPath, sName);
 	if ( sPathName ) FM_NormalizePath(sPathName);
 
 	if ( isFile ) {
@@ -458,7 +495,7 @@ void FM_Req_ApiCreate(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 		if ( !file ) {
 			xrtFree(sPath);
 			xrtFree(sPathName);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			FM_SendError(objResp, 500, "cannot create file");
 			return;
 		}
@@ -470,32 +507,32 @@ void FM_Req_ApiCreate(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	FM_SendJson(objResp, FM_Ok("created"));
 	xrtFree(sPath);
 	xrtFree(sPathName);
-	xvoUnref(tblForm);
+	xrtValueRelease(tblForm);
 }
 
-void FM_Req_ApiDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm, items;
+	xvalue* tblForm, *items;
 	str sFolderPath;
 	str sPath;
 	int iCount, i;
-	bool allOk = TRUE;
+	bool allOk = true;
 
 	(void)objServer; (void)objHost; (void)objSession;
 
 	tblForm = FM_ParseJsonBody(objReq);
 	if ( !tblForm ) { FM_SendError(objResp, 400, "invalid json"); return; }
 
-	sFolderPath = xvoTableGetText(tblForm, "folderPath", 10);
+	sFolderPath = ValueText(tblForm, "folderPath");
 	if ( !sFolderPath || !FM_IsPathSafe((char*)sFolderPath) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "invalid folderPath");
 		return;
 	}
 
-	items = xvoTableGetValue(tblForm, "items", 5);
-	if ( !items || xvoType(items) != XVO_DT_ARRAY ) {
-		xvoUnref(tblForm);
+	items = ValueGet(tblForm, "items");
+	if ( !items || xrtValueType(items) != XVALUE_ARRAY ) {
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "items must be array");
 		return;
 	}
@@ -503,37 +540,37 @@ void FM_Req_ApiDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	sPath = FM_ResolvePath((char*)sFolderPath);
 	if ( !sPath || !xrtDirExists(sPath) ) {
 		if ( sPath ) xrtFree(sPath);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "folderPath not found");
 		return;
 	}
-	iCount = (int)xvoArrayItemCount(items);
+	iCount = (int)ValueCount(items);
 
 	for ( i = 0; i < iCount; i++ ) {
-		xvalue tblItem = xvoArrayGetValue(items, i);
-		if ( !tblItem || xvoType(tblItem) != XVO_DT_TABLE ) continue;
-		str sName = xvoTableGetText(tblItem, "name", 4);
-		str sIsDirStr = xvoTableGetText(tblItem, "isdir", 5);
-		bool isDir = sIsDirStr ? atoi((char*)sIsDirStr) : FALSE;
+		xvalue* tblItem = xrtValueArrayGet(items, i);
+		if ( !tblItem || xrtValueType(tblItem) != XVALUE_OBJECT ) continue;
+		str sName = ValueText(tblItem, "name");
+		str sIsDirStr = ValueText(tblItem, "isdir");
+		bool isDir = sIsDirStr ? atoi((char*)sIsDirStr) : false;
 
-		if ( !sName || !FM_IsPathSafe((char*)sName) ) { allOk = FALSE; continue; }
-		str sFull = xrtPathJoin(2, sPath, sName);
+		if ( !sName || !FM_IsPathSafe((char*)sName) ) { allOk = false; continue; }
+		str sFull = xrtPathJoin(sPath, sName);
 		if ( isDir ) {
-			if ( xrtDirExists(sFull) ) xrtDirDelete(sFull); else allOk = FALSE;
+			if ( xrtDirExists(sFull) ) xrtDirRemoveAll(sFull); else allOk = false;
 		} else {
-			if ( xrtFileExists(sFull) ) xrtFileDelete(sFull); else allOk = FALSE;
+			if ( xrtFileExists(sFull) ) xrtFileDelete(sFull); else allOk = false;
 		}
 		xrtFree(sFull);
 	}
 
 	FM_SendJson(objResp, allOk ? FM_Ok("deleted") : FM_Fail("some items failed to delete"));
 	xrtFree(sPath);
-	xvoUnref(tblForm);
+	xrtValueRelease(tblForm);
 }
 
-void FM_Req_ApiCopy(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiCopy(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm, items;
+	xvalue* tblForm, *items;
 	str sTargetPath;
 	str sTarget;
 	int iCount, i;
@@ -543,19 +580,19 @@ void FM_Req_ApiCopy(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	tblForm = FM_ParseJsonBody(objReq);
 	if ( !tblForm ) { FM_SendError(objResp, 400, "invalid json"); return; }
 
-	sTargetPath = xvoTableGetText(tblForm, "targetPath", 10);
+	sTargetPath = ValueText(tblForm, "targetPath");
 	if ( !sTargetPath || !FM_IsPathSafe((char*)sTargetPath) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "invalid targetPath");
 		return;
 	}
 
-	str sIsCutStr = xvoTableGetText(tblForm, "isCut", 5);
-	bool isCut = sIsCutStr ? atoi((char*)sIsCutStr) : FALSE;
+	str sIsCutStr = ValueText(tblForm, "isCut");
+	bool isCut = sIsCutStr ? atoi((char*)sIsCutStr) : false;
 
-	items = xvoTableGetValue(tblForm, "items", 5);
-	if ( !items || xvoType(items) != XVO_DT_ARRAY ) {
-		xvoUnref(tblForm);
+	items = ValueGet(tblForm, "items");
+	if ( !items || xrtValueType(items) != XVALUE_ARRAY ) {
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "items must be array");
 		return;
 	}
@@ -563,33 +600,33 @@ void FM_Req_ApiCopy(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	sTarget = FM_ResolvePath((char*)sTargetPath);
 	if ( !sTarget || !xrtDirExists(sTarget) ) {
 		if ( sTarget ) xrtFree(sTarget);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "targetPath not found");
 		return;
 	}
-	iCount = (int)xvoArrayItemCount(items);
+	iCount = (int)ValueCount(items);
 
 	for ( i = 0; i < iCount; i++ ) {
-		xvalue tblItem = xvoArrayGetValue(items, i);
-		if ( !tblItem || xvoType(tblItem) != XVO_DT_TABLE ) continue;
-		str sSourcePath = xvoTableGetText(tblItem, "sourcePath", 10);
+		xvalue* tblItem = xrtValueArrayGet(items, i);
+		if ( !tblItem || xrtValueType(tblItem) != XVALUE_OBJECT ) continue;
+		str sSourcePath = ValueText(tblItem, "sourcePath");
 		if ( !sSourcePath || !FM_IsPathSafe((char*)sSourcePath) ) continue;
 
 		char* fileName = strrchr((char*)sSourcePath, '/');
 		fileName = fileName ? fileName + 1 : (char*)sSourcePath;
 		str sSource = FM_ResolvePath((char*)sSourcePath);
-		str sTargetFull = xrtPathJoin(2, sTarget, fileName);
+		str sTargetFull = xrtPathJoin(sTarget, fileName);
 		if ( sTargetFull ) FM_NormalizePath(sTargetFull);
 
-		str sIsDirStr = xvoTableGetText(tblItem, "isdir", 5);
-		bool isDir = sIsDirStr ? atoi((char*)sIsDirStr) : FALSE;
+		str sIsDirStr = ValueText(tblItem, "isdir");
+		bool isDir = sIsDirStr ? atoi((char*)sIsDirStr) : false;
 
 		if ( isDir ) {
-			if ( isCut ) xrtDirMove(sSource, sTargetFull, TRUE);
-			else xrtDirCopy(sSource, sTargetFull, TRUE);
+			if ( isCut ) xrtDirMove(sSource, sTargetFull, true);
+			else xrtDirCopy(sSource, sTargetFull, true);
 		} else {
-			if ( isCut ) xrtFileMove(sSource, sTargetFull, TRUE);
-			else xrtFileCopy(sSource, sTargetFull, TRUE);
+			if ( isCut ) xrtFileMove(sSource, sTargetFull, true);
+			else xrtFileCopy(sSource, sTargetFull, true);
 		}
 		xrtFree(sSource);
 		xrtFree(sTargetFull);
@@ -597,14 +634,14 @@ void FM_Req_ApiCopy(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 
 	FM_SendJson(objResp, FM_Ok("operation completed"));
 	xrtFree(sTarget);
-	xvoUnref(tblForm);
+	xrtValueRelease(tblForm);
 }
 
-void FM_Req_ApiContent(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiContent(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	str sRelPath, sPath;
 	str sContent;
-	xvalue tblRet;
+	xvalue* tblRet;
 
 	(void)objServer; (void)objHost; (void)objSession;
 
@@ -624,18 +661,18 @@ void FM_Req_ApiContent(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		return;
 	}
 
-	sContent = xrtFileReadAll(sPath, XRT_CP_BINARY, NULL);
+	sContent = (str)xrtFileReadAll(sPath, NULL);
 	xrtFree(sPath);
 	if ( !sContent ) { FM_SendError(objResp, 500, "read failed"); return; }
 
 	tblRet = FM_Ok("ok");
-	xvoTableSetText(tblRet, "content", 7, sContent, 0, TRUE);
+	ValueSetOwnedText(tblRet, "content", sContent);
 	FM_SendJson(objResp, tblRet);
 }
 
-void FM_Req_ApiSave(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiSave(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm;
+	xvalue* tblForm;
 	str sRelPath, sContent, sPath;
 
 	(void)objServer; (void)objHost; (void)objSession;
@@ -643,10 +680,10 @@ void FM_Req_ApiSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	tblForm = FM_ParseJsonBody(objReq);
 	if ( !tblForm ) { FM_SendError(objResp, 400, "invalid json"); return; }
 
-	sRelPath = xvoTableGetText(tblForm, "path", 4);
-	sContent = xvoTableGetText(tblForm, "content", 7);
+	sRelPath = ValueText(tblForm, "path");
+	sContent = ValueText(tblForm, "content");
 	if ( !sRelPath || !sContent || !FM_IsPathSafe((char*)sRelPath) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "invalid path or content");
 		return;
 	}
@@ -654,35 +691,35 @@ void FM_Req_ApiSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	sPath = FM_ResolvePath((char*)sRelPath);
 	if ( !sPath || !xrtFileExists(sPath) || xrtDirExists(sPath) ) {
 		if ( sPath ) xrtFree(sPath);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "file not found or is directory");
 		return;
 	}
 
 	{
 		size_t iSize = strlen((char*)sContent);
-		size_t iWrite = xrtFileWriteAll(sPath, (str)sContent, iSize, XRT_CP_BINARY);
+		bool bWrite = xrtFileWriteAll(sPath, (xbytesview){(cbytes)sContent, iSize});
 		xrtFree(sPath);
-		xvoUnref(tblForm);
-		FM_SendJson(objResp, iWrite == iSize ? FM_Ok("saved") : FM_Fail("write failed"));
+		xrtValueRelease(tblForm);
+		FM_SendJson(objResp, bWrite ? FM_Ok("saved") : FM_Fail("write failed"));
 	}
 }
 
-void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	const char* sBody;
 	size_t iBodyLen;
 	const char* sContentType;
-	xrtstrview tBoundary;
+	xrtmultipartboundaryview tBoundary;
 	size_t iOffset;
 	str sRelPath, sUploadDir;
-	xvalue tblRet;
+	xvalue* tblRet;
 
 	(void)objServer; (void)objHost; (void)objSession;
 
-	sBody = xsReqBody(objReq);
-	iBodyLen = xsReqBodyLen(objReq);
-	sContentType = xsReqHeader(objReq, "Content-Type");
+	sBody = XAdmin_ReqBody(objReq);
+	iBodyLen = XAdmin_ReqBodyLen(objReq);
+	sContentType = XAdmin_PluginReqHeader(objReq, "Content-Type");
 
 	if ( !sContentType || !xrtMultipartBoundaryFromContentType(sContentType, &tBoundary) ) {
 		FM_SendError(objResp, 400, "invalid multipart request");
@@ -690,7 +727,7 @@ void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	}
 
 	sRelPath = FM_ReadQuery(objReq, "path");
-	sUploadDir = sRelPath ? FM_ResolvePath((char*)sRelPath) : xrtCopyStr(G_FMConfig.sRootPath, 0);
+	sUploadDir = sRelPath ? FM_ResolvePath((char*)sRelPath) : xrtStrDup(G_FMConfig.sRootPath);
 	if ( sRelPath ) xrtFree(sRelPath);
 
 	if ( sUploadDir && !xrtDirExists(sUploadDir) ) {
@@ -708,14 +745,14 @@ void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 				char sFileName[256] = {0};
 				size_t iNameLen = 0;
 				if ( xrtMultipartDecodeFileNameTo(&part, sFileName, sizeof(sFileName), &iNameLen) && iNameLen > 0 ) {
-					str sFilePath = xrtPathJoin(2, sUploadDir, sFileName);
+					str sFilePath = xrtPathJoin(sUploadDir, sFileName);
 					if ( sFilePath ) {
-						xrtFilePutAll(sFilePath, (ptr)part.tBody.sPtr, part.tBody.iLen);
+						xrtFileWriteAll(sFilePath, (xbytesview){(cbytes)part.tBody.sPtr, part.tBody.iLen});
 						{
-							xvalue r = FM_Ok("uploaded");
-							xvoTableSetText(r, "name", 4, xrtCopyStr(sFileName, iNameLen), 0, TRUE);
-							xvoTableSetText(r, "url", 3, xrtCopyStr(sFileName, iNameLen), 0, TRUE);
-							if ( tblRet ) xvoUnref(tblRet);
+							xvalue* r = FM_Ok("uploaded");
+							ValueSetOwnedText(r, "name", xrtStrDupView(xrtStrViewN(sFileName, (size_t)iNameLen)));
+							ValueSetOwnedText(r, "url", xrtStrDupView(xrtStrViewN(sFileName, (size_t)iNameLen)));
+							if ( tblRet ) xrtValueRelease(tblRet);
 							tblRet = r;
 						}
 						xrtFree(sFilePath);
@@ -734,7 +771,7 @@ void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	}
 }
 
-void FM_Req_ApiDownload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiDownload(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	str sRelPath, sPath, sName;
 	ptr pData;
@@ -760,14 +797,14 @@ void FM_Req_ApiDownload(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		return;
 	}
 
-	pData = xrtFileGetAll(sPath, &iSize);
+	pData = xrtFileReadAll(sPath, &iSize);
 	if ( !pData ) {
 		xrtFree(sPath);
 		FM_SendError(objResp, 500, "read failed");
 		return;
 	}
 
-	sName = xrtPathGetNameExt(sPath, strlen(sPath));
+	sName = xrtPathName(sPath);
 	sContentType = FM_GetImageContentType(sPath);
 	snprintf(sHeader, sizeof(sHeader),
 		"Content-Type: %s\r\n"
@@ -782,7 +819,7 @@ void FM_Req_ApiDownload(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	if ( sName ) xrtFree(sName);
 }
 
-void FM_Req_ApiImage(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiImage(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	str sRelPath, sPath;
 	ptr pData;
@@ -808,7 +845,7 @@ void FM_Req_ApiImage(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 		return;
 	}
 
-	pData = xrtFileGetAll(sPath, &iSize);
+	pData = xrtFileReadAll(sPath, &iSize);
 	if ( !pData ) {
 		xrtFree(sPath);
 		FM_SendError(objResp, 500, "read failed");
@@ -824,7 +861,7 @@ void FM_Req_ApiImage(XS_ServerObject objServer, XS_HostObject objHost, XS_Reques
 	xrtFree(sPath);
 }
 
-void FM_Req_ApiThumbnail(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiThumbnail(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	str sRelPath, sPath;
 	str sSizeStr;
@@ -875,10 +912,10 @@ void FM_Req_ApiThumbnail(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		G_FMConfig.sThumbPath, hash, thumbSize, thumbSize, sFilename);
 #endif
 
-	needGen = TRUE;
+	needGen = true;
 	if ( xrtFileExists(sThumbPath) ) {
-		xtime tOrig = xrtFileGetChangeTime(sPath);
-		xtime tThumb = xrtFileGetChangeTime(sThumbPath);
+		xtime tOrig = FM_FileMTime(sPath);
+		xtime tThumb = FM_FileMTime(sThumbPath);
 		needGen = (tOrig != tThumb);
 	}
 
@@ -895,9 +932,9 @@ void FM_Req_ApiThumbnail(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		system(sCmd);
 	}
 
-	pData = xrtFileGetAll(sThumbPath, &iSize);
+	pData = xrtFileReadAll(sThumbPath, &iSize);
 	if ( !pData ) {
-		pData = xrtFileGetAll(sPath, &iSize);
+		pData = xrtFileReadAll(sPath, &iSize);
 		if ( !pData ) {
 			xrtFree(sPath);
 			FM_SendError(objResp, 500, "thumbnail failed");
@@ -914,9 +951,9 @@ void FM_Req_ApiThumbnail(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	xrtFree(sPath);
 }
 
-void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm, items;
+	xvalue* tblForm, *items;
 	str sFormat, sFilename, sSavePath, sSourcePath;
 	str sSrc, sSave, sArchivePath, sTempList;
 	FILE* fp;
@@ -929,16 +966,16 @@ void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	tblForm = FM_ParseJsonBody(objReq);
 	if ( !tblForm ) { FM_SendError(objResp, 400, "invalid json"); return; }
 
-	sFormat = xvoTableGetText(tblForm, "format", 6);
-	sFilename = xvoTableGetText(tblForm, "filename", 8);
-	sSavePath = xvoTableGetText(tblForm, "savePath", 8);
-	sSourcePath = xvoTableGetText(tblForm, "sourcePath", 10);
-	items = xvoTableGetValue(tblForm, "items", 5);
+	sFormat = ValueText(tblForm, "format");
+	sFilename = ValueText(tblForm, "filename");
+	sSavePath = ValueText(tblForm, "savePath");
+	sSourcePath = ValueText(tblForm, "sourcePath");
+	items = ValueGet(tblForm, "items");
 
 	if ( !sFormat || !sFilename || !sSavePath || !sSourcePath || !items ||
-		xvoType(items) != XVO_DT_ARRAY ||
+		xrtValueType(items) != XVALUE_ARRAY ||
 		!FM_IsPathSafe((char*)sSavePath) || !FM_IsPathSafe((char*)sSourcePath) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "invalid parameters");
 		return;
 	}
@@ -946,31 +983,31 @@ void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	sSrc = FM_ResolvePath((char*)sSourcePath);
 	sSave = FM_ResolvePath((char*)sSavePath);
 	snprintf(sArcName, sizeof(sArcName), "%s.%s", (char*)sFilename, (char*)sFormat);
-	sArchivePath = xrtPathJoin(2, sSave, sArcName);
+	sArchivePath = xrtPathJoin(sSave, sArcName);
 
 	if ( !xrtDirExists(sSave) ) xrtDirCreateAll(sSave);
 
-	sTempList = xrtPathRandom(G_FMConfig.sTempPath, 0, "_filelist.txt", 4, 32);
+	sTempList = xrtFormat("%s/_filelist-%u.txt", (char*)G_FMConfig.sTempPath, (unsigned)xrtNow() % 1000000u);
 	fp = fopen(sTempList, "w");
 	if ( !fp ) {
 		FM_SendError(objResp, 500, "cannot create temp file list");
 		goto compress_cleanup;
 	}
 
-	iCount = (int)xvoArrayItemCount(items);
+	iCount = (int)ValueCount(items);
 	for ( i = 0; i < iCount; i++ ) {
-		xvalue tblItem = xvoArrayGetValue(items, i);
-		if ( !tblItem || xvoType(tblItem) != XVO_DT_TABLE ) continue;
-		str sName = xvoTableGetText(tblItem, "name", 4);
+		xvalue* tblItem = xrtValueArrayGet(items, i);
+		if ( !tblItem || xrtValueType(tblItem) != XVALUE_OBJECT ) continue;
+		str sName = ValueText(tblItem, "name");
 		if ( sName ) fprintf(fp, "%s\n", (char*)sName);
 	}
 	fclose(fp);
 
 #if defined(_WIN32) || defined(_WIN64)
-	SetCurrentDirectoryA(sSrc);
+	xrtPathSetCwd(sSrc);
 	if ( strcmp((char*)sFormat, "tar.gz") == 0 || strcmp((char*)sFormat, "tgz") == 0 ) {
-		char sTempTar[MAX_PATH];
-		snprintf(sTempTar, MAX_PATH, "%s\\temp_%d.tar", (char*)sSave, GetCurrentProcessId());
+		char sTempTar[1024];
+		snprintf(sTempTar, sizeof(sTempTar), "%s\\temp_%u.tar", (char*)sSave, (unsigned)(xrtNow() % 1000000));
 		snprintf(sCmd, sizeof(sCmd), "%s\\7z.exe a -ttar \"%s\" @\"%s\"", (char*)G_FMConfig.sToolPath, sTempTar, (char*)sTempList);
 		ret = system(sCmd);
 		if ( ret == 0 ) {
@@ -983,7 +1020,7 @@ void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		ret = system(sCmd);
 	}
 #else
-	chdir((char*)sSrc);
+	xrtPathSetCwd(sSrc);
 	if ( strcmp((char*)sFormat, "tar.gz") == 0 || strcmp((char*)sFormat, "tgz") == 0 ) {
 		snprintf(sCmd, sizeof(sCmd), "tar -czf \"%s\" -T \"%s\"", (char*)sArchivePath, (char*)sTempList);
 	} else if ( strcmp((char*)sFormat, "zip") == 0 ) {
@@ -1009,12 +1046,12 @@ compress_cleanup:
 	xrtFree(sSrc);
 	xrtFree(sSave);
 	xrtFree(sArchivePath);
-	xvoUnref(tblForm);
+	xrtValueRelease(tblForm);
 }
 
-void FM_Req_ApiExtract(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void FM_Req_ApiExtract(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm;
+	xvalue* tblForm;
 	str sArchivePath, sExtractPath;
 	str sArc, sExtract;
 	const char* ext;
@@ -1026,11 +1063,11 @@ void FM_Req_ApiExtract(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	tblForm = FM_ParseJsonBody(objReq);
 	if ( !tblForm ) { FM_SendError(objResp, 400, "invalid json"); return; }
 
-	sArchivePath = xvoTableGetText(tblForm, "archivePath", 11);
-	sExtractPath = xvoTableGetText(tblForm, "extractPath", 11);
+	sArchivePath = ValueText(tblForm, "archivePath");
+	sExtractPath = ValueText(tblForm, "extractPath");
 	if ( !sArchivePath || !sExtractPath ||
 		!FM_IsPathSafe((char*)sArchivePath) || !FM_IsPathSafe((char*)sExtractPath) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		FM_SendError(objResp, 400, "invalid parameters");
 		return;
 	}
@@ -1066,7 +1103,7 @@ void FM_Req_ApiExtract(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	FM_SendJson(objResp, ret == 0 ? FM_Ok("extracted") : FM_Fail("extraction failed"));
 	xrtFree(sArc);
 	xrtFree(sExtract);
-	xvoUnref(tblForm);
+	xrtValueRelease(tblForm);
 }
 
 int FM_OnLoad(XAdminPluginHandle* out_handle)
@@ -1110,104 +1147,104 @@ int FM_OnStart(XAdminPluginHandle handle)
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/view/plugin/filemanager";
 	route.proc = FM_Req_ViewPage;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/list";
 	route.proc = FM_Req_ApiList;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/upload";
 	route.proc = FM_Req_ApiUpload;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/download";
 	route.proc = FM_Req_ApiDownload;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/create";
 	route.proc = FM_Req_ApiCreate;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/delete";
 	route.proc = FM_Req_ApiDelete;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/copy";
 	route.proc = FM_Req_ApiCopy;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/content";
 	route.proc = FM_Req_ApiContent;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/save";
 	route.proc = FM_Req_ApiSave;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/image";
 	route.proc = FM_Req_ApiImage;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/thumbnail";
 	route.proc = FM_Req_ApiThumbnail;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/compress";
 	route.proc = FM_Req_ApiCompress;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/filemanager/extract";
 	route.proc = FM_Req_ApiExtract;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	route.auth_id = iAuthId;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
@@ -1218,7 +1255,7 @@ int FM_OnStart(XAdminPluginHandle handle)
 	menu.open_type = "_iframe";
 	menu.href = "/admin/view/plugin/filemanager";
 	menu.sort = 400;
-	menu.visible = TRUE;
+	menu.visible = true;
 	menu.remark = "File management";
 	if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) return -1;
 
@@ -1226,18 +1263,18 @@ int FM_OnStart(XAdminPluginHandle handle)
 	return 0;
 }
 
-int FM_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)
+int FM_OnConfigChanged(XAdminPluginHandle handle, xvalue* new_cfg)
 {
 	(void)handle;
 
 	memset(&G_FMConfig, 0, sizeof(G_FMConfig));
 
-	if ( new_cfg && xvoType(new_cfg) == XVO_DT_TABLE ) {
-		str sVal = xvoTableGetText(new_cfg, "rootPath", 8);
+	if ( new_cfg && xrtValueType(new_cfg) == XVALUE_OBJECT ) {
+		str sVal = ValueText(new_cfg, "rootPath");
 		if ( sVal && sVal[0] ) {
 			strncpy(G_FMConfig.sRootPath, (char*)sVal, sizeof(G_FMConfig.sRootPath) - 1);
 		}
-		sVal = xvoTableGetText(new_cfg, "toolPath", 8);
+		sVal = ValueText(new_cfg, "toolPath");
 		if ( sVal && sVal[0] ) {
 			strncpy(G_FMConfig.sToolPath, (char*)sVal, sizeof(G_FMConfig.sToolPath) - 1);
 		}

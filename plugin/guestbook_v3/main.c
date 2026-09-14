@@ -1,4 +1,10 @@
-#include "xs_plugin.h"
+#include <xs_plugin.h>
+#include "value_util.h"
+#include "util.h"
+#include <sqlite3.h>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #define GUESTBOOK_STATUS_PENDING 0
 #define GUESTBOOK_STATUS_APPROVED 1
@@ -21,7 +27,7 @@ static GuestbookConfigState G_GuestbookConfig = {
 	"Leave a message for the team.",
 	20,
 	280,
-	FALSE
+	false
 };
 
 static const char* G_GuestbookSchemaSql =
@@ -58,7 +64,7 @@ void Guestbook_ConfigReset(void)
 	snprintf(G_GuestbookConfig.sIntro, sizeof(G_GuestbookConfig.sIntro), "%s", "Leave a message for the team.");
 	G_GuestbookConfig.iPageSize = 20;
 	G_GuestbookConfig.iMaxContentLength = 280;
-	G_GuestbookConfig.bRequireApproval = FALSE;
+	G_GuestbookConfig.bRequireApproval = false;
 }
 
 void Guestbook_CopyText(char* sDest, size_t iCap, const char* sValue, const char* sFallback)
@@ -85,15 +91,15 @@ bool Guestbook_IsBlank(const char* sText)
 	const unsigned char* p = (const unsigned char*)sText;
 
 	if ( p == NULL ) {
-		return TRUE;
+		return true;
 	}
 	while ( *p ) {
 		if ( (*p != ' ') && (*p != '\t') && (*p != '\r') && (*p != '\n') ) {
-			return FALSE;
+			return false;
 		}
 		p++;
 	}
-	return TRUE;
+	return true;
 }
 
 const char* Guestbook_StatusText(int iStatus)
@@ -119,7 +125,7 @@ bool Guestbook_OpenDb(sqlite3** ppDb)
 		*ppDb = NULL;
 	}
 	if ( (ppDb == NULL) || (G_GuestbookPrivateDbPath == NULL) || (G_GuestbookPrivateDbPath[0] == '\0') ) {
-		return FALSE;
+		return false;
 	}
 
 	iRet = sqlite3_open_v2(
@@ -131,12 +137,12 @@ bool Guestbook_OpenDb(sqlite3** ppDb)
 		if ( pDb ) {
 			sqlite3_close(pDb);
 		}
-		return FALSE;
+		return false;
 	}
 
 	sqlite3_busy_timeout(pDb, 3000);
 	*ppDb = pDb;
-	return TRUE;
+	return true;
 }
 
 void Guestbook_CloseDb(sqlite3* pDb)
@@ -149,19 +155,19 @@ void Guestbook_CloseDb(sqlite3* pDb)
 bool Guestbook_TableHasColumn(sqlite3* pDb, const char* sColumnName)
 {
 	sqlite3_stmt* stmt = NULL;
-	bool bFound = FALSE;
+	bool bFound = false;
 
 	if ( (pDb == NULL) || (sColumnName == NULL) ) {
-		return FALSE;
+		return false;
 	}
 	if ( sqlite3_prepare_v2(pDb, "PRAGMA table_info(guestbook_message)", -1, &stmt, NULL) != SQLITE_OK ) {
-		return FALSE;
+		return false;
 	}
 
 	while ( sqlite3_step(stmt) == SQLITE_ROW ) {
 		const unsigned char* sName = sqlite3_column_text(stmt, 1);
 		if ( sName && (strcmp((const char*)sName, sColumnName) == 0) ) {
-			bFound = TRUE;
+			bFound = true;
 			break;
 		}
 	}
@@ -173,16 +179,16 @@ bool Guestbook_TableHasColumn(sqlite3* pDb, const char* sColumnName)
 bool Guestbook_EnsureColumn(sqlite3* pDb, const char* sColumnName, const char* sAlterSql)
 {
 	char* sError = NULL;
-	bool bOK = FALSE;
+	bool bOK = false;
 
 	if ( (pDb == NULL) || (sColumnName == NULL) || (sAlterSql == NULL) ) {
-		return FALSE;
+		return false;
 	}
 	if ( Guestbook_TableHasColumn(pDb, sColumnName) ) {
-		return TRUE;
+		return true;
 	}
 	if ( sqlite3_exec(pDb, sAlterSql, NULL, NULL, &sError) == SQLITE_OK ) {
-		bOK = TRUE;
+		bOK = true;
 	}
 	if ( sError ) {
 		sqlite3_free(sError);
@@ -194,17 +200,17 @@ bool Guestbook_EnsureSchema(void)
 {
 	sqlite3* pDb = NULL;
 	char* sError = NULL;
-	bool bOK = FALSE;
+	bool bOK = false;
 
 	if ( !Guestbook_OpenDb(&pDb) ) {
-		return FALSE;
+		return false;
 	}
 	if ( sqlite3_exec(pDb, G_GuestbookSchemaSql, NULL, NULL, &sError) != SQLITE_OK ) {
 		if ( sError ) {
 			sqlite3_free(sError);
 		}
 		Guestbook_CloseDb(pDb);
-		return FALSE;
+		return false;
 	}
 	if ( sError ) {
 		sqlite3_free(sError);
@@ -220,7 +226,7 @@ bool Guestbook_EnsureSchema(void)
 		sqlite3_exec(pDb, "UPDATE guestbook_message SET update_time = create_time WHERE update_time = 0", NULL, NULL, NULL);
 		sqlite3_exec(pDb, "UPDATE guestbook_message SET status = 1 WHERE status NOT IN (0,1,2)", NULL, NULL, NULL);
 		if ( sqlite3_exec(pDb, G_GuestbookIndexSql, NULL, NULL, &sError) != SQLITE_OK ) {
-			bOK = FALSE;
+			bOK = false;
 		}
 		if ( sError ) {
 			sqlite3_free(sError);
@@ -231,24 +237,24 @@ bool Guestbook_EnsureSchema(void)
 	return bOK;
 }
 
-xvalue Guestbook_CreateResult(bool bResult, const char* sMessage)
+xvalue* Guestbook_CreateResult(bool bResult, const char* sMessage)
 {
-	xvalue tblRet = xvoCreateTable();
+	xvalue* tblRet = ValueObject();
 
 	if ( tblRet == NULL ) {
 		return NULL;
 	}
-	xvoTableSetBool(tblRet, "result", 6, bResult);
+	ValueSetBool(tblRet, "result", bResult);
 	if ( sMessage ) {
-		xvoTableSetText(tblRet, "message", 7, (str)sMessage, 0, FALSE);
+		ValueSetText(tblRet, "message", (str)sMessage);
 	}
 	return tblRet;
 }
 
-void Guestbook_SendJsonValue(XS_ResponseObject objResp, xvalue objValue)
+void Guestbook_SendJsonValue(XS_ResponseObject objResp, xvalue* objValue)
 {
 	size_t iSize = 0;
-	str sJson = xrtStringifyJSON(objValue, FALSE, &iSize);
+	str sJson = xrtJsonStringify(objValue, false, &iSize);
 
 	if ( sJson ) {
 		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", sJson, iSize);
@@ -256,12 +262,12 @@ void Guestbook_SendJsonValue(XS_ResponseObject objResp, xvalue objValue)
 	} else {
 		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"json encode failed\"}", 0);
 	}
-	xvoUnref(objValue);
+	xrtValueRelease(objValue);
 }
 
 void Guestbook_SendError(XS_ResponseObject objResp, const char* sMessage)
 {
-	xvalue tblRet = Guestbook_CreateResult(FALSE, sMessage ? sMessage : "request failed");
+	xvalue* tblRet = Guestbook_CreateResult(false, sMessage ? sMessage : "request failed");
 
 	if ( tblRet == NULL ) {
 		xsHttpReplyAuto(objResp, 500, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"request failed\"}", 0);
@@ -272,7 +278,7 @@ void Guestbook_SendError(XS_ResponseObject objResp, const char* sMessage)
 
 void Guestbook_SendOkMessage(XS_ResponseObject objResp, const char* sMessage)
 {
-	xvalue tblRet = Guestbook_CreateResult(TRUE, sMessage ? sMessage : "ok");
+	xvalue* tblRet = Guestbook_CreateResult(true, sMessage ? sMessage : "ok");
 
 	if ( tblRet == NULL ) {
 		xsHttpReplyAuto(objResp, 200, "Content-Type: application/json\r\n", "{\"result\":true}", 0);
@@ -281,13 +287,13 @@ void Guestbook_SendOkMessage(XS_ResponseObject objResp, const char* sMessage)
 	Guestbook_SendJsonValue(objResp, tblRet);
 }
 
-xvalue Guestbook_ParseJsonBody(XS_RequestObject objReq)
+xvalue* Guestbook_ParseJsonBody(XS_RequestObject objReq)
 {
-	xvalue tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+	xvalue* tblForm = JsonParseN((str)XAdmin_ReqBody(objReq), XAdmin_ReqBodyLen(objReq));
 
-	if ( (tblForm == NULL) || (xvoType(tblForm) != XVO_DT_TABLE) ) {
+	if ( (tblForm == NULL) || (xrtValueType(tblForm) != XVALUE_OBJECT) ) {
 		if ( tblForm ) {
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 		}
 		return NULL;
 	}
@@ -306,15 +312,15 @@ int Guestbook_ReadIntQuery(XS_RequestObject objReq, const char* sName, int iDefa
 	return atoi(sValue);
 }
 
-void Guestbook_SetTimeText(xvalue tblItem, const char* sKey, int iKeyLen, xtime iTime)
+void Guestbook_SetTimeText(xvalue* tblItem, const char* sKey, xtime iTime)
 {
-	str sValue = (iTime > 0) ? xrtTimeToStr(iTime, XRT_TIME_FORMAT_DATETIME) : xrtCopyStr("", 0);
-	xvoTableSetText(tblItem, sKey, iKeyLen, sValue ? sValue : (str)"", 0, TRUE);
+	str sValue = (iTime > 0) ? TimeText(iTime, TIME_TEXT_DATETIME) : xrtStrDup("");
+	ValueSetOwnedText(tblItem, sKey, sValue ? sValue : (str)"");
 }
 
-void Guestbook_AppendMessageRow(xvalue arrList, sqlite3_stmt* stmt)
+void Guestbook_AppendMessageRow(xvalue* arrList, sqlite3_stmt* stmt)
 {
-	xvalue tblItem = xvoCreateTable();
+	xvalue* tblItem = ValueObject();
 	xtime iCreateTime;
 	xtime iReplyTime;
 	xtime iUpdateTime;
@@ -325,7 +331,7 @@ void Guestbook_AppendMessageRow(xvalue arrList, sqlite3_stmt* stmt)
 
 	if ( (arrList == NULL) || (stmt == NULL) || (tblItem == NULL) ) {
 		if ( tblItem ) {
-			xvoUnref(tblItem);
+			xrtValueRelease(tblItem);
 		}
 		return;
 	}
@@ -338,26 +344,26 @@ void Guestbook_AppendMessageRow(xvalue arrList, sqlite3_stmt* stmt)
 	sReply = sqlite3_column_text(stmt, 3);
 	iStatus = sqlite3_column_int(stmt, 5);
 
-	xvoTableSetInt(tblItem, "id", 2, sqlite3_column_int64(stmt, 0));
-	xvoTableSetText(tblItem, "nickname", 8, (str)(sNickname ? sNickname : (const unsigned char*)""), 0, FALSE);
-	xvoTableSetText(tblItem, "content", 7, (str)(sContent ? sContent : (const unsigned char*)""), 0, FALSE);
-	xvoTableSetText(tblItem, "reply", 5, (str)(sReply ? sReply : (const unsigned char*)""), 0, FALSE);
-	xvoTableSetInt(tblItem, "status", 6, iStatus);
-	xvoTableSetText(tblItem, "statusText", 10, (str)Guestbook_StatusText(iStatus), 0, FALSE);
-	xvoTableSetInt(tblItem, "replyTime", 9, iReplyTime);
-	xvoTableSetInt(tblItem, "createTime", 10, iCreateTime);
-	xvoTableSetInt(tblItem, "updateTime", 10, iUpdateTime > 0 ? iUpdateTime : iCreateTime);
-	Guestbook_SetTimeText(tblItem, "replyTimeText", 13, iReplyTime);
-	Guestbook_SetTimeText(tblItem, "createTimeText", 14, iCreateTime);
-	Guestbook_SetTimeText(tblItem, "updateTimeText", 14, iUpdateTime > 0 ? iUpdateTime : iCreateTime);
-	xvoArrayAppendValue(arrList, tblItem, TRUE);
+	ValueSetInt(tblItem, "id", sqlite3_column_int64(stmt, 0));
+	ValueSetText(tblItem, "nickname", (str)(sNickname ? sNickname : (const unsigned char*)""));
+	ValueSetText(tblItem, "content", (str)(sContent ? sContent : (const unsigned char*)""));
+	ValueSetText(tblItem, "reply", (str)(sReply ? sReply : (const unsigned char*)""));
+	ValueSetInt(tblItem, "status", iStatus);
+	ValueSetText(tblItem, "statusText", (str)Guestbook_StatusText(iStatus));
+	ValueSetInt(tblItem, "replyTime", iReplyTime);
+	ValueSetInt(tblItem, "createTime", iCreateTime);
+	ValueSetInt(tblItem, "updateTime", iUpdateTime > 0 ? iUpdateTime : iCreateTime);
+	Guestbook_SetTimeText(tblItem, "replyTimeText", iReplyTime);
+	Guestbook_SetTimeText(tblItem, "createTimeText", iCreateTime);
+	Guestbook_SetTimeText(tblItem, "updateTimeText", iUpdateTime > 0 ? iUpdateTime : iCreateTime);
+	ValueArrayOwn(arrList, tblItem);
 }
 
-xvalue Guestbook_QueryMessages(bool bAdmin, int iStatusFilter, int iPage, int iLimit, int* piTotal)
+xvalue* Guestbook_QueryMessages(bool bAdmin, int iStatusFilter, int iPage, int iLimit, int* piTotal)
 {
 	sqlite3* pDb = NULL;
 	sqlite3_stmt* stmt = NULL;
-	xvalue arrList = NULL;
+	xvalue* arrList = NULL;
 	str sCountSql = NULL;
 	str sQuerySql = NULL;
 	const char* sWhere = "";
@@ -392,7 +398,7 @@ xvalue Guestbook_QueryMessages(bool bAdmin, int iStatusFilter, int iPage, int iL
 	stmt = NULL;
 	xrtFree(sCountSql);
 
-	arrList = xvoCreateArray();
+	arrList = ValueArray();
 	if ( arrList == NULL ) {
 		Guestbook_CloseDb(pDb);
 		return NULL;
@@ -404,7 +410,7 @@ xvalue Guestbook_QueryMessages(bool bAdmin, int iStatusFilter, int iPage, int iL
 		sWhere);
 	if ( (sQuerySql == NULL) || (sqlite3_prepare_v2(pDb, sQuerySql, -1, &stmt, NULL) != SQLITE_OK) ) {
 		if ( sQuerySql ) xrtFree(sQuerySql);
-		xvoUnref(arrList);
+		xrtValueRelease(arrList);
 		Guestbook_CloseDb(pDb);
 		return NULL;
 	}
@@ -421,27 +427,27 @@ xvalue Guestbook_QueryMessages(bool bAdmin, int iStatusFilter, int iPage, int iL
 	return arrList;
 }
 
-xvalue Guestbook_BuildListResponse(bool bAdmin, int iStatusFilter, int iPage, int iLimit)
+xvalue* Guestbook_BuildListResponse(bool bAdmin, int iStatusFilter, int iPage, int iLimit)
 {
-	xvalue tblRet = NULL;
-	xvalue arrList = NULL;
+	xvalue* tblRet = NULL;
+	xvalue* arrList = NULL;
 	int iTotal = 0;
 
 	arrList = Guestbook_QueryMessages(bAdmin, iStatusFilter, iPage, iLimit, &iTotal);
 	if ( arrList == NULL ) {
 		return NULL;
 	}
-	tblRet = Guestbook_CreateResult(TRUE, NULL);
+	tblRet = Guestbook_CreateResult(true, NULL);
 	if ( tblRet == NULL ) {
-		xvoUnref(arrList);
+		xrtValueRelease(arrList);
 		return NULL;
 	}
 
-	xvoTableSetValue(tblRet, "data", 4, arrList, TRUE);
-	xvoTableSetInt(tblRet, "page", 4, iPage);
-	xvoTableSetInt(tblRet, "pageSize", 8, iLimit);
-	xvoTableSetInt(tblRet, "total", 5, iTotal);
-	xvoTableSetInt(tblRet, "statusFilter", 12, bAdmin ? iStatusFilter : GUESTBOOK_STATUS_APPROVED);
+	ValueSetOwn(tblRet, "data", arrList);
+	ValueSetInt(tblRet, "page", iPage);
+	ValueSetInt(tblRet, "pageSize", iLimit);
+	ValueSetInt(tblRet, "total", iTotal);
+	ValueSetInt(tblRet, "statusFilter", bAdmin ? iStatusFilter : GUESTBOOK_STATUS_APPROVED);
 	return tblRet;
 }
 
@@ -450,10 +456,10 @@ bool Guestbook_InsertMessage(const char* sNickname, const char* sContent, int iS
 	sqlite3* pDb = NULL;
 	sqlite3_stmt* stmt = NULL;
 	xtime iNow;
-	bool bOK = FALSE;
+	bool bOK = false;
 
 	if ( !Guestbook_OpenDb(&pDb) ) {
-		return FALSE;
+		return false;
 	}
 	if ( sqlite3_prepare_v2(
 		pDb,
@@ -462,7 +468,7 @@ bool Guestbook_InsertMessage(const char* sNickname, const char* sContent, int iS
 		&stmt,
 		NULL) != SQLITE_OK ) {
 		Guestbook_CloseDb(pDb);
-		return FALSE;
+		return false;
 	}
 
 	iNow = xrtNow();
@@ -485,13 +491,13 @@ bool Guestbook_UpdateMessage(int64 iId, bool bHasStatus, int iStatus, bool bHasR
 	const char* sSql = NULL;
 	xtime iNow;
 	xtime iReplyTime;
-	bool bOK = FALSE;
+	bool bOK = false;
 
 	if ( (iId <= 0) || (!bHasStatus && !bHasReply) ) {
-		return FALSE;
+		return false;
 	}
 	if ( !Guestbook_OpenDb(&pDb) ) {
-		return FALSE;
+		return false;
 	}
 
 	if ( bHasStatus && bHasReply ) {
@@ -503,7 +509,7 @@ bool Guestbook_UpdateMessage(int64 iId, bool bHasStatus, int iStatus, bool bHasR
 	}
 	if ( sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) != SQLITE_OK ) {
 		Guestbook_CloseDb(pDb);
-		return FALSE;
+		return false;
 	}
 
 	iNow = xrtNow();
@@ -538,14 +544,14 @@ bool Guestbook_DeleteMessage(int64 iId)
 {
 	sqlite3* pDb = NULL;
 	sqlite3_stmt* stmt = NULL;
-	bool bOK = FALSE;
+	bool bOK = false;
 
 	if ( (iId <= 0) || !Guestbook_OpenDb(&pDb) ) {
-		return FALSE;
+		return false;
 	}
 	if ( sqlite3_prepare_v2(pDb, "DELETE FROM guestbook_message WHERE id = ?", -1, &stmt, NULL) != SQLITE_OK ) {
 		Guestbook_CloseDb(pDb);
-		return FALSE;
+		return false;
 	}
 
 	sqlite3_bind_int64(stmt, 1, iId);
@@ -565,56 +571,56 @@ bool Guestbook_SendAssetHtml(XS_ResponseObject objResp, const char* sFileName)
 	size_t iSize = 0;
 
 	if ( (G_GuestbookRootPath == NULL) || (sFileName == NULL) ) {
-		return FALSE;
+		return false;
 	}
-	sPath = xrtPathJoin(2, G_GuestbookRootPath, (str)sFileName);
+	sPath = xrtPathJoin(G_GuestbookRootPath, (str)sFileName);
 	if ( (sPath == NULL) || !xrtFileExists(sPath) ) {
 		if ( sPath ) xrtFree(sPath);
-		return FALSE;
+		return false;
 	}
 
-	pData = xrtFileGetAll(sPath, &iSize);
+	pData = xrtFileReadAll(sPath, &iSize);
 	xrtFree(sPath);
 	if ( pData == NULL ) {
-		return FALSE;
+		return false;
 	}
 	xsHttpReplyAuto(objResp, 200, "Content-Type: text/html; charset=utf-8\r\n", pData, iSize);
 	xrtFree(pData);
-	return TRUE;
+	return true;
 }
 
-void Guestbook_RequestMeta(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Guestbook_RequestMeta(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblRet;
-	xvalue tblData;
+	xvalue* tblRet;
+	xvalue* tblData;
 
 	(void)objServer;
 	(void)objHost;
 	(void)objReq;
 	(void)objSession;
 
-	tblRet = Guestbook_CreateResult(TRUE, NULL);
-	tblData = xvoCreateTable();
+	tblRet = Guestbook_CreateResult(true, NULL);
+	tblData = ValueObject();
 	if ( (tblRet == NULL) || (tblData == NULL) ) {
-		if ( tblRet ) xvoUnref(tblRet);
-		if ( tblData ) xvoUnref(tblData);
+		if ( tblRet ) xrtValueRelease(tblRet);
+		if ( tblData ) xrtValueRelease(tblData);
 		Guestbook_SendError(objResp, "failed to build response");
 		return;
 	}
 
-	xvoTableSetText(tblData, "title", 5, G_GuestbookConfig.sTitle, 0, FALSE);
-	xvoTableSetText(tblData, "intro", 5, G_GuestbookConfig.sIntro, 0, FALSE);
-	xvoTableSetInt(tblData, "pageSize", 8, G_GuestbookConfig.iPageSize);
-	xvoTableSetInt(tblData, "maxContentLength", 16, G_GuestbookConfig.iMaxContentLength);
-	xvoTableSetBool(tblData, "requireApproval", 15, G_GuestbookConfig.bRequireApproval);
-	xvoTableSetText(tblData, "xid", 3, (str)(G_GuestbookXid ? G_GuestbookXid : "guestbook_v3"), 0, FALSE);
-	xvoTableSetValue(tblRet, "data", 4, tblData, TRUE);
+	ValueSetText(tblData, "title", G_GuestbookConfig.sTitle);
+	ValueSetText(tblData, "intro", G_GuestbookConfig.sIntro);
+	ValueSetInt(tblData, "pageSize", G_GuestbookConfig.iPageSize);
+	ValueSetInt(tblData, "maxContentLength", G_GuestbookConfig.iMaxContentLength);
+	ValueSetBool(tblData, "requireApproval", G_GuestbookConfig.bRequireApproval);
+	ValueSetText(tblData, "xid", (str)(G_GuestbookXid ? G_GuestbookXid : "guestbook_v3"));
+	ValueSetOwn(tblRet, "data", tblData);
 	Guestbook_SendJsonValue(objResp, tblRet);
 }
 
-void Guestbook_RequestListPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Guestbook_RequestListPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblRet;
+	xvalue* tblRet;
 	int iPage;
 	int iLimit;
 
@@ -622,14 +628,14 @@ void Guestbook_RequestListPublic(XS_ServerObject objServer, XS_HostObject objHos
 	(void)objHost;
 	(void)objSession;
 
-	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( !(xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
 
 	iPage = Guestbook_ClampInt(Guestbook_ReadIntQuery(objReq, "page", 1), 1, 1000000, 1);
 	iLimit = Guestbook_ClampInt(Guestbook_ReadIntQuery(objReq, "limit", G_GuestbookConfig.iPageSize), 1, 100, G_GuestbookConfig.iPageSize);
-	tblRet = Guestbook_BuildListResponse(FALSE, GUESTBOOK_STATUS_APPROVED, iPage, iLimit);
+	tblRet = Guestbook_BuildListResponse(false, GUESTBOOK_STATUS_APPROVED, iPage, iLimit);
 	if ( tblRet == NULL ) {
 		Guestbook_SendError(objResp, "failed to load messages");
 		return;
@@ -637,9 +643,9 @@ void Guestbook_RequestListPublic(XS_ServerObject objServer, XS_HostObject objHos
 	Guestbook_SendJsonValue(objResp, tblRet);
 }
 
-void Guestbook_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Guestbook_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblRet;
+	xvalue* tblRet;
 	int iPage;
 	int iLimit;
 	int iStatusFilter;
@@ -648,7 +654,7 @@ void Guestbook_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost
 	(void)objHost;
 	(void)objSession;
 
-	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( !(xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -660,7 +666,7 @@ void Guestbook_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost
 		iStatusFilter = -1;
 	}
 
-	tblRet = Guestbook_BuildListResponse(TRUE, iStatusFilter, iPage, iLimit);
+	tblRet = Guestbook_BuildListResponse(true, iStatusFilter, iPage, iLimit);
 	if ( tblRet == NULL ) {
 		Guestbook_SendError(objResp, "failed to load messages");
 		return;
@@ -668,9 +674,9 @@ void Guestbook_RequestListAdmin(XS_ServerObject objServer, XS_HostObject objHost
 	Guestbook_SendJsonValue(objResp, tblRet);
 }
 
-void Guestbook_RequestAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Guestbook_RequestAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm;
+	xvalue* tblForm;
 	str sNickname;
 	str sContent;
 	int iStatus;
@@ -679,7 +685,7 @@ void Guestbook_RequestAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	(void)objHost;
 	(void)objSession;
 
-	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	if ( !(xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -690,43 +696,43 @@ void Guestbook_RequestAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		return;
 	}
 
-	sNickname = xvoTableGetText(tblForm, "nickname", 8);
-	sContent = xvoTableGetText(tblForm, "content", 7);
+	sNickname = ValueText(tblForm, "nickname");
+	sContent = ValueText(tblForm, "content");
 	if ( Guestbook_IsBlank(sNickname) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		Guestbook_SendError(objResp, "nickname is required");
 		return;
 	}
 	if ( Guestbook_IsBlank(sContent) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		Guestbook_SendError(objResp, "content is required");
 		return;
 	}
 	if ( strlen(sNickname) > 64 ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		Guestbook_SendError(objResp, "nickname is too long");
 		return;
 	}
 	if ( (int)strlen(sContent) > G_GuestbookConfig.iMaxContentLength ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		Guestbook_SendError(objResp, "content is too long");
 		return;
 	}
 
 	iStatus = G_GuestbookConfig.bRequireApproval ? GUESTBOOK_STATUS_PENDING : GUESTBOOK_STATUS_APPROVED;
 	if ( !Guestbook_InsertMessage(sNickname, sContent, iStatus) ) {
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		Guestbook_SendError(objResp, "failed to save message");
 		return;
 	}
 
-	xvoUnref(tblForm);
+	xrtValueRelease(tblForm);
 	Guestbook_SendOkMessage(objResp, G_GuestbookConfig.bRequireApproval ? "message submitted and pending review" : "message posted");
 }
 
-void Guestbook_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Guestbook_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm;
+	xvalue* tblForm;
 	int64 iId;
 	int iStatus = GUESTBOOK_STATUS_APPROVED;
 	bool bHasStatus;
@@ -738,7 +744,7 @@ void Guestbook_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, X
 	(void)objHost;
 	(void)objSession;
 
-	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	if ( !(xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -749,32 +755,32 @@ void Guestbook_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, X
 		return;
 	}
 
-	iId = xvoTableGetInt(tblForm, "id", 2);
-	bHasStatus = xvoTableExists(tblForm, "status", 6);
-	bHasReply = xvoTableExists(tblForm, "reply", 5);
+	iId = ValueInt(tblForm, "id");
+	bHasStatus = ValueHas(tblForm, "status");
+	bHasReply = ValueHas(tblForm, "reply");
 	if ( bHasStatus ) {
-		iStatus = xvoTableGetInt(tblForm, "status", 6);
+		iStatus = ValueInt(tblForm, "status");
 		if ( (iStatus != GUESTBOOK_STATUS_PENDING) && (iStatus != GUESTBOOK_STATUS_APPROVED) && (iStatus != GUESTBOOK_STATUS_REJECTED) ) {
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			Guestbook_SendError(objResp, "invalid status");
 			return;
 		}
 	}
 	if ( bHasReply ) {
-		sReply = xvoTableGetText(tblForm, "reply", 5);
+		sReply = ValueText(tblForm, "reply");
 		if ( sReply && ((int)strlen(sReply) > G_GuestbookConfig.iMaxContentLength * 4) ) {
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			Guestbook_SendError(objResp, "reply is too long");
 			return;
 		}
-		sReplyCopy = xrtCopyStr(sReply ? sReply : (str)"", 0);
+		sReplyCopy = xrtStrDup(sReply ? sReply : (str)"");
 		if ( sReplyCopy == NULL ) {
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			Guestbook_SendError(objResp, "failed to copy reply");
 			return;
 		}
 	}
-	xvoUnref(tblForm);
+	xrtValueRelease(tblForm);
 
 	if ( iId <= 0 ) {
 		if ( sReplyCopy ) xrtFree(sReplyCopy);
@@ -790,16 +796,16 @@ void Guestbook_RequestUpdate(XS_ServerObject objServer, XS_HostObject objHost, X
 	Guestbook_SendOkMessage(objResp, "message updated");
 }
 
-void Guestbook_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Guestbook_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	xvalue tblForm;
+	xvalue* tblForm;
 	int64 iId;
 
 	(void)objServer;
 	(void)objHost;
 	(void)objSession;
 
-	if ( !(xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	if ( !(xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		Guestbook_SendError(objResp, "method not allowed");
 		return;
 	}
@@ -810,8 +816,8 @@ void Guestbook_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, X
 		return;
 	}
 
-	iId = xvoTableGetInt(tblForm, "id", 2);
-	xvoUnref(tblForm);
+	iId = ValueInt(tblForm, "id");
+	xrtValueRelease(tblForm);
 	if ( iId <= 0 ) {
 		Guestbook_SendError(objResp, "invalid id");
 		return;
@@ -823,7 +829,7 @@ void Guestbook_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, X
 	Guestbook_SendOkMessage(objResp, "message deleted");
 }
 
-void Guestbook_RequestPublicView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Guestbook_RequestPublicView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	(void)objServer;
 	(void)objHost;
@@ -834,7 +840,7 @@ void Guestbook_RequestPublicView(XS_ServerObject objServer, XS_HostObject objHos
 	}
 }
 
-void Guestbook_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue objSession)
+void Guestbook_RequestAdminView(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	(void)objServer;
 	(void)objHost;
@@ -886,29 +892,29 @@ int Guestbook_OnStart(XAdminPluginHandle handle)
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/guestbook_v3/list";
 	route.proc = Guestbook_RequestListAdmin;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/guestbook_v3/update";
 	route.proc = Guestbook_RequestUpdate;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/api/plugin/guestbook_v3/delete";
 	route.proc = Guestbook_RequestDelete;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&route, 0, sizeof(route));
 	route.path = "/admin/view/plugin/guestbook_v3";
 	route.proc = Guestbook_RequestAdminView;
-	route.need_auth = TRUE;
-	route.admin_only = TRUE;
+	route.need_auth = true;
+	route.admin_only = true;
 	if ( XAdmin_RegisterRoute(handle, &route, NULL) != 0 ) return -1;
 
 	memset(&menu, 0, sizeof(menu));
@@ -918,24 +924,24 @@ int Guestbook_OnStart(XAdminPluginHandle handle)
 	menu.open_type = "_iframe";
 	menu.href = "/admin/view/plugin/guestbook_v3";
 	menu.sort = 990010;
-	menu.visible = TRUE;
+	menu.visible = true;
 	menu.remark = "Guestbook plugin";
 	if ( XAdmin_RegisterMenu(handle, &menu, NULL, NULL) != 0 ) return -1;
 
 	return 0;
 }
 
-int Guestbook_OnConfigChanged(XAdminPluginHandle handle, xvalue new_cfg)
+int Guestbook_OnConfigChanged(XAdminPluginHandle handle, xvalue* new_cfg)
 {
 	(void)handle;
 
 	Guestbook_ConfigReset();
-	if ( new_cfg && (xvoType(new_cfg) == XVO_DT_TABLE) ) {
-		Guestbook_CopyText(G_GuestbookConfig.sTitle, sizeof(G_GuestbookConfig.sTitle), xvoTableGetText(new_cfg, "title", 5), "Guestbook");
-		Guestbook_CopyText(G_GuestbookConfig.sIntro, sizeof(G_GuestbookConfig.sIntro), xvoTableGetText(new_cfg, "intro", 5), "Leave a message for the team.");
-		G_GuestbookConfig.iPageSize = Guestbook_ClampInt(xvoTableGetInt(new_cfg, "pageSize", 8), 1, 100, 20);
-		G_GuestbookConfig.iMaxContentLength = Guestbook_ClampInt(xvoTableGetInt(new_cfg, "maxContentLength", 16), 20, 4096, 280);
-		G_GuestbookConfig.bRequireApproval = xvoTableGetBool(new_cfg, "requireApproval", 15);
+	if ( new_cfg && (xrtValueType(new_cfg) == XVALUE_OBJECT) ) {
+		Guestbook_CopyText(G_GuestbookConfig.sTitle, sizeof(G_GuestbookConfig.sTitle), ValueText(new_cfg, "title"), "Guestbook");
+		Guestbook_CopyText(G_GuestbookConfig.sIntro, sizeof(G_GuestbookConfig.sIntro), ValueText(new_cfg, "intro"), "Leave a message for the team.");
+		G_GuestbookConfig.iPageSize = Guestbook_ClampInt(ValueInt(new_cfg, "pageSize"), 1, 100, 20);
+		G_GuestbookConfig.iMaxContentLength = Guestbook_ClampInt(ValueInt(new_cfg, "maxContentLength"), 20, 4096, 280);
+		G_GuestbookConfig.bRequireApproval = ValueBool(new_cfg, "requireApproval");
 	}
 	return 0;
 }
