@@ -1,4 +1,5 @@
 #include <xsbase.h>
+#include "value_util.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +15,7 @@ typedef struct {
 	const char* shell_type;
 	const char* overlap_policy;
 	const char* custom_json;
-	xvalue custom_data;
+	xvalue* custom_data;
 	const char* work_dir;
 	const char* app_path;
 	const char* sched_path;
@@ -29,71 +30,100 @@ typedef struct {
 
 {{$taskSourceCode}}
 
-void ServiceInit(XS_ServerObject objServer, XS_HostObject objHost)
+static str TaskParamText(xvalue* obj, const char* key)
 {
-	const char* sParamPath = xsServerParam(objServer);
-	xvalue tblParam = NULL;
-	TaskInfo tTaskInfo;
-	int iRet;
+	xstrview text = {0};
+	xvalue* v = obj ? xrtValueObjectGet(obj, xrtStrView(key)) : NULL;
+	if (!v || !xrtValueGetString(v, &text) || !text.Size) return NULL;
+	return xrtStrDupN(text.Data, text.Size);
+}
 
-	(void)objHost;
-	if ( sParamPath == NULL || sParamPath[0] == '\0' ) {
+static int64 TaskParamInt(xvalue* obj, const char* key)
+{
+	int64 value = 0;
+	xvalue* v = obj ? xrtValueObjectGet(obj, xrtStrView(key)) : NULL;
+	if (v) (void)xrtValueGetInt(v, &value);
+	return value;
+}
+
+void ServiceInit(XS_HostInfo* host)
+{
+	str paramPath = NULL;
+	xvalue* tblParam = NULL;
+	TaskInfo tTaskInfo;
+	int ret;
+
+	(void)host;
+	/* 配置中的 param 字段落在 host->Custom（非预设字段集合） */
+	if (host && host->Custom)
+		paramPath = TaskParamText(host->Custom, "param");
+	if (!paramPath || !paramPath[0]) {
 		fputs("runner param is missing\n", stderr);
 		fflush(stderr);
 		exit(1);
 	}
-
-	tblParam = xrtParseJSON_File((str)sParamPath);
-	if ( tblParam == NULL ) {
-		fprintf(stderr, "failed to read runner param: %s\n", sParamPath);
+	tblParam = JsonParseFile(paramPath);
+	xrtFree(paramPath);
+	if (!tblParam) {
+		fputs("failed to read runner param\n", stderr);
 		fflush(stderr);
 		exit(1);
 	}
 
 	memset(&tTaskInfo, 0, sizeof(tTaskInfo));
-	tTaskInfo.task_id = xvoTableGetInt(tblParam, "taskId", 6);
-	tTaskInfo.task_name = xvoTableGetText(tblParam, "taskName", 8);
-	tTaskInfo.trigger_source = xvoTableGetText(tblParam, "triggerSource", 13);
-	tTaskInfo.schedule_type = xvoTableGetText(tblParam, "scheduleType", 12);
-	tTaskInfo.exec_type = xvoTableGetText(tblParam, "execType", 8);
-	tTaskInfo.shell_type = xvoTableGetText(tblParam, "shellType", 9);
-	tTaskInfo.overlap_policy = xvoTableGetText(tblParam, "overlapPolicy", 13);
-	tTaskInfo.custom_json = xvoTableGetText(tblParam, "customJson", 10);
-	tTaskInfo.work_dir = xvoTableGetText(tblParam, "workDir", 7);
-	tTaskInfo.app_path = xvoTableGetText(tblParam, "appPath", 7);
-	tTaskInfo.sched_path = xvoTableGetText(tblParam, "schedPath", 9);
-	tTaskInfo.cache_path = xvoTableGetText(tblParam, "cachePath", 9);
-	tTaskInfo.runner_file = xvoTableGetText(tblParam, "runnerFile", 10);
-	tTaskInfo.runner_config_file = xvoTableGetText(tblParam, "runnerConfigFile", 16);
-	tTaskInfo.runner_param_file = xvoTableGetText(tblParam, "runnerParamFile", 15);
-	tTaskInfo.start_time = xvoTableGetInt(tblParam, "startTime", 9);
-	tTaskInfo.timeout_sec = (int)xvoTableGetInt(tblParam, "timeoutSec", 10);
-	if ( tTaskInfo.custom_json && tTaskInfo.custom_json[0] != '\0' ) {
-		tTaskInfo.custom_data = xrtParseJSON((str)tTaskInfo.custom_json, strlen(tTaskInfo.custom_json));
-		if ( tTaskInfo.custom_data == NULL ) {
+	tTaskInfo.task_id = TaskParamInt(tblParam, "taskId");
+	tTaskInfo.task_name = TaskParamText(tblParam, "taskName");
+	tTaskInfo.trigger_source = TaskParamText(tblParam, "triggerSource");
+	tTaskInfo.schedule_type = TaskParamText(tblParam, "scheduleType");
+	tTaskInfo.exec_type = TaskParamText(tblParam, "execType");
+	tTaskInfo.shell_type = TaskParamText(tblParam, "shellType");
+	tTaskInfo.overlap_policy = TaskParamText(tblParam, "overlapPolicy");
+	tTaskInfo.custom_json = TaskParamText(tblParam, "customJson");
+	tTaskInfo.work_dir = TaskParamText(tblParam, "workDir");
+	tTaskInfo.app_path = TaskParamText(tblParam, "appPath");
+	tTaskInfo.sched_path = TaskParamText(tblParam, "schedPath");
+	tTaskInfo.cache_path = TaskParamText(tblParam, "cachePath");
+	tTaskInfo.runner_file = TaskParamText(tblParam, "runnerFile");
+	tTaskInfo.runner_config_file = TaskParamText(tblParam, "runnerConfigFile");
+	tTaskInfo.runner_param_file = TaskParamText(tblParam, "runnerParamFile");
+	tTaskInfo.start_time = TaskParamInt(tblParam, "startTime");
+	tTaskInfo.timeout_sec = (int)TaskParamInt(tblParam, "timeoutSec");
+	if (tTaskInfo.custom_json && tTaskInfo.custom_json[0]) {
+		tTaskInfo.custom_data = JsonParseN(tTaskInfo.custom_json, 0);
+		if (!tTaskInfo.custom_data) {
 			fprintf(stderr, "invalid customJson: %s\n", tTaskInfo.custom_json);
-			xvoUnref(tblParam);
 			fflush(stderr);
 			exit(2);
 		}
 	}
 
-	iRet = TaskProc(&tTaskInfo);
-	if ( tTaskInfo.output[0] != '\0' ) {
+	ret = TaskProc(&tTaskInfo);
+	if (tTaskInfo.output[0]) {
 		fputs(tTaskInfo.output, stdout);
 		fflush(stdout);
 	}
 
-	if ( tTaskInfo.custom_data ) {
-		xvoUnref(tTaskInfo.custom_data);
-	}
-	xvoUnref(tblParam);
+	xrtValueRelease(tTaskInfo.custom_data);
+	xrtValueRelease(tblParam);
+	xrtFree((char*)tTaskInfo.task_name);
+	xrtFree((char*)tTaskInfo.trigger_source);
+	xrtFree((char*)tTaskInfo.schedule_type);
+	xrtFree((char*)tTaskInfo.exec_type);
+	xrtFree((char*)tTaskInfo.shell_type);
+	xrtFree((char*)tTaskInfo.overlap_policy);
+	xrtFree((char*)tTaskInfo.custom_json);
+	xrtFree((char*)tTaskInfo.work_dir);
+	xrtFree((char*)tTaskInfo.app_path);
+	xrtFree((char*)tTaskInfo.sched_path);
+	xrtFree((char*)tTaskInfo.cache_path);
+	xrtFree((char*)tTaskInfo.runner_file);
+	xrtFree((char*)tTaskInfo.runner_config_file);
+	xrtFree((char*)tTaskInfo.runner_param_file);
 	fflush(stderr);
-	exit(iRet);
+	exit(ret);
 }
 
-void ServiceUnit(XS_ServerObject objServer, XS_HostObject objHost)
+void ServiceUnit(XS_HostInfo* host)
 {
-	(void)objServer;
-	(void)objHost;
+	(void)host;
 }

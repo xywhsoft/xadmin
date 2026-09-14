@@ -1,0 +1,30 @@
+<div class="layui-card">
+	<div class="layui-card-header">表单模板演示</div>
+	<div class="layui-card-body">
+		<blockquote class="layui-elem-quote">
+			此页面演示动态表单模板的渲染能力。表单定义存储在 forms/ 目录中，通过模板引擎渲染为完整表单。
+		</blockquote>
+		<div id="formDemoContainer">
+			<table class="layui-table">
+				<thead><tr><th>模板名</th><th>状态</th><th>操作</th></tr></thead>
+				<tbody id="formDemoList"></tbody>
+			</table>
+		</div>
+	</div>
+</div>
+<script>
+layui.use(['table', 'jquery'], function() {
+	var $ = layui.jquery;
+	$.get('/admin/form/list', function(res) {
+		if (res.result && res.data) {
+			var html = '';
+			for (var i = 0; i < res.data.length; i++) {
+				var f = res.data[i];
+				html += '<tr><td>' + (f.title || f.name) + '</td><td>' + (f.enabled ? '启用' : '停用') + '</td>' +
+					'<td><a class="layui-btn layui-btn-xs" href="/admin/view/form?name=' + encodeURIComponent(f.name) + '">查看</a></td></tr>';
+			}
+			$('#formDemoList').html(html);
+		}
+	});
+});
+</script>

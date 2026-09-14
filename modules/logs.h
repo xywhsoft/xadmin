@@ -5,6 +5,8 @@ sqlite3_stmt* stmt_logs_all = NULL;
 sqlite3_stmt* stmt_logs_sel = NULL;
 sqlite3_stmt* stmt_logs_add = NULL;
 sqlite3_stmt* stmt_logs_clear = NULL;
+sqlite3_stmt* stmt_logs_count = NULL;
+sqlite3_stmt* stmt_logs_count_sel = NULL;
 
 
 
@@ -13,12 +15,12 @@ void Logs_Init()
 {
 	printf("        Logs_Init \n");
 
-	int iRet = sqlite3_prepare_v3(G_DB, "SELECT *, COUNT(*) OVER() AS total_count FROM logs ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_all, NULL);
+	int iRet = sqlite3_prepare_v3(G_DB, "SELECT id, user, ip, uri, method, param, body, createTime FROM logs ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Logs_Init [stmt_logs_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT *, COUNT(*) OVER() AS total_count FROM logs WHERE uri LIKE ? ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT id, user, ip, uri, method, param, body, createTime FROM logs WHERE uri LIKE ? ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Logs_Init [stmt_logs_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -29,6 +31,11 @@ void Logs_Init()
 		exit(0);
 	}
 	iRet = sqlite3_prepare_v3(G_DB, "DELETE FROM logs WHERE createTime < ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_clear, NULL);
+/* 攻击评审后的查询结构修复：窗口函数 COUNT(*) OVER() 迫使全表宽行物化
+ * （10 万行实测 387ms）；计数独立成窄扫描，分页只读本页行。 */
+sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM logs;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_count, NULL);
+sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM logs WHERE uri LIKE ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_count_sel, NULL);
+sqlite3_exec(G_DB, "CREATE INDEX IF NOT EXISTS idx_logs_createTime ON logs(createTime);", NULL, NULL, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Logs_Init [stmt_logs_clear] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -38,7 +45,8 @@ void Logs_Init()
 
 
 // add access log
-void Logs_Add(XS_RequestObject objReq, xvalue* objSession)
+/* F2：bMaskBody 路由（口令类接口）不记录请求体，其余 POST/PUT 原样记录。 */
+void Logs_Add(XS_RequestObject objReq, xvalue* objSession, bool bMaskBody)
 {
 	const char* sUser = "(guest)";
 	const char* sIP = xsReqRemote(objReq);
@@ -47,10 +55,10 @@ void Logs_Add(XS_RequestObject objReq, xvalue* objSession)
 	const char* sMethod = xsReqMethod(objReq);
 	const char* pBody = NULL;
 	size_t iBodyLen = 0;
-	xtime now = XA_Now();
+	xtime now = xrtNow();
 
-	if ( objSession && (xrtValueType(objSession) == XVO_DT_TABLE) ) {
-		sUser = xvoTableGetText(objSession, "user", 4);
+	if ( objSession && (xrtValueType(objSession) == XVALUE_OBJECT) ) {
+		sUser = ValueText(objSession, "user");
 		if ( !sUser ) {
 			sUser = "(unknown)";
 		}
@@ -67,7 +75,7 @@ void Logs_Add(XS_RequestObject objReq, xvalue* objSession)
 	if ( sMethod == NULL ) {
 		sMethod = "";
 	}
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) || (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
+	if ( !bMaskBody && ((xsReqMethodID(objReq) == XHTTP_METHOD_POST) || (xsReqMethodID(objReq) == XHTTP_METHOD_PUT)) ) {
 		pBody = (str)xsReqBody(objReq);
 		iBodyLen = xsReqBodyLen(objReq);
 	}

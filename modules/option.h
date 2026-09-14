@@ -21,7 +21,7 @@ static bool Option_IsSpaceChar(char c)
 
 static xvalue* Option_CreateSharedTableValue()
 {
-	xvalue* pVal = xvoCreateTableEx(XRT_OBJMODE_SHARED);
+	xvalue* pVal = ValueObject();
 	if ( pVal != NULL ) {
 		XAdminValuePublishShared(pVal);
 	}
@@ -30,7 +30,7 @@ static xvalue* Option_CreateSharedTableValue()
 
 static xvalue* Option_CreateSharedArrayValue()
 {
-	xvalue* pVal = xvoCreateArrayEx(XRT_OBJMODE_SHARED);
+	xvalue* pVal = ValueArray();
 	if ( pVal != NULL ) {
 		XAdminValuePublishShared(pVal);
 	}
@@ -44,25 +44,19 @@ typedef struct OptionSharedCloneTableContext {
 
 static xvalue* Option_CloneSharedValue(xvalue* objSrc);
 
-static bool Option_CloneSharedTableItemProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+static bool Option_CloneSharedTableItemProc(xstrview key, xvalue* value, void* context)
 {
-	OptionSharedCloneTableContext* pCtx = (OptionSharedCloneTableContext*)pArg;
-	xvalue* objSrcVal;
-	xvalue* objDstVal;
+	OptionSharedCloneTableContext* ctx = (OptionSharedCloneTableContext*)context;
+	xvalue* src;
+	xvalue* dst;
 
-	(void)pVal;
+	(void)value;
+	if (!ctx || !ctx->tblSrc || !ctx->tblDst) return false;
 
-	if ( (pCtx == NULL) || (pCtx->tblSrc == NULL) || (pCtx->tblDst == NULL) || (pKey == NULL) ) {
-		return FALSE;
-	}
-
-	objSrcVal = xvoTableGetValue(pCtx->tblSrc, pKey->Key, pKey->KeyLen);
-	objDstVal = Option_CloneSharedValue(objSrcVal);
-	if ( objDstVal != NULL ) {
-		xvoTableSetValue(pCtx->tblDst, pKey->Key, pKey->KeyLen, objDstVal, TRUE);
-	}
-
-	return FALSE;
+	src = xrtValueObjectGet(ctx->tblSrc, key);
+	dst = Option_CloneSharedValue(src);
+	if (dst != NULL) xrtValueObjectSetNew(ctx->tblDst, key, dst);
+	return false;
 }
 
 static xvalue* Option_CloneSharedValue(xvalue* objSrc)
@@ -74,60 +68,64 @@ static xvalue* Option_CloneSharedValue(xvalue* objSrc)
 		return NULL;
 	}
 
-	iType = xvoType(objSrc);
+	iType = xrtValueType(objSrc);
 	switch ( iType ) {
-		case XVO_DT_NULL:
-			return xvoCreateNull();
-		case XVO_DT_BOOL:
-			return xvoCreateBool(xvoGetBool(objSrc));
-		case XVO_DT_INT:
-			return xvoCreateInt(xvoGetInt(objSrc));
-		case XVO_DT_FLOAT:
-			return xvoCreateFloat(xvoGetFloat(objSrc));
-		case XVO_DT_TEXT:
-			return xvoCreateText(xvoGetText(objSrc), 0, FALSE);
-		case XVO_DT_TIME:
-			return xvoCreateTime(xvoGetTime(objSrc));
-		case XVO_DT_ARRAY:
+		case XVALUE_NULL:
+			return xrtValueNull();
+		case XVALUE_BOOL:
+			return xrtValueBool(ValueBoolOf(objSrc));
+		case XVALUE_INT:
+			return xrtValueInt(ValueIntOf(objSrc));
+		case XVALUE_FLOAT:
+			return xrtValueFloat(ValueFloatOf(objSrc));
+		case XVALUE_STRING:
+			{
+			xstrview text = {0};
+			(void)xrtValueGetString(objSrc, &text);
+			return xrtValueString(text);
+		}
+		case XVALUE_TIME:
+			return xrtValueTime(ValueTimeOf(objSrc));
+		case XVALUE_ARRAY:
 			objDst = Option_CreateSharedArrayValue();
 			if ( objDst != NULL ) {
-				uint32 iCount = xvoArrayItemCount(objSrc);
+				uint32 iCount = ValueCount(objSrc);
 				for ( uint32 i = 0; i < iCount; i++ ) {
-					xvalue* objItem = Option_CloneSharedValue(xvoArrayGetValue(objSrc, i));
+					xvalue* objItem = Option_CloneSharedValue(xrtValueArrayGet(objSrc, i));
 					if ( objItem != NULL ) {
-						xvoArrayAppendValue(objDst, objItem, TRUE);
+						ValueArrayOwn(objDst, objItem);
 					}
 				}
 			}
 			return objDst;
-		case XVO_DT_TABLE:
+		case XVALUE_OBJECT:
 			objDst = Option_CreateSharedTableValue();
 			if ( objDst != NULL ) {
 				OptionSharedCloneTableContext tCtx;
 				tCtx.tblSrc = objSrc;
 				tCtx.tblDst = objDst;
-				XA_ValueWalk(objSrc, (ptr)Option_CloneSharedTableItemProc, &tCtx);
+				ValueWalk(objSrc, Option_CloneSharedTableItemProc, &tCtx);
 			}
 			return objDst;
 		default:
-			return xvoCopy(objSrc);
+			return xrtValueDeepClone(objSrc);
 	}
 }
 
 static bool Option_HasNonSpaceText(const char* sText)
 {
 	if ( sText == NULL ) {
-		return FALSE;
+		return false;
 	}
 
 	while ( *sText ) {
 		if ( !Option_IsSpaceChar(*sText) ) {
-			return TRUE;
+			return true;
 		}
 		sText++;
 	}
 
-	return FALSE;
+	return false;
 }
 
 static str Option_NormalizeAdminEntryPath(str sPath)
@@ -200,10 +198,10 @@ static str Option_NormalizeAdminEntryPath(str sPath)
 static bool Option_AdminEntryConflictsRoute(const char* sPath)
 {
 	if ( (sPath == NULL) || (sPath[0] == '\0') || (G_StaticRouteTableHTTP == NULL) ) {
-		return FALSE;
+		return false;
 	}
 
-	return XA_DictGet(G_StaticRouteTableHTTP, (str)sPath, strlen(sPath)) != NULL;
+	return xrtMapGet(G_StaticRouteTableHTTP, KeyView(sPath)) != NULL;
 }
 
 static bool Option_IsAdminEntryPathValid(const char* sPath)
@@ -212,12 +210,12 @@ static bool Option_IsAdminEntryPathValid(const char* sPath)
 	bool bValid;
 
 	if ( !Option_HasNonSpaceText(sPath) ) {
-		return TRUE;
+		return true;
 	}
 
 	sNormalized = Option_NormalizeAdminEntryPath((str)sPath);
 	if ( sNormalized == NULL ) {
-		return FALSE;
+		return false;
 	}
 
 	bValid = !Option_AdminEntryConflictsRoute(sNormalized);
@@ -240,7 +238,7 @@ str Option_GenerateAdminEntryPath()
 		int iSeedTry;
 
 		for ( iSeedTry = 0; iSeedTry < 8 && iWrite < 32; iSeedTry++ ) {
-			str sSeed = xrtMakeXIDS();
+			str sSeed = Util_Token();
 			int iRead;
 
 			if ( sSeed == NULL ) {
@@ -263,7 +261,7 @@ str Option_GenerateAdminEntryPath()
 
 		while ( iWrite < 32 ) {
 			const char sHex[] = "0123456789abcdef";
-			uint64 iFill = (uint64)XA_Now() + (uint64)(iTry + 1) * 1315423911ull + (uint64)(iWrite * 2654435761ull);
+			uint64 iFill = (uint64)xrtNow() + (uint64)(iTry + 1) * 1315423911ull + (uint64)(iWrite * 2654435761ull);
 			sToken[iWrite++] = sHex[iFill & 0x0f];
 		}
 		sToken[32] = '\0';
@@ -283,7 +281,7 @@ str Option_GenerateAdminEntryPath()
 	}
 
 	{
-		str sPath = xrtCopyStr("/0123456789abcdef0123456789abcdef", 0);
+		str sPath = xrtStrDup("/0123456789abcdef0123456789abcdef");
 		if ( sPath && Option_IsAdminEntryPathValid(sPath) ) {
 			return sPath;
 		}
@@ -292,7 +290,7 @@ str Option_GenerateAdminEntryPath()
 		}
 	}
 
-	return xrtCopyStr("/fedcba9876543210fedcba9876543210", 0);
+	return xrtStrDup("/fedcba9876543210fedcba9876543210");
 }
 
 str Option_GetGlobalText(const char* sName, const char* sDefaultValue)
@@ -300,16 +298,16 @@ str Option_GetGlobalText(const char* sName, const char* sDefaultValue)
 	xvalue* tblGlobal;
 	str sValue;
 
-	if ( (G_Option == NULL) || (xvoType(G_Option) != XVO_DT_TABLE) ) {
+	if ( (G_Option == NULL) || (xrtValueType(G_Option) != XVALUE_OBJECT) ) {
 		return (str)(sDefaultValue ? sDefaultValue : "");
 	}
 
-	tblGlobal = xvoTableGetValue(G_Option, "global", 6);
-	if ( (tblGlobal == NULL) || (xvoType(tblGlobal) != XVO_DT_TABLE) ) {
+	tblGlobal = ValueGet(G_Option, "global");
+	if ( (tblGlobal == NULL) || (xrtValueType(tblGlobal) != XVALUE_OBJECT) ) {
 		return (str)(sDefaultValue ? sDefaultValue : "");
 	}
 
-	sValue = xvoTableGetText(tblGlobal, sName, 0);
+	sValue = ValueText(tblGlobal, sName);
 	if ( Option_HasNonSpaceText(sValue) ) {
 		return sValue;
 	}
@@ -322,29 +320,29 @@ void Option_RefreshAdminEntryConfig()
 	xvalue* tblGlobal;
 	str sAdminPath = NULL;
 
-	G_AdminEntryEnabled = FALSE;
+	G_AdminEntryEnabled = false;
 	if ( G_AdminEntryPath != NULL ) {
 		xrtFree(G_AdminEntryPath);
 		G_AdminEntryPath = NULL;
 	}
 
-	if ( (G_Option == NULL) || (xvoType(G_Option) != XVO_DT_TABLE) ) {
+	if ( (G_Option == NULL) || (xrtValueType(G_Option) != XVALUE_OBJECT) ) {
 		return;
 	}
 
-	tblGlobal = xvoTableGetValue(G_Option, "global", 6);
-	if ( (tblGlobal == NULL) || (xvoType(tblGlobal) != XVO_DT_TABLE) ) {
+	tblGlobal = ValueGet(G_Option, "global");
+	if ( (tblGlobal == NULL) || (xrtValueType(tblGlobal) != XVALUE_OBJECT) ) {
 		return;
 	}
 
-	sAdminPath = Option_NormalizeAdminEntryPath(xvoTableGetText(tblGlobal, "cp_url", 6));
+	sAdminPath = Option_NormalizeAdminEntryPath(ValueText(tblGlobal, "cp_url"));
 	if ( Option_AdminEntryConflictsRoute(sAdminPath) ) {
 		xrtFree(sAdminPath);
 		sAdminPath = NULL;
 	}
 	if ( sAdminPath != NULL ) {
 		G_AdminEntryPath = sAdminPath;
-		G_AdminEntryEnabled = TRUE;
+		G_AdminEntryEnabled = true;
 		printf("[option] protected admin entry enabled\n");
 		fflush(stdout);
 	}
@@ -358,7 +356,7 @@ bool Option_AdminEntryEnabled()
 bool Option_AdminEntryIsMatch(const char* sPath)
 {
 	if ( !Option_AdminEntryEnabled() || (sPath == NULL) ) {
-		return FALSE;
+		return false;
 	}
 	return strcmp(sPath, G_AdminEntryPath) == 0;
 }
@@ -380,12 +378,12 @@ bool Option_IsValidFileName(str sFileName)
 	size_t i;
 
 	if ( (sFileName == NULL) || (sFileName[0] == '\0') ) {
-		return FALSE;
+		return false;
 	}
 
 	iLen = strlen(sFileName);
 	if ( (iLen <= 5) || (strcmp(sFileName + iLen - 5, ".json") != 0) ) {
-		return FALSE;
+		return false;
 	}
 
 	iBaseLen = iLen - 5;
@@ -393,18 +391,18 @@ bool Option_IsValidFileName(str sFileName)
 		char c = sFileName[i];
 		bool bOK = ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z')) || ((c >= '0') && (c <= '9')) || (c == '_') || (c == '-');
 		if ( !bOK ) {
-			return FALSE;
+			return false;
 		}
 	}
 
-	return TRUE;
+	return true;
 }
 
 
 
 str Option_BuildFilePath(str sFileName)
 {
-	return XA_PathJoin(2, OptionPath, sFileName);
+	return xrtPathJoin(OptionPath, sFileName);
 }
 
 
@@ -426,13 +424,13 @@ str Option_PathToFileName(str sPath)
 		return NULL;
 	}
 
-	sBaseName = xrtPathGetName(sPath, 0);
-	sExt = xrtPathGetExt(sPath, 0);
+	sBaseName = xrtPathStem(sPath);
+	sExt = Util_ExtNoDot(sPath);
 	if ( sBaseName != NULL ) {
 		if ( (sExt != NULL) && (sExt[0] != '\0') ) {
 			sFileName = xrtFormat("%s.%s", sBaseName, sExt);
 		} else {
-			sFileName = xrtCopyStr(sBaseName, 0);
+			sFileName = xrtStrDup(sBaseName);
 		}
 	}
 	if ( sBaseName ) xrtFree(sBaseName);
@@ -447,16 +445,16 @@ bool Option_FileExists(str sFileName)
 {
 	str sFilePath;
 	str sText;
-	bool bExists = FALSE;
+	bool bExists = false;
 
 	if ( !Option_IsValidFileName(sFileName) ) {
-		return FALSE;
+		return false;
 	}
 
 	sFilePath = Option_BuildFilePath(sFileName);
-	sText = XA_FileReadAll(sFilePath, XRT_CP_BINARY, NULL);
+	sText = xrtFileReadAll(sFilePath, NULL);
 	if ( sText != NULL ) {
-		bExists = TRUE;
+		bExists = true;
 		xrtFree(sText);
 	}
 	xrtFree(sFilePath);
@@ -469,26 +467,26 @@ bool Option_FileExists(str sFileName)
 int Option_CountFields(xvalue* tblConfig)
 {
 	int iCount = 0;
-	xvalue* arrClassList = xvoTableGetValue(tblConfig, "classList", 9);
+	xvalue* arrClassList = ValueGet(tblConfig, "classList");
 
-	if ( (arrClassList == NULL) || (xvoType(arrClassList) != XVO_DT_ARRAY) ) {
+	if ( (arrClassList == NULL) || (xrtValueType(arrClassList) != XVALUE_ARRAY) ) {
 		return 0;
 	}
 
-	for ( uint32 i = 0; i < xvoArrayItemCount(arrClassList); i++ ) {
-		xvalue* tblClass = xvoArrayGetValue(arrClassList, i);
+	for ( uint32 i = 0; i < ValueCount(arrClassList); i++ ) {
+		xvalue* tblClass = xrtValueArrayGet(arrClassList, i);
 		xvalue* arrOptions;
 
-		if ( (tblClass == NULL) || (xvoType(tblClass) != XVO_DT_TABLE) ) {
+		if ( (tblClass == NULL) || (xrtValueType(tblClass) != XVALUE_OBJECT) ) {
 			continue;
 		}
 
-		arrOptions = xvoTableGetValue(tblClass, "options", 7);
-		if ( (arrOptions == NULL) || (xvoType(arrOptions) != XVO_DT_ARRAY) ) {
+		arrOptions = ValueGet(tblClass, "options");
+		if ( (arrOptions == NULL) || (xrtValueType(arrOptions) != XVALUE_ARRAY) ) {
 			continue;
 		}
 
-		iCount += (int)xvoArrayItemCount(arrOptions);
+		iCount += (int)ValueCount(arrOptions);
 	}
 
 	return iCount;
@@ -498,72 +496,71 @@ int Option_CountFields(xvalue* tblConfig)
 
 int Option_CountGroups(xvalue* tblConfig)
 {
-	xvalue* arrClassList = xvoTableGetValue(tblConfig, "classList", 9);
+	xvalue* arrClassList = ValueGet(tblConfig, "classList");
 
-	if ( (arrClassList == NULL) || (xvoType(arrClassList) != XVO_DT_ARRAY) ) {
+	if ( (arrClassList == NULL) || (xrtValueType(arrClassList) != XVALUE_ARRAY) ) {
 		return 0;
 	}
 
-	return (int)xvoArrayItemCount(arrClassList);
+	return (int)ValueCount(arrClassList);
 }
 
 
 
 bool Option_IsLockedConfig(xvalue* tblConfig)
 {
-	if ( (tblConfig == NULL) || (xvoType(tblConfig) != XVO_DT_TABLE) ) {
-		return FALSE;
+	if ( (tblConfig == NULL) || (xrtValueType(tblConfig) != XVALUE_OBJECT) ) {
+		return false;
 	}
 
-	return xvoTableGetBool(tblConfig, "locked", 6);
+	return ValueBool(tblConfig, "locked");
 }
 
 
 
 // 扫描配置文件的回调函数
-int ScanOptionFileProc(str sPath, size_t iSize, int bDir, ptr pData, ptr Param)
+int ScanOptionFileProc(const char* sPath, size_t iSize, bool bDir, void* pParam)
 {
 	(void)iSize;
-	(void)pData;
-	(void)Param;
+	(void)pParam;
 
 	if ( bDir == 0 ) {
-		str sExt = xrtPathGetExt(sPath, 0);
-		if ( (sExt != NULL) && (xrtStrComp(sExt, "json", 4, FALSE) == 0) ) {
-			xvalue* tblConfig = xrtParseJSON_File(sPath);
+		str sExt = Util_ExtNoDot(sPath);
+		if ( (sExt != NULL) && (xrtStrCaseCompare(xrtStrViewN(sExt, 4), xrtStrViewN("json", 4)) == 0) ) {
+			xvalue* tblConfig = JsonParseFile(sPath);
 			if ( tblConfig != NULL ) {
-				str sNamespace = xvoTableGetText(tblConfig, "namespace", 9);
+				str sNamespace = ValueText(tblConfig, "namespace");
 				if ( sNamespace != NULL ) {
-					xvalue* tblNamespace = xvoTableGetValue(G_Option, sNamespace, 0);
-					if ( (tblNamespace == NULL) || (xrtValueType(tblNamespace) != XVO_DT_TABLE) ) {
+					xvalue* tblNamespace = ValueGet(G_Option, sNamespace);
+					if ( (tblNamespace == NULL) || (xrtValueType(tblNamespace) != XVALUE_OBJECT) ) {
 						tblNamespace = Option_CreateSharedTableValue();
-						xvoTableSetValue(G_Option, sNamespace, 0, tblNamespace, TRUE);
+						ValueSetOwn(G_Option, sNamespace, tblNamespace);
 					}
 
-					xvalue* arrClassList = xvoTableGetValue(tblConfig, "classList", 9);
-					if ( (arrClassList != NULL) && (xvoType(arrClassList) == XVO_DT_ARRAY) ) {
-						uint32 iClassCount = xvoArrayItemCount(arrClassList);
+					xvalue* arrClassList = ValueGet(tblConfig, "classList");
+					if ( (arrClassList != NULL) && (xrtValueType(arrClassList) == XVALUE_ARRAY) ) {
+						uint32 iClassCount = ValueCount(arrClassList);
 						for ( uint32 i = 0; i < iClassCount; i++ ) {
-							xvalue* tblClass = xvoArrayGetValue(arrClassList, i);
-							if ( (tblClass != NULL) && (xvoType(tblClass) == XVO_DT_TABLE) ) {
-								xvalue* arrOptions = xvoTableGetValue(tblClass, "options", 7);
-								if ( (arrOptions != NULL) && (xvoType(arrOptions) == XVO_DT_ARRAY) ) {
-									uint32 iOptCount = xvoArrayItemCount(arrOptions);
+							xvalue* tblClass = xrtValueArrayGet(arrClassList, i);
+							if ( (tblClass != NULL) && (xrtValueType(tblClass) == XVALUE_OBJECT) ) {
+								xvalue* arrOptions = ValueGet(tblClass, "options");
+								if ( (arrOptions != NULL) && (xrtValueType(arrOptions) == XVALUE_ARRAY) ) {
+									uint32 iOptCount = ValueCount(arrOptions);
 									for ( uint32 j = 0; j < iOptCount; j++ ) {
-										xvalue* tblOpt = xvoArrayGetValue(arrOptions, j);
-										if ( (tblOpt != NULL) && (xvoType(tblOpt) == XVO_DT_TABLE) ) {
-											str sName = xvoTableGetText(tblOpt, "name", 4);
-											xvalue* varValue = xvoTableGetValue(tblOpt, "value", 5);
+										xvalue* tblOpt = xrtValueArrayGet(arrOptions, j);
+										if ( (tblOpt != NULL) && (xrtValueType(tblOpt) == XVALUE_OBJECT) ) {
+											str sName = ValueText(tblOpt, "name");
+											xvalue* varValue = ValueGet(tblOpt, "value");
 											if ( sName != NULL ) {
 												if ( varValue != NULL ) {
 													xvalue* varSharedValue = Option_CloneSharedValue(varValue);
 													if ( varSharedValue != NULL ) {
-														xvoTableSetValue(tblNamespace, sName, 0, varSharedValue, TRUE);
+														ValueSetOwn(tblNamespace, sName, varSharedValue);
 													} else {
-														xvoTableSetText(tblNamespace, sName, 0, "", 0, FALSE);
+														ValueSetText(tblNamespace, sName, "");
 													}
 												} else {
-													xvoTableSetText(tblNamespace, sName, 0, "", 0, FALSE);
+													ValueSetText(tblNamespace, sName, "");
 												}
 											}
 										}
@@ -573,45 +570,44 @@ int ScanOptionFileProc(str sPath, size_t iSize, int bDir, ptr pData, ptr Param)
 						}
 					}
 				}
-				xvoUnref(tblConfig);
+				xrtValueRelease(tblConfig);
 			} else {
 				printf("!!! ERROR !!! Option_Init - Failed to parse config file: %s\n", sPath);
 			}
 		}
 		xrtFree(sExt);
 	}
-	return FALSE;
+	return false;
 }
 
 
 
-static int Option_CheckNamespaceProc(str sPath, size_t iSize, int bDir, ptr pData, ptr Param)
+static int Option_CheckNamespaceProc(const char* sPath, size_t iSize, bool bDir, void* pParam)
 {
-	OptionNamespaceCheckContext* pCtx = (OptionNamespaceCheckContext*)Param;
+	OptionNamespaceCheckContext* pCtx = (OptionNamespaceCheckContext*)pParam;
 
 	(void)iSize;
-	(void)pData;
 
 	if ( (pCtx == NULL) || bDir != 0 || pCtx->bFound ) {
-		return FALSE;
+		return false;
 	}
 
 	if ( sPath != NULL ) {
-		str sFileName = Option_PathToFileName(sPath);
-		str sExt = xrtPathGetExt(sPath, 0);
-		if ( (sExt != NULL) && (xrtStrComp(sExt, "json", 4, FALSE) == 0) ) {
-			bool bSkip = FALSE;
+		str sFileName = Option_PathToFileName((str)sPath);
+		str sExt = Util_ExtNoDot(sPath);
+		if ( (sExt != NULL) && (xrtStrCaseCompare(xrtStrViewN(sExt, 4), xrtStrViewN("json", 4)) == 0) ) {
+			bool bSkip = false;
 			if ( (pCtx->sExcludeFileName != NULL) && (sFileName != NULL) && (strcmp(sFileName, pCtx->sExcludeFileName) == 0) ) {
-				bSkip = TRUE;
+				bSkip = true;
 			}
 			if ( !bSkip ) {
-				xvalue* tblConfig = xrtParseJSON_File(sPath);
+				xvalue* tblConfig = JsonParseFile(sPath);
 				if ( tblConfig != NULL ) {
-					str sNamespace = xvoTableGetText(tblConfig, "namespace", 9);
+					str sNamespace = ValueText(tblConfig, "namespace");
 					if ( (sNamespace != NULL) && (strcmp(sNamespace, pCtx->sNamespace) == 0) ) {
-						pCtx->bFound = TRUE;
+						pCtx->bFound = true;
 					}
-					xvoUnref(tblConfig);
+					xrtValueRelease(tblConfig);
 				}
 			}
 		}
@@ -619,7 +615,7 @@ static int Option_CheckNamespaceProc(str sPath, size_t iSize, int bDir, ptr pDat
 		xrtFree(sFileName);
 	}
 
-	return FALSE;
+	return false;
 }
 
 
@@ -629,74 +625,73 @@ bool Option_HasDuplicateNamespace(str sNamespace, str sExcludeFileName)
 	OptionNamespaceCheckContext tCtx;
 
 	if ( (sNamespace == NULL) || (sNamespace[0] == '\0') ) {
-		return FALSE;
+		return false;
 	}
 
 	tCtx.sNamespace = sNamespace;
 	tCtx.sExcludeFileName = sExcludeFileName;
-	tCtx.bFound = FALSE;
-	xrtDirScan(OptionPath, FALSE, Option_CheckNamespaceProc, &tCtx);
+	tCtx.bFound = false;
+	DirScan(OptionPath, false, Option_CheckNamespaceProc, &tCtx);
 
 	return tCtx.bFound;
 }
 
 
 
-static int Option_ListFilesProc(str sPath, size_t iSize, int bDir, ptr pData, ptr Param)
+static int Option_ListFilesProc(const char* sPath, size_t iSize, bool bDir, void* pParam)
 {
-	OptionListContext* pCtx = (OptionListContext*)Param;
+	OptionListContext* pCtx = (OptionListContext*)pParam;
 
 	(void)iSize;
-	(void)pData;
 
 	if ( (pCtx == NULL) || bDir != 0 ) {
-		return FALSE;
+		return false;
 	}
 
 	if ( sPath != NULL ) {
-		str sExt = xrtPathGetExt(sPath, 0);
-		if ( (sExt != NULL) && (xrtStrComp(sExt, "json", 4, FALSE) == 0) ) {
-			str sFileName = Option_PathToFileName(sPath);
-			xvalue* tblConfig = xrtParseJSON_File(sPath);
-			xvalue* tblRow = xvoCreateTable();
+		str sExt = Util_ExtNoDot(sPath);
+		if ( (sExt != NULL) && (xrtStrCaseCompare(xrtStrViewN(sExt, 4), xrtStrViewN("json", 4)) == 0) ) {
+			str sFileName = Option_PathToFileName((str)sPath);
+			xvalue* tblConfig = JsonParseFile(sPath);
+			xvalue* tblRow = ValueObject();
 			if ( sFileName != NULL ) {
-				xvoTableSetText(tblRow, "file", 4, sFileName, 0, FALSE);
+				ValueSetText(tblRow, "file", sFileName);
 			}
 			if ( tblConfig != NULL ) {
-				str sTitle = xvoTableGetText(tblConfig, "title", 5);
-				str sNamespace = xvoTableGetText(tblConfig, "namespace", 9);
-				str sDesc = xvoTableGetText(tblConfig, "desc", 4);
+				str sTitle = ValueText(tblConfig, "title");
+				str sNamespace = ValueText(tblConfig, "namespace");
+				str sDesc = ValueText(tblConfig, "desc");
 				bool bLocked = Option_IsLockedConfig(tblConfig);
-				xvoTableSetBool(tblRow, "locked", 6, bLocked);
-				xvoTableSetBool(tblRow, "canDelete", 9, !bLocked);
-				xvoTableSetBool(tblRow, "canEditDefinition", 17, !bLocked);
-				xvoTableSetText(tblRow, "title", 5, sTitle ? sTitle : Option_StrOrEmpty(sFileName), 0, FALSE);
-				xvoTableSetText(tblRow, "namespace", 9, Option_StrOrEmpty(sNamespace), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, Option_StrOrEmpty(sDesc), 0, FALSE);
-				xvoTableSetInt(tblRow, "authLevel", 9, xvoTableGetInt(tblConfig, "authLevel", 9));
-				xvoTableSetInt(tblRow, "groupCount", 10, Option_CountGroups(tblConfig));
-				xvoTableSetInt(tblRow, "fieldCount", 10, Option_CountFields(tblConfig));
+				ValueSetBool(tblRow, "locked", bLocked);
+				ValueSetBool(tblRow, "canDelete", !bLocked);
+				ValueSetBool(tblRow, "canEditDefinition", !bLocked);
+				ValueSetText(tblRow, "title", sTitle ? sTitle : Option_StrOrEmpty(sFileName));
+				ValueSetText(tblRow, "namespace", Option_StrOrEmpty(sNamespace));
+				ValueSetText(tblRow, "desc", Option_StrOrEmpty(sDesc));
+				ValueSetInt(tblRow, "authLevel", ValueInt(tblConfig, "authLevel"));
+				ValueSetInt(tblRow, "groupCount", Option_CountGroups(tblConfig));
+				ValueSetInt(tblRow, "fieldCount", Option_CountFields(tblConfig));
 			} else {
-				xvoTableSetBool(tblRow, "locked", 6, FALSE);
-				xvoTableSetBool(tblRow, "canDelete", 9, TRUE);
-				xvoTableSetBool(tblRow, "canEditDefinition", 17, TRUE);
-				xvoTableSetText(tblRow, "title", 5, Option_StrOrEmpty(sFileName), 0, FALSE);
-				xvoTableSetText(tblRow, "namespace", 9, "", 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, xrtCopyStr("配置文件解析失败", 0), 0, TRUE);
-				xvoTableSetInt(tblRow, "authLevel", 9, 0);
-				xvoTableSetInt(tblRow, "groupCount", 10, 0);
-				xvoTableSetInt(tblRow, "fieldCount", 10, 0);
+				ValueSetBool(tblRow, "locked", false);
+				ValueSetBool(tblRow, "canDelete", true);
+				ValueSetBool(tblRow, "canEditDefinition", true);
+				ValueSetText(tblRow, "title", Option_StrOrEmpty(sFileName));
+				ValueSetText(tblRow, "namespace", "");
+				ValueSetOwnedText(tblRow, "desc", xrtStrDup("配置文件解析失败"));
+				ValueSetInt(tblRow, "authLevel", 0);
+				ValueSetInt(tblRow, "groupCount", 0);
+				ValueSetInt(tblRow, "fieldCount", 0);
 			}
-			xvoArrayAppendValue(pCtx->arrFiles, tblRow, TRUE);
+			ValueArrayOwn(pCtx->arrFiles, tblRow);
 			if ( tblConfig != NULL ) {
-				xvoUnref(tblConfig);
+				xrtValueRelease(tblConfig);
 			}
 			xrtFree(sFileName);
 		}
 		xrtFree(sExt);
 	}
 
-	return FALSE;
+	return false;
 }
 
 
@@ -705,8 +700,8 @@ xvalue* Option_ListFiles()
 {
 	OptionListContext tCtx;
 
-	tCtx.arrFiles = xvoCreateArray();
-	xrtDirScan(OptionPath, FALSE, Option_ListFilesProc, &tCtx);
+	tCtx.arrFiles = ValueArray();
+	DirScan(OptionPath, false, Option_ListFilesProc, &tCtx);
 
 	return tCtx.arrFiles;
 }
@@ -724,40 +719,40 @@ xvalue* Option_ListFiles()
 		sFileName = Option_PathToFileName(sPath);
 		printf("[option] Option_ListFiles build row for %s\n", sFileName ? sFileName : "(null)");
 		fflush(stdout);
-		tblConfig = xrtParseJSON_File(sPath);
-		tblRow = xvoCreateTable();
+		tblConfig = JsonParseFile(sPath);
+		tblRow = ValueObject();
 
 		if ( sFileName != NULL ) {
-			xvoTableSetText(tblRow, "file", 4, sFileName, 0, FALSE);
-			xvoTableSetBool(tblRow, "canDelete", 9, strcmp(sFileName, "global.json") != 0);
+			ValueSetText(tblRow, "file", sFileName);
+			ValueSetBool(tblRow, "canDelete", strcmp(sFileName, "global.json") != 0);
 		}
 
 		if ( tblConfig != NULL ) {
-			str sTitle = xvoTableGetText(tblConfig, "title", 5);
-			str sNamespace = xvoTableGetText(tblConfig, "namespace", 9);
-			str sDesc = xvoTableGetText(tblConfig, "desc", 4);
-			xvoTableSetText(tblRow, "title", 5, sTitle ? sTitle : (sFileName ? sFileName : ""), 0, FALSE);
-			xvoTableSetText(tblRow, "namespace", 9, sNamespace ? sNamespace : "", 0, FALSE);
-			xvoTableSetText(tblRow, "desc", 4, sDesc ? sDesc : "", 0, FALSE);
-			xvoTableSetInt(tblRow, "authLevel", 9, xvoTableGetInt(tblConfig, "authLevel", 9));
-			xvoTableSetInt(tblRow, "groupCount", 10, Option_CountGroups(tblConfig));
-			xvoTableSetInt(tblRow, "fieldCount", 10, Option_CountFields(tblConfig));
+			str sTitle = ValueText(tblConfig, "title");
+			str sNamespace = ValueText(tblConfig, "namespace");
+			str sDesc = ValueText(tblConfig, "desc");
+			ValueSetText(tblRow, "title", sTitle ? sTitle : (sFileName ? sFileName : ""));
+			ValueSetText(tblRow, "namespace", sNamespace ? sNamespace : "");
+			ValueSetText(tblRow, "desc", sDesc ? sDesc : "");
+			ValueSetInt(tblRow, "authLevel", ValueInt(tblConfig, "authLevel"));
+			ValueSetInt(tblRow, "groupCount", Option_CountGroups(tblConfig));
+			ValueSetInt(tblRow, "fieldCount", Option_CountFields(tblConfig));
 		} else {
-			xvoTableSetText(tblRow, "title", 5, sFileName ? sFileName : "", 0, FALSE);
-			xvoTableSetText(tblRow, "namespace", 9, "", 0, FALSE);
-			xvoTableSetText(tblRow, "desc", 4, "閰嶇疆鏂囦欢瑙ｆ瀽澶辫触", 0, FALSE);
-			xvoTableSetInt(tblRow, "authLevel", 9, 0);
-			xvoTableSetInt(tblRow, "groupCount", 10, 0);
-			xvoTableSetInt(tblRow, "fieldCount", 10, 0);
+			ValueSetText(tblRow, "title", sFileName ? sFileName : "");
+			ValueSetText(tblRow, "namespace", "");
+			ValueSetText(tblRow, "desc", "閰嶇疆鏂囦欢瑙ｆ瀽澶辫触");
+			ValueSetInt(tblRow, "authLevel", 0);
+			ValueSetInt(tblRow, "groupCount", 0);
+			ValueSetInt(tblRow, "fieldCount", 0);
 		}
 
 		printf("[option] Option_ListFiles before append for %s\n", sFileName ? sFileName : "(null)");
 		fflush(stdout);
-		xvoArrayAppendValue(arrFiles, tblRow, TRUE);
+		ValueArrayOwn(arrFiles, tblRow);
 		printf("[option] Option_ListFiles appended row for %s\n", sFileName ? sFileName : "(null)");
 		fflush(stdout);
 		if ( tblConfig != NULL ) {
-			xvoUnref(tblConfig);
+			xrtValueRelease(tblConfig);
 		}
 		if ( sFileName != NULL ) {
 			xrtFree(sFileName);
@@ -768,7 +763,7 @@ xvalue* Option_ListFiles()
 	if ( tCtx.lstPaths != NULL ) {
 		xrtListDestroy(tCtx.lstPaths);
 	}
-	printf("[option] Option_ListFiles done, count=%u\n", (unsigned int)xvoArrayItemCount(arrFiles));
+	printf("[option] Option_ListFiles done, count=%u\n", (unsigned int)ValueCount(arrFiles));
 	fflush(stdout);
 
 	return arrFiles;
@@ -782,72 +777,72 @@ bool Option_ValidateConfig(str sFileName, xvalue* tblConfig, str* psError)
 	xvalue* tblNameMap;
 	str sNamespace;
 
-	if ( (tblConfig == NULL) || (xvoType(tblConfig) != XVO_DT_TABLE) ) {
-		if ( psError ) *psError = xrtCopyStr("配置数据格式错误", 0);
-		return FALSE;
+	if ( (tblConfig == NULL) || (xrtValueType(tblConfig) != XVALUE_OBJECT) ) {
+		if ( psError ) *psError = xrtStrDup("配置数据格式错误");
+		return false;
 	}
 
-	sNamespace = xvoTableGetText(tblConfig, "namespace", 9);
+	sNamespace = ValueText(tblConfig, "namespace");
 	if ( (sNamespace == NULL) || (sNamespace[0] == '\0') ) {
-		if ( psError ) *psError = xrtCopyStr("namespace 不能为空", 0);
-		return FALSE;
+		if ( psError ) *psError = xrtStrDup("namespace 不能为空");
+		return false;
 	}
 	if ( Option_HasDuplicateNamespace(sNamespace, sFileName) ) {
-		if ( psError ) *psError = xrtCopyStr("namespace 已被其他配置文件占用", 0);
-		return FALSE;
+		if ( psError ) *psError = xrtStrDup("namespace 已被其他配置文件占用");
+		return false;
 	}
 
-	arrClassList = xvoTableGetValue(tblConfig, "classList", 9);
-	if ( (arrClassList == NULL) || (xvoType(arrClassList) != XVO_DT_ARRAY) ) {
-		if ( psError ) *psError = xrtCopyStr("classList 必须是数组", 0);
-		return FALSE;
+	arrClassList = ValueGet(tblConfig, "classList");
+	if ( (arrClassList == NULL) || (xrtValueType(arrClassList) != XVALUE_ARRAY) ) {
+		if ( psError ) *psError = xrtStrDup("classList 必须是数组");
+		return false;
 	}
 
-	tblNameMap = xvoCreateTable();
-	for ( uint32 i = 0; i < xvoArrayItemCount(arrClassList); i++ ) {
-		xvalue* tblClass = xvoArrayGetValue(arrClassList, i);
+	tblNameMap = ValueObject();
+	for ( uint32 i = 0; i < ValueCount(arrClassList); i++ ) {
+		xvalue* tblClass = xrtValueArrayGet(arrClassList, i);
 		xvalue* arrOptions;
 
-		if ( (tblClass == NULL) || (xvoType(tblClass) != XVO_DT_TABLE) ) {
-			xvoUnref(tblNameMap);
+		if ( (tblClass == NULL) || (xrtValueType(tblClass) != XVALUE_OBJECT) ) {
+			xrtValueRelease(tblNameMap);
 			if ( psError ) *psError = xrtFormat("第 %d 个分组格式错误", (int)i + 1);
-			return FALSE;
+			return false;
 		}
 
-		arrOptions = xvoTableGetValue(tblClass, "options", 7);
-		if ( (arrOptions == NULL) || (xvoType(arrOptions) != XVO_DT_ARRAY) ) {
-			xvoUnref(tblNameMap);
+		arrOptions = ValueGet(tblClass, "options");
+		if ( (arrOptions == NULL) || (xrtValueType(arrOptions) != XVALUE_ARRAY) ) {
+			xrtValueRelease(tblNameMap);
 			if ( psError ) *psError = xrtFormat("第 %d 个分组缺少 options 数组", (int)i + 1);
-			return FALSE;
+			return false;
 		}
 
-		for ( uint32 j = 0; j < xvoArrayItemCount(arrOptions); j++ ) {
-			xvalue* tblOpt = xvoArrayGetValue(arrOptions, j);
+		for ( uint32 j = 0; j < ValueCount(arrOptions); j++ ) {
+			xvalue* tblOpt = xrtValueArrayGet(arrOptions, j);
 			str sName;
 
-			if ( (tblOpt == NULL) || (xvoType(tblOpt) != XVO_DT_TABLE) ) {
-				xvoUnref(tblNameMap);
+			if ( (tblOpt == NULL) || (xrtValueType(tblOpt) != XVALUE_OBJECT) ) {
+				xrtValueRelease(tblNameMap);
 				if ( psError ) *psError = xrtFormat("第 %d 个分组的第 %d 个字段格式错误", (int)i + 1, (int)j + 1);
-				return FALSE;
+				return false;
 			}
 
-			sName = xvoTableGetText(tblOpt, "name", 4);
+			sName = ValueText(tblOpt, "name");
 			if ( (sName == NULL) || (sName[0] == '\0') ) {
-				xvoUnref(tblNameMap);
+				xrtValueRelease(tblNameMap);
 				if ( psError ) *psError = xrtFormat("第 %d 个分组的第 %d 个字段缺少 name", (int)i + 1, (int)j + 1);
-				return FALSE;
+				return false;
 			}
-			if ( xvoTableGetBool(tblNameMap, sName, 0) ) {
-				xvoUnref(tblNameMap);
+			if ( ValueBool(tblNameMap, sName) ) {
+				xrtValueRelease(tblNameMap);
 				if ( psError ) *psError = xrtFormat("字段名重复：%s", sName);
-				return FALSE;
+				return false;
 			}
-			xvoTableSetBool(tblNameMap, sName, 0, TRUE);
+			ValueSetBool(tblNameMap, sName, true);
 		}
 	}
-	xvoUnref(tblNameMap);
+	xrtValueRelease(tblNameMap);
 
-	return TRUE;
+	return true;
 }
 
 
@@ -863,7 +858,7 @@ xvalue* Option_LoadFile(str sFileName)
 	}
 
 	sFilePath = Option_BuildFilePath(sFileName);
-	tblConfig = xrtParseJSON_File(sFilePath);
+	tblConfig = JsonParseFile(sFilePath);
 	xrtFree(sFilePath);
 
 	return tblConfig;
@@ -876,13 +871,13 @@ void Option_RebuildCache()
 	printf("[option] Option_RebuildCache begin\n");
 	fflush(stdout);
 	if ( G_Option != NULL ) {
-		xvoUnref(G_Option);
+		xrtValueRelease(G_Option);
 	}
 	G_Option = Option_CreateSharedTableValue();
 	if ( G_Option == NULL ) {
 		return;
 	}
-	xrtDirScan(OptionPath, FALSE, ScanOptionFileProc, NULL);
+	DirScan(OptionPath, false, ScanOptionFileProc, NULL);
 	XAdminValuePublishShared(G_Option);
 	Option_RefreshAdminEntryConfig();
 	printf("[option] Option_RebuildCache done\n");
@@ -895,42 +890,42 @@ void Option_RebuildCache()
 bool Option_SaveFile(str sFileName, xvalue* tblFormData)
 {
 	str sFilePath = Option_BuildFilePath(sFileName);
-	xvalue* tblConfig = xrtParseJSON_File(sFilePath);
-	bool bRet = FALSE;
+	xvalue* tblConfig = JsonParseFile(sFilePath);
+	bool bRet = false;
 
 	if ( tblConfig == NULL ) {
 		xrtFree(sFilePath);
-		return FALSE;
+		return false;
 	}
 
-	str sNamespace = xvoTableGetText(tblConfig, "namespace", 9);
+	str sNamespace = ValueText(tblConfig, "namespace");
 	if ( (sNamespace != NULL) && (strcmp(sNamespace, "global") == 0) ) {
-		str sAdminEntry = xvoTableGetText(tblFormData, "cp_url", 6);
+		str sAdminEntry = ValueText(tblFormData, "cp_url");
 		if ( !Option_IsAdminEntryPathValid(sAdminEntry) ) {
-			xvoUnref(tblConfig);
+			xrtValueRelease(tblConfig);
 			xrtFree(sFilePath);
-			return FALSE;
+			return false;
 		}
 	}
 
-	xvalue* arrClassList = xvoTableGetValue(tblConfig, "classList", 9);
-	if ( (arrClassList != NULL) && (xvoType(arrClassList) == XVO_DT_ARRAY) ) {
-		uint32 iClassCount = xvoArrayItemCount(arrClassList);
+	xvalue* arrClassList = ValueGet(tblConfig, "classList");
+	if ( (arrClassList != NULL) && (xrtValueType(arrClassList) == XVALUE_ARRAY) ) {
+		uint32 iClassCount = ValueCount(arrClassList);
 		for ( uint32 i = 0; i < iClassCount; i++ ) {
-			xvalue* tblClass = xvoArrayGetValue(arrClassList, i);
-			if ( (tblClass != NULL) && (xvoType(tblClass) == XVO_DT_TABLE) ) {
-				xvalue* arrOptions = xvoTableGetValue(tblClass, "options", 7);
-				if ( (arrOptions != NULL) && (xvoType(arrOptions) == XVO_DT_ARRAY) ) {
-					uint32 iOptCount = xvoArrayItemCount(arrOptions);
+			xvalue* tblClass = xrtValueArrayGet(arrClassList, i);
+			if ( (tblClass != NULL) && (xrtValueType(tblClass) == XVALUE_OBJECT) ) {
+				xvalue* arrOptions = ValueGet(tblClass, "options");
+				if ( (arrOptions != NULL) && (xrtValueType(arrOptions) == XVALUE_ARRAY) ) {
+					uint32 iOptCount = ValueCount(arrOptions);
 					for ( uint32 j = 0; j < iOptCount; j++ ) {
-						xvalue* tblOpt = xvoArrayGetValue(arrOptions, j);
-						if ( (tblOpt != NULL) && (xvoType(tblOpt) == XVO_DT_TABLE) ) {
-							str sName = xvoTableGetText(tblOpt, "name", 4);
+						xvalue* tblOpt = xrtValueArrayGet(arrOptions, j);
+						if ( (tblOpt != NULL) && (xrtValueType(tblOpt) == XVALUE_OBJECT) ) {
+							str sName = ValueText(tblOpt, "name");
 							if ( sName != NULL ) {
-								xvalue* varNewValue = xvoTableGetValue(tblFormData, sName, 0);
+								xvalue* varNewValue = ValueGet(tblFormData, sName);
 								if ( varNewValue != NULL ) {
-									xvoAddRef(varNewValue);
-									xvoTableSetValue(tblOpt, "value", 5, varNewValue, TRUE);
+									xrtValueRetain(varNewValue);
+									ValueSetOwn(tblOpt, "value", varNewValue);
 								}
 							}
 						}
@@ -940,8 +935,8 @@ bool Option_SaveFile(str sFileName, xvalue* tblFormData)
 		}
 	}
 
-	bRet = xrtStringifyJSON_File(sFilePath, tblConfig, TRUE);
-	xvoUnref(tblConfig);
+	bRet = JsonWriteFile(sFilePath, tblConfig, true);
+	xrtValueRelease(tblConfig);
 	xrtFree(sFilePath);
 	Option_RebuildCache();
 
@@ -956,50 +951,50 @@ bool Option_SaveDefinition(str sFileName, xvalue* tblConfig, bool bCreate, str* 
 	int iRet;
 
 	if ( !Option_IsValidFileName(sFileName) ) {
-		if ( psError ) *psError = xrtCopyStr("文件名只能包含字母、数字、下划线或中划线，并以 .json 结尾", 0);
-		return FALSE;
+		if ( psError ) *psError = xrtStrDup("文件名只能包含字母、数字、下划线或中划线，并以 .json 结尾");
+		return false;
 	}
 
 	if ( bCreate ) {
 		if ( Option_FileExists(sFileName) ) {
-			if ( psError ) *psError = xrtCopyStr("配置文件已存在", 0);
-			return FALSE;
+			if ( psError ) *psError = xrtStrDup("配置文件已存在");
+			return false;
 		}
 	} else {
 		if ( !Option_FileExists(sFileName) ) {
-			if ( psError ) *psError = xrtCopyStr("配置文件不存在", 0);
-			return FALSE;
+			if ( psError ) *psError = xrtStrDup("配置文件不存在");
+			return false;
 		}
 	}
 
 	if ( !bCreate ) {
 		xvalue* tblOldConfig = Option_LoadFile(sFileName);
 		if ( tblOldConfig == NULL ) {
-			if ( psError ) *psError = xrtCopyStr("配置文件不存在或解析失败", 0);
-			return FALSE;
+			if ( psError ) *psError = xrtStrDup("配置文件不存在或解析失败");
+			return false;
 		}
 		if ( Option_IsLockedConfig(tblOldConfig) ) {
-			xvoUnref(tblOldConfig);
-			if ( psError ) *psError = xrtCopyStr("该配置文件已锁定，不允许修改结构", 0);
-			return FALSE;
+			xrtValueRelease(tblOldConfig);
+			if ( psError ) *psError = xrtStrDup("该配置文件已锁定，不允许修改结构");
+			return false;
 		}
-		xvoUnref(tblOldConfig);
+		xrtValueRelease(tblOldConfig);
 	}
 
 	if ( !Option_ValidateConfig(sFileName, tblConfig, psError) ) {
-		return FALSE;
+		return false;
 	}
 
 	sFilePath = Option_BuildFilePath(sFileName);
-	iRet = xrtStringifyJSON_File(sFilePath, tblConfig, TRUE);
+	iRet = JsonWriteFile(sFilePath, tblConfig, true);
 	xrtFree(sFilePath);
 	if ( !iRet ) {
-		if ( psError ) *psError = xrtCopyStr("写入配置文件失败", 0);
-		return FALSE;
+		if ( psError ) *psError = xrtStrDup("写入配置文件失败");
+		return false;
 	}
 
 	Option_RebuildCache();
-	return TRUE;
+	return true;
 }
 
 
@@ -1011,36 +1006,36 @@ bool Option_DeleteFile(str sFileName, str* psError)
 	xvalue* tblConfig;
 
 	if ( !Option_IsValidFileName(sFileName) ) {
-		if ( psError ) *psError = xrtCopyStr("非法的文件名", 0);
-		return FALSE;
+		if ( psError ) *psError = xrtStrDup("非法的文件名");
+		return false;
 	}
 	if ( !Option_FileExists(sFileName) ) {
-		if ( psError ) *psError = xrtCopyStr("配置文件不存在", 0);
-		return FALSE;
+		if ( psError ) *psError = xrtStrDup("配置文件不存在");
+		return false;
 	}
 
 	tblConfig = Option_LoadFile(sFileName);
 	if ( tblConfig == NULL ) {
-		if ( psError ) *psError = xrtCopyStr("配置文件不存在或解析失败", 0);
-		return FALSE;
+		if ( psError ) *psError = xrtStrDup("配置文件不存在或解析失败");
+		return false;
 	}
 	if ( Option_IsLockedConfig(tblConfig) ) {
-		xvoUnref(tblConfig);
-		if ( psError ) *psError = xrtCopyStr("该配置文件已锁定，不允许删除", 0);
-		return FALSE;
+		xrtValueRelease(tblConfig);
+		if ( psError ) *psError = xrtStrDup("该配置文件已锁定，不允许删除");
+		return false;
 	}
-	xvoUnref(tblConfig);
+	xrtValueRelease(tblConfig);
 
 	sFilePath = Option_BuildFilePath(sFileName);
 	bRet = xrtFileDelete(sFilePath);
 	xrtFree(sFilePath);
 	if ( !bRet ) {
-		if ( psError ) *psError = xrtCopyStr("删除配置文件失败", 0);
-		return FALSE;
+		if ( psError ) *psError = xrtStrDup("删除配置文件失败");
+		return false;
 	}
 
 	Option_RebuildCache();
-	return TRUE;
+	return true;
 }
 
 
@@ -1060,14 +1055,14 @@ void Option_Unit()
 	printf("        Option_Unit \n");
 
 	if ( G_Option != NULL ) {
-		xvoUnref(G_Option);
+		xrtValueRelease(G_Option);
 		G_Option = NULL;
 	}
 	if ( G_AdminEntryPath != NULL ) {
 		xrtFree(G_AdminEntryPath);
 		G_AdminEntryPath = NULL;
 	}
-	G_AdminEntryEnabled = FALSE;
+	G_AdminEntryEnabled = false;
 }
 
 

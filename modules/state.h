@@ -83,6 +83,7 @@ sqlite3_stmt* stmt_member_del = NULL;			// 删除前台用户记录（软删除�
 sqlite3_stmt* stmt_member_chk = NULL;			// 检查用户名是否已存在
 sqlite3_stmt* stmt_member_pwd = NULL;			// 修改用户密码
 sqlite3_stmt* stmt_member_balance = NULL;		// 修改用户余额
+sqlite3_stmt* stmt_member_profile = NULL;			// 会员自助资料更新（F1：不触碰状态与权限列）
 
 // 预编译的 SQL 语句 - memberGroup
 sqlite3_stmt* stmt_mgroup_all = NULL;			// 分页获取所有前台用户组数据
@@ -130,3 +131,33 @@ sqlite3_stmt* stmt_cache_muris = NULL;			// 获取所有前台URI记录（从uri
 
 
 // 初始化全局定义
+
+/* F6：缓存换代的延迟退役槽。写路径只换指针，旧缓存压入此处，
+ * 由 Session_Tick（5 分钟周期，请求锁内）统一销毁——20k 级角色时
+ * 旧缓存销毁耗时可达秒级（内嵌 xrt 分配器路径），不能阻塞写请求。
+ * 槽满时退化为立即销毁（生产规模几十个角色，销毁为微秒级）。 */
+#define CACHE_RETIRE_SLOTS 256
+static xvalue* G_RetiredValues[CACHE_RETIRE_SLOTS];
+static size_t G_RetiredCount;
+static void CacheRetireSweep(void);
+static void CacheRetire(xvalue* value)
+{
+	if (value == NULL) return;
+	if (G_RetiredCount == CACHE_RETIRE_SLOTS) {
+		/* 满槽时清扫最旧一半而非当值销毁：写延迟增量有界，内存同样有界。 */
+		size_t i, half = CACHE_RETIRE_SLOTS / 2;
+		for (i = 0; i < half; i++) xrtValueRelease(G_RetiredValues[i]);
+		memmove(G_RetiredValues, G_RetiredValues + half,
+		        (CACHE_RETIRE_SLOTS - half) * sizeof(xvalue*));
+		G_RetiredCount -= half;
+	}
+	G_RetiredValues[G_RetiredCount++] = value;
+}
+static void CacheRetireSweep(void)
+{
+	size_t i;
+	for (i = 0; i < G_RetiredCount; i++) xrtValueRelease(G_RetiredValues[i]);
+	G_RetiredCount = 0;
+}
+
+

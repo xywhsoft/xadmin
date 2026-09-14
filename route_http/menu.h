@@ -4,7 +4,7 @@
 // 菜单管理页面视图
 void Request_View_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		LoadPage(objResp, 200, HTTP_CT_HTML, "option/menu.html");
 		
@@ -20,7 +20,7 @@ void Request_View_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, 
 // 添加分类页面视图
 void Request_View_Option_Menu_Add_Category(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		LoadPage(objResp, 200, HTTP_CT_HTML, "option/menu_add_category.html");
 		
@@ -36,7 +36,7 @@ void Request_View_Option_Menu_Add_Category(XS_ServerObject objServer, XS_HostObj
 // 添加菜单页面视图
 void Request_View_Option_Menu_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		LoadPage(objResp, 200, HTTP_CT_HTML, "option/menu_add.html");
 		
@@ -52,7 +52,7 @@ void Request_View_Option_Menu_Add(XS_ServerObject objServer, XS_HostObject objHo
 // 编辑菜单/分类页面视图
 void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 获取菜单 ID
 		char sID[32];
@@ -77,17 +77,17 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 		int iType = sqlite3_column_int(stmt_menu_get, 4);
 		
 		// 构建数据�?
-		xvalue* tblMenu = xvoCreateTable();
-		xvoTableSetInt(tblMenu, "id", 2, sqlite3_column_int(stmt_menu_get, 0));
-		xvoTableSetInt(tblMenu, "parent", 6, sqlite3_column_int(stmt_menu_get, 1));
-		xvoTableSetText(tblMenu, "title", 5, (char*)sqlite3_column_text(stmt_menu_get, 2), 0, FALSE);
-		xvoTableSetText(tblMenu, "icon", 4, (char*)sqlite3_column_text(stmt_menu_get, 3), 0, FALSE);
-		xvoTableSetInt(tblMenu, "type", 4, iType);
-		xvoTableSetText(tblMenu, "openType", 8, (char*)sqlite3_column_text(stmt_menu_get, 5), 0, FALSE);
-		xvoTableSetText(tblMenu, "href", 4, (char*)sqlite3_column_text(stmt_menu_get, 6), 0, FALSE);
-		xvoTableSetInt(tblMenu, "sort", 4, sqlite3_column_int(stmt_menu_get, 7));
-		xvoTableSetInt(tblMenu, "visible", 7, sqlite3_column_int(stmt_menu_get, 8));
-		xvoTableSetText(tblMenu, "remark", 6, (char*)sqlite3_column_text(stmt_menu_get, 9), 0, FALSE);
+		xvalue* tblMenu = ValueObject();
+		ValueSetInt(tblMenu, "id", sqlite3_column_int(stmt_menu_get, 0));
+		ValueSetInt(tblMenu, "parent", sqlite3_column_int(stmt_menu_get, 1));
+		ValueSetText(tblMenu, "title", (char*)sqlite3_column_text(stmt_menu_get, 2));
+		ValueSetText(tblMenu, "icon", (char*)sqlite3_column_text(stmt_menu_get, 3));
+		ValueSetInt(tblMenu, "type", iType);
+		ValueSetText(tblMenu, "openType", (char*)sqlite3_column_text(stmt_menu_get, 5));
+		ValueSetText(tblMenu, "href", (char*)sqlite3_column_text(stmt_menu_get, 6));
+		ValueSetInt(tblMenu, "sort", sqlite3_column_int(stmt_menu_get, 7));
+		ValueSetInt(tblMenu, "visible", sqlite3_column_int(stmt_menu_get, 8));
+		ValueSetText(tblMenu, "remark", (char*)sqlite3_column_text(stmt_menu_get, 9));
 		sqlite3_reset(stmt_menu_get);
 		
 		// 根据类型选择模板
@@ -96,7 +96,7 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 		// 构建页面并返�?
 		size_t iRetSize = 0;
 		str sPage = MakePageWithTemplate(sTemplate, tblMenu, &iRetSize);
-		xvoUnref(tblMenu);
+		xrtValueRelease(tblMenu);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iRetSize);
 		xrtFree(sPage);
 		
@@ -112,68 +112,68 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 // 菜单数据接口
 void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 获取所有菜单数�?
-		xvalue* arrData = xvoCreateArray();
+		xvalue* arrData = ValueArray();
 		
 		while ( sqlite3_step(stmt_menu_all) == SQLITE_ROW ) {
-			xvalue* tblRow = xvoCreateTable();
-			xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int(stmt_menu_all, 0));
-			xvoTableSetInt(tblRow, "parent", 6, sqlite3_column_int(stmt_menu_all, 1));
-			xvoTableSetText(tblRow, "title", 5, (char*)sqlite3_column_text(stmt_menu_all, 2), 0, FALSE);
-			xvoTableSetText(tblRow, "icon", 4, (char*)sqlite3_column_text(stmt_menu_all, 3), 0, FALSE);
-			xvoTableSetInt(tblRow, "type", 4, sqlite3_column_int(stmt_menu_all, 4));
-			xvoTableSetText(tblRow, "openType", 8, (char*)sqlite3_column_text(stmt_menu_all, 5), 0, FALSE);
-			xvoTableSetText(tblRow, "href", 4, (char*)sqlite3_column_text(stmt_menu_all, 6), 0, FALSE);
-			xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int(stmt_menu_all, 7));
-			xvoTableSetInt(tblRow, "visible", 7, sqlite3_column_int(stmt_menu_all, 8));
-			xvoTableSetText(tblRow, "remark", 6, (char*)sqlite3_column_text(stmt_menu_all, 9), 0, FALSE);
-			xvoArrayAppendValue(arrData, tblRow, TRUE);
+			xvalue* tblRow = ValueObject();
+			ValueSetInt(tblRow, "id", sqlite3_column_int(stmt_menu_all, 0));
+			ValueSetInt(tblRow, "parent", sqlite3_column_int(stmt_menu_all, 1));
+			ValueSetText(tblRow, "title", (char*)sqlite3_column_text(stmt_menu_all, 2));
+			ValueSetText(tblRow, "icon", (char*)sqlite3_column_text(stmt_menu_all, 3));
+			ValueSetInt(tblRow, "type", sqlite3_column_int(stmt_menu_all, 4));
+			ValueSetText(tblRow, "openType", (char*)sqlite3_column_text(stmt_menu_all, 5));
+			ValueSetText(tblRow, "href", (char*)sqlite3_column_text(stmt_menu_all, 6));
+			ValueSetInt(tblRow, "sort", sqlite3_column_int(stmt_menu_all, 7));
+			ValueSetInt(tblRow, "visible", sqlite3_column_int(stmt_menu_all, 8));
+			ValueSetText(tblRow, "remark", (char*)sqlite3_column_text(stmt_menu_all, 9));
+			ValueArrayOwn(arrData, tblRow);
 		}
 		sqlite3_reset(stmt_menu_all);
 		
 		// 构建返回�?
-		xvalue* tblRet = xvoCreateTable();
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetText(tblRet, "message", 7, "菜单数据获取成功", 0, FALSE);
-		xvoTableSetValue(tblRet, "data", 4, arrData, TRUE);
+		xvalue* tblRet = ValueObject();
+		ValueSetBool(tblRet, "result", true);
+		ValueSetText(tblRet, "message", "菜单数据获取成功");
+		ValueSetOwn(tblRet, "data", arrData);
 		
 		size_t iRetSize = 0;
-		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
+		char* sRet = xrtJsonStringify(tblRet, false, &iRetSize);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
-		xvoUnref(tblRet);
+		xrtValueRelease(tblRet);
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
 		// 解析请求�?
-		xvalue* tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue* tblBody = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
 			return;
 		}
 		
 		// 获取参数
-		int iParent = xvoTableGetInt(tblBody, "parent", 6);
-		str sTitle = xvoTableGetText(tblBody, "title", 5);
-		str sIcon = xvoTableGetText(tblBody, "icon", 4);
-		int iType = xvoTableGetInt(tblBody, "type", 4);
-		str sOpenType = xvoTableGetText(tblBody, "openType", 8);
-		str sHref = xvoTableGetText(tblBody, "href", 4);
-		int iSort = xvoTableGetInt(tblBody, "sort", 4);
-		int iVisible = xvoTableGetInt(tblBody, "visible", 7);
-		str sRemark = xvoTableGetText(tblBody, "remark", 6);
+		int iParent = ValueInt(tblBody, "parent");
+		str sTitle = ValueText(tblBody, "title");
+		str sIcon = ValueText(tblBody, "icon");
+		int iType = ValueInt(tblBody, "type");
+		str sOpenType = ValueText(tblBody, "openType");
+		str sHref = ValueText(tblBody, "href");
+		int iSort = ValueInt(tblBody, "sort");
+		int iVisible = ValueInt(tblBody, "visible");
+		str sRemark = ValueText(tblBody, "remark");
 		
 		// 验证必填参数
 		if ( !sTitle || (strlen(sTitle) == 0) ) {
-			xvoUnref(tblBody);
+			xrtValueRelease(tblBody);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单标题不能为空\"}", 0);
 			return;
 		}
 		
 		// 添加菜单
-		xtime now = XA_Now();
+		xtime now = xrtNow();
 		sqlite3_bind_int(stmt_menu_add, 1, iParent);
 		sqlite3_bind_text(stmt_menu_add, 2, sTitle, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_menu_add, 3, sIcon ? (ptr)sIcon : (str)"", -1, SQLITE_STATIC);
@@ -187,7 +187,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int64(stmt_menu_add, 11, now);
 		
 		bool written = DB_Write(stmt_menu_add, true);
-		xvoUnref(tblBody);
+		xrtValueRelease(tblBody);
 		
 		if ( written ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单添加成功\"}", 0);
@@ -195,49 +195,49 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单添加失败\"}", 0);
 		}
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_PUT) ) {
 		
 		// 解析请求�?
-		xvalue* tblBody = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		xvalue* tblBody = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
 			return;
 		}
 		
 		// 获取参数
-		int iID = xvoTableGetInt(tblBody, "id", 2);
-		int iParent = xvoTableGetInt(tblBody, "parent", 6);
-		str sTitle = xvoTableGetText(tblBody, "title", 5);
-		str sIcon = xvoTableGetText(tblBody, "icon", 4);
-		int iType = xvoTableGetInt(tblBody, "type", 4);
-		str sOpenType = xvoTableGetText(tblBody, "openType", 8);
-		str sHref = xvoTableGetText(tblBody, "href", 4);
-		int iSort = xvoTableGetInt(tblBody, "sort", 4);
-		int iVisible = xvoTableGetInt(tblBody, "visible", 7);
-		str sRemark = xvoTableGetText(tblBody, "remark", 6);
+		int iID = ValueInt(tblBody, "id");
+		int iParent = ValueInt(tblBody, "parent");
+		str sTitle = ValueText(tblBody, "title");
+		str sIcon = ValueText(tblBody, "icon");
+		int iType = ValueInt(tblBody, "type");
+		str sOpenType = ValueText(tblBody, "openType");
+		str sHref = ValueText(tblBody, "href");
+		int iSort = ValueInt(tblBody, "sort");
+		int iVisible = ValueInt(tblBody, "visible");
+		str sRemark = ValueText(tblBody, "remark");
 		
 		// 验证参数
 		if ( iID <= 0 ) {
-			xvoUnref(tblBody);
+			xrtValueRelease(tblBody);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单ID无效\"}", 0);
 			return;
 		}
 		
 		if ( !sTitle || (strlen(sTitle) == 0) ) {
-			xvoUnref(tblBody);
+			xrtValueRelease(tblBody);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单标题不能为空\"}", 0);
 			return;
 		}
 		
 		// 防止将菜单设置为自己的子菜单
 		if ( iParent == iID ) {
-			xvoUnref(tblBody);
+			xrtValueRelease(tblBody);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能将菜单设置为自己的子菜单\"}", 0);
 			return;
 		}
 		
 		// 更新菜单
-		xtime now = XA_Now();
+		xtime now = xrtNow();
 		sqlite3_bind_int(stmt_menu_put, 1, iParent);
 		sqlite3_bind_text(stmt_menu_put, 2, sTitle, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_menu_put, 3, sIcon ? (ptr)sIcon : (str)"", -1, SQLITE_STATIC);
@@ -251,7 +251,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int(stmt_menu_put, 11, iID);
 		
 		bool written = DB_Write(stmt_menu_put, true);
-		xvoUnref(tblBody);
+		xrtValueRelease(tblBody);
 		
 		if ( written ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"菜单更新成功\"}", 0);
@@ -259,7 +259,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"菜单更新失败\"}", 0);
 		}
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_DELETE) ) {
 		
 		// 获取菜单 ID
 		char sID[32];
@@ -279,7 +279,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		}
 		
 		// 删除菜单
-		xtime now = XA_Now();
+		xtime now = xrtNow();
 		sqlite3_bind_int64(stmt_menu_del, 1, now);
 		sqlite3_bind_int(stmt_menu_del, 2, iID);
 		

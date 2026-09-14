@@ -36,15 +36,24 @@ def verify_assets():
     entries = json.loads((ROOT / 'docs/v1-assets.json').read_text())
     for entry in entries:
         for key in ('source', 'target'):
-            assert hashlib.sha256((ROOT / entry[key]).read_bytes()).hexdigest() == entry['sha256'], entry[key]
+            expect = entry['sha256']
+            # 有意偏差（如 R1 登出改 POST）以 target_sha256 显式记录目标哈希；源基线不变。
+            if key == 'target' and 'target_sha256' in entry:
+                expect = entry['target_sha256']
+            assert hashlib.sha256((ROOT / entry[key]).read_bytes()).hexdigest() == expect, entry[key]
     print('PASS', len(entries), 'unchanged v1 UI/plugin assets')
 
 
-def fixture(port, protected=False):
+def fixture(port, protected=False, register_interval=0):
     base = ROOT / 'tests/.runtime'
     base.mkdir(parents=True, exist_ok=True)
     target = Path(tempfile.mkdtemp(prefix='smoke-', dir=base))
-    for name in ('wwwroot', 'page', 'template', 'options'):
+    for name in ('wwwroot', 'page', 'template', 'options', 'forms', 'plugin_sdk'):
+        shutil.copytree(ROOT / name, target / name)
+    shutil.copytree(ROOT / 'plugin', target / 'plugin')
+    shutil.copytree(ROOT / 'tests/plugins/hello-sdk', target / 'plugin/hello-sdk')
+    (target / 'plugin_data').mkdir(exist_ok=True)
+    for name in ():
         shutil.copytree(ROOT / name, target / name)
     # The source may have a concealed admin entry. Only the disposable fixture
     # disables it; dedicated tests cover the protected-entry setting separately.
@@ -54,6 +63,11 @@ def fixture(port, protected=False):
         for option in group.get('options', []):
             if option.get('name') == 'cp_url':
                 option['value'] = '/smoke-private-entry' if protected else ''
+    if register_interval is not None:
+        options.setdefault('classList', []).append(
+            {'title': 'soak', 'options': [
+                {'name': 'registerIntervalSecond', 'value': str(register_interval),
+                 'title': 'register throttle', 'type': 'text'}]})
     global_path.write_text(json.dumps(options), encoding='utf-8')
     (target / 'db').mkdir()
     (target / 'temp').mkdir()
@@ -177,7 +191,7 @@ def checks(port, target, protected=False):
     with sqlite3.connect(target / 'db/main.db') as db:
         assert db.execute('select authLevel,isDelete from user where id=?', (uid,)).fetchone() == (12, 0)
         now = db.execute('select createTime from user where id=?', (uid,)).fetchone()[0]
-        assert abs(now - legacy_now()) < 10, now
+        assert abs(now - time.time() * 1000000) < 10000000, now
     status, _, body = request(port, 'GET', '/admin/view/auth/user/edit?id=' + str(uid), cookie=cookie)
     assert status == 200 and b'smoke_added' in body
     status, _, body = request(port, 'DELETE', '/admin/auth/user?id=' + str(uid), cookie=cookie)
@@ -200,6 +214,190 @@ def checks(port, target, protected=False):
         status, _, body = request(port, 'GET', path, cookie=cookie)
         assert status == 200 and len(body) > 100 and b'{{#foreach' not in body, (path, status, body[:150])
     print('PASS connected management reads and nested templates')
+    # v1 trace/debug family: cache overview, session dump, option dump, auth
+    # caches with type filter, and the route table incl. dynamic patterns.
+    assert request(port, 'POST', '/admin/trace')[0] == (404 if protected else 302)
+    status, _, body = request(port, 'GET', '/admin/trace', cookie=cookie)
+    result = json.loads(body)
+    assert status == 200 and result['result'] and result['data']['installed'] is True, result
+    assert result['data']['database']['connected'] is True
+    assert result['data']['option']['exists'] and result['data']['option']['count'] >= 1
+    assert result['data']['auth']['auth_count'] >= 1 and result['data']['auth']['role_count'] >= 1
+    assert result['data']['route']['count'] >= 66, result['data']['route']
+    assert result['data']['adminSession']['count'] >= 1, result['data']['adminSession']
+    status, _, body = request(port, 'POST', '/admin/trace', cookie=cookie)
+    assert status == 404
+    status, _, body = request(port, 'GET', '/admin/trace/session', cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] and len(result['data']['admin']) >= 1, result
+    assert any(v.get('user') == USER for v in result['data']['admin'].values())
+    status, _, body = request(port, 'GET', '/admin/trace/option', cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] and 'adminTitle' in result['data']['global'], result
+    for query, keys in (('?type=all', {'roleAuth', 'auth', 'group', 'role'}), ('?type=role', {'role'})):
+        status, _, body = request(port, 'GET', '/admin/trace/auth' + query, cookie=cookie)
+        result = json.loads(body)
+        assert status == 200 and result['result'] and set(result['data']) == keys, (query, result)
+    status, _, body = request(port, 'GET', '/admin/trace/route', cookie=cookie)
+    result = json.loads(body)
+    assert result['result'], result
+    routes = {row['uri']: row for row in result['data']}
+    assert routes['/admin/trace']['authId'] == 20 and routes['/admin/trace']['auth'] is True
+    assert routes['/admin/tool/reload/host']['authId'] == 1
+    assert '/__test/item/{id}' in routes
+    print('PASS trace overview/session/option/auth/route dumps')
+    # option tool: v1 admin-entry candidate generator (GET-only, no state change).
+    assert request(port, 'POST', '/admin/option/tool/admin-entry')[0] == (404 if protected else 302)
+    status, _, body = request(port, 'POST', '/admin/option/tool/admin-entry', cookie=cookie)
+    assert status == 404
+    candidates = []
+    for _ in range(2):
+        status, _, body = request(port, 'GET', '/admin/option/tool/admin-entry', cookie=cookie)
+        result = json.loads(body)
+        assert status == 200 and result['result'] is True and result['message'] == 'ok', result
+        candidate = result['data']['path']
+        assert candidate.startswith('/') and len(candidate) == 33 and candidate[1:].isalnum(), candidate
+        candidates.append(candidate)
+    assert candidates[0] != candidates[1]
+    status, _, body = request(port, 'GET', '/admin/trace/route', cookie=cookie)
+    assert candidates[0] not in {row['uri'] for row in json.loads(body)['data']}
+    print('PASS option tool admin-entry generation')
+    # form engine + dynamic-form option editing (v1 /admin/form + /admin/option).
+    assert request(port, 'POST', '/admin/form')[0] == (404 if protected else 302)
+    status, _, body = request(port, 'GET', '/admin/view/form', cookie=cookie)
+    assert status == 200 and body == (ROOT / 'page/form.html').read_bytes()
+    status, _, body = request(port, 'GET', '/admin/form?file=..%2Fglobal.json', cookie=cookie)
+    assert status == 200 and json.loads(body)['result'] is False
+    status, _, body = request(port, 'GET', '/admin/form', cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] and result['data']['file'] == 'demo_form.json' and result['data']['source'] == 'form', result
+    schema = result['data']['schema']
+    fields = [f for g in schema['groups'] for f in g['fields']]
+    required = [f['name'] for f in fields if f.get('required')]
+    assert required and result['data']['fieldTypes']['types']
+    demo_values = dict(result['data']['values'])
+    assert all(k in demo_values for k in required)
+    status, _, body = request(port, 'POST', '/admin/form', {
+        'file': 'demo_form.json', 'source': 'form', 'data': {}}, cookie=cookie)
+    result = json.loads(body)
+    assert status == 200 and result['result'] is False and '为必填项' in result['message'], result
+    demo_values[required[0]] = 'smoke-demo-value'
+    status, _, body = request(port, 'POST', '/admin/form', {
+        'file': 'demo_form.json', 'source': 'form', 'data': demo_values}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    status, _, body = request(port, 'GET', '/admin/form', cookie=cookie)
+    assert json.loads(body)['data']['values'][required[0]] == 'smoke-demo-value'
+    status, headers, _ = request(port, 'GET', '/admin/view/option?file=global.json', cookie=cookie)
+    assert status == 302 and headers.get('Location') == '/admin/view/form?source=option&file=global.json'
+    status, _, body = request(port, 'GET', '/admin/option?file=global.json', cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] and result['data']['source'] == 'option', result
+    names = [f['name'] for g in result['data']['schema']['groups'] for f in g['fields']]
+    assert 'cp_url' in names and 'adminTitle' in names, names
+    saved = dict(result['data']['values'])
+    saved['adminTitle'] = 'smoke-option-title'
+    status, _, body = request(port, 'POST', '/admin/option', {
+        'file': 'global.json', 'source': 'option', 'data': saved}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    status, _, body = request(port, 'GET', '/brand/admin')
+    assert json.loads(body)['data']['adminTitle'] == 'smoke-option-title'
+    with open(target / 'options/global.json', encoding='utf-8-sig') as f:
+        on_disk = json.load(f)
+    disk_title = [o['value'] for c in on_disk['classList'] for o in c['options'] if o['name'] == 'adminTitle']
+    assert disk_title == ['smoke-option-title'], disk_title
+    rejected = dict(saved)
+    rejected['cp_url'] = '/admin'
+    status, _, body = request(port, 'POST', '/admin/option', {
+        'file': 'global.json', 'source': 'option', 'data': rejected}, cookie=cookie)
+    assert json.loads(body)['result'] is False, body
+    # /admin/form with source=option must save through the option path (v1 contract).
+    status, _, body = request(port, 'GET', '/admin/option?file=example.json', cookie=cookie)
+    example = json.loads(body)
+    assert example['result'], example
+    example_values = dict(example['data']['values'])
+    example_values['input_text'] = 'smoke-form-option'
+    status, _, body = request(port, 'POST', '/admin/form', {
+        'file': 'example.json', 'source': 'option', 'data': example_values}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    on_disk = json.loads((target / 'options/example.json').read_text(encoding='utf-8-sig'))
+    disk_val = [o['value'] for c in on_disk['classList'] for o in c['options'] if o['name'] == 'input_text']
+    assert disk_val == ['smoke-form-option'], disk_val
+    print('PASS form schema/demo save and dynamic option editing round-trip')
+    # option file management: list, definition CRUD, locked guard, menu linkage.
+    assert request(port, 'GET', '/admin/option/files')[0] == (404 if protected else 302)
+    status, _, body = request(port, 'GET', '/admin/view/option/files', cookie=cookie)
+    assert status == 200 and body == (ROOT / 'page/option/files.html').read_bytes()
+    status, _, body = request(port, 'GET', '/admin/view/option/file', cookie=cookie)
+    assert status == 200 and body == (ROOT / 'page/option/file_edit.html').read_bytes()
+    status, _, body = request(port, 'POST', '/admin/option/files', cookie=cookie)
+    assert status == 404
+    status, _, body = request(port, 'GET', '/admin/option/files', cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] and isinstance(result['data'], list), result
+    files = {row['file']: row for row in result['data']}
+    assert set(files) == {'global.json', 'example.json', 'attachment.json'}, files
+    assert files['global.json']['locked'] is True and files['global.json']['canDelete'] is False
+    assert files['global.json']['inMenu'] is True and files['global.json']['menuTitle']
+    assert files['example.json']['inMenu'] is False
+    status, _, body = request(port, 'GET', '/admin/option/file?file=global.json', cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] and result['data']['namespace'] == 'global' and result['data']['classList']
+    status, _, body = request(port, 'GET', '/admin/option/file?file=..%2F..%2Fdb.json', cookie=cookie)
+    assert json.loads(body)['result'] is False
+    definition = {
+        'namespace': 'smoke_opt', 'title': 'Smoke Opt', 'desc': 'disposable',
+        'classList': [{'title': 'G1', 'options': [
+            {'name': 'demo_flag', 'type': 'switch', 'title': 'Demo Flag', 'value': False},
+            {'name': 'demo_text', 'type': 'text', 'title': 'Demo Text', 'value': 'a'}]}]}
+    status, _, body = request(port, 'POST', '/admin/option/file',
+                              {'file': 'smoke_opt.json', 'data': definition}, cookie=cookie)
+    assert json.loads(body)['result'] is True, body
+    assert (target / 'options/smoke_opt.json').exists()
+    status, _, body = request(port, 'POST', '/admin/option/file',
+                              {'file': 'smoke_opt.json', 'data': definition}, cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] is False and '已存在' in result['message'], result
+    status, _, body = request(port, 'POST', '/admin/option/file',
+                              {'file': 'smoke_opt2.json', 'data': definition}, cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] is False and 'namespace' in result['message'], result
+    edited = json.loads(json.dumps(definition))
+    edited['classList'][0]['options'].append({'name': 'demo_int', 'type': 'int', 'title': 'Demo Int', 'value': 7})
+    status, _, body = request(port, 'PUT', '/admin/option/file',
+                              {'file': 'smoke_opt.json', 'data': edited}, cookie=cookie)
+    assert json.loads(body)['result'] is True, body
+    on_disk = json.loads((target / 'options/smoke_opt.json').read_text(encoding='utf-8-sig'))
+    assert len(on_disk['classList'][0]['options']) == 3
+    status, _, body = request(port, 'GET', '/admin/option/file?file=global.json', cookie=cookie)
+    locked_def = json.loads(body)['data']
+    status, _, body = request(port, 'PUT', '/admin/option/file',
+                              {'file': 'global.json', 'data': locked_def}, cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] is False and '锁定' in result['message'], result
+    status, _, body = request(port, 'DELETE', '/admin/option/file?file=global.json', cookie=cookie)
+    assert json.loads(body)['result'] is False
+    status, _, body = request(port, 'POST', '/admin/option/file/menu',
+                              {'file': 'smoke_opt.json'}, cookie=cookie)
+    assert json.loads(body)['result'] is True, body
+    with sqlite3.connect(target / 'db/main.db') as db:
+        assert db.execute("SELECT COUNT(*) FROM menu WHERE href = "
+                          "'/admin/view/option?file=smoke_opt.json' AND isDelete = 0").fetchone()[0] == 1
+    status, _, body = request(port, 'POST', '/admin/option/file/menu',
+                              {'file': 'smoke_opt.json'}, cookie=cookie)
+    result = json.loads(body)
+    assert result['result'] is False and '菜单' in result['message'], result
+    status, _, body = request(port, 'GET', '/admin/option/files', cookie=cookie)
+    smoke_row = {row['file']: row for row in json.loads(body)['data']}['smoke_opt.json']
+    assert smoke_row['inMenu'] is True and smoke_row['menuTitle'] == 'Smoke Opt'
+    status, _, body = request(port, 'DELETE', '/admin/option/file?file=smoke_opt.json', cookie=cookie)
+    assert json.loads(body)['result'] is True, body
+    assert not (target / 'options/smoke_opt.json').exists()
+    with sqlite3.connect(target / 'db/main.db') as db:
+        assert db.execute("SELECT COUNT(*) FROM menu WHERE href = "
+                          "'/admin/view/option?file=smoke_opt.json' AND isDelete = 0").fetchone()[0] == 0
+    status, _, body = request(port, 'DELETE', '/admin/option/file?file=smoke_opt.json', cookie=cookie)
+    assert json.loads(body)['result'] is False
+    print('PASS option file management CRUD, locked guard and menu linkage')
     assert request(port, 'GET', '/api/v1/profile')[0] == 401
     assert request(port, 'GET', '/api/v1/profile', cookie=cookie)[0] == 401
     member = 'smoke_member'
@@ -216,6 +414,7 @@ def checks(port, target, protected=False):
         status, _, body = request(port, 'GET', path, cookie=member_cookie)
         assert status == 200 and json.loads(body)['code'] == 0, (path, status, body)
     assert request(port, 'GET', '/admin', cookie=member_cookie)[0] == (404 if protected else 302)
+    assert request(port, 'GET', '/api/v1/logout', cookie=member_cookie)[0] == 405  # R1
     assert request(port, 'POST', '/api/v1/logout', cookie=member_cookie)[0] == 200
     assert request(port, 'GET', '/api/v1/profile', cookie=member_cookie)[0] == 401
     print('PASS member registration/login/profile/balance/logout; cookie separation')
@@ -234,7 +433,8 @@ def checks(port, target, protected=False):
         list(pool.map(parallel_read, range(40)))
     print('PASS concurrent reads with shared legacy SQL statements')
     write_checks(port, target, cookie, login_path, request, client_hash, PASSWORD)
-    status, headers, body = request(port, 'GET', '/admin/logout', cookie=cookie)
+    assert request(port, 'GET', '/admin/logout', cookie=cookie)[0] == 404  # R1: POST-only
+    status, headers, body = request(port, 'POST', '/admin/logout', cookie=cookie)
     assert status == 302 and 'Max-Age=0' in headers.get('Set-Cookie', ''), (status, headers)
     status, headers, body = request(port, 'GET', '/admin', cookie=cookie)
     assert status == (404 if protected else 302), status
@@ -244,6 +444,214 @@ def checks(port, target, protected=False):
     assert request(port, 'POST', '/__test/expire', cookie=cookie)[0] == 200
     assert request(port, 'GET', '/admin', cookie=cookie)[0] == (404 if protected else 302)
     print('PASS expired session rejected')
+    # tool/reload family: v1 page bytes, template rebuild over the fixture tree,
+    # and the three submit actions rotating the script generation.
+    assert request(port, 'POST', '/admin/tool/reload/template')[0] == (404 if protected else 302)
+    status, headers, body = request(port, 'POST', login_path, {'username': USER, 'password': client_hash(USER, PASSWORD)})
+    assert json.loads(body)['result'], body
+    cookie = headers['Set-Cookie'].split(';')[0]
+    status, _, body = request(port, 'GET', '/admin/view/tool/reload', cookie=cookie)
+    assert status == 200 and body == (ROOT / 'page/tool/reload.html').read_bytes()
+    expected_templates = sum(len(files) for _, _, files in os.walk(ROOT / 'template'))
+    for method in ('GET', 'POST'):
+        status, _, body = request(port, method, '/admin/tool/reload/template', cookie=cookie)
+        result = json.loads(body)
+        assert status == 200 and result['result'] and result['data']['total'] == expected_templates, (method, result)
+        assert result['data']['loaded'] + result['data']['failed'] == result['data']['total']
+    print('PASS tool reload view page and template cache rebuild')
+    for action in ('host', 'server', 'xs'):
+        status, _, body = request(port, 'POST', '/admin/tool/reload/' + action, cookie=cookie)
+        result = json.loads(body)
+        assert status == 200 and result['result'] and result['data']['queued'] and result['data']['id'] > 0, (action, result)
+        for _ in range(60):
+            if request(port, 'GET', '/admin', cookie=cookie)[0] == (404 if protected else 302):
+                break
+            time.sleep(0.1)
+        else:
+            raise AssertionError('admin tool reload ' + action + ' did not rotate generation')
+        status, headers, body = request(port, 'POST', login_path, {'username': USER, 'password': client_hash(USER, PASSWORD)})
+        assert json.loads(body)['result'], (action, body)
+        cookie = headers['Set-Cookie'].split(';')[0]
+    print('PASS tool reload host/server/xs submit and generation rotation')
+    # === attack-review fixes (2026-09-11) ===
+    import time as _time
+    # F1+F3: banned member loses session; MSID carries SameSite; profile PUT cannot flip status.
+    fixed_member = 'fix_member'
+    fixed_payload = {'username': fixed_member, 'password': client_hash(fixed_member, PASSWORD)}
+    status, _, body = request(port, 'POST', '/api/v1/register', fixed_payload)
+    assert json.loads(body)['code'] == 0, body
+    status, headers, body = request(port, 'POST', '/api/v1/login', fixed_payload)
+    assert 'SameSite=Lax' in headers.get('Set-Cookie', ''), headers.get('Set-Cookie')
+    fix_cookie = headers['Set-Cookie'].split(';')[0]
+    with sqlite3.connect(target / 'db/main.db') as db:
+        fix_id = db.execute('SELECT id FROM member WHERE username=?', (fixed_member,)).fetchone()[0]
+    status, _, body = request(port, 'PUT', '/admin/member/user', {
+        'id': fix_id, 'groupId': 1, 'authLevel': 0, 'nickname': 'n', 'email': '',
+        'phone': '', 'avatar': '', 'status': 0}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    assert request(port, 'GET', '/api/v1/profile', cookie=fix_cookie)[0] == 401
+    status, _, body = request(port, 'POST', '/api/v1/login', fixed_payload)
+    assert json.loads(body)['code'] != 0, body
+    with sqlite3.connect(target / 'db/main.db') as db:
+        assert db.execute('SELECT status FROM member WHERE id=?', (fix_id,)).fetchone()[0] == 0
+    # F2: masked routes keep no body; unmasked routes keep byte-exact bodies.
+    status, _, body = request(port, 'POST', '/admin/member/user', {
+        'username': 'fix_masked', 'password': client_hash('fix_masked', PASSWORD),
+        'groupId': 1}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    with sqlite3.connect(target / 'db/main.db') as db:
+        row = db.execute("SELECT body FROM logs WHERE uri='/admin/member/user' "
+                         'ORDER BY id DESC LIMIT 1').fetchone()
+        assert row == ('',), row
+    status, _, body = request(port, 'POST', '/admin/auth/role', {
+        'name': 'fix_role', 'desc': 'd', 'authList': '[]', 'authLevel': 0}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    with sqlite3.connect(target / 'db/main.db') as db:
+        row = db.execute("SELECT body FROM logs WHERE uri='/admin/auth/role' "
+                         'ORDER BY id DESC LIMIT 1').fetchone()
+        assert row and 'fix_role' in row[0], row
+    # F7: guarded login attempts are audited with empty body.
+    status, headers, _ = request(port, 'POST', login_path, {
+        'username': USER, 'password': client_hash(USER, PASSWORD)})
+    with sqlite3.connect(target / 'db/main.db') as db:
+        rows = db.execute("SELECT body FROM logs WHERE uri = ? "
+                          'ORDER BY id DESC LIMIT 1', (login_path,)).fetchall()
+        assert rows and rows[0][0] == '', rows
+    # F9: list limit capped at 100.
+    status, _, body = request(port, 'GET', '/admin/logs?limit=99999&page=1', cookie=cookie)
+    assert status == 200 and len(json.loads(body)['data']) <= 100
+    # F6: permission rebuild is O(routes+ΣauthList); a write stays fast with 20k roles.
+    with sqlite3.connect(target / 'db/main.db') as db:
+        db.execute("WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x<20000) "
+                   'INSERT INTO role(name,desc,authList,authLevel,createTime,updateTime,isDelete) '
+                   "SELECT 'perf_seed_'||x,'','[]',0,?,?,0 FROM c", (legacy_now(), legacy_now()))
+        db.commit()
+    status, _, body = request(port, 'POST', '/admin/auth/role', {
+        'name': 'perf_gate', 'desc': '', 'authList': '[]', 'authLevel': 0}, cookie=cookie)
+    gate_id = json.loads(body)['data']['id']
+    t0 = _time.perf_counter()
+    status, _, body = request(port, 'PUT', '/admin/auth/role', {
+        'id': gate_id, 'name': 'perf_gate2', 'desc': '', 'authList': '[1]', 'authLevel': 0}, cookie=cookie)
+    elapsed = _time.perf_counter() - t0
+    assert json.loads(body)['result'] and elapsed < 0.5, (elapsed, body[:120])
+    request(port, 'DELETE', '/admin/auth/role?id=' + str(gate_id), cookie=cookie)
+    print('PASS attack fixes F1/F2/F3/F6/F7/F9 (%.0fms at 20k roles)' % (elapsed * 1000))
+    # === plugin host: scan / lifecycle / full-ABI conformance (hello-sdk) ===
+    status, _, body = request(port, 'GET', '/admin/plugin/list', cookie=cookie)
+    result = json.loads(body)
+    assert result['code'] == 0 and result['count'] >= 11, (result['count'], result)
+    plugins = {row['name']: row for row in result['data']}
+    assert 'hello-sdk' in plugins and plugins['hello-sdk']['status'] == 'discovered'
+    assert plugins['hello-sdk']['title'] == 'Hello SDK Conformance Plugin'
+    status, _, body = request(port, 'GET', '/admin/plugin/get?name=hello-sdk', cookie=cookie)
+    assert json.loads(body)['result']
+    # enable -> compile + lifecycle + registrations
+    status, _, body = request(port, 'POST', '/admin/plugin/enable', {'name': 'hello-sdk'}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/ping')
+    assert status == 200 and json.loads(body)['result'] and json.loads(body)['message'] == 'hello-sdk ok', body
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/temp')
+    assert status == 200 and body == b'temp'
+    # event round-trip
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/emit')
+    assert json.loads(body)['events'] == 1, body
+    # hook chain (self hook, CONTINUE -> 0)
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/hook')
+    result = json.loads(body)
+    assert result['ret'] == 0 and result['payload'] == 1, result
+    # service provide+acquire+release
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/service')
+    result = json.loads(body)
+    assert result['acquire'] == 0 and result['result'] and result['message'] == 'hello-sdk ok', result
+    # unregister token
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/unregister')
+    assert json.loads(body)['result'] is True, body
+    assert request(port, 'GET', '/api/plugin/hello-sdk/temp')[0] == 404
+    # admin-only plugin route: anonymous redirect, authed-but-unauthorized 403
+    expected_anon = 404 if protected else 302
+    assert request(port, 'GET', '/api/plugin/hello-sdk/admin-echo')[0] == expected_anon
+    assert request(port, 'GET', '/api/plugin/hello-sdk/admin-echo', cookie=cookie)[0] == 403
+    # settings: config change round-trip via OnConfigChanged
+    status, _, body = request(port, 'POST', '/admin/plugin/settings', {
+        'name': 'hello-sdk', 'config': {'welcomeMessage': 'changed-by-smoke', 'showTime': False}}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/ping')
+    assert json.loads(body)['message'] == 'changed-by-smoke', body
+    # DB ledger: menu/auth/uris ownership + generation row
+    with sqlite3.connect(target / 'db/main.db') as db:
+        assert db.execute("SELECT COUNT(*) FROM menu WHERE plugin_xid='hello-sdk' AND isDelete=0").fetchone()[0] == 1
+        assert db.execute("SELECT COUNT(*) FROM auth WHERE plugin_xid='hello-sdk' AND isDelete=0").fetchone()[0] == 1
+        assert db.execute("SELECT COUNT(*) FROM authGroup WHERE plugin_xid='hello-sdk' AND isDelete=0").fetchone()[0] == 1
+        assert db.execute("SELECT COUNT(*) FROM uris WHERE plugin_xid='hello-sdk'").fetchone()[0] == 2
+        gen, state = db.execute("SELECT generation, state FROM plugin_generation WHERE xid='hello-sdk' ORDER BY id DESC LIMIT 1").fetchone()
+        assert state == 'active' and gen == 1
+        assert db.execute("SELECT COUNT(*) FROM plugin_resource WHERE xid='hello-sdk' AND status='active'").fetchone()[0] >= 10
+    # reload -> new generation, counters reset, routes alive
+    status, _, body = request(port, 'POST', '/admin/plugin/reload', {'name': 'hello-sdk'}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    status, _, body = request(port, 'GET', '/api/plugin/hello-sdk/state')
+    # reload = 全新插件镜像：插件内静态计数器归零，配置跨代保留
+    state = json.loads(body)
+    assert state['starts'] == 1 and state['message'] == 'changed-by-smoke', state
+    with sqlite3.connect(target / 'db/main.db') as db:
+        gen = db.execute("SELECT MAX(generation) FROM plugin_generation WHERE xid='hello-sdk'").fetchone()[0]
+        assert gen == 2, gen
+    # disable -> teardown: routes gone, resources reclaimed, runtime disabled
+    status, _, body = request(port, 'POST', '/admin/plugin/disable', {'name': 'hello-sdk'}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    assert request(port, 'GET', '/api/plugin/hello-sdk/ping')[0] == 404
+    with sqlite3.connect(target / 'db/main.db') as db:
+        assert db.execute("SELECT COUNT(*) FROM menu WHERE plugin_xid='hello-sdk' AND isDelete=0").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM uris WHERE plugin_xid='hello-sdk'").fetchone()[0] == 0
+        assert db.execute("SELECT COUNT(*) FROM plugin_resource WHERE xid='hello-sdk' AND status='active'").fetchone()[0] == 0
+        enabled, status_ = db.execute("SELECT enabled, status FROM plugin_runtime WHERE xid='hello-sdk'").fetchone()
+        assert enabled == 0 and status_ == 'disabled'
+        state = db.execute("SELECT state FROM plugin_generation WHERE xid='hello-sdk' ORDER BY id DESC LIMIT 1").fetchone()[0]
+        assert state == 'stopped'
+    print('PASS plugin host scan/enable/lifecycle/resources/reload/disable (hello-sdk)')
+    # R1/R3/R4: logout method, repwd revocation, per-account session cap.
+    r_member = 'r34_member'
+    r_payload = {'username': r_member, 'password': client_hash(r_member, PASSWORD)}
+    status, _, body = request(port, 'POST', '/api/v1/register', r_payload)
+    assert json.loads(body)['code'] == 0, body
+    cookies = []
+    for _ in range(6):
+        status, headers, body = request(port, 'POST', '/api/v1/login', r_payload)
+        assert json.loads(body)['code'] == 0, body
+        cookies.append(headers['Set-Cookie'].split(';')[0])
+    # R4: cap 5 -> 第 1 个（最旧）被踢，第 6 个存活
+    assert request(port, 'GET', '/api/v1/profile', cookie=cookies[0])[0] == 401, 'oldest session not evicted'
+    assert request(port, 'GET', '/api/v1/profile', cookie=cookies[5])[0] == 200
+    # R3: 管理员重置密码 -> 该账号全部会话撤销；当前会话自助改密 -> 保留自己
+    with sqlite3.connect(target / 'db/main.db') as db:
+        r_id = db.execute('SELECT id FROM member WHERE username=?', (r_member,)).fetchone()[0]
+    status, _, body = request(port, 'POST', '/admin/member/user/repwd', {
+        'id': r_id, 'username': r_member, 'password': r_payload['password']}, cookie=cookie)
+    assert json.loads(body)['result'], body
+    assert request(port, 'GET', '/api/v1/profile', cookie=cookies[5])[0] == 401, 'repwd kept stale sessions'
+    status, headers, body = request(port, 'POST', '/api/v1/login', r_payload)
+    own = headers['Set-Cookie'].split(';')[0]
+    new_hash = client_hash(r_member, PASSWORD + '-x')
+    status, _, body = request(port, 'POST', '/api/v1/profile/password', {
+        'oldPassword': r_payload['password'], 'newPassword': new_hash}, cookie=own)
+    assert json.loads(body)['code'] == 0, body
+    assert request(port, 'GET', '/api/v1/profile', cookie=own)[0] == 200, 'current session dropped'
+    status, _, body = request(port, 'POST', '/api/v1/login', {
+        'username': r_member, 'password': new_hash})
+    assert json.loads(body)['code'] == 0, body
+    print('PASS logout POST-only, repwd revocation and session cap (R1/R3/R4)')
+    # F4+F5: realm-split guard; member lockout leaves admin login alone (run last).
+    for i in range(6):
+        request(port, 'POST', '/api/v1/login', {
+            'username': member, 'password': client_hash(member, 'w' + str(i))})
+    status, _, body = request(port, 'POST', login_path, {
+        'username': USER, 'password': client_hash(USER, PASSWORD)})
+    assert json.loads(body)['result'], body
+    status, _, body = request(port, 'POST', '/api/v1/login', {
+        'username': member, 'password': client_hash(member, PASSWORD)})
+    result = json.loads(body)
+    assert result['code'] == 429 and '后再试' in result['msg'], result
+    print('PASS guard realm split and readable lockout message (F4/F5)')
     status, headers, _ = request(port, 'POST', login_path, {'username': USER, 'password': client_hash(USER, PASSWORD)})
     cookie = headers['Set-Cookie'].split(';')[0]
     assert request(port, 'GET', '/admin', cookie=cookie)[0] == 200
@@ -267,6 +675,41 @@ def checks(port, target, protected=False):
     print('PASS script reload, old-generation cleanup, session invalidation')
 
 
+
+def register_rate_check(port):
+    """R2: 默认配置（60s/IP）下第二次注册被拒；主夹具把间隔设 0 绕过。"""
+    target = fixture(port, register_interval=None)
+    log = open(target / 'server.log', 'ab')
+    process = subprocess.Popen([str(ROOT / 'xs.exe'), str(target / 'xs.json')], cwd=ROOT,
+                               stdout=log, stderr=subprocess.STDOUT,
+                               creationflags=subprocess.CREATE_NO_WINDOW)
+    try:
+        for _ in range(60):
+            if process.poll() is not None:
+                raise RuntimeError('rate fixture exited')
+            try:
+                if request(port, 'GET', '/admin/login')[0] in (200, 404):
+                    break
+            except OSError:
+                pass
+            time.sleep(0.3)
+        user = 'rate_member'
+        payload = {'username': user, 'password': client_hash(user, PASSWORD)}
+        status, _, body = request(port, 'POST', '/api/v1/register', payload)
+        assert json.loads(body)['code'] == 0, body
+        status, _, body = request(port, 'POST', '/api/v1/register', {
+            'username': user + '2', 'password': client_hash(user + '2', PASSWORD)})
+        result = json.loads(body)
+        assert result['code'] == 429, result
+        print('PASS register rate limit 1/min/IP (R2)')
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+        log.close()
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--port', type=int, default=19081)
@@ -284,6 +727,7 @@ def main():
                                    stdout=output, stderr=subprocess.STDOUT,
                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     passed = False
+    rate_port = None
     try:
         for _ in range(60):
             if process.poll() is not None:
@@ -300,6 +744,8 @@ def main():
         else:
             raise RuntimeError('xs did not become ready')
         checks(args.port, target, args.protected_entry)
+        rate_port = args.port + 1
+        register_rate_check(rate_port)
         assert hashlib.sha256((ROOT / 'db/main.db').read_bytes()).digest() == db_hash
         print('PASS migrated root database unchanged by tests')
         passed = True

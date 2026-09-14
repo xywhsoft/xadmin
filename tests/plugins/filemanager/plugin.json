@@ -1,0 +1,48 @@
+{
+  "formatVersion": 4,
+  "xid": "filemanager",
+  "name": "filemanager",
+  "title": "File Manager",
+  "description": "Web-based file manager with browse, upload, download, edit, compress/extract support",
+  "version": "1.0.0",
+  "author": "xAdmin",
+  "kind": "singleton",
+  "sort": 400,
+  "runtime": {
+    "compiler": "tcc",
+    "language": "c"
+  },
+  "build": {
+    "entry": "main.c",
+    "sources": [
+      "main.c"
+    ],
+    "includeDirs": [],
+    "libraryDirs": [],
+    "libraries": [],
+    "defines": [
+      "XADMIN_PLUGIN=1"
+    ]
+  },
+  "compat": {
+    "minHostVersion": "4.0.0",
+    "maxHostVersion": "5.0.0",
+    "abiVersion": 4
+  },
+  "capabilities": [
+    "route.admin"
+  ],
+  "dependencies": {
+    "plugins": [],
+    "services": [],
+    "features": []
+  },
+  "contributes": {
+    "menus": [],
+    "routes": [],
+    "hooks": [],
+    "events": []
+  },
+  "defaultConfig": "config.defaults.json",
+  "configSchema": "config.schema.json"
+}

@@ -13,11 +13,11 @@ static void XAdmin_Dispatch(XAdminRequest* req, const RouteInfo* route, bool ali
 	}
 	if (route->bAuth) {
 		bool ok = false;
-		if (route->bAdmin && route->bPutLog) Logs_Add(req, session);
+		if (route->bAdmin && route->bPutLog) Logs_Add(req, session, route->bMaskBody);
 		if (xrtValueType(session) == XVALUE_OBJECT) {
-			int64 role = xvoTableGetInt(session, route->bAdmin ? "roleID" : "groupId", 0);
+			int64 role = ValueInt(session, route->bAdmin ? "roleID" : "groupId");
 			xvalue* rights = XAdminIDCacheGetValue(route->bAdmin ? G_CACHE_RoleAuth : G_CACHE_MemberGroupAuth, role);
-			ok = xvoTableGetBool(rights, route->Path, 0);
+			ok = ValueBool(rights, route->Path);
 			if (!ok && route->AuthID > 0) ok = route->bAdmin ? Auth_DBRoleGetAccess(role, route->AuthID, NULL)
 			                                : MemberAuth_DBGroupGetAccess(role, route->AuthID, NULL);
 			if (!ok) {

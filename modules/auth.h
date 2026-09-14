@@ -1,6 +1,7 @@
 
 
 
+
 void Auth_CompileSQL()
 {
 	// 棰勭紪璇?SQL 璇彞 - uris 琛?
@@ -14,7 +15,7 @@ void Auth_CompileSQL()
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "INSERT INTO uris (authID, uri, desc, sort, createTime, updateTime) VALUES (1, ?, \"\", 0, ?, ?);", -1, SQL_PREPARE_DEFAULT, &stmt_uris_add, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "INSERT INTO uris (authID, uri, desc, sort, maskBody, createTime, updateTime) VALUES (1, ?, \"\", 0, ?, ?, ?);", -1, SQL_PREPARE_DEFAULT, &stmt_uris_add, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_add] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -240,29 +241,30 @@ static bool XAdminValuePublishShared(xvalue* pVal);
 static bool XAdminPublishListValueProc(int64 iKey, ptr pVal, ptr pArg)
 {
 	xvalue* objList = (xvalue*)pArg;
-	xvalue* objVal = xvoListGetValue(objList, iKey);
+	xvalue* objVal = ValueMapGet(objList, iKey);
 	XAdminValuePublishShared(objVal);
-	return FALSE;
+	return false;
 }
 
-static bool XAdminPublishTableValueProc(Dict_Key* pKey, ptr pVal, ptr pArg)
+static bool XAdminPublishTableValueProc(xstrview key, xvalue* value, void* pArg)
 {
 	xvalue* objTable = (xvalue*)pArg;
-	xvalue* objVal = xvoTableGetValue(objTable, pKey->Key, pKey->KeyLen);
+	xvalue* objVal = xrtValueObjectGet(objTable, key);
+	(void)value;
 	XAdminValuePublishShared(objVal);
-	return FALSE;
+	return false;
 }
 
 static bool XAdminValuePublishShared(xvalue* pVal)
 {
 	/* 新版值没有旧 Owner 发布协议；缓存访问统一在请求锁中完成。 */
 	(void)pVal;
-	return TRUE;
+	return true;
 }
 
 static xvalue* XAdminCreateSharedArrayValue()
 {
-	xvalue* pVal = xvoCreateArrayEx(XRT_OBJMODE_SHARED);
+	xvalue* pVal = ValueArray();
 	if ( pVal ) {
 		XAdminValuePublishShared(pVal);
 	}
@@ -271,7 +273,7 @@ static xvalue* XAdminCreateSharedArrayValue()
 
 static xvalue* XAdminCreateSharedListValue()
 {
-	xvalue* pVal = xvoCreateListEx(XRT_OBJMODE_SHARED);
+	xvalue* pVal = xrtValueIntMap();
 	if ( pVal ) {
 		XAdminValuePublishShared(pVal);
 	}
@@ -280,7 +282,7 @@ static xvalue* XAdminCreateSharedListValue()
 
 static xvalue* XAdminCreateSharedTableValue()
 {
-	xvalue* pVal = xvoCreateTableEx(XRT_OBJMODE_SHARED);
+	xvalue* pVal = ValueObject();
 	if ( pVal ) {
 		XAdminValuePublishShared(pVal);
 	}
@@ -296,10 +298,10 @@ void ReloadCache_Auth_Auth()
 		xvalue* tblRow = XAdminCreateSharedTableValue();
 		int64 id = sqlite3_column_int64(stmt_cache_auth, 0);
 		int64 groupId = sqlite3_column_int64(stmt_cache_auth, 1);
-		xvoTableSetInt(tblRow, "id", 2, id);
-		xvoTableSetInt(tblRow, "groupId", 7, groupId);
-		xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_cache_auth, 2), 0, FALSE);
-		xvoArrayAppendValue(arrRet, tblRow, TRUE);
+		ValueSetInt(tblRow, "id", id);
+		ValueSetInt(tblRow, "groupId", groupId);
+		ValueSetText(tblRow, "name", (str)sqlite3_column_text(stmt_cache_auth, 2));
+		ValueArrayOwn(arrRet, tblRow);
 	}
 	sqlite3_reset(stmt_cache_auth);
 	XAdminValuePublishShared(arrRet);
@@ -308,7 +310,7 @@ void ReloadCache_Auth_Auth()
 	if ( G_CACHE_Auth ) {
 		xvalue* oldCache = G_CACHE_Auth;
 		G_CACHE_Auth = arrRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_Auth = arrRet;
 	}
@@ -323,7 +325,7 @@ void ReloadCache_Auth_Group()
 	xvalue* arrRet = XAdminCreateSharedArrayValue();
 	
 	// 鍒涘缓 groupId -> 鏁扮粍涓嬫爣 鐨勬槧灏勮〃
-	xvalue* listIndex = xvoCreateList();
+	xvalue* listIndex = xrtValueIntMap();
 	int iIndex = 0;
 	
 	// 浣跨敤棰勭紪璇戣鍙ユ煡璇㈡暟鎹?
@@ -333,52 +335,52 @@ void ReloadCache_Auth_Group()
 		
 		// 鍒涘缓鍒嗙被椤?
 		xvalue* tblGroup = XAdminCreateSharedTableValue();
-		xvoTableSetInt(tblGroup, "id", 2, groupId);
-		xvoTableSetText(tblGroup, "name", 4, groupName, 0, FALSE);
+		ValueSetInt(tblGroup, "id", groupId);
+		ValueSetText(tblGroup, "name", groupName);
 		
 		// 鍒涘缓绌虹殑 auths 鏁扮粍
 		xvalue* arrAuths = XAdminCreateSharedArrayValue();
-		xvoTableSetValue(tblGroup, "auths", 5, arrAuths, TRUE);
+		ValueSetOwn(tblGroup, "auths", arrAuths);
 		
 		// 娣诲姞鍒扮紦瀛樻暟缁?
-		xvoArrayAppendValue(arrRet, tblGroup, TRUE);
+		ValueArrayOwn(arrRet, tblGroup);
 		
 		// 璁板綍 groupId -> 鏁扮粍涓嬫爣 鐨勬槧灏?
 		iIndex++;
-		xvoListSetInt(listIndex, groupId, iIndex);
+		ValueMapSetInt(listIndex, groupId, iIndex);
 	}
 	sqlite3_reset(stmt_cache_group);
 	
 	// 閬嶅巻 G_CACHE_Auth锛屽皢鏉冮檺鍒嗙粍娣诲姞鍒板搴斿垎绫荤殑 auths 涓?
 	for ( int i = 1; i <= xrtValueCount(G_CACHE_Auth); i++ ) {
 		xvalue* pAuth = xrtValueArrayGet(G_CACHE_Auth, (i) - 1);
-		int64 authId = xvoTableGetInt(pAuth, "id", 2);
-		int64 groupId = xvoTableGetInt(pAuth, "groupId", 7);
-		str authName = xvoTableGetText(pAuth, "name", 4);
+		int64 authId = ValueInt(pAuth, "id");
+		int64 groupId = ValueInt(pAuth, "groupId");
+		str authName = ValueText(pAuth, "name");
 		
 		// 閫氳繃鏄犲皠琛ㄨ幏鍙栧垎绫诲湪鏁扮粍涓殑涓嬫爣
-		int64 idx = xvoListGetInt(listIndex, groupId);
+		int64 idx = ValueMapInt(listIndex, groupId);
 		if ( idx > 0 && idx <= xrtValueCount(arrRet) ) {
 			xvalue* pGroup = xrtValueArrayGet(arrRet, (idx) - 1);
-			xvalue* arrAuths = xvoTableGetValue(pGroup, "auths", 5);
+			xvalue* arrAuths = ValueGet(pGroup, "auths");
 			
 			// 鍒涘缓鏉冮檺椤瑰苟娣诲姞鍒?auths 鏁扮粍
 			xvalue* tblAuth = XAdminCreateSharedTableValue();
-			xvoTableSetInt(tblAuth, "id", 2, authId);
-			xvoTableSetText(tblAuth, "name", 4, authName, 0, FALSE);
-			xvoArrayAppendValue(arrAuths, tblAuth, TRUE);
+			ValueSetInt(tblAuth, "id", authId);
+			ValueSetText(tblAuth, "name", authName);
+			ValueArrayOwn(arrAuths, tblAuth);
 		}
-	}
-	XAdminValuePublishShared(arrRet);
+		}
+XAdminValuePublishShared(arrRet);
 	
 	// 閲婃斁鏄犲皠琛?
-	xvoUnref(listIndex);
+	xrtValueRelease(listIndex);
 	
 	// 鏇挎崲鍏ㄥ眬缂撳瓨锛堣繖鏍峰啓鏄负浜嗗绾跨▼鍚屾鏃犲啿绐侊級
 	if ( G_CACHE_Group ) {
 		xvalue* oldCache = G_CACHE_Group;
 		G_CACHE_Group = arrRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_Group = arrRet;
 	}
@@ -398,7 +400,7 @@ static int XAdminIDCacheFormatKey(int64 id, char sKey[32])
 	sKey[0] = 'i';
 	sKey[1] = 'd';
 	sKey[2] = ':';
-	iLen = xrtI64ToStr(id, sKey + 3);
+	iLen = sprintf(sKey + 3, "%lld", (long long)id);
 	if ( iLen <= 0 || iLen >= 29 ) {
 		return 0;
 	}
@@ -417,16 +419,16 @@ static xvalue* XAdminIndexedCacheGetValue(xvalue* objIndexCache, xvalue* objValu
 		return NULL;
 	}
 
-	if ( xrtValueType(objIndexCache) != XVO_DT_LIST || xrtValueType(objValueCache) != XVO_DT_ARRAY ) {
+	if ( xrtValueType(objIndexCache) != XVALUE_INT_MAP || xrtValueType(objValueCache) != XVALUE_ARRAY ) {
 		return NULL;
 	}
 
-	iIndex = xvoListGetInt(objIndexCache, id);
+	iIndex = ValueMapInt(objIndexCache, id);
 	if ( iIndex <= 0 || iIndex > xrtValueCount(objValueCache) ) {
 		return NULL;
 	}
 
-	return xvoArrayGetValue(objValueCache, (uint32)(iIndex - 1));
+	return xrtValueArrayGet(objValueCache, (uint32)(iIndex - 1));
 }
 
 
@@ -440,13 +442,13 @@ static xvalue* XAdminIDCacheGetValue(xvalue* objCache, int64 id)
 		return NULL;
 	}
 
-	if ( xrtValueType(objCache) == XVO_DT_ARRAY ) {
+	if ( xrtValueType(objCache) == XVALUE_ARRAY ) {
 		for ( int i = 0; i < xrtValueCount(objCache); i++ ) {
-			xvalue* tblItem = xvoArrayGetValue(objCache, i);
-			if ( tblItem && (xrtValueType(tblItem) == XVO_DT_TABLE) ) {
-				int64 iItemID = xvoTableGetInt(tblItem, "id", 2);
+			xvalue* tblItem = xrtValueArrayGet(objCache, i);
+			if ( tblItem && (xrtValueType(tblItem) == XVALUE_OBJECT) ) {
+				int64 iItemID = ValueInt(tblItem, "id");
 				if ( iItemID <= 0 ) {
-					iItemID = xvoTableGetInt(tblItem, "__id__", 6);
+					iItemID = ValueInt(tblItem, "__id__");
 				}
 				if ( iItemID == id ) {
 					return tblItem;
@@ -462,16 +464,16 @@ static xvalue* XAdminIDCacheGetValue(xvalue* objCache, int64 id)
 		return NULL;
 	}
 
-	if ( xrtValueType(objCache) == XVO_DT_TABLE ) {
+	if ( xrtValueType(objCache) == XVALUE_OBJECT ) {
 		iKeyLen = XAdminIDCacheFormatKey(id, sKey);
 		if ( iKeyLen <= 0 ) {
 			return NULL;
 		}
-		return xvoTableGetValue(objCache, sKey, iKeyLen);
+		return ValueGet(objCache, sKey);
 	}
 
-	if ( xrtValueType(objCache) == XVO_DT_LIST ) {
-		return xvoListGetValue(objCache, id);
+	if ( xrtValueType(objCache) == XVALUE_INT_MAP ) {
+		return ValueMapGet(objCache, id);
 	}
 
 	return NULL;
@@ -481,14 +483,14 @@ static xvalue* XAdminIDCacheGetValue(xvalue* objCache, int64 id)
 
 static bool XAdminIDCacheGetBool(xvalue* objCache, int64 id)
 {
-	return xvoGetBool(XAdminIDCacheGetValue(objCache, id));
+	return ValueBoolOf(XAdminIDCacheGetValue(objCache, id));
 }
 
 
 
 static int64 XAdminIDCacheGetInt(xvalue* objCache, int64 id)
 {
-	return xvoGetInt(XAdminIDCacheGetValue(objCache, id));
+	return ValueIntOf(XAdminIDCacheGetValue(objCache, id));
 }
 
 
@@ -496,16 +498,16 @@ static int64 XAdminIDCacheGetInt(xvalue* objCache, int64 id)
 static bool XAdminIDArrayContainsInt(xvalue* objIDs, int64 id)
 {
 	if ( objIDs == NULL || id <= 0 ) {
-		return FALSE;
+		return false;
 	}
 
-	if ( xrtValueType(objIDs) == XVO_DT_ARRAY ) {
+	if ( xrtValueType(objIDs) == XVALUE_ARRAY ) {
 		for ( int i = 0; i < xrtValueCount(objIDs); i++ ) {
-			if ( xvoArrayGetInt(objIDs, i) == id ) {
-				return TRUE;
+			if ( ValueArrayInt(objIDs, i) == id ) {
+				return true;
 			}
 		}
-		return FALSE;
+		return false;
 	}
 
 	return XAdminIDCacheGetBool(objIDs, id);
@@ -515,7 +517,7 @@ static bool XAdminIDArrayContainsInt(xvalue* objIDs, int64 id)
 
 static bool Auth_DBRoleGetAccess(int64 iRoleID, int64 iAuthID, int64* pAuthLevel)
 {
-	bool bAllowed = FALSE;
+	bool bAllowed = false;
 	str sAuthList = NULL;
 	xvalue* arrAuth = NULL;
 
@@ -523,7 +525,7 @@ static bool Auth_DBRoleGetAccess(int64 iRoleID, int64 iAuthID, int64* pAuthLevel
 		*pAuthLevel = -1;
 	}
 	if ( iRoleID <= 0 ) {
-		return FALSE;
+		return false;
 	}
 
 	sqlite3_bind_int64(stmt_role_get, 1, iRoleID);
@@ -533,16 +535,16 @@ static bool Auth_DBRoleGetAccess(int64 iRoleID, int64 iAuthID, int64* pAuthLevel
 				*pAuthLevel = sqlite3_column_int64(stmt_role_get, 4);
 			}
 			if ( iAuthID <= 0 ) {
-				bAllowed = TRUE;
+				bAllowed = true;
 			} else {
 				sAuthList = (str)sqlite3_column_text(stmt_role_get, 3);
 				if ( sAuthList && strlen(sAuthList) > 2 ) {
-					arrAuth = xrtParseJSON(sAuthList, 0);
-					if ( arrAuth && (xrtValueType(arrAuth) == XVO_DT_ARRAY) ) {
+					arrAuth = JsonParseN(sAuthList, 0);
+					if ( arrAuth && (xrtValueType(arrAuth) == XVALUE_ARRAY) ) {
 						bAllowed = XAdminIDArrayContainsInt(arrAuth, iAuthID);
 					}
 					if ( arrAuth ) {
-						xvoUnref(arrAuth);
+						xrtValueRelease(arrAuth);
 					}
 				}
 			}
@@ -560,116 +562,145 @@ static bool XAdminIDCacheSetValue(xvalue* objCache, int64 id, xvalue* pVal, bool
 	int iKeyLen;
 
 	if ( objCache == NULL || id <= 0 ) {
-		return FALSE;
+		return false;
 	}
 
-	if ( xrtValueType(objCache) == XVO_DT_TABLE ) {
+	if ( xrtValueType(objCache) == XVALUE_OBJECT ) {
 		iKeyLen = XAdminIDCacheFormatKey(id, sKey);
 		if ( iKeyLen <= 0 ) {
-			return FALSE;
+			return false;
 		}
-		return xvoTableSetValue(objCache, sKey, iKeyLen, pVal, bColloc);
+		return bColloc ? xrtValueObjectSetNew(objCache, xrtStrViewN(sKey, (size_t)iKeyLen), pVal)
+		              : xrtValueObjectSet(objCache, xrtStrViewN(sKey, (size_t)iKeyLen), pVal);
 	}
 
-	if ( xrtValueType(objCache) == XVO_DT_LIST ) {
-		return xvoListSetValue(objCache, id, pVal, bColloc);
+	if ( xrtValueType(objCache) == XVALUE_INT_MAP ) {
+		return bColloc ? xrtValueIntMapSetNew(objCache, id, pVal)
+		              : xrtValueIntMapSet(objCache, id, pVal);
 	}
 
-	return FALSE;
+	return false;
 }
 
 
 
 static bool XAdminIDCacheSetBool(xvalue* objCache, int64 id, bool bVal)
 {
-	return XAdminIDCacheSetValue(objCache, id, xvoCreateBool(bVal), TRUE);
+	return XAdminIDCacheSetValue(objCache, id, xrtValueBool(bVal), true);
 }
 
 
 
 static bool XAdminIDCacheSetInt(xvalue* objCache, int64 id, int64 iVal)
 {
-	return XAdminIDCacheSetValue(objCache, id, xvoCreateInt(iVal), TRUE);
+	return XAdminIDCacheSetValue(objCache, id, xrtValueInt(iVal), true);
 }
 
 
 
-bool AuthRouteCategorize(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
+/* F6：单次遍历收集 AuthID -> URI 清单，重建时每角色按 authList 点取，
+ * 取代"每角色遍历全部路由"的 O(角色×路由) 写路径劣化（实测角色过千后
+ * 每次权限写秒级劣化；语义不变，仍同步重建、写后即时生效）。 */
+static bool AuthCollectURIProc(xbytesview key, RouteInfo* pInfo, void* pArg)
 {
-	struct {
-		xvalue* listAuth;
-		xvalue* tblURI;
-	} *pAuthInfo = param;
-	if ( pInfo->bAuth && (pInfo->AuthID > 0) ) {
-		bool bPass = XAdminIDArrayContainsInt(pAuthInfo->listAuth, pInfo->AuthID);
-		if ( bPass ) {
-			xvoTableSetBool(pAuthInfo->tblURI, pKey->Key, pKey->KeyLen, TRUE);
+	xvalue* mapAuthURIs = (xvalue*)pArg;
+	char sKey[32];
+	int iKeyLen;
+	xvalue* arrURIs;
+	if ( !pInfo->bAuth || (pInfo->AuthID <= 0) ) {
+		return false;
+	}
+	iKeyLen = XAdminIDCacheFormatKey((int64)pInfo->AuthID, sKey);
+	if ( iKeyLen <= 0 ) {
+		return false;
+	}
+	arrURIs = ValueGet(mapAuthURIs, sKey);
+	if ( (arrURIs == NULL) || (xrtValueType(arrURIs) != XVALUE_ARRAY) ) {
+		arrURIs = XAdminCreateSharedArrayValue();
+		if ( (arrURIs == NULL) || !ValueSetOwn(mapAuthURIs, sKey, arrURIs) ) {
+			if ( arrURIs != NULL ) xrtValueRelease(arrURIs);
+			return false;
 		}
 	}
-	return FALSE;
+	ValueArrayOwn(arrURIs, xrtValueString(xrtStrViewN((const char*)key.Data, key.Size)));
+	return false;
 }
 void Auth_ReloadCache()
 {
-	// 浣跨敤棰勭紪璇戣鍙ユ煡璇㈡暟鎹?
+	// 使用预编译语句查询数据
 	xvalue* arrRet = XAdminCreateSharedArrayValue();
 	xvalue* lstRet = XAdminCreateSharedArrayValue();
 	xvalue* idxRet = XAdminCreateSharedListValue();
 	xvalue* lvlRet = XAdminCreateSharedListValue();
-	
-	while ( sqlite3_step(stmt_cache_role) == SQLITE_ROW ) {
+	xvalue* mapAuthURIs = XAdminCreateSharedTableValue();
+
+	MapWalk(G_StaticRouteTableHTTP, (MapWalkProc)AuthCollectURIProc, mapAuthURIs);
+
+while ( sqlite3_step(stmt_cache_role) == SQLITE_ROW ) {
 		// 娣诲姞鍒板垪琛ㄧ紦瀛?
 		xvalue* tblRow = XAdminCreateSharedTableValue();
 		int64 id = sqlite3_column_int64(stmt_cache_role, 0);
 		str name = (str)sqlite3_column_text(stmt_cache_role, 1);
 		int64 authLevel = sqlite3_column_int64(stmt_cache_role, 3);
-		xvoTableSetInt(tblRow, "id", 2, id);
-		xvoTableSetText(tblRow, "name", 4, name, 0, FALSE);
-		xvoTableSetInt(tblRow, "authLevel", 9, authLevel);
-		xvoArrayAppendValue(arrRet, tblRow, TRUE);
+		ValueSetInt(tblRow, "id", id);
+		ValueSetText(tblRow, "name", name);
+		ValueSetInt(tblRow, "authLevel", authLevel);
+		ValueArrayOwn(arrRet, tblRow);
 		// 瑙ｆ瀽鏉冮檺鍒嗙粍鍒楄〃 - 杞崲涓?list 鏂逛究鎸塈D绱㈠紩
 		xvalue* listAuth = NULL;
 		str sAuthList = (str)sqlite3_column_text(stmt_cache_role, 2);
 		if ( sAuthList && (strlen(sAuthList) > 2) ) {
-			xvalue* arrAuth = xrtParseJSON(sAuthList, 0);
-			if ( arrAuth && (xrtValueType(arrAuth) == XVO_DT_ARRAY) ) {
+			xvalue* arrAuth = JsonParseN(sAuthList, 0);
+			if ( arrAuth && (xrtValueType(arrAuth) == XVALUE_ARRAY) ) {
 				listAuth = arrAuth;
 			} else if ( arrAuth ) {
-				xvoUnref(arrAuth);
+				xrtValueRelease(arrAuth);
 			}
 		}
-		// 鏋勫缓瀵瑰簲瑙掕壊鐨?URI 鏉冮檺瀛楀吀
+		// 构建对应角色的 URI 权限字典（F6：按 authList 从预收集清单点取）
 		xvalue* tblURI = XAdminCreateSharedTableValue();
-		struct {
-			xvalue* listAuth;
-			xvalue* tblURI;
-		} dictWalkInfo = { listAuth, tblURI };
-		XA_DictWalk(G_StaticRouteTableHTTP, (ptr)AuthRouteCategorize, &dictWalkInfo);
+		if ( listAuth && (xrtValueType(listAuth) == XVALUE_ARRAY) ) {
+			for ( int iAuth = 0; iAuth < xrtValueCount(listAuth); iAuth++ ) {
+				char sKey[32];
+				int iKeyLen = XAdminIDCacheFormatKey(ValueArrayInt(listAuth, iAuth), sKey);
+				xvalue* arrURIs = (iKeyLen > 0) ? ValueGet(mapAuthURIs, sKey) : NULL;
+				if ( (arrURIs != NULL) && (xrtValueType(arrURIs) == XVALUE_ARRAY) ) {
+					for ( int iURI = 0; iURI < xrtValueCount(arrURIs); iURI++ ) {
+						str sURI = ValueArrayText(arrURIs, iURI);
+						if ( sURI != NULL ) {
+							ValueSetBool(tblURI, sURI, true);
+						}
+					}
+				}
+			}
+		}
 		if ( listAuth ) {
-			xvoUnref(listAuth);
+			xrtValueRelease(listAuth);
 		}
 		// 鏉冮檺瀛楀吀娣诲姞鍏冩暟鎹?
-		xvoTableSetInt(tblURI, "id", 2, id);
-		xvoTableSetText(tblURI, "name", 4, name, 0, FALSE);
-		xvoTableSetInt(tblURI, "authLevel", 9, authLevel);
-		xvoTableSetInt(tblURI, "__id__", 6, id);
-		xvoTableSetText(tblURI, "__name__", 8, name, 0, FALSE);
-		xvoTableSetInt(tblURI, "__authLevel__", 13, authLevel);
+		ValueSetInt(tblURI, "id", id);
+		ValueSetText(tblURI, "name", name);
+		ValueSetInt(tblURI, "authLevel", authLevel);
+		ValueSetInt(tblURI, "__id__", id);
+		ValueSetText(tblURI, "__name__", name);
+		ValueSetInt(tblURI, "__authLevel__", authLevel);
 		// 灏嗘暣鐞嗗ソ鐨勬潈闄愬瓧鍏告坊鍔犲埌缂撳瓨琛?
-		xvoArrayAppendValue(lstRet, tblURI, TRUE);
-		xvoListSetInt(idxRet, id, xrtValueCount(lstRet));
-		xvoListSetInt(lvlRet, id, authLevel);
+		ValueArrayOwn(lstRet, tblURI);
+		ValueMapSetInt(idxRet, id, xrtValueCount(lstRet));
+		ValueMapSetInt(lvlRet, id, authLevel);
 	}
 	sqlite3_reset(stmt_cache_role);
 	XAdminValuePublishShared(arrRet);
 	XAdminValuePublishShared(lstRet);
 	XAdminValuePublishShared(idxRet);
 	XAdminValuePublishShared(lvlRet);
+	xrtValueRelease(mapAuthURIs);
 	
 	// 鏇挎崲鍏ㄥ眬缂撳瓨 - 瑙掕壊鍒楄〃锛堣繖鏍峰啓鏄负浜嗗绾跨▼鍚屾鏃犲啿绐侊級
 	if ( G_CACHE_Role ) {
 		xvalue* oldCache = G_CACHE_Role;
 		G_CACHE_Role = arrRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_Role = arrRet;
 	}
@@ -678,43 +709,44 @@ void Auth_ReloadCache()
 	if ( G_CACHE_RoleAuth ) {
 		xvalue* oldCache = G_CACHE_RoleAuth;
 		G_CACHE_RoleAuth = lstRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_RoleAuth = lstRet;
 	}
 	if ( G_CACHE_RoleAuthIndex ) {
 		xvalue* oldCache = G_CACHE_RoleAuthIndex;
 		G_CACHE_RoleAuthIndex = idxRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_RoleAuthIndex = idxRet;
 	}
 	if ( G_CACHE_RoleAuthLevel ) {
 		xvalue* oldCache = G_CACHE_RoleAuthLevel;
 		G_CACHE_RoleAuthLevel = lvlRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_RoleAuthLevel = lvlRet;
 	}
-	//xvoPrintValue(lstRet, 0, 0, 0, NULL);
 }
 
 
 
 // 鏇存柊 uris 琛?( 娣诲姞鏈敹褰曠殑 URI锛屽垹闄ゅ凡澶辨晥鐨?URI锛屽苟浠庢暟鎹簱鍔犺浇閰嶇疆鍒拌矾鐢辫〃 )
-bool AuthRouteCheckProc(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
+bool AuthRouteCheckProc(xbytesview key, RouteInfo* pInfo, void* param)
 {
 	if ( pInfo->bAuth && (pInfo->AuthID == 0) ) {
-		printf("            new uris table item : %.*s\n", pKey->KeyLen, pKey->Key);
-		sqlite3_bind_text(stmt_uris_add, 1, pKey->Key, pKey->KeyLen, SQLITE_STATIC);
-		xtime tNow = XA_Now();
-		sqlite3_bind_int64(stmt_uris_add, 2, tNow);
+		printf("            new uris table item : %.*s\n", (int)key.Size, (const char*)key.Data);
+		sqlite3_bind_text(stmt_uris_add, 1, (const char*)key.Data, (int)key.Size, SQLITE_STATIC);
+		/* F2：新路由把注册参数的脱敏开关写入列（仅作记录，运行时以参数为权威）。 */
+		sqlite3_bind_int(stmt_uris_add, 2, pInfo->bMaskBody ? 1 : 0);
+		xtime tNow = xrtNow();
 		sqlite3_bind_int64(stmt_uris_add, 3, tNow);
+		sqlite3_bind_int64(stmt_uris_add, 4, tNow);
 		sqlite3_step(stmt_uris_add);
 		sqlite3_reset(stmt_uris_add);
 		pInfo->AuthID = 1;
 	}
-	return FALSE;
+	return false;
 }
 void Auth_UpdateURIS()
 {
@@ -732,10 +764,10 @@ void Auth_UpdateURIS()
 		if ( pInfo ) {
 			// 浠庢暟鎹簱鍔犺浇閰嶇疆鍒拌矾鐢辫〃
 			pInfo->AuthID = authID;
-			pInfo->bAdmin = isBackend ? TRUE : FALSE;
-			pInfo->bAuth = needAuth ? TRUE : FALSE;
-			pInfo->bPutLog = needLog ? TRUE : FALSE;
-			pInfo->bActive = keepActive ? TRUE : FALSE;
+			pInfo->bAdmin = isBackend ? true : false;
+			pInfo->bAuth = needAuth ? true : false;
+			pInfo->bPutLog = needLog ? true : false;
+			pInfo->bActive = keepActive ? true : false;
 		} else {
 			/* 此路由尚未接入或所属插件未启用；保留数据库记录。 */
 			/* 分批迁移及插件停用时保留 URI 权限记录，不能按当前路由表删库。 */
@@ -743,10 +775,10 @@ void Auth_UpdateURIS()
 	}
 	sqlite3_reset(stmt_cache_uris);
 	// 閬嶅巻璺敱琛紝灏嗘暟鎹簱涓笉瀛樺湪鐨勮褰曟坊鍔犺繘鍘?
-	XA_DictWalk(G_StaticRouteTableHTTP, (ptr)AuthRouteCheckProc, NULL);
+	MapWalk(G_StaticRouteTableHTTP, (MapWalkProc)AuthRouteCheckProc, NULL);
 	for (size_t i = 0; i < G_DynamicCount; i++) {
-		Dict_Key key = {(char*)G_DynamicRoutes[i].Path, (uint32)strlen(G_DynamicRoutes[i].Path)};
-		AuthRouteCheckProc(&key, &G_DynamicRoutes[i], NULL);
+		xbytesview key = {(cbytes)G_DynamicRoutes[i].Path, strlen(G_DynamicRoutes[i].Path)};
+		AuthRouteCheckProc(key, &G_DynamicRoutes[i], NULL);
 	}
 }
 
@@ -763,7 +795,7 @@ static void XAdminRepairDuplicateAuthGroups()
 	sqlite3_stmt* stmtDeleteGroup = NULL;
 	int iRet;
 	int iFixed = 0;
-	xtime iNow = XA_Now();
+	xtime iNow = xrtNow();
 
 	iRet = sqlite3_prepare_v3(G_DB, "SELECT name, desc, sort FROM authGroup WHERE isDelete = 0 GROUP BY name, desc, sort HAVING COUNT(*) > 1;", -1, 0, &stmtDupSig, NULL);
 	if ( iRet != SQLITE_OK ) { goto cleanup; }
@@ -826,7 +858,7 @@ static void XAdminRepairDuplicateAuthItems()
 	sqlite3_stmt* stmtDeleteAuth = NULL;
 	int iRet;
 	int iFixed = 0;
-	xtime iNow = XA_Now();
+	xtime iNow = xrtNow();
 
 	iRet = sqlite3_prepare_v3(G_DB, "SELECT groupID, name, desc, sort FROM auth WHERE isDelete = 0 GROUP BY groupID, name, desc, sort HAVING COUNT(*) > 1;", -1, 0, &stmtDupSig, NULL);
 	if ( iRet != SQLITE_OK ) { goto cleanup; }
@@ -958,12 +990,12 @@ void Auth_Unit()
 	sqlite3_finalize(stmt_cache_uris);
 	
 	// 閲婃斁鍏ㄥ眬缂撳瓨琛?
-	xvoUnref(G_CACHE_RoleAuth);
-	xvoUnref(G_CACHE_RoleAuthIndex);
-	xvoUnref(G_CACHE_RoleAuthLevel);
-	xvoUnref(G_CACHE_Auth);
-	xvoUnref(G_CACHE_Group);
-	xvoUnref(G_CACHE_Role);
+	xrtValueRelease(G_CACHE_RoleAuth);
+	xrtValueRelease(G_CACHE_RoleAuthIndex);
+	xrtValueRelease(G_CACHE_RoleAuthLevel);
+	xrtValueRelease(G_CACHE_Auth);
+	xrtValueRelease(G_CACHE_Group);
+	xrtValueRelease(G_CACHE_Role);
 }
 
 

@@ -64,45 +64,45 @@ void Menu_CompileSQL()
 // 构建菜单树（递归）
 void Menu_BuildTree_Recursive(xvalue* arrResult, xvalue* arrAll, int iParentID)
 {
-	uint32 iCount = xvoArrayItemCount(arrAll);
+	uint32 iCount = ValueCount(arrAll);
 
 	for ( uint32 i = 0; i < iCount; i++ ) {
-		xvalue* tblItem = xvoArrayGetValue(arrAll, i);
-		int iItemParent = xvoTableGetInt(tblItem, "parent", 6);
+		xvalue* tblItem = xrtValueArrayGet(arrAll, i);
+		int iItemParent = ValueInt(tblItem, "parent");
 
 		if ( iItemParent == iParentID ) {
-			xvalue* tblMenu = xvoCreateTable();
+			xvalue* tblMenu = ValueObject();
 
-			int iID = xvoTableGetInt(tblItem, "id", 2);
-			xvoTableSetInt(tblMenu, "id", 2, iID);
-			xvoTableSetText(tblMenu, "title", 5, xvoTableGetText(tblItem, "title", 5), 0, FALSE);
+			int iID = ValueInt(tblItem, "id");
+			ValueSetInt(tblMenu, "id", iID);
+			ValueSetText(tblMenu, "title", ValueText(tblItem, "title"));
 
 			// 确保 icon 字段始终输出，即使为空
-			str sIcon = xvoTableGetText(tblItem, "icon", 4);
-			xvoTableSetText(tblMenu, "icon", 4, sIcon ? (ptr)sIcon : (str)"", 0, FALSE);
+			str sIcon = ValueText(tblItem, "icon");
+			ValueSetText(tblMenu, "icon", sIcon ? (ptr)sIcon : (str)"");
 
-			xvoTableSetInt(tblMenu, "type", 4, xvoTableGetInt(tblItem, "type", 4));
+			ValueSetInt(tblMenu, "type", ValueInt(tblItem, "type"));
 
-			str sOpenType = xvoTableGetText(tblItem, "openType", 8);
+			str sOpenType = ValueText(tblItem, "openType");
 			if ( sOpenType && (strlen(sOpenType) > 0) ) {
-				xvoTableSetText(tblMenu, "openType", 8, sOpenType, 0, FALSE);
+				ValueSetText(tblMenu, "openType", sOpenType);
 			}
 
-			str sHref = xvoTableGetText(tblItem, "href", 4);
+			str sHref = ValueText(tblItem, "href");
 			if ( sHref && (strlen(sHref) > 0) ) {
-				xvoTableSetText(tblMenu, "href", 4, sHref, 0, FALSE);
+				ValueSetText(tblMenu, "href", sHref);
 			}
 
-			xvalue* arrChildren = xvoCreateArray();
+			xvalue* arrChildren = ValueArray();
 			Menu_BuildTree_Recursive(arrChildren, arrAll, iID);
 
-			if ( xvoArrayItemCount(arrChildren) > 0 ) {
-				xvoTableSetValue(tblMenu, "children", 8, arrChildren, TRUE);
+			if ( ValueCount(arrChildren) > 0 ) {
+				ValueSetOwn(tblMenu, "children", arrChildren);
 			} else {
-				xvoUnref(arrChildren);
+				xrtValueRelease(arrChildren);
 			}
 
-			xvoArrayAppendValue(arrResult, tblMenu, TRUE);
+			ValueArrayOwn(arrResult, tblMenu);
 		}
 	}
 }
@@ -112,39 +112,39 @@ void Menu_BuildTree_Recursive(xvalue* arrResult, xvalue* arrAll, int iParentID)
 // 构建菜单树（入口函数，只返回可见且启用的菜单）
 xvalue* Menu_BuildTree()
 {
-	xvalue* arrAll = xvoCreateArray();
+	xvalue* arrAll = ValueArray();
 
 	while ( sqlite3_step(stmt_menu_tree) == SQLITE_ROW ) {
-		xvalue* tblRow = xvoCreateTable();
-		xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int(stmt_menu_tree, 0));
-		xvoTableSetInt(tblRow, "parent", 6, sqlite3_column_int(stmt_menu_tree, 1));
-		xvoTableSetText(tblRow, "title", 5, (char*)sqlite3_column_text(stmt_menu_tree, 2), 0, FALSE);
+		xvalue* tblRow = ValueObject();
+		ValueSetInt(tblRow, "id", sqlite3_column_int(stmt_menu_tree, 0));
+		ValueSetInt(tblRow, "parent", sqlite3_column_int(stmt_menu_tree, 1));
+		ValueSetText(tblRow, "title", (char*)sqlite3_column_text(stmt_menu_tree, 2));
 
 		str sIcon = (str)sqlite3_column_text(stmt_menu_tree, 3);
-		xvoTableSetText(tblRow, "icon", 4, sIcon ? sIcon : (str)"", 0, FALSE);
+		ValueSetText(tblRow, "icon", sIcon ? sIcon : (str)"");
 
-		xvoTableSetInt(tblRow, "type", 4, sqlite3_column_int(stmt_menu_tree, 4));
-		xvoTableSetText(tblRow, "openType", 8, (char*)sqlite3_column_text(stmt_menu_tree, 5), 0, FALSE);
-		xvoTableSetText(tblRow, "href", 4, (char*)sqlite3_column_text(stmt_menu_tree, 6), 0, FALSE);
-		xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int(stmt_menu_tree, 7));
-		xvoArrayAppendValue(arrAll, tblRow, TRUE);
+		ValueSetInt(tblRow, "type", sqlite3_column_int(stmt_menu_tree, 4));
+		ValueSetText(tblRow, "openType", (char*)sqlite3_column_text(stmt_menu_tree, 5));
+		ValueSetText(tblRow, "href", (char*)sqlite3_column_text(stmt_menu_tree, 6));
+		ValueSetInt(tblRow, "sort", sqlite3_column_int(stmt_menu_tree, 7));
+		ValueArrayOwn(arrAll, tblRow);
 	}
 	sqlite3_reset(stmt_menu_tree);
 
-	xvalue* arrResult = xvoCreateArray();
+	xvalue* arrResult = ValueArray();
 
-	xvalue* tblHome = xvoCreateTable();
-	xvoTableSetText(tblHome, "id", 2, "home", 0, FALSE);
-	xvoTableSetText(tblHome, "title", 5, "主页", 0, FALSE);
-	xvoTableSetText(tblHome, "icon", 4, "layui-icon layui-icon-home", 0, FALSE);
-	xvoTableSetInt(tblHome, "type", 4, 1);
-	xvoTableSetText(tblHome, "openType", 8, "_iframe", 0, FALSE);
-	xvoTableSetText(tblHome, "href", 4, "/admin/view/home", 0, FALSE);
-	xvoArrayAppendValue(arrResult, tblHome, TRUE);
+	xvalue* tblHome = ValueObject();
+	ValueSetText(tblHome, "id", "home");
+	ValueSetText(tblHome, "title", "主页");
+	ValueSetText(tblHome, "icon", "layui-icon layui-icon-home");
+	ValueSetInt(tblHome, "type", 1);
+	ValueSetText(tblHome, "openType", "_iframe");
+	ValueSetText(tblHome, "href", "/admin/view/home");
+	ValueArrayOwn(arrResult, tblHome);
 
 	Menu_BuildTree_Recursive(arrResult, arrAll, 0);
 
-	xvoUnref(arrAll);
+	xrtValueRelease(arrAll);
 	return arrResult;
 }
 
@@ -170,7 +170,7 @@ static void Menu_EnsureOptionManagerMenu()
 	int iRet;
 	int iMenuID = 0;
 	int iParentID = 0;
-	xtime now = XA_Now();
+	xtime now = xrtNow();
 
 	iRet = sqlite3_prepare_v3(G_DB, "SELECT id, parent FROM menu WHERE isDelete = 0 AND title = '设置管理' ORDER BY id ASC LIMIT 1;", -1, SQL_PREPARE_DEFAULT, &stmt, NULL);
 	if ( iRet == SQLITE_OK ) {

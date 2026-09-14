@@ -11,7 +11,7 @@
 // 缓存前台权限分组列表 - ComboBox 使用
 static bool MemberAuth_DBGroupGetAccess(int64 iGroupID, int64 iAuthID, int64* pAuthLevel)
 {
-	bool bAllowed = FALSE;
+	bool bAllowed = false;
 	str sAuthList = NULL;
 	xvalue* arrAuth = NULL;
 
@@ -19,7 +19,7 @@ static bool MemberAuth_DBGroupGetAccess(int64 iGroupID, int64 iAuthID, int64* pA
 		*pAuthLevel = -1;
 	}
 	if ( iGroupID <= 0 ) {
-		return FALSE;
+		return false;
 	}
 
 	sqlite3_bind_int64(stmt_mgroup_get, 1, iGroupID);
@@ -29,16 +29,16 @@ static bool MemberAuth_DBGroupGetAccess(int64 iGroupID, int64 iAuthID, int64* pA
 				*pAuthLevel = sqlite3_column_int64(stmt_mgroup_get, 4);
 			}
 			if ( iAuthID <= 0 ) {
-				bAllowed = TRUE;
+				bAllowed = true;
 			} else {
 				sAuthList = (str)sqlite3_column_text(stmt_mgroup_get, 3);
 				if ( sAuthList && strlen(sAuthList) > 2 ) {
-					arrAuth = xrtParseJSON(sAuthList, 0);
-					if ( arrAuth && (xrtValueType(arrAuth) == XVO_DT_ARRAY) ) {
+					arrAuth = JsonParseN(sAuthList, 0);
+					if ( arrAuth && (xrtValueType(arrAuth) == XVALUE_ARRAY) ) {
 						bAllowed = XAdminIDArrayContainsInt(arrAuth, iAuthID);
 					}
 					if ( arrAuth ) {
-						xvoUnref(arrAuth);
+						xrtValueRelease(arrAuth);
 					}
 				}
 			}
@@ -59,10 +59,10 @@ void ReloadCache_MemberAuth()
 		xvalue* tblRow = XAdminCreateSharedTableValue();
 		int64 id = sqlite3_column_int64(stmt_cache_mauth, 0);
 		int64 groupId = sqlite3_column_int64(stmt_cache_mauth, 1);
-		xvoTableSetInt(tblRow, "id", 2, id);
-		xvoTableSetInt(tblRow, "groupId", 7, groupId);
-		xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_cache_mauth, 2), 0, FALSE);
-		xvoArrayAppendValue(arrRet, tblRow, TRUE);
+		ValueSetInt(tblRow, "id", id);
+		ValueSetInt(tblRow, "groupId", groupId);
+		ValueSetText(tblRow, "name", (str)sqlite3_column_text(stmt_cache_mauth, 2));
+		ValueArrayOwn(arrRet, tblRow);
 	}
 	sqlite3_reset(stmt_cache_mauth);
 	XAdminValuePublishShared(arrRet);
@@ -71,7 +71,7 @@ void ReloadCache_MemberAuth()
 	if ( G_CACHE_MemberAuth ) {
 		xvalue* oldCache = G_CACHE_MemberAuth;
 		G_CACHE_MemberAuth = arrRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_MemberAuth = arrRet;
 	}
@@ -94,41 +94,41 @@ void ReloadCache_MemberAuthGroup()
 		
 		// 创建分类�?
 		xvalue* tblGroup = XAdminCreateSharedTableValue();
-		xvoTableSetInt(tblGroup, "id", 2, groupId);
-		xvoTableSetText(tblGroup, "name", 4, groupName, 0, FALSE);
+		ValueSetInt(tblGroup, "id", groupId);
+		ValueSetText(tblGroup, "name", groupName);
 		
 		// 创建空的 auths 数组
 		xvalue* arrAuths = XAdminCreateSharedArrayValue();
-		xvoTableSetValue(tblGroup, "auths", 5, arrAuths, TRUE);
+		ValueSetOwn(tblGroup, "auths", arrAuths);
 		
 		// 添加到缓存数�?
-		xvoArrayAppendValue(arrRet, tblGroup, TRUE);
+		ValueArrayOwn(arrRet, tblGroup);
 	}
 	sqlite3_reset(stmt_cache_magroup);
 	
 	// 遍历 G_CACHE_MemberAuth，将权限分组添加到对应分类的 auths �?
 	for ( int i = 0; i < xrtValueCount(G_CACHE_MemberAuth); i++ ) {
-		xvalue* pAuth = xvoArrayGetValue(G_CACHE_MemberAuth, i);
-		int64 authId = xvoTableGetInt(pAuth, "id", 2);
-		int64 groupId = xvoTableGetInt(pAuth, "groupId", 7);
-		str authName = xvoTableGetText(pAuth, "name", 4);
+		xvalue* pAuth = xrtValueArrayGet(G_CACHE_MemberAuth, i);
+		int64 authId = ValueInt(pAuth, "id");
+		int64 groupId = ValueInt(pAuth, "groupId");
+		str authName = ValueText(pAuth, "name");
 		
 		xvalue* pGroup = NULL;
 		for ( int j = 0; j < xrtValueCount(arrRet); j++ ) {
-			xvalue* pGroupItem = xvoArrayGetValue(arrRet, j);
-			if ( pGroupItem && (xvoTableGetInt(pGroupItem, "id", 2) == groupId) ) {
+			xvalue* pGroupItem = xrtValueArrayGet(arrRet, j);
+			if ( pGroupItem && (ValueInt(pGroupItem, "id") == groupId) ) {
 				pGroup = pGroupItem;
 				break;
 			}
 		}
 		if ( pGroup ) {
-			xvalue* arrAuths = xvoTableGetValue(pGroup, "auths", 5);
+			xvalue* arrAuths = ValueGet(pGroup, "auths");
 			
 			// 创建权限项并添加�?auths 数组
 			xvalue* tblAuth = XAdminCreateSharedTableValue();
-			xvoTableSetInt(tblAuth, "id", 2, authId);
-			xvoTableSetText(tblAuth, "name", 4, authName, 0, FALSE);
-			xvoArrayAppendValue(arrAuths, tblAuth, TRUE);
+			ValueSetInt(tblAuth, "id", authId);
+			ValueSetText(tblAuth, "name", authName);
+			ValueArrayOwn(arrAuths, tblAuth);
 		}
 	}
 	XAdminValuePublishShared(arrRet);
@@ -137,7 +137,7 @@ void ReloadCache_MemberAuthGroup()
 	if ( G_CACHE_MemberAuthGroup ) {
 		xvalue* oldCache = G_CACHE_MemberAuthGroup;
 		G_CACHE_MemberAuthGroup = arrRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_MemberAuthGroup = arrRet;
 	}
@@ -148,21 +148,30 @@ void ReloadCache_MemberAuthGroup()
 // ==================== 前台用户组权限缓�?====================
 
 // 前台路由权限分类回调 - 用于构建用户组的 URI 权限字典
-bool MemberAuthRouteCategorize(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
+/* F6：单次遍历收集前台 AuthID -> URI 清单（与后台 Auth_ReloadCache 同构）。 */
+static bool MemberAuthCollectURIProc(xbytesview key, RouteInfo* pInfo, void* pArg)
 {
-	struct {
-		xvalue* listAuth;
-		xvalue* tblURI;
-	} *pAuthInfo = param;
-	
-	// 仅处理前�?URI（bAdmin = FALSE）且需要鉴权的路由
-	if ( !pInfo->bAdmin && pInfo->bAuth && (pInfo->AuthID > 0) ) {
-		bool bPass = XAdminIDArrayContainsInt(pAuthInfo->listAuth, pInfo->AuthID);
-		if ( bPass ) {
-			xvoTableSetBool(pAuthInfo->tblURI, pKey->Key, pKey->KeyLen, TRUE);
+	xvalue* mapAuthURIs = (xvalue*)pArg;
+	char sKey[32];
+	int iKeyLen;
+	xvalue* arrURIs;
+	if ( pInfo->bAdmin || !pInfo->bAuth || (pInfo->AuthID <= 0) ) {
+		return false;
+	}
+	iKeyLen = XAdminIDCacheFormatKey((int64)pInfo->AuthID, sKey);
+	if ( iKeyLen <= 0 ) {
+		return false;
+	}
+	arrURIs = ValueGet(mapAuthURIs, sKey);
+	if ( (arrURIs == NULL) || (xrtValueType(arrURIs) != XVALUE_ARRAY) ) {
+		arrURIs = XAdminCreateSharedArrayValue();
+		if ( (arrURIs == NULL) || !ValueSetOwn(mapAuthURIs, sKey, arrURIs) ) {
+			if ( arrURIs != NULL ) xrtValueRelease(arrURIs);
+			return false;
 		}
 	}
-	return FALSE;
+	ValueArrayOwn(arrURIs, xrtValueString(xrtStrViewN((const char*)key.Data, key.Size)));
+	return false;
 }
 
 // 重新加载前台用户组权限缓�?
@@ -170,6 +179,8 @@ bool MemberAuthRouteCategorize(Dict_Key* pKey, RouteInfo* pInfo, ptr param)
 // G_CACHE_MemberGroupAuth: 用户组权限缓�?- 后端鉴权查表�?
 void MemberAuth_ReloadCache()
 {
+	xvalue* mapAuthURIs = XAdminCreateSharedTableValue();
+	MapWalk(G_StaticRouteTableHTTP, (MapWalkProc)MemberAuthCollectURIProc, mapAuthURIs);
 	// ʹ��Ԥ��������ѯ����
 	xvalue* arrRet = XAdminCreateSharedArrayValue();	// �û����б�
 	xvalue* lstRet = XAdminCreateSharedArrayValue();	// �û���Ȩ��ӳ���
@@ -182,58 +193,69 @@ while ( sqlite3_step(stmt_cache_mgroup) == SQLITE_ROW ) {
 		int64 id = sqlite3_column_int64(stmt_cache_mgroup, 0);
 		str name = (str)sqlite3_column_text(stmt_cache_mgroup, 1);
 		int64 authLevel = sqlite3_column_int64(stmt_cache_mgroup, 4);
-		xvoTableSetInt(tblRow, "id", 2, id);
-		xvoTableSetText(tblRow, "name", 4, name, 0, FALSE);
-		xvoTableSetInt(tblRow, "authLevel", 9, authLevel);
-		xvoArrayAppendValue(arrRet, tblRow, TRUE);
+		ValueSetInt(tblRow, "id", id);
+		ValueSetText(tblRow, "name", name);
+		ValueSetInt(tblRow, "authLevel", authLevel);
+		ValueArrayOwn(arrRet, tblRow);
 		
 		// 解析权限分组列表
 		xvalue* listAuth = NULL;
 		str sAuthList = (str)sqlite3_column_text(stmt_cache_mgroup, 3);
 		if ( sAuthList && (strlen(sAuthList) > 2) ) {
-			xvalue* arrAuth = xrtParseJSON(sAuthList, 0);
-			if ( arrAuth && (xrtValueType(arrAuth) == XVO_DT_ARRAY) ) {
+			xvalue* arrAuth = JsonParseN(sAuthList, 0);
+			if ( arrAuth && (xrtValueType(arrAuth) == XVALUE_ARRAY) ) {
 				listAuth = arrAuth;
 			} else if ( arrAuth ) {
-				xvoUnref(arrAuth);
+				xrtValueRelease(arrAuth);
 			}
 		}
 		
-		// 构建对应用户组的 URI 权限字典
+		// 构建对应用户组的 URI 权限字典（F6：按 authList 点取）
 		xvalue* tblURI = XAdminCreateSharedTableValue();
-		struct {
-			xvalue* listAuth;
-			xvalue* tblURI;
-		} dictWalkInfo = { listAuth, tblURI };
-		XA_DictWalk(G_StaticRouteTableHTTP, (ptr)MemberAuthRouteCategorize, &dictWalkInfo);
+		if ( listAuth && (xrtValueType(listAuth) == XVALUE_ARRAY) ) {
+			for ( int iAuth = 0; iAuth < xrtValueCount(listAuth); iAuth++ ) {
+				char sKey[32];
+				int iKeyLen = XAdminIDCacheFormatKey(ValueArrayInt(listAuth, iAuth), sKey);
+				xvalue* arrURIs = (iKeyLen > 0) ? ValueGet(mapAuthURIs, sKey) : NULL;
+				if ( (arrURIs != NULL) && (xrtValueType(arrURIs) == XVALUE_ARRAY) ) {
+					for ( int iURI = 0; iURI < xrtValueCount(arrURIs); iURI++ ) {
+						str sURI = ValueArrayText(arrURIs, iURI);
+						if ( sURI != NULL ) {
+							ValueSetBool(tblURI, sURI, true);
+						}
+					}
+				}
+			}
+		}
 		if ( listAuth ) {
-			xvoUnref(listAuth);
+			xrtValueRelease(listAuth);
 		}
 		
 		// 权限字典添加元数�?
-		xvoTableSetInt(tblURI, "id", 2, id);
-		xvoTableSetText(tblURI, "name", 4, name, 0, FALSE);
-		xvoTableSetInt(tblURI, "authLevel", 9, authLevel);
-		xvoTableSetInt(tblURI, "__id__", 6, id);
-		xvoTableSetText(tblURI, "__name__", 8, name, 0, FALSE);
-		xvoTableSetInt(tblURI, "__authLevel__", 13, authLevel);
+		ValueSetInt(tblURI, "id", id);
+		ValueSetText(tblURI, "name", name);
+		ValueSetInt(tblURI, "authLevel", authLevel);
+		ValueSetInt(tblURI, "__id__", id);
+		ValueSetText(tblURI, "__name__", name);
+		ValueSetInt(tblURI, "__authLevel__", authLevel);
 		
 		// 将整理好的权限字典添加到缓存�?
-		xvoArrayAppendValue(lstRet, tblURI, TRUE);
-		xvoListSetInt(idxRet, id, xrtValueCount(lstRet));
-		xvoListSetInt(lvlRet, id, authLevel);
+		ValueArrayOwn(lstRet, tblURI);
+		ValueMapSetInt(idxRet, id, xrtValueCount(lstRet));
+		ValueMapSetInt(lvlRet, id, authLevel);
 	}
 	sqlite3_reset(stmt_cache_mgroup);
 	XAdminValuePublishShared(arrRet);
 	XAdminValuePublishShared(lstRet);
 	XAdminValuePublishShared(idxRet);
 	XAdminValuePublishShared(lvlRet);
+	xrtValueRelease(mapAuthURIs);
 	
 	// 替换全局缓存 - 用户组列表（线程安全写法�?
 	if ( G_CACHE_MemberGroup ) {
 		xvalue* oldCache = G_CACHE_MemberGroup;
 		G_CACHE_MemberGroup = arrRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_MemberGroup = arrRet;
 	}
@@ -242,21 +264,21 @@ while ( sqlite3_step(stmt_cache_mgroup) == SQLITE_ROW ) {
 	if ( G_CACHE_MemberGroupAuth ) {
 		xvalue* oldCache = G_CACHE_MemberGroupAuth;
 		G_CACHE_MemberGroupAuth = lstRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_MemberGroupAuth = lstRet;
 	}
 	if ( G_CACHE_MemberGroupAuthIndex ) {
 		xvalue* oldCache = G_CACHE_MemberGroupAuthIndex;
 		G_CACHE_MemberGroupAuthIndex = idxRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_MemberGroupAuthIndex = idxRet;
 	}
 	if ( G_CACHE_MemberGroupAuthLevel ) {
 		xvalue* oldCache = G_CACHE_MemberGroupAuthLevel;
 		G_CACHE_MemberGroupAuthLevel = lvlRet;
-		xvoUnref(oldCache);
+		CacheRetire(oldCache);
 	} else {
 		G_CACHE_MemberGroupAuthLevel = lvlRet;
 	}
@@ -274,7 +296,7 @@ void MemberAuth_LoadURIS()
 		int64 authID = sqlite3_column_int64(stmt_cache_muris, 1);
 		str uri = (str)sqlite3_column_text(stmt_cache_muris, 2);
 		size_t iSize = strlen(uri);
-		RouteInfo* pInfo = XA_DictGet(G_StaticRouteTableHTTP, uri, iSize);
+		RouteInfo* pInfo = xrtMapGet(G_StaticRouteTableHTTP, KeyViewN(uri, iSize));
 		if ( pInfo && !pInfo->bAdmin ) {
 			// 前台路由存在，更�?AuthID
 			pInfo->AuthID = authID;
@@ -310,27 +332,27 @@ void MemberAuth_Unit()
 	
 	// 释放全局缓存�?
 	if ( G_CACHE_MemberGroupAuth ) {
-		xvoUnref(G_CACHE_MemberGroupAuth);
+		xrtValueRelease(G_CACHE_MemberGroupAuth);
 		G_CACHE_MemberGroupAuth = NULL;
 	}
 	if ( G_CACHE_MemberGroupAuthIndex ) {
-		xvoUnref(G_CACHE_MemberGroupAuthIndex);
+		xrtValueRelease(G_CACHE_MemberGroupAuthIndex);
 		G_CACHE_MemberGroupAuthIndex = NULL;
 	}
 	if ( G_CACHE_MemberGroupAuthLevel ) {
-		xvoUnref(G_CACHE_MemberGroupAuthLevel);
+		xrtValueRelease(G_CACHE_MemberGroupAuthLevel);
 		G_CACHE_MemberGroupAuthLevel = NULL;
 	}
 	if ( G_CACHE_MemberAuth ) {
-		xvoUnref(G_CACHE_MemberAuth);
+		xrtValueRelease(G_CACHE_MemberAuth);
 		G_CACHE_MemberAuth = NULL;
 	}
 	if ( G_CACHE_MemberAuthGroup ) {
-		xvoUnref(G_CACHE_MemberAuthGroup);
+		xrtValueRelease(G_CACHE_MemberAuthGroup);
 		G_CACHE_MemberAuthGroup = NULL;
 	}
 	if ( G_CACHE_MemberGroup ) {
-		xvoUnref(G_CACHE_MemberGroup);
+		xrtValueRelease(G_CACHE_MemberGroup);
 		G_CACHE_MemberGroup = NULL;
 	}
 }

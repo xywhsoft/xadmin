@@ -24,10 +24,16 @@ static void ProbeExpire(XS_ServerObject s, XS_HostObject h, XS_RequestObject req
 	char id[128]; xvalue* value; (void)s; (void)h; (void)session;
 	xsReqCookieValue(req, "XSID", id, sizeof(id));
 	value = Session_Acquire(true, id);
-	xvoTableSetInt(value, "_expireTime", 11, XA_Now() - 1);
+	ValueSetInt(value, "_expireTime", xrtNow() - 1);
 	xrtValueRelease(value);
 	Session_Prune(G_AdminSessions);
 	xsHttpReplyAuto(resp, 200, HTTP_CT_TEXT, "expired", 0);
+}
+
+static void ProbeCrash(XS_ServerObject s, XS_HostObject h, XS_RequestObject req, XS_ResponseObject resp, xvalue* session)
+{
+	(void)s; (void)h; (void)req; (void)session; (void)resp;
+	*(volatile int*)0 = 1;   /* 崩溃捕获链路验证专用 */
 }
 static void ProbeReload(XS_ServerObject s, XS_HostObject h, XS_RequestObject req, XS_ResponseObject resp, xvalue* session)
 {
@@ -49,16 +55,17 @@ void ServiceInit(XS_HostInfo* host)
 	XAdmin_ServiceInit(host);
 	if (!G_Ready) return;
 	G_Ready = false; /* 正式运行前增加测试节点。运行中的注册被拒绝。 */
-	Public(AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_GET, ProbeGet));
-	AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_POST, ProbePost);
-	AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_GET, ProbeReplacement);
-	Public(AddStaticRouteHTTP("/__test/item/new", XHTTP_METHOD_GET, ProbeGet));
-	Public(AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_GET, ProbeGet));
-	AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_POST, ProbePost);
-	AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_POST, ProbeReplacement);
-	Public(AddStaticRouteHTTP("/__test/crud", XHTTP_METHOD_CRUD, ProbeGet));
-	Public(AddStaticRouteHTTP("/__test/expire", XHTTP_METHOD_POST, ProbeExpire));
-	Public(AddStaticRouteHTTP("/__test/reload", XHTTP_METHOD_POST, ProbeReload));
-	Public(AddStaticRouteHTTP("/__test/echo", XHTTP_METHOD_POST, ProbeEcho));
+	Public(AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_GET, ProbeGet, false));
+	AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_POST, ProbePost, false);
+	AddStaticRouteHTTP("/__test/method", XHTTP_METHOD_GET, ProbeReplacement, false);
+	Public(AddStaticRouteHTTP("/__test/item/new", XHTTP_METHOD_GET, ProbeGet, false));
+	Public(AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_GET, ProbeGet, false));
+	AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_POST, ProbePost, false);
+	AddDynamicRouteHTTP("/__test/item/{id}", XHTTP_METHOD_POST, ProbeReplacement, false);
+	Public(AddStaticRouteHTTP("/__test/crud", XHTTP_METHOD_CRUD, ProbeGet, false));
+	Public(AddStaticRouteHTTP("/__test/expire", XHTTP_METHOD_POST, ProbeExpire, false));
+	Public(AddStaticRouteHTTP("/__test/crash", XHTTP_METHOD_GET, ProbeCrash, false));
+	Public(AddStaticRouteHTTP("/__test/reload", XHTTP_METHOD_POST, ProbeReload, false));
+	Public(AddStaticRouteHTTP("/__test/echo", XHTTP_METHOD_POST, ProbeEcho, false));
 	G_Ready = RouteHTTP_Compile();
 }

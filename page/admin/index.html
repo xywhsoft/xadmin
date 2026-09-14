@@ -129,7 +129,7 @@
 				 
 				// 注销
 				admin.logout(function(){
-					window.location.href = '/admin/logout';
+					var __f = document.createElement('form'); __f.method = 'POST'; __f.action = '/admin/logout'; document.body.appendChild(__f); __f.submit();
 					return new Promise((resolve) => {
 						resolve(true)
 					});

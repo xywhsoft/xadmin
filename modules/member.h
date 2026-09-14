@@ -61,6 +61,11 @@ void Member_Init()
 	sqlite3_prepare_v3(db,
 		"UPDATE member SET balance = ?, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_balance, NULL);
+
+	// member - 会员自助资料更新（F1：仅资料字段，杜绝 profile 接口覆盖 status/权限）
+	sqlite3_prepare_v3(db,
+		"UPDATE member SET nickname = ?, email = ?, phone = ?, avatar = ?, updateTime = ? WHERE id = ?",
+		-1, SQL_PREPARE_DEFAULT, &stmt_member_profile, NULL);
 	
 	// member �?- 前台登录查询
 	sqlite3_prepare_v3(db,
@@ -247,6 +252,7 @@ void Member_Unit()
 	if (stmt_member_chk) sqlite3_finalize(stmt_member_chk);
 	if (stmt_member_pwd) sqlite3_finalize(stmt_member_pwd);
 	if (stmt_member_balance) sqlite3_finalize(stmt_member_balance);
+	if (stmt_member_profile) sqlite3_finalize(stmt_member_profile);
 	if (stmt_member_login) sqlite3_finalize(stmt_member_login);
 	
 	// 释放 memberGroup 表预编译语句
@@ -297,10 +303,10 @@ void Member_Unit()
 // 修改用户余额并记录日�?
 // type: 0=系统调整, 1=充�? 2=消费, 3=退�? 4=提现
 // amount: 变动金额（正数增加，负数减少，单位：分）
-// 返回: TRUE=成功, FALSE=失败
+// 返回: true=成功, false=失败
 bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, str operator)
 {
-	if (!DB_BeginWrite()) return FALSE;
+	if (!DB_BeginWrite()) return false;
 	// 获取当前余额
 	sqlite3_bind_int64(stmt_member_get, 1, memberId);
 	if (sqlite3_step(stmt_member_get) != SQLITE_ROW) {
@@ -316,7 +322,7 @@ bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, st
 		return DB_EndWrite(false); // 余额不足
 	}
 	
-	int64 now = XA_Now();
+	int64 now = xrtNow();
 	
 	// 更新余额
 	sqlite3_bind_int64(stmt_member_balance, 1, newBalance);

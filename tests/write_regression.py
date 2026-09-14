@@ -104,6 +104,9 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
                 call('POST', path + '/repwd', reset, success=False)
             assert snapshot(table) == before, table
             call('POST', path + '/repwd', reset)
+            for session in sessions:
+                assert access(session, table == 'member') == revoked_status(table == 'member'), 'repwd kept stale sessions'
+            sessions = [login(fields['username'], table == 'member') for _ in range(2)]
             call('POST', path + '/repwd', {**reset, 'id': 2147483647}, success=False)
         before = snapshot(table)
         for ignore in (False, True):
@@ -211,6 +214,22 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     assert snapshot('member') == before_member and snapshot('memberBalanceLog') == before_logs
     call('POST', '/admin/member/user/balance', payload)
     assert query('SELECT balance FROM member WHERE id=?', (member_id,)) == [(100,)]
+
+    # F1: a failed disable must not revoke sessions; a successful one must.
+    username = 'write_disable'
+    _, created = call('POST', '/admin/member/user', {
+        'username': username, 'password': client_hash(username, password),
+        'groupId': 1, 'status': 1})
+    disable_id = created['data']['id']
+    disable = {'id': disable_id, 'groupId': 1, 'authLevel': 0, 'nickname': 'n',
+               'email': '', 'phone': '', 'avatar': '', 'status': 0}
+    session = login(username, member=True)
+    with fail('member'):
+        call('PUT', '/admin/member/user', disable, success=False)
+    assert access(session, member=True) == 200, 'failed disable revoked a session'
+    call('PUT', '/admin/member/user', disable)
+    assert access(session, member=True) == 401, 'disable did not revoke the session'
+    print('PASS member disable revocation and failed-disable no-op (F1)')
 
     # Clearing an empty log set is legitimately successful (zero affected rows).
     execute("INSERT INTO logs(user,ip,uri,method,param,body,createTime) VALUES('smoke','','/__write/log','GET','','',1)")

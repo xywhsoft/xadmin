@@ -1,0 +1,18 @@
+{
+	"type": "object",
+	"properties": {
+		"maxLogLines": {
+			"type": "integer",
+			"minimum": 100,
+			"maximum": 1000000,
+			"description": "Maximum log lines per task before auto-trim"
+		},
+		"defaultRefreshInterval": {
+			"type": "integer",
+			"minimum": 1000,
+			"maximum": 60000,
+			"description": "Default log viewer refresh interval in ms"
+		}
+	},
+	"additionalProperties": false
+}

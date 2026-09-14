@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Logs - {$name}</title>
+	<meta name="renderer" content="webkit">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<link href="/layui/css/layui.css" rel="stylesheet">
+	<style>
+		body { margin: 0; padding: 0; background: #1a1a1a; color: #ccc; font-family: Consolas, Monaco, 'Courier New', monospace; }
+		.log-header { padding: 10px 16px; background: #2a2a2a; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; }
+		.log-header .title { font-size: 14px; color: #fff; }
+		.log-header .controls { display: flex; align-items: center; gap: 10px; }
+		.log-header select, .log-header button { height: 28px; font-size: 12px; }
+		.log-container { padding: 10px 16px; height: calc(100vh - 70px); overflow-y: auto; }
+		.log-line { padding: 2px 0; line-height: 1.6; font-size: 13px; white-space: pre-wrap; word-break: break-all; }
+		.log-time { color: #666; margin-right: 10px; }
+		.log-sub { color: #888; }
+		.log-info { color: #ccc; }
+		.log-succ { color: #52c41a; }
+		.log-fail, .log-error, .log-err { color: #ff4d4f; }
+		.log-war { color: #faad14; }
+		.log-section { font-size: 15px; font-weight: bold; color: #fff; margin-top: 8px; }
+		.log-title { font-size: 18px; font-weight: bold; color: #1890ff; margin-top: 12px; margin-bottom: 4px; }
+		.log-container::-webkit-scrollbar { width: 8px; }
+		.log-container::-webkit-scrollbar-track { background: #1a1a1a; }
+		.log-container::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
+		.log-container::-webkit-scrollbar-thumb:hover { background: #555; }
+		.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+		.status-running { background: #52c41a; animation: pulse 1s infinite; }
+		.status-paused { background: #faad14; }
+		@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+	</style>
+</head>
+<body>
+	<div class="log-header">
+		<div class="title">
+			<span class="status-dot status-running" id="statusDot"></span>
+			<span id="taskName">{$name}</span>
+			<span style="color: #666; margin-left: 10px;">Total: <span id="logCount">0</span></span>
+		</div>
+		<div class="controls">
+			<span style="color: #888; font-size: 12px;">Refresh:</span>
+			<select id="refreshInterval" class="layui-input" style="width: 80px;">
+				<option value="1000">1s</option>
+				<option value="3000" selected>3s</option>
+				<option value="5000">5s</option>
+				<option value="10000">10s</option>
+				<option value="0">Manual</option>
+			</select>
+			<button class="layui-btn layui-btn-sm layui-btn-normal" id="btnRefresh">Refresh</button>
+			<button class="layui-btn layui-btn-sm" id="btnToggle">Pause</button>
+			<button class="layui-btn layui-btn-sm layui-btn-danger" id="btnClear">Clear</button>
+		</div>
+	</div>
+	<div class="log-container" id="logContainer"></div>
+
+	<script src="/layui/layui.js"></script>
+	<script>
+		var G_ServiceId = {$serviceId};
+		var G_TaskId = {$taskId};
+		var G_LastId = 0;
+		var G_Timer = null;
+		var G_Interval = 3000;
+		var G_Paused = false;
+		var G_LogCount = 0;
+		var G_FirstLoad = true;
+
+		var logContainer = document.getElementById('logContainer');
+		var logCountEl = document.getElementById('logCount');
+		var statusDot = document.getElementById('statusDot');
+
+		function getLogClass(cls) {
+			if (!cls) return 'log-info';
+			switch(cls.toLowerCase()) {
+				case 'sub': return 'log-sub';
+				case 'info': return 'log-info';
+				case 'succ': case 'success': return 'log-succ';
+				case 'fail': case 'failure': return 'log-fail';
+				case 'err': case 'error': return 'log-error';
+				case 'war': case 'warn': case 'warning': return 'log-war';
+				case 'section': return 'log-section';
+				case 'title': return 'log-title';
+				default: return 'log-info';
+			}
+		}
+
+		function renderLogLine(log) {
+			var div = document.createElement('div');
+			div.className = 'log-line ' + getLogClass(log.class);
+			div.innerHTML = '<span class="log-time">' + log.time + '</span>' + escapeHtml(log.text || '');
+			return div;
+		}
+
+		function escapeHtml(text) {
+			var div = document.createElement('div');
+			div.textContent = text;
+			return div.innerHTML;
+		}
+
+		function fetchLogs() {
+			if (G_Paused) return;
+			fetch('/admin/api/plugin/xlogserver/task/logs?serviceId=' + G_ServiceId + '&taskId=' + G_TaskId + '&lastId=' + G_LastId + '&limit=100')
+				.then(response => response.json())
+				.then(res => {
+					if (res.code === 0 && res.data && res.data.length > 0) {
+						var fragment = document.createDocumentFragment();
+						for (var i = 0; i < res.data.length; i++) {
+							var log = res.data[i];
+							fragment.appendChild(renderLogLine(log));
+							if (log.id > G_LastId) {
+								G_LastId = log.id;
+							}
+							G_LogCount++;
+						}
+						logContainer.appendChild(fragment);
+						logCountEl.textContent = G_LogCount;
+						if (G_FirstLoad) {
+							logContainer.scrollTop = logContainer.scrollHeight;
+							G_FirstLoad = false;
+						}
+					}
+				})
+				.catch(error => console.error('Fetch logs failed:', error));
+		}
+
+		function startTimer() {
+			if (G_Timer) clearInterval(G_Timer);
+			if (G_Interval > 0) {
+				G_Timer = setInterval(fetchLogs, G_Interval);
+			}
+		}
+
+		document.getElementById('refreshInterval').onchange = function() {
+			G_Interval = parseInt(this.value);
+			startTimer();
+		};
+
+		document.getElementById('btnRefresh').onclick = function() {
+			fetchLogs();
+		};
+
+		document.getElementById('btnToggle').onclick = function() {
+			G_Paused = !G_Paused;
+			this.textContent = G_Paused ? 'Resume' : 'Pause';
+			this.className = G_Paused ? 'layui-btn layui-btn-sm layui-btn-normal' : 'layui-btn layui-btn-sm';
+			statusDot.className = G_Paused ? 'status-dot status-paused' : 'status-dot status-running';
+		};
+
+		document.getElementById('btnClear').onclick = function() {
+			layui.use('layer', function(){
+				var layer = layui.layer;
+				layer.confirm('Clear all logs? This cannot be undone!', {icon: 3, title: 'Confirm Clear'}, function(index){
+					fetch('/admin/api/plugin/xlogserver/task/logs?serviceId=' + G_ServiceId + '&taskId=' + G_TaskId, {
+						method: 'DELETE'
+					})
+						.then(response => response.json())
+						.then(res => {
+							if (res.code === 0) {
+								layer.msg('Logs cleared', {icon: 1});
+								logContainer.innerHTML = '';
+								G_LogCount = 0;
+								G_LastId = 0;
+								logCountEl.textContent = '0';
+							} else {
+								layer.msg(res.message || 'Clear failed', {icon: 2});
+							}
+						})
+						.catch(error => layer.msg('Request failed', {icon: 2}));
+					layer.close(index);
+				});
+			});
+		};
+
+		fetchLogs();
+		startTimer();
+	</script>
+</body>
+</html>

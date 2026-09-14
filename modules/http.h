@@ -20,13 +20,13 @@ typedef struct XAdminRequest {
 typedef XAdminRequest* XS_RequestObject;
 typedef XAdminRequest* XS_ResponseObject;
 
-#define XHTTPD_METHOD_GET XHTTP_METHOD_GET
-#define XHTTPD_METHOD_POST XHTTP_METHOD_POST
-#define XHTTPD_METHOD_PUT XHTTP_METHOD_PUT
-#define XHTTPD_METHOD_PATCH XHTTP_METHOD_PATCH
-#define XHTTPD_METHOD_DELETE XHTTP_METHOD_DELETE
-#define XHTTPD_METHOD_HEAD XHTTP_METHOD_HEAD
-#define XHTTPD_METHOD_OPTIONS XHTTP_METHOD_OPTIONS
+#define XHTTP_METHOD_GET XHTTP_METHOD_GET
+#define XHTTP_METHOD_POST XHTTP_METHOD_POST
+#define XHTTP_METHOD_PUT XHTTP_METHOD_PUT
+#define XHTTP_METHOD_PATCH XHTTP_METHOD_PATCH
+#define XHTTP_METHOD_DELETE XHTTP_METHOD_DELETE
+#define XHTTP_METHOD_HEAD XHTTP_METHOD_HEAD
+#define XHTTP_METHOD_OPTIONS XHTTP_METHOD_OPTIONS
 #define xsReqPath(req) ((req)->path)
 #define xsReqQuery(req) ((req)->query)
 #define xsReqBody(req) ((req)->body)
@@ -149,3 +149,29 @@ static bool ReplyIfWriteFailed(XS_ResponseObject resp, bool written)
 		"{\"result\":false,\"message\":\"数据库写入失败或记录不存在！\"}", 0);
 	return true;
 }
+
+const char* XAdmin_PluginReqHeader(XS_RequestObject objReq, const char* sName)
+{
+	/* 从 raw HTTP 头中按名取值（借用视图，仅当前请求内有效）。 */
+	size_t i;
+	XAdminRequest* req = (XAdminRequest*)objReq;
+	if (!req || !req->raw || !req->raw->head || !sName) return NULL;
+	for (i = 0; i < req->raw->head->FieldCount; i++) {
+		const xhttpfield* f = &req->raw->head->Fields[i];
+		if (f->Name.Size == strlen(sName) && !memcmp(f->Name.Data, sName, f->Name.Size))
+			return (const char*)f->Value.Data;
+	}
+	return NULL;
+}
+
+const char* XAdmin_ReqBody(XS_RequestObject objReq)
+{
+	return objReq ? ((XAdminRequest*)objReq)->body : NULL;
+}
+
+size_t XAdmin_ReqBodyLen(XS_RequestObject objReq)
+{
+	return objReq ? ((XAdminRequest*)objReq)->body_size : 0;
+}
+
+/* LoadPage 由应用模块直接提供（单翻译单元），无需包装。 */

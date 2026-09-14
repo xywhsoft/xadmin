@@ -23,20 +23,21 @@ static void RouteSetMethods(RouteInfo* route, xhttpmethod methods, XAdminRoutePr
 		route->Proc[i] = proc;
 	}
 }
-static RouteInfo* AddStaticRouteHTTP(const char* path, xhttpmethod methods, XAdminRouteProc proc)
+static RouteInfo* AddStaticRouteHTTP(const char* path, xhttpmethod methods, XAdminRouteProc proc, bool bMaskBody)
 {
 	bool added = false; RouteInfo* route;
 	if (G_Ready || !path || *path != '/' || !proc || !RouteMethodsValid(methods)) return NULL;
-	route = XA_DictSet(G_StaticRouteTableHTTP, path, strlen(path), &added);
+	route = xrtMapGetOrAdd(G_StaticRouteTableHTTP, KeyView(path), &added);
 	if (!route) return NULL;
 	if (added) {
 		memset(route, 0, sizeof(*route)); route->Path = path;
 		route->bAdmin = route->bAuth = true;
+		route->bMaskBody = bMaskBody;
 	}
 	RouteSetMethods(route, methods, proc);
 	return route;
 }
-static RouteInfo* AddDynamicRouteHTTP(const char* pattern, xhttpmethod methods, XAdminRouteProc proc)
+static RouteInfo* AddDynamicRouteHTTP(const char* pattern, xhttpmethod methods, XAdminRouteProc proc, bool bMaskBody)
 {
 	size_t i; RouteInfo* route = NULL;
 	if (G_Ready || !pattern || *pattern != '/' || !proc || !RouteMethodsValid(methods)) return NULL;
@@ -47,6 +48,7 @@ static RouteInfo* AddDynamicRouteHTTP(const char* pattern, xhttpmethod methods, 
 		route = &G_DynamicRoutes[G_DynamicCount++];
 		memset(route, 0, sizeof(*route)); route->Path = copy;
 		route->bAdmin = route->bAuth = true;
+		route->bMaskBody = bMaskBody;
 	}
 	RouteSetMethods(route, methods, proc);
 	return route;
@@ -55,12 +57,19 @@ static bool RouteHTTP_Compile(void)
 {
 	xpatternspec specs[ROUTE_DYNAMIC_MAX]; xpattern* pattern; size_t i;
 	if (!G_DynamicCount) return true;
+	/* Priority/Flags 未使用，必须显式清零：重载线程的栈上是垃圾值。 */
+	memset(specs, 0, sizeof(specs));
 	for (i = 0; i < G_DynamicCount; i++) {
 		specs[i].Pattern = xrtStrView(G_DynamicRoutes[i].Path);
 		specs[i].Value = &G_DynamicRoutes[i];
 	}
 	pattern = xrtPatternCompileMany(specs, G_DynamicCount);
-	if (!pattern) { printf("[route][error] dynamic patterns conflict or are invalid\n"); return false; }
+	if (!pattern) {
+		const xerror* err = xrtGetError();
+		printf("[route][error] dynamic patterns conflict or are invalid: %s\n",
+			err && xrtErrorMessage(err) ? xrtErrorMessage(err) : "(no error)");
+		return false;
+	}
 	if (xrtPatternMaxCaptureCount(pattern) > ROUTE_PARAM_MAX) { xrtPatternRelease(pattern); return false; }
 	xrtPatternRelease(G_DynamicPattern); G_DynamicPattern = pattern;
 	return true;
@@ -68,14 +77,14 @@ static bool RouteHTTP_Compile(void)
 /* 读取配置时查注册键，不把 pattern 当一次真实 HTTP 请求来匹配。 */
 static RouteInfo* RouteHTTP_Registered(const char* path)
 {
-	size_t i; RouteInfo* route = XA_DictGet(G_StaticRouteTableHTTP, path, strlen(path));
+	size_t i; RouteInfo* route = xrtMapGet(G_StaticRouteTableHTTP, KeyView(path));
 	if (route) return route;
 	for (i = 0; i < G_DynamicCount; i++) if (!strcmp(G_DynamicRoutes[i].Path, path)) return &G_DynamicRoutes[i];
 	return NULL;
 }
 static RouteInfo* RouteHTTP_Match(const char* path, XAdminRequest* req)
 {
-	RouteInfo* route = XA_DictGet(G_StaticRouteTableHTTP, path, strlen(path));
+	RouteInfo* route = xrtMapGet(G_StaticRouteTableHTTP, KeyView(path));
 	xpatternmatch match; size_t i;
 	if (route || !G_DynamicPattern) return route;
 	if (xrtPatternMatch(G_DynamicPattern, xrtStrView(path), req->param_value, ROUTE_PARAM_MAX, &match) != XPATTERN_MATCH) return NULL;

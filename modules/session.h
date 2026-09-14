@@ -11,27 +11,75 @@ static XS_HostInfo* G_SessionOwner;
 static uint64 G_SessionTimer;
 static bool Session_IsExpired(xvalue* session)
 {
-	return !session || xrtValueType(session) != XVALUE_OBJECT || XA_Now() > xvoTableGetInt(session, "_expireTime", 11);
+	return !session || xrtValueType(session) != XVALUE_OBJECT || xrtNow() > ValueInt(session, "_expireTime");
 }
+/* R4 上限执行与 R3 保留式撤销在 Store 之后定义，此处前置声明。 */
+static void Session_EnforceAccountCap(xvalue* sessions, xvalue* session);
+static void Session_RevokeAccountExcept(bool admin, int64 account_id, xvalue* keep);
+
 static xvalue* Session_Create(int seconds)
 {
-	xvalue* value = xrtValueObject(); int64 now = XA_Now();
-	xvoTableSetInt(value, "_createTime", 11, now);
-	xvoTableSetInt(value, "_activeTime", 11, now);
-	xvoTableSetInt(value, "_expireTime", 11, now + seconds);
+	xvalue* value = xrtValueObject(); int64 now = xrtNow();
+	ValueSetInt(value, "_createTime", now);
+	ValueSetInt(value, "_activeTime", now);
+	ValueSetInt(value, "_expireTime", now + (int64)seconds * 1000000);
 	return value;
 }
 static xvalue* Session_CreateAdmin(const char* id) { (void)id; return Session_Create(SESSION_EXPIRE_ADMIN); }
 static xvalue* Session_CreateMember(const char* id) { (void)id; return Session_Create(SESSION_EXPIRE_MEMBER); }
-static bool Session_StoreAdmin(const char* id, xvalue* session) { return id && *id && session && xrtValueObjectSet(G_AdminSessions, xrtStrView(id), session); }
-static bool Session_StoreMember(const char* id, xvalue* session) { return id && *id && session && xrtValueObjectSet(G_MemberSessions, xrtStrView(id), session); }
+static bool Session_StoreAdmin(const char* id, xvalue* session) { bool ok = id && *id && session && xrtValueObjectSet(G_AdminSessions, xrtStrView(id), session); if (ok) Session_EnforceAccountCap(G_AdminSessions, session); return ok; }
+static bool Session_StoreMember(const char* id, xvalue* session) { bool ok = id && *id && session && xrtValueObjectSet(G_MemberSessions, xrtStrView(id), session); if (ok) Session_EnforceAccountCap(G_MemberSessions, session); return ok; }
 static void Session_RemoveAdminByID(const char* id) { if (id) xrtValueObjectRemove(G_AdminSessions, xrtStrView(id)); }
 static void Session_RemoveMemberByID(const char* id) { if (id) xrtValueObjectRemove(G_MemberSessions, xrtStrView(id)); }
+/* R4：同账号会话数上限；超出按 _activeTime 踢最旧（登录即续期，
+ * 最旧即最久未活跃）。固定上限 5，兼容多端登录与既有测试的双会话。 */
+#define SESSION_PER_ACCOUNT 5
+static size_t Session_CountAccount(xvalue* sessions, int64 account)
+{
+	xvalueiter it = {0}; xvaluekey key; xvalue* session; size_t count = 0;
+	if (xrtValueIterBegin(sessions, &it)) {
+		while ((session = xrtValueIterNext(&it, &key)))
+			if (ValueInt(session, "id") == account) count++;
+		xrtValueIterEnd(&it);
+	}
+	return count;
+}
+static void Session_DropOldestAccount(xvalue* sessions, int64 account)
+{
+	xvalueiter it = {0}; xvaluekey key; xvalue* session;
+	str sOldest = NULL; int64 iOldestActive = 0;
+	if (xrtValueIterBegin(sessions, &it)) {
+		while ((session = xrtValueIterNext(&it, &key))) {
+			if (ValueInt(session, "id") != account) continue;
+			{
+				int64 iActive = ValueInt(session, "_activeTime");
+				if ((sOldest == NULL) || (iActive < iOldestActive)) {
+					if (sOldest) xrtFree(sOldest);
+					sOldest = xrtStrDupN(key.String.Data, key.String.Size);
+					iOldestActive = iActive;
+				}
+			}
+		}
+		xrtValueIterEnd(&it);
+	}
+	if (sOldest) {
+		xrtValueObjectRemove(sessions, xrtStrView(sOldest));
+		xrtFree(sOldest);
+	}
+}
+static void Session_EnforceAccountCap(xvalue* sessions, xvalue* session)
+{
+	int64 account = ValueInt(session, "id");
+	if (account <= 0) return;
+	while (Session_CountAccount(sessions, account) > SESSION_PER_ACCOUNT)
+		Session_DropOldestAccount(sessions, account);
+}
+
 static void Session_Extend(xvalue* session, int seconds)
 {
-	int64 now = XA_Now();
-	xvoTableSetInt(session, "_activeTime", 11, now);
-	xvoTableSetInt(session, "_expireTime", 11, now + seconds);
+	int64 now = xrtNow();
+	ValueSetInt(session, "_activeTime", now);
+	ValueSetInt(session, "_expireTime", now + (int64)seconds * 1000000);
 }
 static void Session_ExtendAdmin(xvalue* value) { Session_Extend(value, SESSION_EXPIRE_ADMIN); }
 static void Session_ExtendMember(xvalue* value) { Session_Extend(value, SESSION_EXPIRE_MEMBER); }
@@ -58,6 +106,22 @@ static void Session_Prune(xvalue* sessions)
 	}
 	xrtValueRelease(expired);
 }
+/* R3：改密/重置成功后撤销该账号的其他会话，保留当前请求持有的会话。 */
+static void Session_RevokeAccountExcept(bool admin, int64 account_id, xvalue* keep)
+{
+	xvalue* sessions = admin ? G_AdminSessions : G_MemberSessions;
+	xvalueiter it = {0}; xvaluekey key; xvalue* session;
+	if (account_id <= 0) return;
+	if (xrtValueIterBegin(sessions, &it)) {
+		while ((session = xrtValueIterNext(&it, &key))) {
+			if (session != keep && ValueInt(session, "id") == account_id)
+				ValueSetInt(session, "_expireTime", -1);
+		}
+		xrtValueIterEnd(&it);
+	}
+	Session_Prune(sessions);
+}
+
 /* 删除账号成功后撤销该账号的所有登录。先标记再清理，避免遍历时删除键；
  * 即使清理临时分配失败，Acquire 也会拒绝已标记会话。当前请求仍持有引用。 */
 static void Session_RevokeAccount(bool admin, int64 account_id)
@@ -67,8 +131,8 @@ static void Session_RevokeAccount(bool admin, int64 account_id)
 	if (account_id <= 0) return;
 	if (xrtValueIterBegin(sessions, &it)) {
 		while ((session = xrtValueIterNext(&it, &key))) {
-			if (xvoTableGetInt(session, "id", 2) == account_id)
-				xvoTableSetInt(session, "_expireTime", 11, -1);
+			if (ValueInt(session, "id") == account_id)
+				ValueSetInt(session, "_expireTime", -1);
 		}
 		xrtValueIterEnd(&it);
 	}
@@ -79,6 +143,7 @@ static void Session_Tick(void* unused)
 	(void)unused;
 	xrtMutexLock(G_RequestLock);
 	Session_Prune(G_AdminSessions); Session_Prune(G_MemberSessions);
+	CacheRetireSweep();
 	G_SessionTimer = xsTimerAfter(G_SessionOwner, 300000, Session_Tick, NULL);
 	xrtMutexUnlock(G_RequestLock);
 }
@@ -106,6 +171,15 @@ static char* Session_AdminHeaders(XAdminRequest* req, const char* id, int max_ag
 	char age[48] = {0};
 	if (max_age >= 0) snprintf(age, sizeof(age), "; Max-Age=%d", max_age);
 	return xrtFormat("%sSet-Cookie: XSID=%s; Path=/; HttpOnly; SameSite=Lax%s%s\r\n%s%s%s",
+		HTTP_CT_JSON, id ? id : "", req->raw->tls ? "; Secure" : "", age,
+		location ? "Location: " : "", location ? location : "", location ? "\r\n" : "");
+}
+/* F3：会员 MSID 与后台 XSID 同一强化等级；此前手拼头缺 SameSite。 */
+static char* Session_MemberHeaders(XAdminRequest* req, const char* id, int max_age, const char* location)
+{
+	char age[48] = {0};
+	if (max_age >= 0) snprintf(age, sizeof(age), "; Max-Age=%d", max_age);
+	return xrtFormat("%sSet-Cookie: MSID=%s; Path=/; HttpOnly; SameSite=Lax%s%s\r\n%s%s%s",
 		HTTP_CT_JSON, id ? id : "", req->raw->tls ? "; Secure" : "", age,
 		location ? "Location: " : "", location ? location : "", location ? "\r\n" : "");
 }

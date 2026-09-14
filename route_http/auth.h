@@ -4,7 +4,7 @@
 // 获取 user 管理页面视图
 void Request_View_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 登录页面
 		LoadPage(objResp, 200, HTTP_CT_HTML, "auth/user.html");
@@ -20,16 +20,16 @@ void Request_View_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS
 // 获取 user 添加页面视图
 void Request_View_Auth_User_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 构建模板�?- 角色列表
-		xvalue* tblInfo = xvoCreateTable();
-		xvoTableSetValue(tblInfo, "roleList", 8, G_CACHE_Role, FALSE);
+		xvalue* tblInfo = ValueObject();
+		ValueSetRef(tblInfo, "roleList", G_CACHE_Role);
 		
 		// 构建页面并返�?
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("auth/user_add.html", tblInfo, &iSize);
-		xvoUnref(tblInfo);
+		xrtValueRelease(tblInfo);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 		xrtFree(sPage);
 		
@@ -44,33 +44,33 @@ void Request_View_Auth_User_Add(XS_ServerObject objServer, XS_HostObject objHost
 // 获取 user 编辑页面视图
 void Request_View_Auth_User_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 获取参数
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		
 		// 读取数据库中的记录，构建模板�?
-		xvalue* tblInfo = xvoCreateTable();
-		int bRow = FALSE;
+		xvalue* tblInfo = ValueObject();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_user_get, 1, id);
 		while ( sqlite3_step(stmt_user_get) == SQLITE_ROW ) {
-			xvoTableSetInt(tblInfo, "id", 2, id);
-			xvoTableSetInt(tblInfo, "role", 4, sqlite3_column_int64(stmt_user_get, 4));
-			xvoTableSetInt(tblInfo, "authLevel", 9, sqlite3_column_int64(stmt_user_get, 5));
-			xvoTableSetText(tblInfo, "user", 4, (str)sqlite3_column_text(stmt_user_get, 1), 0, FALSE);
-			bRow = TRUE;
+			ValueSetInt(tblInfo, "id", id);
+			ValueSetInt(tblInfo, "role", sqlite3_column_int64(stmt_user_get, 4));
+			ValueSetInt(tblInfo, "authLevel", sqlite3_column_int64(stmt_user_get, 5));
+			ValueSetText(tblInfo, "user", (str)sqlite3_column_text(stmt_user_get, 1));
+			bRow = true;
 		}
 		sqlite3_reset(stmt_user_get);
 		
 		// 添加角色列表
-		xvoTableSetValue(tblInfo, "roleList", 8, G_CACHE_Role, FALSE);
+		ValueSetRef(tblInfo, "roleList", G_CACHE_Role);
 		
 		// 构建页面并返�?
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("auth/user_edit.html", tblInfo, &iSize);
-		xvoUnref(tblInfo);
+		xrtValueRelease(tblInfo);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 		xrtFree(sPage);
 		
@@ -87,42 +87,43 @@ void Request_View_Auth_User_Edit(XS_ServerObject objServer, XS_HostObject objHos
 // user 主接�?
 void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// �?URL 查询字符串中提取参数
 		char sParam[64];
 		xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
-		int64 iPage = xrtStrToI64(sParam);
+		int64 iPage = Util_ParseI64(sParam);
 		if ( iPage <= 0 ) { iPage = 1; }
 		xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
-		int64 iLimit = xrtStrToI64(sParam);
+		int64 iLimit = Util_ParseI64(sParam);
 		if ( iLimit <= 0 ) { iLimit = 10; }
+		if ( iLimit > 100 ) { iLimit = 100; }	/* F9 */
 		int64 iOffset = (iPage - 1) * iLimit;
 		int iSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
 		
 		// 从数据库中查询数�?
-		xvalue* data = xvoCreateArray();
+		xvalue* data = ValueArray();
 		int64 iCount = 0;
 		if ( iSize <= 0 ) {
 			// 查询全部
 			sqlite3_bind_int64(stmt_user_all, 1, iLimit);
 			sqlite3_bind_int64(stmt_user_all, 2, iOffset);
 			while ( sqlite3_step(stmt_user_all) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_user_all, 0));
-				xvoTableSetInt(tblRow, "role", 4, sqlite3_column_int64(stmt_user_all, 4));
-				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_user_all, 5));
-				xvoTableSetText(tblRow, "user", 4, (str)sqlite3_column_text(stmt_user_all, 1), 0, FALSE);
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_user_all, 0));
+				ValueSetInt(tblRow, "role", sqlite3_column_int64(stmt_user_all, 4));
+				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_user_all, 5));
+				ValueSetText(tblRow, "user", (str)sqlite3_column_text(stmt_user_all, 1));
 				// 不返回密码字�?
 				xtime iTime = sqlite3_column_int64(stmt_user_all, 6);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_user_all, 7);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "roleName", 8, (str)sqlite3_column_text(stmt_user_all, 9), 0, FALSE);
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetText(tblRow, "roleName", (str)sqlite3_column_text(stmt_user_all, 9));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_user_all, 10);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_user_all);
 		} else {
@@ -131,87 +132,87 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			sqlite3_bind_int64(stmt_user_sel, 2, iLimit);
 			sqlite3_bind_int64(stmt_user_sel, 3, iOffset);
 			while ( sqlite3_step(stmt_user_sel) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_user_sel, 0));
-				xvoTableSetInt(tblRow, "role", 4, sqlite3_column_int64(stmt_user_sel, 4));
-				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_user_sel, 5));
-				xvoTableSetText(tblRow, "user", 4, (str)sqlite3_column_text(stmt_user_sel, 1), 0, FALSE);
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_user_sel, 0));
+				ValueSetInt(tblRow, "role", sqlite3_column_int64(stmt_user_sel, 4));
+				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_user_sel, 5));
+				ValueSetText(tblRow, "user", (str)sqlite3_column_text(stmt_user_sel, 1));
 				// 不返回密码字�?
 				xtime iTime = sqlite3_column_int64(stmt_user_sel, 6);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_user_sel, 7);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "roleName", 8, (str)sqlite3_column_text(stmt_user_sel, 9), 0, FALSE);
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetText(tblRow, "roleName", (str)sqlite3_column_text(stmt_user_sel, 9));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_user_sel, 10);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_user_sel);
 		}
 		
 		// 构建返回�?
-		xvalue* tblRet = xvoCreateTable();
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetInt(tblRet, "code", 4, 0);
-		xvoTableSetInt(tblRet, "count", 5, iCount);
-		xvoTableSetText(tblRet, "message", 7, "�û����ݻ�ȡ�ɹ���", 0, FALSE);
-		xvoTableSetValue(tblRet, "data", 4, data, TRUE);
+		xvalue* tblRet = ValueObject();
+		ValueSetBool(tblRet, "result", true);
+		ValueSetInt(tblRet, "code", 0);
+		ValueSetInt(tblRet, "count", iCount);
+		ValueSetText(tblRet, "message", "�û����ݻ�ȡ�ɹ���");
+		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
 		size_t iRetSize = 0;
-		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
+		char* sRet = xrtJsonStringify(tblRet, false, &iRetSize);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
-		xvoUnref(tblRet);
+		xrtValueRelease(tblRet);
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
 		// 添加用户
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		int64 role = xvoTableGetInt(tblForm, "role", 4);
+		int64 role = ValueInt(tblForm, "role");
 		if ( role < 1 ) {
 			role = 1;
 		}
-		str user = xvoTableGetText(tblForm, "username", 8);
+		str user = ValueText(tblForm, "username");
 		if ( !user || (strlen(user) == 0) ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名不能为空！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		str password = xvoTableGetText(tblForm, "password", 8);
+		str password = ValueText(tblForm, "password");
 		if ( !password || (strlen(password) == 0) ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码不能为空！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
 		
 		// 检查用户名是否已存�?
-		bool bExists = FALSE;
+		bool bExists = false;
 		sqlite3_bind_text(stmt_user_chk, 1, user, strlen(user), SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_user_chk, 2, 0);
 		while ( sqlite3_step(stmt_user_chk) == SQLITE_ROW ) {
-			bExists = TRUE;
+			bExists = true;
 			break;
 		}
 		sqlite3_reset(stmt_user_chk);
 		if ( bExists ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名已存在！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
 		
 		// 服务端二�?SHA-256 哈希
-		str sSalt = xrtMakeXIDS();
+		str sSalt = Util_Token();
 		str sPwdHash = ServerHashPassword(user, sSalt, password);
 		
 		// 写入数据�?
-		xtime now = XA_Now();
+		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_user_add, 1, user, strlen(user), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_user_add, 2, sSalt, strlen(sSalt), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_user_add, 3, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
@@ -223,58 +224,58 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
 		xrtFree(sSalt);
 		xrtFree(sPwdHash);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息和新创建的ID
-		xvalue* tblRet = xvoCreateTable();
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetText(tblRet, "message", 7, "�û����ӳɹ���", 0, FALSE);
-		xvalue* dataRet = xvoCreateTable();
-		xvoTableSetInt(dataRet, "id", 2, newId);
-		xvoTableSetValue(tblRet, "data", 4, dataRet, TRUE);
+		xvalue* tblRet = ValueObject();
+		ValueSetBool(tblRet, "result", true);
+		ValueSetText(tblRet, "message", "�û����ӳɹ���");
+		xvalue* dataRet = ValueObject();
+		ValueSetInt(dataRet, "id", newId);
+		ValueSetOwn(tblRet, "data", dataRet);
 		size_t iRetSize = 0;
-		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
+		char* sRet = xrtJsonStringify(tblRet, false, &iRetSize);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
-		xvoUnref(tblRet);
+		xrtValueRelease(tblRet);
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_PUT) ) {
 		
 		// 更新用户 - 不更新用户名，只更新角色
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		int64 id = xvoTableGetInt(tblForm, "id", 2);
-		int64 role = xvoTableGetInt(tblForm, "role", 4);
-		int64 authLevel = xvoTableGetInt(tblForm, "authLevel", 9);
+		int64 id = ValueInt(tblForm, "id");
+		int64 role = ValueInt(tblForm, "role");
+		int64 authLevel = ValueInt(tblForm, "authLevel");
 		if ( role < 1 ) {
 			role = 1;
 		}
 								
 		// 写入数据�?
-		xtime now = XA_Now();
+		xtime now = xrtNow();
 		sqlite3_bind_int64(stmt_user_put, 1, role);
 		sqlite3_bind_int64(stmt_user_put, 2, authLevel);
 		sqlite3_bind_int64(stmt_user_put, 3, now);
 		sqlite3_bind_int64(stmt_user_put, 4, id);
 		bool written = DB_Write(stmt_user_put, true);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户更新成功！\"}", 0);
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_DELETE) ) {
 		
 		// 删除用户（软删除�?
 		// 从URL查询字符串中提取ID
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		if ( id > 0 ) {
 			// 执行软删�?
 			sqlite3_bind_int64(stmt_user_del, 1, id);
@@ -299,37 +300,37 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 // 重置密码接口
 void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
 		// 重置密码
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		int64 id = xvoTableGetInt(tblForm, "id", 2);
-		str username = xvoTableGetText(tblForm, "username", 8);
+		int64 id = ValueInt(tblForm, "id");
+		str username = ValueText(tblForm, "username");
 		if ( !username || (strlen(username) == 0) ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名不能为空！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		str password = xvoTableGetText(tblForm, "password", 8);
+		str password = ValueText(tblForm, "password");
 		if ( !password || (strlen(password) == 0) ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码不能为空！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
 		
 		// 生成新的随机 salt（使�?XID�?
-		str sSalt = xrtMakeXIDS();
+		str sSalt = Util_Token();
 		
 		// 服务端二�?SHA-256 哈希
 		str sPwdHash = ServerHashPassword(username, sSalt, password);
 		
 		// 更新 salt 和密�?
-		xtime now = XA_Now();
+		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_user_pwd, 1, sSalt, strlen(sSalt), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_user_pwd, 2, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_user_pwd, 3, now);
@@ -338,10 +339,12 @@ void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, X
 		
 		xrtFree(sSalt);
 		xrtFree(sPwdHash);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
+		/* R3：重置密码成功后撤销该账号全部会话（管理员代重置，无当前会话需保留）。 */
+		Session_RevokeAccount(true, id);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"密码重置成功！\"}", 0);
 		
 	} else {
@@ -359,7 +362,7 @@ void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, X
 // 获取 role 管理页面视图
 void Request_View_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 角色管理页面
 		LoadPage(objResp, 200, HTTP_CT_HTML, "auth/role.html");
@@ -375,16 +378,16 @@ void Request_View_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS
 // 获取 role 添加页面视图
 void Request_View_Auth_Role_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 构建模板�?- 使用分组缓存
-		xvalue* tblInfo = xvoCreateTable();
-		xvoTableSetValue(tblInfo, "authGroups", 10, G_CACHE_Group, FALSE);
+		xvalue* tblInfo = ValueObject();
+		ValueSetRef(tblInfo, "authGroups", G_CACHE_Group);
 		
 		// 构建页面并返�?
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("auth/role_add.html", tblInfo, &iSize);
-		xvoUnref(tblInfo);
+		xrtValueRelease(tblInfo);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 		xrtFree(sPage);
 		
@@ -399,62 +402,62 @@ void Request_View_Auth_Role_Add(XS_ServerObject objServer, XS_HostObject objHost
 // 获取 role 编辑页面视图
 void Request_View_Auth_Role_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 获取参数
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		
 		// 读取数据库中的记录，构建模板�?
-		xvalue* tblInfo = xvoCreateTable();
-		xvalue* listAuth = xvoCreateList();
-		int bRow = FALSE;
+		xvalue* tblInfo = ValueObject();
+		xvalue* listAuth = xrtValueIntMap();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_role_get, 1, id);
 		while ( sqlite3_step(stmt_role_get) == SQLITE_ROW ) {
-			xvoTableSetInt(tblInfo, "id", 2, id);
-			xvoTableSetText(tblInfo, "name", 4, (str)sqlite3_column_text(stmt_role_get, 1), 0, FALSE);
-			xvoTableSetText(tblInfo, "desc", 4, (str)sqlite3_column_text(stmt_role_get, 2), 0, FALSE);
-			xvoTableSetInt(tblInfo, "authLevel", 9, sqlite3_column_int64(stmt_role_get, 4));
+			ValueSetInt(tblInfo, "id", id);
+			ValueSetText(tblInfo, "name", (str)sqlite3_column_text(stmt_role_get, 1));
+			ValueSetText(tblInfo, "desc", (str)sqlite3_column_text(stmt_role_get, 2));
+			ValueSetInt(tblInfo, "authLevel", sqlite3_column_int64(stmt_role_get, 4));
 			// 解析权限分组列表 - 转换�?list 方便按ID索引
 			str sAuthList = (str)sqlite3_column_text(stmt_role_get, 3);
 			if ( sAuthList && (strlen(sAuthList) > 2) ) {
-				xvalue* arrAuth = xrtParseJSON(sAuthList, 0);
-				if ( arrAuth && (xrtValueType(arrAuth) == XVO_DT_ARRAY) && (xrtValueCount(arrAuth) > 0) ) {
+				xvalue* arrAuth = JsonParseN(sAuthList, 0);
+				if ( arrAuth && (xrtValueType(arrAuth) == XVALUE_ARRAY) && (xrtValueCount(arrAuth) > 0) ) {
 					for ( int i = 0; i < xrtValueCount(arrAuth); i++ ) {
-						int64 authID = xvoArrayGetInt(arrAuth, i);
+						int64 authID = ValueArrayInt(arrAuth, i);
 						if ( authID > 0 ) {
-							xvoListSetBool(listAuth, authID, TRUE);
+							ValueMapSetBool(listAuth, authID, true);
 						}
 					}
 				}
-				xvoUnref(arrAuth);
+				xrtValueRelease(arrAuth);
 			}
-			bRow = TRUE;
+			bRow = true;
 		}
 		sqlite3_reset(stmt_role_get);
 		
 		// 标记已选中的权�?- 这里创建深拷贝副本，避免多线程写入同步问�?
-		xvalue* arrAuthGroups = xvoDeepCopy(G_CACHE_Group);
+		xvalue* arrAuthGroups = xrtValueDeepClone(G_CACHE_Group);
 		for ( int g = 1; g <= xrtValueCount(arrAuthGroups); g++ ) {
 			xvalue* tblGroup = xrtValueArrayGet(arrAuthGroups, (g) - 1);
-			xvalue* arrAuths = xvoTableGetValue(tblGroup, "auths", 5);
-			if ( arrAuths && (xrtValueType(arrAuths) == XVO_DT_ARRAY) && (xrtValueCount(arrAuths) > 0) ) {
+			xvalue* arrAuths = ValueGet(tblGroup, "auths");
+			if ( arrAuths && (xrtValueType(arrAuths) == XVALUE_ARRAY) && (xrtValueCount(arrAuths) > 0) ) {
 				for ( int a = 1; a <= xrtValueCount(arrAuths); a++ ) {
 					xvalue* tblAuth = xrtValueArrayGet(arrAuths, (a) - 1);
-					int64 authID = xvoTableGetInt(tblAuth, "id", 2);
-					bool bCheck = xvoListGetBool(listAuth, authID);
-					xvoTableSetText(tblAuth, "checked", 7, bCheck ? (str)" checked" : (str)"", 0, FALSE);
+					int64 authID = ValueInt(tblAuth, "id");
+					bool bCheck = ValueMapBool(listAuth, authID);
+					ValueSetText(tblAuth, "checked", bCheck ? (str)" checked" : (str)"");
 				}
 			}
 		}
-		xvoUnref(listAuth);
-		xvoTableSetValue(tblInfo, "authGroups", 10, arrAuthGroups, TRUE);
+		xrtValueRelease(listAuth);
+		ValueSetOwn(tblInfo, "authGroups", arrAuthGroups);
 		
 		// 构建页面并返�?
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("auth/role_edit.html", tblInfo, &iSize);
-		xvoUnref(tblInfo);
+		xrtValueRelease(tblInfo);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 		xrtFree(sPage);
 		
@@ -471,43 +474,44 @@ void Request_View_Auth_Role_Edit(XS_ServerObject objServer, XS_HostObject objHos
 // role 主接�?
 void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// �?URL 查询字符串中提取参数
 		char sParam[64];
 		xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
-		int64 iPage = xrtStrToI64(sParam);
+		int64 iPage = Util_ParseI64(sParam);
 		if ( iPage <= 0 ) { iPage = 1; }
 		xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
-		int64 iLimit = xrtStrToI64(sParam);
+		int64 iLimit = Util_ParseI64(sParam);
 		if ( iLimit <= 0 ) { iLimit = 10; }
+		if ( iLimit > 100 ) { iLimit = 100; }	/* F9 */
 		int64 iOffset = (iPage - 1) * iLimit;
 		int iSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
 		
 		// 从数据库中查询数�?
-		xvalue* data = xvoCreateArray();
+		xvalue* data = ValueArray();
 		int64 iCount = 0;
 		if ( iSize <= 0 ) {
 			// 查询全部
 			sqlite3_bind_int64(stmt_role_all, 1, iLimit);
 			sqlite3_bind_int64(stmt_role_all, 2, iOffset);
 			while ( sqlite3_step(stmt_role_all) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_role_all, 0));
-				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_role_all, 1), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_role_all, 2), 0, FALSE);
-				xvoTableSetText(tblRow, "authList", 8, (str)sqlite3_column_text(stmt_role_all, 3), 0, FALSE);
-				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_role_all, 4));
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_role_all, 0));
+				ValueSetText(tblRow, "name", (str)sqlite3_column_text(stmt_role_all, 1));
+				ValueSetText(tblRow, "desc", (str)sqlite3_column_text(stmt_role_all, 2));
+				ValueSetText(tblRow, "authList", (str)sqlite3_column_text(stmt_role_all, 3));
+				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_role_all, 4));
 				xtime iTime = sqlite3_column_int64(stmt_role_all, 5);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_role_all, 6);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_role_all, 8));
-				xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_role_all, 9));
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetInt(tblRow, "authCount", sqlite3_column_int64(stmt_role_all, 8));
+				ValueSetInt(tblRow, "userCount", sqlite3_column_int64(stmt_role_all, 9));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_role_all, 10);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_role_all);
 		} else {
@@ -517,60 +521,60 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			sqlite3_bind_int64(stmt_role_sel, 3, iLimit);
 			sqlite3_bind_int64(stmt_role_sel, 4, iOffset);
 			while ( sqlite3_step(stmt_role_sel) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_role_sel, 0));
-				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_role_sel, 1), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_role_sel, 2), 0, FALSE);
-				xvoTableSetText(tblRow, "authList", 8, (str)sqlite3_column_text(stmt_role_sel, 3), 0, FALSE);
-				xvoTableSetInt(tblRow, "authLevel", 9, sqlite3_column_int64(stmt_role_sel, 4));
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_role_sel, 0));
+				ValueSetText(tblRow, "name", (str)sqlite3_column_text(stmt_role_sel, 1));
+				ValueSetText(tblRow, "desc", (str)sqlite3_column_text(stmt_role_sel, 2));
+				ValueSetText(tblRow, "authList", (str)sqlite3_column_text(stmt_role_sel, 3));
+				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_role_sel, 4));
 				xtime iTime = sqlite3_column_int64(stmt_role_sel, 5);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_role_sel, 6);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_role_sel, 8));
-				xvoTableSetInt(tblRow, "userCount", 9, sqlite3_column_int64(stmt_role_sel, 9));
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetInt(tblRow, "authCount", sqlite3_column_int64(stmt_role_sel, 8));
+				ValueSetInt(tblRow, "userCount", sqlite3_column_int64(stmt_role_sel, 9));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_role_sel, 10);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_role_sel);
 		}
 		
 		// 构建返回�?
-		xvalue* tblRet = xvoCreateTable();
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetInt(tblRet, "code", 4, 0);
-		xvoTableSetInt(tblRet, "count", 5, iCount);
-		xvoTableSetText(tblRet, "message", 7, "��ɫ���ݻ�ȡ�ɹ���", 0, FALSE);
-		xvoTableSetValue(tblRet, "data", 4, data, TRUE);
+		xvalue* tblRet = ValueObject();
+		ValueSetBool(tblRet, "result", true);
+		ValueSetInt(tblRet, "code", 0);
+		ValueSetInt(tblRet, "count", iCount);
+		ValueSetText(tblRet, "message", "��ɫ���ݻ�ȡ�ɹ���");
+		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
 		size_t iRetSize = 0;
-		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
+		char* sRet = xrtJsonStringify(tblRet, false, &iRetSize);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
-		xvoUnref(tblRet);
+		xrtValueRelease(tblRet);
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
 		// 添加角色
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		str name = xvoTableGetText(tblForm, "name", 4);
-		str desc = xvoTableGetText(tblForm, "desc", 4);
-		str authList = xvoTableGetText(tblForm, "authList", 8);
-		int64 authLevel = xvoTableGetInt(tblForm, "authLevel", 9);
+		str name = ValueText(tblForm, "name");
+		str desc = ValueText(tblForm, "desc");
+		str authList = ValueText(tblForm, "authList");
+		int64 authLevel = ValueInt(tblForm, "authLevel");
 		if ( !authList || (strlen(authList) == 0) ) {
 			authList = "[]";
 		}
 		
 		// 添加数据库记�?
-		xtime now = XA_Now();
+		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_role_add, 1, name, strlen(name), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_add, 2, desc, strlen(desc), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_add, 3, authList, strlen(authList), SQLITE_STATIC);
@@ -579,7 +583,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_role_add, 6, now);
 		bool written = DB_Write(stmt_role_add, true);
 		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息和新创建的ID
@@ -588,26 +592,26 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		// 刷新角色缓存
 		Auth_ReloadCache();
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_PUT) ) {
 		
 		// 更新角色
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		int64 id = xvoTableGetInt(tblForm, "id", 2);
-		str name = xvoTableGetText(tblForm, "name", 4);
-		str desc = xvoTableGetText(tblForm, "desc", 4);
-		str authList = xvoTableGetText(tblForm, "authList", 8);
-		int64 authLevel = xvoTableGetInt(tblForm, "authLevel", 9);
+		int64 id = ValueInt(tblForm, "id");
+		str name = ValueText(tblForm, "name");
+		str desc = ValueText(tblForm, "desc");
+		str authList = ValueText(tblForm, "authList");
+		int64 authLevel = ValueInt(tblForm, "authLevel");
 		if ( !authList || (strlen(authList) == 0) ) {
 			authList = "[]";
 		}
 		
 		// 更新数据库记�?
-		xtime now = XA_Now();
+		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_role_put, 1, name, strlen(name), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_put, 2, desc, strlen(desc), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_put, 3, authList, strlen(authList), SQLITE_STATIC);
@@ -615,7 +619,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_role_put, 5, now);
 		sqlite3_bind_int64(stmt_role_put, 6, id);
 		bool written = DB_Write(stmt_role_put, true);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
@@ -623,13 +627,14 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		
 		// 刷新角色缓存
 		Auth_ReloadCache();
+
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_DELETE) ) {
 		
 		// 删除角色（软删除�?
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		if ( id > 1 ) {
 			
 			// 检查是否有关联的用�?
@@ -674,7 +679,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 // 获取 group 管理页面视图
 void Request_View_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 登录页面
 		LoadPage(objResp, 200, HTTP_CT_HTML, "auth/group.html");
@@ -690,7 +695,7 @@ void Request_View_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, X
 // 获取 authGroup 添加页面视图
 void Request_View_Auth_Group_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		LoadPage(objResp, 200, HTTP_CT_HTML, "auth/group_add.html");
 		
@@ -705,30 +710,30 @@ void Request_View_Auth_Group_Add(XS_ServerObject objServer, XS_HostObject objHos
 // 获取 authGroup 编辑页面视图
 void Request_View_Auth_Group_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 获取参数
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		
 		// 读取数据库中的记录，构建模板�?
-		xvalue* tblInfo = xvoCreateTable();
-		int bRow = FALSE;
+		xvalue* tblInfo = ValueObject();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_group_get, 1, id);
 		while ( sqlite3_step(stmt_group_get) == SQLITE_ROW ) {
-			xvoTableSetInt(tblInfo, "id", 2, id);
-			xvoTableSetText(tblInfo, "name", 4, (str)sqlite3_column_text(stmt_group_get, 1), 0, FALSE);
-			xvoTableSetText(tblInfo, "desc", 4, (str)sqlite3_column_text(stmt_group_get, 2), 0, FALSE);
-			xvoTableSetInt(tblInfo, "sort", 4, sqlite3_column_int64(stmt_group_get, 3));
-			bRow = TRUE;
+			ValueSetInt(tblInfo, "id", id);
+			ValueSetText(tblInfo, "name", (str)sqlite3_column_text(stmt_group_get, 1));
+			ValueSetText(tblInfo, "desc", (str)sqlite3_column_text(stmt_group_get, 2));
+			ValueSetInt(tblInfo, "sort", sqlite3_column_int64(stmt_group_get, 3));
+			bRow = true;
 		}
 		sqlite3_reset(stmt_group_get);
 		
 		// 构建页面并返�?
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("auth/group_edit.html", tblInfo, &iSize);
-		xvoUnref(tblInfo);
+		xrtValueRelease(tblInfo);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 		xrtFree(sPage);
 		
@@ -745,41 +750,42 @@ void Request_View_Auth_Group_Edit(XS_ServerObject objServer, XS_HostObject objHo
 // group 主接�?
 void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// �?URL 查询字符串中提取参数
 		char sParam[64];
 		xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
-		int64 iPage = xrtStrToI64(sParam);
+		int64 iPage = Util_ParseI64(sParam);
 		if ( iPage <= 0 ) { iPage = 1; }
 		xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
-		int64 iLimit = xrtStrToI64(sParam);
+		int64 iLimit = Util_ParseI64(sParam);
 		if ( iLimit <= 0 ) { iLimit = 10; }
+		if ( iLimit > 100 ) { iLimit = 100; }	/* F9 */
 		int64 iOffset = (iPage - 1) * iLimit;
 		int iSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
 		
 		// 从数据库中查询数�?
-		xvalue* data = xvoCreateArray();
+		xvalue* data = ValueArray();
 		int64 iCount = 0;
 		if ( iSize <= 0 ) {
 			// 查询全部
 			sqlite3_bind_int64(stmt_group_all, 1, iLimit);
 			sqlite3_bind_int64(stmt_group_all, 2, iOffset);
 			while ( sqlite3_step(stmt_group_all) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_group_all, 0));
-				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_group_all, 1), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_group_all, 2), 0, FALSE);
-				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_group_all, 3));
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_group_all, 0));
+				ValueSetText(tblRow, "name", (str)sqlite3_column_text(stmt_group_all, 1));
+				ValueSetText(tblRow, "desc", (str)sqlite3_column_text(stmt_group_all, 2));
+				ValueSetInt(tblRow, "sort", sqlite3_column_int64(stmt_group_all, 3));
 				xtime iTime = sqlite3_column_int64(stmt_group_all, 4);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_group_all, 5);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_group_all, 7));
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetInt(tblRow, "authCount", sqlite3_column_int64(stmt_group_all, 7));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_group_all, 8);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_group_all);
 		} else {
@@ -789,52 +795,52 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 			sqlite3_bind_int64(stmt_group_sel, 3, iLimit);
 			sqlite3_bind_int64(stmt_group_sel, 4, iOffset);
 			while ( sqlite3_step(stmt_group_sel) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_group_sel, 0));
-				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_group_sel, 1), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_group_sel, 2), 0, FALSE);
-				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_group_sel, 3));
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_group_sel, 0));
+				ValueSetText(tblRow, "name", (str)sqlite3_column_text(stmt_group_sel, 1));
+				ValueSetText(tblRow, "desc", (str)sqlite3_column_text(stmt_group_sel, 2));
+				ValueSetInt(tblRow, "sort", sqlite3_column_int64(stmt_group_sel, 3));
 				xtime iTime = sqlite3_column_int64(stmt_group_sel, 4);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_group_sel, 5);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetInt(tblRow, "authCount", 9, sqlite3_column_int64(stmt_group_sel, 7));
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetInt(tblRow, "authCount", sqlite3_column_int64(stmt_group_sel, 7));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_group_sel, 8);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_group_sel);
 		}
 		
 		// 构建返回�?
-		xvalue* tblRet = xvoCreateTable();
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetInt(tblRet, "code", 4, 0);
-		xvoTableSetInt(tblRet, "count", 5, iCount);
-		xvoTableSetText(tblRet, "message", 7, "Ȩ�޷������ݻ�ȡ�ɹ���", 0, FALSE);
-		xvoTableSetValue(tblRet, "data", 4, data, TRUE);
+		xvalue* tblRet = ValueObject();
+		ValueSetBool(tblRet, "result", true);
+		ValueSetInt(tblRet, "code", 0);
+		ValueSetInt(tblRet, "count", iCount);
+		ValueSetText(tblRet, "message", "Ȩ�޷������ݻ�ȡ�ɹ���");
+		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
 		size_t iRetSize = 0;
-		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
+		char* sRet = xrtJsonStringify(tblRet, false, &iRetSize);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
-		xvoUnref(tblRet);
+		xrtValueRelease(tblRet);
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
 		// 添加权限分类
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		str name = xvoTableGetText(tblForm, "name", 4);
-		str desc = xvoTableGetText(tblForm, "desc", 4);
-		int64 sort = xvoTableGetInt(tblForm, "sort", 4);
-		xtime now = XA_Now();
+		str name = ValueText(tblForm, "name");
+		str desc = ValueText(tblForm, "desc");
+		int64 sort = ValueInt(tblForm, "sort");
+		xtime now = xrtNow();
 		
 		sqlite3_bind_text(stmt_group_add, 1, name, strlen(name), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_group_add, 2, desc, strlen(desc), SQLITE_STATIC);
@@ -843,7 +849,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		sqlite3_bind_int64(stmt_group_add, 5, now);
 		bool written = DB_Write(stmt_group_add, true);
 		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息和新创建的ID
@@ -852,20 +858,20 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		// 刷新权限分类缓存
 		ReloadCache_Auth_Group();
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_PUT) ) {
 		
 		// 更新权限分类
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		int64 id = xvoTableGetInt(tblForm, "id", 2);
-		str name = xvoTableGetText(tblForm, "name", 4);
-		str desc = xvoTableGetText(tblForm, "desc", 4);
-		int64 sort = xvoTableGetInt(tblForm, "sort", 4);
-		xtime now = XA_Now();
+		int64 id = ValueInt(tblForm, "id");
+		str name = ValueText(tblForm, "name");
+		str desc = ValueText(tblForm, "desc");
+		int64 sort = ValueInt(tblForm, "sort");
+		xtime now = xrtNow();
 		
 		sqlite3_bind_text(stmt_group_put, 1, name, strlen(name), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_group_put, 2, desc, strlen(desc), SQLITE_STATIC);
@@ -873,7 +879,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		sqlite3_bind_int64(stmt_group_put, 4, now);
 		sqlite3_bind_int64(stmt_group_put, 5, id);
 		bool written = DB_Write(stmt_group_put, true);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
@@ -882,12 +888,12 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		// 刷新权限分类缓存
 		ReloadCache_Auth_Group();
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_DELETE) ) {
 		
 		// 删除权限分类（软删除�?
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		if ( id > 1 ) {
 			
 			// 有关联的URI权限，将他们移入未分�?
@@ -921,7 +927,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 // 获取 auth 管理页面视图
 void Request_View_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 登录页面
 		LoadPage(objResp, 200, HTTP_CT_HTML, "auth/auth.html");
@@ -937,16 +943,16 @@ void Request_View_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS
 // 获取 auth 添加页面视图
 void Request_View_Auth_Auth_Add(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 构建模板�?
-		xvalue* tblInfo = xvoCreateTable();
-		xvoTableSetValue(tblInfo, "groupList", 9, G_CACHE_Group, FALSE);
+		xvalue* tblInfo = ValueObject();
+		ValueSetRef(tblInfo, "groupList", G_CACHE_Group);
 		
 		// 构建页面并返�?
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("auth/auth_add.html", tblInfo, &iSize);
-		xvoUnref(tblInfo);
+		xrtValueRelease(tblInfo);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 		xrtFree(sPage);
 		
@@ -961,32 +967,32 @@ void Request_View_Auth_Auth_Add(XS_ServerObject objServer, XS_HostObject objHost
 // 获取 auth 编辑页面视图
 void Request_View_Auth_Auth_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 获取参数
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		
 		// 读取数据库中的记录，构建模板�?
-		xvalue* tblInfo = xvoCreateTable();
-		int bRow = FALSE;
+		xvalue* tblInfo = ValueObject();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_auth_get, 1, id);
 		while ( sqlite3_step(stmt_auth_get) == SQLITE_ROW ) {
-			xvoTableSetInt(tblInfo, "id", 2, id);
-			xvoTableSetInt(tblInfo, "groupID", 7, sqlite3_column_int64(stmt_auth_get, 1));
-			xvoTableSetText(tblInfo, "name", 4, (str)sqlite3_column_text(stmt_auth_get, 2), 0, FALSE);
-			xvoTableSetText(tblInfo, "desc", 4, (str)sqlite3_column_text(stmt_auth_get, 3), 0, FALSE);
-			xvoTableSetInt(tblInfo, "sort", 4, sqlite3_column_int64(stmt_auth_get, 4));
-			xvoTableSetValue(tblInfo, "groupList", 9, G_CACHE_Group, FALSE);
-			bRow = TRUE;
+			ValueSetInt(tblInfo, "id", id);
+			ValueSetInt(tblInfo, "groupID", sqlite3_column_int64(stmt_auth_get, 1));
+			ValueSetText(tblInfo, "name", (str)sqlite3_column_text(stmt_auth_get, 2));
+			ValueSetText(tblInfo, "desc", (str)sqlite3_column_text(stmt_auth_get, 3));
+			ValueSetInt(tblInfo, "sort", sqlite3_column_int64(stmt_auth_get, 4));
+			ValueSetRef(tblInfo, "groupList", G_CACHE_Group);
+			bRow = true;
 		}
 		sqlite3_reset(stmt_auth_get);
 		
 		// 构建页面并返�?
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("auth/auth_edit.html", tblInfo, &iSize);
-		xvoUnref(tblInfo);
+		xrtValueRelease(tblInfo);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 		xrtFree(sPage);
 		
@@ -1003,42 +1009,43 @@ void Request_View_Auth_Auth_Edit(XS_ServerObject objServer, XS_HostObject objHos
 // auth 主接�?
 void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// �?URL 查询字符串中提取参数
 		char sParam[64];
 		xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
-		int64 iPage = xrtStrToI64(sParam);
+		int64 iPage = Util_ParseI64(sParam);
 		if ( iPage <= 0 ) { iPage = 1; }
 		xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
-		int64 iLimit = xrtStrToI64(sParam);
+		int64 iLimit = Util_ParseI64(sParam);
 		if ( iLimit <= 0 ) { iLimit = 10; }
+		if ( iLimit > 100 ) { iLimit = 100; }	/* F9 */
 		int64 iOffset = (iPage - 1) * iLimit;
 		int iSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
 		
 		// 从数据库中查询数�?
-		xvalue* data = xvoCreateArray();
+		xvalue* data = ValueArray();
 		int64 iCount = 0;
 		if ( iSize <= 0 ) {
 			// 查询全部
 			sqlite3_bind_int64(stmt_auth_all, 1, iLimit);
 			sqlite3_bind_int64(stmt_auth_all, 2, iOffset);
 			while ( sqlite3_step(stmt_auth_all) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_auth_all, 0));
-				xvoTableSetInt(tblRow, "groupID", 7, sqlite3_column_int64(stmt_auth_all, 1));
-				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_auth_all, 2), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_auth_all, 3), 0, FALSE);
-				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_auth_all, 4));
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_auth_all, 0));
+				ValueSetInt(tblRow, "groupID", sqlite3_column_int64(stmt_auth_all, 1));
+				ValueSetText(tblRow, "name", (str)sqlite3_column_text(stmt_auth_all, 2));
+				ValueSetText(tblRow, "desc", (str)sqlite3_column_text(stmt_auth_all, 3));
+				ValueSetInt(tblRow, "sort", sqlite3_column_int64(stmt_auth_all, 4));
 				xtime iTime = sqlite3_column_int64(stmt_auth_all, 5);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_auth_all, 6);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "groupName", 9, (str)sqlite3_column_text(stmt_auth_all, 7), 0, FALSE);
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetText(tblRow, "groupName", (str)sqlite3_column_text(stmt_auth_all, 7));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_auth_all, 8);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_auth_all);
 		} else {
@@ -1048,54 +1055,54 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			sqlite3_bind_int64(stmt_auth_sel, 3, iLimit);
 			sqlite3_bind_int64(stmt_auth_sel, 4, iOffset);
 			while ( sqlite3_step(stmt_auth_sel) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_auth_sel, 0));
-				xvoTableSetInt(tblRow, "groupID", 7, sqlite3_column_int64(stmt_auth_sel, 1));
-				xvoTableSetText(tblRow, "name", 4, (str)sqlite3_column_text(stmt_auth_sel, 2), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_auth_sel, 3), 0, FALSE);
-				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_auth_sel, 4));
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_auth_sel, 0));
+				ValueSetInt(tblRow, "groupID", sqlite3_column_int64(stmt_auth_sel, 1));
+				ValueSetText(tblRow, "name", (str)sqlite3_column_text(stmt_auth_sel, 2));
+				ValueSetText(tblRow, "desc", (str)sqlite3_column_text(stmt_auth_sel, 3));
+				ValueSetInt(tblRow, "sort", sqlite3_column_int64(stmt_auth_sel, 4));
 				xtime iTime = sqlite3_column_int64(stmt_auth_sel, 5);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_auth_sel, 6);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "groupName", 9, (str)sqlite3_column_text(stmt_auth_sel, 7), 0, FALSE);
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetText(tblRow, "groupName", (str)sqlite3_column_text(stmt_auth_sel, 7));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_auth_sel, 8);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_auth_sel);
 		}
 		
 		// 构建返回�?
-		xvalue* tblRet = xvoCreateTable();
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetInt(tblRet, "code", 4, 0);
-		xvoTableSetInt(tblRet, "count", 5, iCount);
-		xvoTableSetText(tblRet, "message", 7, "Ȩ�������ݻ�ȡ�ɹ���", 0, FALSE);
-		xvoTableSetValue(tblRet, "data", 4, data, TRUE);
+		xvalue* tblRet = ValueObject();
+		ValueSetBool(tblRet, "result", true);
+		ValueSetInt(tblRet, "code", 0);
+		ValueSetInt(tblRet, "count", iCount);
+		ValueSetText(tblRet, "message", "Ȩ�������ݻ�ȡ�ɹ���");
+		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
 		size_t iRetSize = 0;
-		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
+		char* sRet = xrtJsonStringify(tblRet, false, &iRetSize);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
-		xvoUnref(tblRet);
+		xrtValueRelease(tblRet);
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_POST) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
 		// 添加权限�?
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		int64 groupID = xvoTableGetInt(tblForm, "groupID", 7);
-		str name = xvoTableGetText(tblForm, "name", 4);
-		str desc = xvoTableGetText(tblForm, "desc", 4);
-		int64 sort = xvoTableGetInt(tblForm, "sort", 4);
-		xtime now = XA_Now();
+		int64 groupID = ValueInt(tblForm, "groupID");
+		str name = ValueText(tblForm, "name");
+		str desc = ValueText(tblForm, "desc");
+		int64 sort = ValueInt(tblForm, "sort");
+		xtime now = xrtNow();
 		
 		sqlite3_bind_int64(stmt_auth_add, 1, groupID);
 		sqlite3_bind_text(stmt_auth_add, 2, name, strlen(name), SQLITE_STATIC);
@@ -1105,7 +1112,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_auth_add, 6, now);
 		bool written = DB_Write(stmt_auth_add, true);
 		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息和新创建的ID
@@ -1115,21 +1122,21 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		ReloadCache_Auth_Auth();
 		ReloadCache_Auth_Group();
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_PUT) ) {
 		
 		// 更新权限�?
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		int64 id = xvoTableGetInt(tblForm, "id", 2);
-		int64 groupID = xvoTableGetInt(tblForm, "groupID", 7);
-		str name = xvoTableGetText(tblForm, "name", 4);
-		str desc = xvoTableGetText(tblForm, "desc", 4);
-		int64 sort = xvoTableGetInt(tblForm, "sort", 4);
-		xtime now = XA_Now();
+		int64 id = ValueInt(tblForm, "id");
+		int64 groupID = ValueInt(tblForm, "groupID");
+		str name = ValueText(tblForm, "name");
+		str desc = ValueText(tblForm, "desc");
+		int64 sort = ValueInt(tblForm, "sort");
+		xtime now = xrtNow();
 		
 		sqlite3_bind_int64(stmt_auth_put, 1, groupID);
 		sqlite3_bind_text(stmt_auth_put, 2, name, strlen(name), SQLITE_STATIC);
@@ -1138,7 +1145,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_auth_put, 5, now);
 		sqlite3_bind_int64(stmt_auth_put, 6, id);
 		bool written = DB_Write(stmt_auth_put, true);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 返回成功信息
@@ -1148,12 +1155,12 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		ReloadCache_Auth_Auth();
 		ReloadCache_Auth_Group();
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_DELETE) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_DELETE) ) {
 		
 		// 删除权限组（软删除）
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		if ( id > 1 ) {
 			
 			// 有关联的URI权限，将他们移入未分�?
@@ -1188,7 +1195,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 // 获取 uris 管理页面视图
 void Request_View_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 登录页面
 		LoadPage(objResp, 200, HTTP_CT_HTML, "auth/uris.html");
@@ -1204,38 +1211,38 @@ void Request_View_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS
 // 获取 uris 编辑页面视图
 void Request_View_Auth_URIs_Edit(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// 获取参数
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
-		int64 id = xrtStrToI64(sID);
+		int64 id = Util_ParseI64(sID);
 		
 		// 读取数据库中的记录，构建模板�?
-		xvalue* tblInfo = xvoCreateTable();
-		int bRow = FALSE;
+		xvalue* tblInfo = ValueObject();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_uris_get, 1, id);
 		while ( sqlite3_step(stmt_uris_get) == SQLITE_ROW ) {
-			xvoTableSetInt(tblInfo, "id", 2, id);
-			xvoTableSetInt(tblInfo, "authID", 6, sqlite3_column_int64(stmt_uris_get, 1));
-			xvoTableSetText(tblInfo, "uri", 3, (str)sqlite3_column_text(stmt_uris_get, 2), 0, FALSE);
-			xvoTableSetText(tblInfo, "desc", 4, (str)sqlite3_column_text(stmt_uris_get, 3), 0, FALSE);
+			ValueSetInt(tblInfo, "id", id);
+			ValueSetInt(tblInfo, "authID", sqlite3_column_int64(stmt_uris_get, 1));
+			ValueSetText(tblInfo, "uri", (str)sqlite3_column_text(stmt_uris_get, 2));
+			ValueSetText(tblInfo, "desc", (str)sqlite3_column_text(stmt_uris_get, 3));
 			// �?个字�? isBackend(4), needAuth(5), needLog(6), keepActive(7)
-			xvoTableSetInt(tblInfo, "isBackend", 9, sqlite3_column_int64(stmt_uris_get, 4));
-			xvoTableSetInt(tblInfo, "needAuth", 8, sqlite3_column_int64(stmt_uris_get, 5));
-			xvoTableSetInt(tblInfo, "needLog", 7, sqlite3_column_int64(stmt_uris_get, 6));
-			xvoTableSetInt(tblInfo, "keepActive", 10, sqlite3_column_int64(stmt_uris_get, 7));
-			xvoTableSetInt(tblInfo, "sort", 4, sqlite3_column_int64(stmt_uris_get, 8));
-			xvoTableSetValue(tblInfo, "authList", 8, G_CACHE_Auth, FALSE);
-			xvoTableSetValue(tblInfo, "memberAuthList", 14, G_CACHE_MemberAuth, FALSE);
-			bRow = TRUE;
+			ValueSetInt(tblInfo, "isBackend", sqlite3_column_int64(stmt_uris_get, 4));
+			ValueSetInt(tblInfo, "needAuth", sqlite3_column_int64(stmt_uris_get, 5));
+			ValueSetInt(tblInfo, "needLog", sqlite3_column_int64(stmt_uris_get, 6));
+			ValueSetInt(tblInfo, "keepActive", sqlite3_column_int64(stmt_uris_get, 7));
+			ValueSetInt(tblInfo, "sort", sqlite3_column_int64(stmt_uris_get, 8));
+			ValueSetRef(tblInfo, "authList", G_CACHE_Auth);
+			ValueSetRef(tblInfo, "memberAuthList", G_CACHE_MemberAuth);
+			bRow = true;
 		}
 		sqlite3_reset(stmt_uris_get);
 		
 		// 构建页面并返�?
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("auth/uris_edit.html", tblInfo, &iSize);
-		xvoUnref(tblInfo);
+		xrtValueRelease(tblInfo);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize);
 		xrtFree(sPage);
 		
@@ -1252,48 +1259,49 @@ void Request_View_Auth_URIs_Edit(XS_ServerObject objServer, XS_HostObject objHos
 // uris 主接�?
 void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
-	if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_GET) ) {
+	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
 		// �?URL 查询字符串中提取参数
 		char sParam[64];
 		xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
-		int64 iPage = xrtStrToI64(sParam);
+		int64 iPage = Util_ParseI64(sParam);
 		if ( iPage <= 0 ) { iPage = 1; }
 		xsReqQueryValue(objReq, "limit", sParam, sizeof(sParam));
-		int64 iLimit = xrtStrToI64(sParam);
+		int64 iLimit = Util_ParseI64(sParam);
 		if ( iLimit <= 0 ) { iLimit = 10; }
+		if ( iLimit > 100 ) { iLimit = 100; }	/* F9 */
 		int64 iOffset = (iPage - 1) * iLimit;
 		int iSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
 		
 		// 从数据库中查询数�?
-		xvalue* data = xvoCreateArray();
+		xvalue* data = ValueArray();
 		int64 iCount = 0;
 		if ( iSize <= 0 ) {
 			// 查询全部
 			sqlite3_bind_int64(stmt_uris_all, 1, iLimit);
 			sqlite3_bind_int64(stmt_uris_all, 2, iOffset);
 			while ( sqlite3_step(stmt_uris_all) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_uris_all, 0));
-				xvoTableSetInt(tblRow, "authID", 6, sqlite3_column_int64(stmt_uris_all, 1));
-				xvoTableSetText(tblRow, "uri", 3, (str)sqlite3_column_text(stmt_uris_all, 2), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_uris_all, 3), 0, FALSE);
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_uris_all, 0));
+				ValueSetInt(tblRow, "authID", sqlite3_column_int64(stmt_uris_all, 1));
+				ValueSetText(tblRow, "uri", (str)sqlite3_column_text(stmt_uris_all, 2));
+				ValueSetText(tblRow, "desc", (str)sqlite3_column_text(stmt_uris_all, 3));
 				// �?个字�? isBackend(4), needAuth(5), needLog(6), keepActive(7)
-				xvoTableSetInt(tblRow, "isBackend", 9, sqlite3_column_int64(stmt_uris_all, 4));
-				xvoTableSetInt(tblRow, "needAuth", 8, sqlite3_column_int64(stmt_uris_all, 5));
-				xvoTableSetInt(tblRow, "needLog", 7, sqlite3_column_int64(stmt_uris_all, 6));
-				xvoTableSetInt(tblRow, "keepActive", 10, sqlite3_column_int64(stmt_uris_all, 7));
-				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_uris_all, 8));
+				ValueSetInt(tblRow, "isBackend", sqlite3_column_int64(stmt_uris_all, 4));
+				ValueSetInt(tblRow, "needAuth", sqlite3_column_int64(stmt_uris_all, 5));
+				ValueSetInt(tblRow, "needLog", sqlite3_column_int64(stmt_uris_all, 6));
+				ValueSetInt(tblRow, "keepActive", sqlite3_column_int64(stmt_uris_all, 7));
+				ValueSetInt(tblRow, "sort", sqlite3_column_int64(stmt_uris_all, 8));
 				xtime iTime = sqlite3_column_int64(stmt_uris_all, 9);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_uris_all, 10);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "authName", 8, (str)sqlite3_column_text(stmt_uris_all, 11), 0, FALSE);
-				xvoTableSetText(tblRow, "memberAuthName", 14, (str)sqlite3_column_text(stmt_uris_all, 12), 0, FALSE);
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetText(tblRow, "authName", (str)sqlite3_column_text(stmt_uris_all, 11));
+				ValueSetText(tblRow, "memberAuthName", (str)sqlite3_column_text(stmt_uris_all, 12));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_uris_all, 13);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_uris_all);
 		} else {
@@ -1303,64 +1311,64 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			sqlite3_bind_int64(stmt_uris_sel, 3, iLimit);
 			sqlite3_bind_int64(stmt_uris_sel, 4, iOffset);
 			while ( sqlite3_step(stmt_uris_sel) == SQLITE_ROW ) {
-				xvalue* tblRow = xvoCreateTable();
-				xvoTableSetInt(tblRow, "id", 2, sqlite3_column_int64(stmt_uris_sel, 0));
-				xvoTableSetInt(tblRow, "authID", 6, sqlite3_column_int64(stmt_uris_sel, 1));
-				xvoTableSetText(tblRow, "uri", 3, (str)sqlite3_column_text(stmt_uris_sel, 2), 0, FALSE);
-				xvoTableSetText(tblRow, "desc", 4, (str)sqlite3_column_text(stmt_uris_sel, 3), 0, FALSE);
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_uris_sel, 0));
+				ValueSetInt(tblRow, "authID", sqlite3_column_int64(stmt_uris_sel, 1));
+				ValueSetText(tblRow, "uri", (str)sqlite3_column_text(stmt_uris_sel, 2));
+				ValueSetText(tblRow, "desc", (str)sqlite3_column_text(stmt_uris_sel, 3));
 				// �?个字�? isBackend(4), needAuth(5), needLog(6), keepActive(7)
-				xvoTableSetInt(tblRow, "isBackend", 9, sqlite3_column_int64(stmt_uris_sel, 4));
-				xvoTableSetInt(tblRow, "needAuth", 8, sqlite3_column_int64(stmt_uris_sel, 5));
-				xvoTableSetInt(tblRow, "needLog", 7, sqlite3_column_int64(stmt_uris_sel, 6));
-				xvoTableSetInt(tblRow, "keepActive", 10, sqlite3_column_int64(stmt_uris_sel, 7));
-				xvoTableSetInt(tblRow, "sort", 4, sqlite3_column_int64(stmt_uris_sel, 8));
+				ValueSetInt(tblRow, "isBackend", sqlite3_column_int64(stmt_uris_sel, 4));
+				ValueSetInt(tblRow, "needAuth", sqlite3_column_int64(stmt_uris_sel, 5));
+				ValueSetInt(tblRow, "needLog", sqlite3_column_int64(stmt_uris_sel, 6));
+				ValueSetInt(tblRow, "keepActive", sqlite3_column_int64(stmt_uris_sel, 7));
+				ValueSetInt(tblRow, "sort", sqlite3_column_int64(stmt_uris_sel, 8));
 				xtime iTime = sqlite3_column_int64(stmt_uris_sel, 9);
-				xvoTableSetText(tblRow, "createTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				iTime = sqlite3_column_int64(stmt_uris_sel, 10);
-				xvoTableSetText(tblRow, "updateTime", 10, XA_TimeToStr(iTime, XRT_TIME_FORMAT_DATETIME), 0, TRUE);
-				xvoTableSetText(tblRow, "authName", 8, (str)sqlite3_column_text(stmt_uris_sel, 11), 0, FALSE);
-				xvoTableSetText(tblRow, "memberAuthName", 14, (str)sqlite3_column_text(stmt_uris_sel, 12), 0, FALSE);
+				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueSetText(tblRow, "authName", (str)sqlite3_column_text(stmt_uris_sel, 11));
+				ValueSetText(tblRow, "memberAuthName", (str)sqlite3_column_text(stmt_uris_sel, 12));
 				if ( iCount <= 0 ) {
 					iCount = sqlite3_column_int64(stmt_uris_sel, 13);
 				}
-				xvoArrayAppendValue(data, tblRow, TRUE);
+				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_uris_sel);
 		}
 		
 		// 构建返回�?
-		xvalue* tblRet = xvoCreateTable();
-		xvoTableSetBool(tblRet, "result", 6, TRUE);
-		xvoTableSetInt(tblRet, "code", 4, 0);
-		xvoTableSetInt(tblRet, "count", 5, iCount);
-		xvoTableSetText(tblRet, "message", 7, "�ӿ����ݻ�ȡ�ɹ���", 0, FALSE);
-		xvoTableSetValue(tblRet, "data", 4, data, TRUE);
+		xvalue* tblRet = ValueObject();
+		ValueSetBool(tblRet, "result", true);
+		ValueSetInt(tblRet, "code", 0);
+		ValueSetInt(tblRet, "count", iCount);
+		ValueSetText(tblRet, "message", "�ӿ����ݻ�ȡ�ɹ���");
+		ValueSetOwn(tblRet, "data", data);
 		
 		// 生成 JSON
 		size_t iRetSize = 0;
-		char* sRet = xrtStringifyJSON(tblRet, FALSE, &iRetSize);
+		char* sRet = xrtJsonStringify(tblRet, false, &iRetSize);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);
 		xrtFree(sRet);
-		xvoUnref(tblRet);
+		xrtValueRelease(tblRet);
 		
-	} else if ( (xsReqMethodID(objReq) == XHTTPD_METHOD_PUT) ) {
+	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_PUT) ) {
 		
 		// 更新接口信息
-		xvalue* tblForm = xrtParseJSON((str)xsReqBody(objReq), xsReqBodyLen(objReq));
-		if ( xrtValueType(tblForm) != XVO_DT_TABLE ) {
+		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
+		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
-			xvoUnref(tblForm);
+			xrtValueRelease(tblForm);
 			return;
 		}
-		int64 id = xvoTableGetInt(tblForm, "id", 2);
-		int64 authID = xvoTableGetInt(tblForm, "authID", 6);
-		str desc = xvoTableGetText(tblForm, "desc", 4);
-		int64 sort = xvoTableGetInt(tblForm, "sort", 4);
+		int64 id = ValueInt(tblForm, "id");
+		int64 authID = ValueInt(tblForm, "authID");
+		str desc = ValueText(tblForm, "desc");
+		int64 sort = ValueInt(tblForm, "sort");
 		// �?个字�?
-		int64 isBackend = xvoTableGetInt(tblForm, "isBackend", 9);
-		int64 needAuth = xvoTableGetInt(tblForm, "needAuth", 8);
-		int64 needLog = xvoTableGetInt(tblForm, "needLog", 7);
-		int64 keepActive = xvoTableGetInt(tblForm, "keepActive", 10);
+		int64 isBackend = ValueInt(tblForm, "isBackend");
+		int64 needAuth = ValueInt(tblForm, "needAuth");
+		int64 needLog = ValueInt(tblForm, "needLog");
+		int64 keepActive = ValueInt(tblForm, "keepActive");
 		
 		// UPDATE uris SET authID=?, desc=?, sort=?, isBackend=?, needAuth=?, needLog=?, keepActive=?, updateTime=? WHERE id=?
 		sqlite3_bind_int64(stmt_uris_put, 1, authID);
@@ -1370,10 +1378,10 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_uris_put, 5, needAuth);
 		sqlite3_bind_int64(stmt_uris_put, 6, needLog);
 		sqlite3_bind_int64(stmt_uris_put, 7, keepActive);
-		sqlite3_bind_int64(stmt_uris_put, 8, XA_Now());
+		sqlite3_bind_int64(stmt_uris_put, 8, xrtNow());
 		sqlite3_bind_int64(stmt_uris_put, 9, id);
 		bool written = DB_Write(stmt_uris_put, true);
-		xvoUnref(tblForm);
+		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		
 		// 更新路由表和权限缓存

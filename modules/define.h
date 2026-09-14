@@ -18,9 +18,10 @@ typedef struct RouteInfo {
 	XAdminRouteProc Proc[10];
 	const char* Path; /* 权限配置键：静态 URI 或动态 pattern，不是某次捕获的实际路径。 */
 	bool bAuth, bAdmin, bPutLog, bActive;
+	bool bMaskBody; /* 攻击评审 F2：true 时该路由日志不记录请求体（口令类接口）。 */
 	uint32 AuthID, AuthLevel;
 } RouteInfo;
-static xdict G_StaticRouteTableHTTP;
+static xmap* G_StaticRouteTableHTTP;
 static const xhttpmethod G_Methods[10] = {
 	XHTTP_METHOD_GET, XHTTP_METHOD_HEAD, XHTTP_METHOD_POST, XHTTP_METHOD_PUT,
 	XHTTP_METHOD_DELETE, XHTTP_METHOD_CONNECT, XHTTP_METHOD_OPTIONS,
@@ -35,7 +36,7 @@ static char* ServerHashPassword(const char* user, const char* salt, const char* 
 	combined = xrtFormat("%s%s%s", user, salt, client_hash);
 	if (!combined) return NULL;
 	if (!xrtSha256(combined, strlen(combined), digest)) { xrtFree(combined); return NULL; }
-	result = XA_HexEncode(digest, sizeof(digest));
+	result = Util_HexUpper(digest, sizeof(digest));
 	xrtFree(combined);
 	return result;
 }
