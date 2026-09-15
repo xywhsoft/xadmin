@@ -63,6 +63,11 @@ void Request_View_Auth_User_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			bRow = true;
 		}
 		sqlite3_reset(stmt_user_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		
 		// 添加角色列表
 		ValueSetRef(tblInfo, "roleList", G_CACHE_Role);
@@ -436,6 +441,11 @@ void Request_View_Auth_Role_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			bRow = true;
 		}
 		sqlite3_reset(stmt_role_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		
 		// 标记已选中的权限 - 这里创建深拷贝副本，避免多线程写入同步问题
 		xvalue* arrAuthGroups = xrtValueDeepClone(G_CACHE_Group);
@@ -729,6 +739,11 @@ void Request_View_Auth_Group_Edit(XS_ServerObject objServer, XS_HostObject objHo
 			bRow = true;
 		}
 		sqlite3_reset(stmt_group_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		
 		// 构建页面并返回
 		size_t iSize = 0;
@@ -988,6 +1003,11 @@ void Request_View_Auth_Auth_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			bRow = true;
 		}
 		sqlite3_reset(stmt_auth_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		
 		// 构建页面并返回
 		size_t iSize = 0;
@@ -1246,6 +1266,11 @@ void Request_View_Auth_URIs_Edit(XS_ServerObject objServer, XS_HostObject objHos
 			bRow = true;
 		}
 		sqlite3_reset(stmt_uris_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		
 		// 构建页面并返回
 		size_t iSize = 0;

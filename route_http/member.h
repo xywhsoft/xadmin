@@ -40,8 +40,10 @@ void Request_View_Member_User_Edit(XS_ServerObject objServer, XS_HostObject objH
 		int64 id = Util_ParseI64(sID);
 		
 		xvalue* tblInfo = ValueObject();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_member_get, 1, id);
 		if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
+			bRow = true;
 			ValueSetInt(tblInfo, "id", sqlite3_column_int64(stmt_member_get, 0));
 			ValueSetText(tblInfo, "username", (str)sqlite3_column_text(stmt_member_get, 1));
 			ValueSetInt(tblInfo, "groupId", sqlite3_column_int64(stmt_member_get, 2));
@@ -53,6 +55,11 @@ void Request_View_Member_User_Edit(XS_ServerObject objServer, XS_HostObject objH
 			ValueSetInt(tblInfo, "status", sqlite3_column_int64(stmt_member_get, 9));
 		}
 		sqlite3_reset(stmt_member_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		ValueSetRef(tblInfo, "groupList", G_CACHE_MemberGroup);
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("member/user_edit.html", tblInfo, &iSize);
@@ -317,8 +324,10 @@ void Request_View_Member_Group_Edit(XS_ServerObject objServer, XS_HostObject obj
 		int64 id = Util_ParseI64(sID);
 		xvalue* tblInfo = ValueObject();
 		xvalue* listAuth = xrtValueIntMap();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_mgroup_get, 1, id);
 		if ( sqlite3_step(stmt_mgroup_get) == SQLITE_ROW ) {
+			bRow = true;
 			ValueSetInt(tblInfo, "id", id);
 			ValueSetText(tblInfo, "name", (str)sqlite3_column_text(stmt_mgroup_get, 1));
 			ValueSetText(tblInfo, "desc", (str)sqlite3_column_text(stmt_mgroup_get, 2));
@@ -336,6 +345,11 @@ void Request_View_Member_Group_Edit(XS_ServerObject objServer, XS_HostObject obj
 			}
 		}
 		sqlite3_reset(stmt_mgroup_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		xvalue* arrAuthGroups = xrtValueDeepClone(G_CACHE_MemberAuthGroup);
 		for ( int g = 1; g <= xrtValueCount(arrAuthGroups); g++ ) {
 			xvalue* tblGroup = xrtValueArrayGet(arrAuthGroups, (g) - 1);
@@ -526,14 +540,21 @@ void Request_View_Member_AuthGroup_Edit(XS_ServerObject objServer, XS_HostObject
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		char sID[24]; xsReqQueryValue(objReq, "id", sID, sizeof(sID)); int64 id = Util_ParseI64(sID);
 		xvalue* tblInfo = ValueObject();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_magroup_get, 1, id);
 		if ( sqlite3_step(stmt_magroup_get) == SQLITE_ROW ) {
+			bRow = true;
 			ValueSetInt(tblInfo, "id", id);
 			ValueSetText(tblInfo, "name", (str)sqlite3_column_text(stmt_magroup_get, 1));
 			ValueSetText(tblInfo, "desc", (str)sqlite3_column_text(stmt_magroup_get, 2));
 			ValueSetInt(tblInfo, "sort", sqlite3_column_int64(stmt_magroup_get, 3));
 		}
 		sqlite3_reset(stmt_magroup_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		size_t iSize = 0; str sPage = MakePageWithTemplate("member/authgroup_edit.html", tblInfo, &iSize);
 		xrtValueRelease(tblInfo); xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize); xrtFree(sPage);
 	} else LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
@@ -655,8 +676,10 @@ void Request_View_Member_Auth_Edit(XS_ServerObject objServer, XS_HostObject objH
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		char sID[24]; xsReqQueryValue(objReq, "id", sID, sizeof(sID)); int64 id = Util_ParseI64(sID);
 		xvalue* tblInfo = ValueObject();
+		int bRow = false;
 		sqlite3_bind_int64(stmt_mauth_get, 1, id);
 		if ( sqlite3_step(stmt_mauth_get) == SQLITE_ROW ) {
+			bRow = true;
 			ValueSetInt(tblInfo, "id", id);
 			ValueSetInt(tblInfo, "groupID", sqlite3_column_int64(stmt_mauth_get, 1));
 			ValueSetText(tblInfo, "name", (str)sqlite3_column_text(stmt_mauth_get, 2));
@@ -664,6 +687,11 @@ void Request_View_Member_Auth_Edit(XS_ServerObject objServer, XS_HostObject objH
 			ValueSetInt(tblInfo, "sort", sqlite3_column_int64(stmt_mauth_get, 4));
 		}
 		sqlite3_reset(stmt_mauth_get);
+		if ( !bRow ) {
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		ValueSetRef(tblInfo, "groupList", G_CACHE_MemberAuthGroup);
 		size_t iSize = 0; str sPage = MakePageWithTemplate("member/auth_edit.html", tblInfo, &iSize);
 		xrtValueRelease(tblInfo); xsHttpReplyAuto(objResp, 200, HTTP_CT_HTML, sPage, iSize); xrtFree(sPage);
