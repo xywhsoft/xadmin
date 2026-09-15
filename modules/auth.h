@@ -5,12 +5,12 @@
 void Auth_CompileSQL()
 {
 	// 棰勭紪璇?SQL 璇彞 - uris 琛?
-	int iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive, COUNT(*) OVER() AS total_count FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_all, NULL);
+	int iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive, COUNT(*) OVER() AS total_count FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id WHERE (uris.uri LIKE ?) OR (uris.desc LIKE ?) OR (uris.namespace LIKE ?) OR (uris.plugin_xid LIKE ?) ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id WHERE (uris.uri LIKE ?) OR (uris.desc LIKE ?) OR (uris.namespace LIKE ?) OR (uris.plugin_xid LIKE ?) ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -37,12 +37,12 @@ void Auth_CompileSQL()
 	}
 	
 	// 棰勭紪璇?SQL 璇彞 - auth 琛?
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT auth.id, auth.groupID, auth.name, auth.desc, auth.sort, auth.createTime, auth.updateTime, authGroup.name AS groupName, COUNT(*) OVER() AS total_count FROM auth JOIN authGroup ON auth.groupID = authGroup.id WHERE auth.isDelete = 0 ORDER BY auth.sort ASC, auth.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_auth_all, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT auth.id, auth.groupID, auth.name, auth.desc, auth.sort, auth.createTime, auth.updateTime, authGroup.name AS groupName FROM auth JOIN authGroup ON auth.groupID = authGroup.id WHERE auth.isDelete = 0 ORDER BY auth.sort ASC, auth.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_auth_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_auth_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT auth.id, auth.groupID, auth.name, auth.desc, auth.sort, auth.createTime, auth.updateTime, authGroup.name AS groupName, COUNT(*) OVER() AS total_count FROM auth JOIN authGroup ON auth.groupID = authGroup.id WHERE (auth.isDelete = 0) AND ((auth.name LIKE ?) OR (auth.desc LIKE ?)) ORDER BY auth.sort ASC, auth.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_auth_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT auth.id, auth.groupID, auth.name, auth.desc, auth.sort, auth.createTime, auth.updateTime, authGroup.name AS groupName FROM auth JOIN authGroup ON auth.groupID = authGroup.id WHERE (auth.isDelete = 0) AND ((auth.name LIKE ?) OR (auth.desc LIKE ?)) ORDER BY auth.sort ASC, auth.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_auth_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_auth_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -79,12 +79,12 @@ void Auth_CompileSQL()
 	}
 	
 	// 棰勭紪璇?SQL 璇彞 - authGroup 琛?
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT authGroup.*, COUNT(auth.id) AS authCount, COUNT(*) OVER() AS total_count FROM authGroup LEFT JOIN auth ON auth.groupID = authGroup.id AND auth.isDelete = 0 WHERE authGroup.isDelete = 0 GROUP BY authGroup.id ORDER BY authGroup.sort ASC, authGroup.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_group_all, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT authGroup.*, COUNT(auth.id) AS authCount FROM authGroup LEFT JOIN auth ON auth.groupID = authGroup.id AND auth.isDelete = 0 WHERE authGroup.isDelete = 0 GROUP BY authGroup.id ORDER BY authGroup.sort ASC, authGroup.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_group_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_group_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT authGroup.*, COUNT(auth.id) AS authCount, COUNT(*) OVER() AS total_count FROM authGroup LEFT JOIN auth ON auth.groupID = authGroup.id AND auth.isDelete = 0 WHERE (authGroup.isDelete = 0) AND ((authGroup.name LIKE ?) OR (authGroup.desc LIKE ?)) GROUP BY authGroup.id ORDER BY authGroup.sort ASC, authGroup.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_group_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT authGroup.*, COUNT(auth.id) AS authCount FROM authGroup LEFT JOIN auth ON auth.groupID = authGroup.id AND auth.isDelete = 0 WHERE (authGroup.isDelete = 0) AND ((authGroup.name LIKE ?) OR (authGroup.desc LIKE ?)) GROUP BY authGroup.id ORDER BY authGroup.sort ASC, authGroup.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_group_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_group_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -121,12 +121,12 @@ void Auth_CompileSQL()
 	}
 	
 	// 棰勭紪璇?SQL 璇彞 - role 琛?
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT r.*, json_array_length(r.authList) AS authCount, (SELECT COUNT(*) FROM user WHERE role = r.id AND isDelete = 0) AS userCount, COUNT(*) OVER() AS total_count FROM role r WHERE r.isDelete = 0 ORDER BY r.id ASC LIMIT ? OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_role_all, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT r.*, json_array_length(r.authList) AS authCount, (SELECT COUNT(*) FROM user WHERE role = r.id AND isDelete = 0) AS userCount FROM role r WHERE r.isDelete = 0 ORDER BY r.id ASC LIMIT ? OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_role_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_role_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT r.*, json_array_length(r.authList) AS authCount, (SELECT COUNT(*) FROM user WHERE role = r.id AND isDelete = 0) AS userCount, COUNT(*) OVER() AS total_count FROM role r WHERE (r.isDelete = 0) AND ((r.name LIKE ?) OR (r.desc LIKE ?)) ORDER BY r.id ASC LIMIT ? OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_role_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT r.*, json_array_length(r.authList) AS authCount, (SELECT COUNT(*) FROM user WHERE role = r.id AND isDelete = 0) AS userCount FROM role r WHERE (r.isDelete = 0) AND ((r.name LIKE ?) OR (r.desc LIKE ?)) ORDER BY r.id ASC LIMIT ? OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_role_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_role_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -158,12 +158,12 @@ void Auth_CompileSQL()
 	}
 	
 	// 棰勭紪璇?SQL 璇彞 - user 琛?
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT u.*, role.name AS roleName, COUNT(*) OVER() AS total_count FROM user u LEFT JOIN role ON u.role = role.id WHERE u.isDelete = 0 ORDER BY u.id ASC LIMIT ? OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_user_all, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT u.id, u.user, u.role, u.authLevel, u.createTime, u.updateTime, role.name AS roleName FROM user u LEFT JOIN role ON u.role = role.id WHERE u.isDelete = 0 ORDER BY u.id ASC LIMIT ? OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_user_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_user_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT u.*, role.name AS roleName, COUNT(*) OVER() AS total_count FROM user u LEFT JOIN role ON u.role = role.id WHERE (u.isDelete = 0) AND (u.user LIKE ?) ORDER BY u.id ASC LIMIT ? OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_user_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT u.id, u.user, u.role, u.authLevel, u.createTime, u.updateTime, role.name AS roleName FROM user u LEFT JOIN role ON u.role = role.id WHERE (u.isDelete = 0) AND (u.user LIKE ?) ORDER BY u.id ASC LIMIT ? OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_user_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_user_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -228,6 +228,18 @@ void Auth_CompileSQL()
 		exit(0);
 	}
 	
+	// L1：列表计数独立语句（拆掉 COUNT(*) OVER() 宽表反模式）
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM uris", -1, SQL_PREPARE_DEFAULT, &stmt_uris_count_all, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM uris WHERE (uri LIKE ? OR [desc] LIKE ? OR namespace LIKE ? OR plugin_xid LIKE ?)", -1, SQL_PREPARE_DEFAULT, &stmt_uris_count_sel, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM auth WHERE isDelete = 0", -1, SQL_PREPARE_DEFAULT, &stmt_auth_count_all, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM auth WHERE isDelete = 0 AND (name LIKE ? OR [desc] LIKE ?)", -1, SQL_PREPARE_DEFAULT, &stmt_auth_count_sel, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM authGroup WHERE isDelete = 0", -1, SQL_PREPARE_DEFAULT, &stmt_group_count_all, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM authGroup WHERE isDelete = 0 AND (name LIKE ? OR [desc] LIKE ?)", -1, SQL_PREPARE_DEFAULT, &stmt_group_count_sel, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM role WHERE isDelete = 0", -1, SQL_PREPARE_DEFAULT, &stmt_role_count_all, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM role WHERE isDelete = 0 AND (name LIKE ? OR [desc] LIKE ?)", -1, SQL_PREPARE_DEFAULT, &stmt_role_count_sel, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM user WHERE isDelete = 0", -1, SQL_PREPARE_DEFAULT, &stmt_user_count_all, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM user WHERE isDelete = 0 AND (user LIKE ?)", -1, SQL_PREPARE_DEFAULT, &stmt_user_count_sel, NULL);
+
 }
 
 
@@ -1002,6 +1014,18 @@ void Auth_Unit()
 	xrtValueRelease(G_CACHE_Auth);
 	xrtValueRelease(G_CACHE_Group);
 	xrtValueRelease(G_CACHE_Role);
+	/* L1：计数语句 */
+	sqlite3_finalize(stmt_uris_count_all);
+	sqlite3_finalize(stmt_uris_count_sel);
+	sqlite3_finalize(stmt_auth_count_all);
+	sqlite3_finalize(stmt_auth_count_sel);
+	sqlite3_finalize(stmt_group_count_all);
+	sqlite3_finalize(stmt_group_count_sel);
+	sqlite3_finalize(stmt_role_count_all);
+	sqlite3_finalize(stmt_role_count_sel);
+	sqlite3_finalize(stmt_user_count_all);
+	sqlite3_finalize(stmt_user_count_sel);
+
 }
 
 

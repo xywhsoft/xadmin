@@ -37,7 +37,8 @@ void Request_View_Home(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 
 
-// 动态菜单接口
+// 动态菜单接口（L8 契约标注：返回全量菜单树、不按角色过滤——v1 语义；
+// 无权限者可见入口名，点入由路由层 403 拦截）
 void Request_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {

@@ -293,7 +293,18 @@ void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost,
 		if ( !username || strlen(username) == 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名不能为空！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( !password || strlen(password) == 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码不能为空！\"}", 0); xrtValueRelease(tblForm); return; }
 		str sSalt = Util_Token();
-		str sPwdHash = ServerHashPassword(username, sSalt, password);
+		/* L5：哈希必须用库内真实用户名——表单 username 与库不符时会生成永远
+		 * 无法登录的口令（静默锁号）。column_text 是借用视图，必须在 reset
+		 * 前拷贝（reset 后使用=悬垂）。行不存在时以表单值走写失败路径。 */
+		char sHashUser[128];
+		snprintf(sHashUser, sizeof(sHashUser), "%s", username ? username : "");
+		sqlite3_bind_int64(stmt_member_get, 1, id);
+		if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
+			const unsigned char* sDbUser = sqlite3_column_text(stmt_member_get, 1);
+			if ( sDbUser && sDbUser[0] ) snprintf(sHashUser, sizeof(sHashUser), "%s", (const char*)sDbUser);
+		}
+		sqlite3_reset(stmt_member_get);
+		str sPwdHash = ServerHashPassword(sHashUser, sSalt, password);
 		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_member_pwd, 1, sSalt, -1, NULL);
 		sqlite3_bind_text(stmt_member_pwd, 2, sPwdHash, -1, NULL);

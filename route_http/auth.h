@@ -116,21 +116,20 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			while ( sqlite3_step(stmt_user_all) == SQLITE_ROW ) {
 				xvalue* tblRow = ValueObject();
 				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_user_all, 0));
-				ValueSetInt(tblRow, "role", sqlite3_column_int64(stmt_user_all, 4));
-				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_user_all, 5));
+				ValueSetInt(tblRow, "role", sqlite3_column_int64(stmt_user_all, 2));
+				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_user_all, 3));
 				ValueSetText(tblRow, "user", (str)sqlite3_column_text(stmt_user_all, 1));
 				// 不返回密码字段
-				xtime iTime = sqlite3_column_int64(stmt_user_all, 6);
+				xtime iTime = sqlite3_column_int64(stmt_user_all, 4);
 				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
-				iTime = sqlite3_column_int64(stmt_user_all, 7);
+				iTime = sqlite3_column_int64(stmt_user_all, 5);
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
-				ValueSetText(tblRow, "roleName", (str)sqlite3_column_text(stmt_user_all, 9));
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_user_all, 10);
-				}
+				ValueSetText(tblRow, "roleName", (str)sqlite3_column_text(stmt_user_all, 6));
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_user_all);
+			if ( sqlite3_step(stmt_user_count_all) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_user_count_all, 0);
+			sqlite3_reset(stmt_user_count_all);
 		} else {
 			// 筛选
 			sqlite3_bind_text(stmt_user_sel, 1, sParam, iSize, NULL);
@@ -139,21 +138,21 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			while ( sqlite3_step(stmt_user_sel) == SQLITE_ROW ) {
 				xvalue* tblRow = ValueObject();
 				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_user_sel, 0));
-				ValueSetInt(tblRow, "role", sqlite3_column_int64(stmt_user_sel, 4));
-				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_user_sel, 5));
+				ValueSetInt(tblRow, "role", sqlite3_column_int64(stmt_user_sel, 2));
+				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_user_sel, 3));
 				ValueSetText(tblRow, "user", (str)sqlite3_column_text(stmt_user_sel, 1));
 				// 不返回密码字段
-				xtime iTime = sqlite3_column_int64(stmt_user_sel, 6);
+				xtime iTime = sqlite3_column_int64(stmt_user_sel, 4);
 				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
-				iTime = sqlite3_column_int64(stmt_user_sel, 7);
+				iTime = sqlite3_column_int64(stmt_user_sel, 5);
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
-				ValueSetText(tblRow, "roleName", (str)sqlite3_column_text(stmt_user_sel, 9));
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_user_sel, 10);
-				}
+				ValueSetText(tblRow, "roleName", (str)sqlite3_column_text(stmt_user_sel, 6));
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_user_sel);
+			sqlite3_bind_text(stmt_user_count_sel, 1, sParam, -1, NULL);
+			if ( sqlite3_step(stmt_user_count_sel) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_user_count_sel, 0);
+			sqlite3_reset(stmt_user_count_sel);
 		}
 		
 		// 构建返回值
@@ -260,6 +259,9 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		if ( role < 1 ) {
 			role = 1;
 		}
+		/* L7：与 role 族 0..999 约定一致钳位（原可负/任意大并参与登录 max()） */
+		if ( authLevel < 0 ) authLevel = 0;
+		if ( authLevel > 999 ) authLevel = 999;
 								
 		// 写入数据库
 		xtime now = xrtNow();
@@ -289,14 +291,10 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的用户ID\"}", 0);
 			return;
 		}
-		/* 自锁保护：id=1 为内置超管；删除自己会当场丢失会话（role 删除已有
-		 * 同款保护，此处补齐一致性）。 */
+		/* 自锁保护：id=1 为内置超管不可删（role 删除已有同款保护，补齐一致性）。
+		 * 自删是既有受测契约（自删安全完成并当场撤销自身会话），不拦。 */
 		if ( id == 1 ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能删除内置超级管理员！\"}", 0);
-			return;
-		}
-		if ( (xrtValueType(objSession) == XVALUE_OBJECT) && (ValueInt(objSession, "id") == id) ) {
-			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能删除当前登录账户！\"}", 0);
 			return;
 		}
 		{
@@ -534,12 +532,11 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueSetInt(tblRow, "authCount", sqlite3_column_int64(stmt_role_all, 8));
 				ValueSetInt(tblRow, "userCount", sqlite3_column_int64(stmt_role_all, 9));
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_role_all, 10);
-				}
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_role_all);
+			if ( sqlite3_step(stmt_role_count_all) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_role_count_all, 0);
+			sqlite3_reset(stmt_role_count_all);
 		} else {
 			// 筛选
 			sqlite3_bind_text(stmt_role_sel, 1, sParam, iSize, NULL);
@@ -559,12 +556,13 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueSetInt(tblRow, "authCount", sqlite3_column_int64(stmt_role_sel, 8));
 				ValueSetInt(tblRow, "userCount", sqlite3_column_int64(stmt_role_sel, 9));
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_role_sel, 10);
-				}
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_role_sel);
+			sqlite3_bind_text(stmt_role_count_sel, 1, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_role_count_sel, 2, sParam, -1, NULL);
+			if ( sqlite3_step(stmt_role_count_sel) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_role_count_sel, 0);
+			sqlite3_reset(stmt_role_count_sel);
 		}
 		
 		// 构建返回值
@@ -813,12 +811,11 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 				iTime = sqlite3_column_int64(stmt_group_all, 5);
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueSetInt(tblRow, "authCount", sqlite3_column_int64(stmt_group_all, 7));
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_group_all, 8);
-				}
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_group_all);
+			if ( sqlite3_step(stmt_group_count_all) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_group_count_all, 0);
+			sqlite3_reset(stmt_group_count_all);
 		} else {
 			// 筛选
 			sqlite3_bind_text(stmt_group_sel, 1, sParam, iSize, NULL);
@@ -836,12 +833,13 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 				iTime = sqlite3_column_int64(stmt_group_sel, 5);
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueSetInt(tblRow, "authCount", sqlite3_column_int64(stmt_group_sel, 7));
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_group_sel, 8);
-				}
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_group_sel);
+			sqlite3_bind_text(stmt_group_count_sel, 1, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_group_count_sel, 2, sParam, -1, NULL);
+			if ( sqlite3_step(stmt_group_count_sel) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_group_count_sel, 0);
+			sqlite3_reset(stmt_group_count_sel);
 		}
 		
 		// 构建返回值
@@ -1078,12 +1076,11 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				iTime = sqlite3_column_int64(stmt_auth_all, 6);
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueSetText(tblRow, "groupName", (str)sqlite3_column_text(stmt_auth_all, 7));
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_auth_all, 8);
-				}
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_auth_all);
+			if ( sqlite3_step(stmt_auth_count_all) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_auth_count_all, 0);
+			sqlite3_reset(stmt_auth_count_all);
 		} else {
 			// 筛选
 			sqlite3_bind_text(stmt_auth_sel, 1, sParam, iSize, NULL);
@@ -1102,12 +1099,13 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				iTime = sqlite3_column_int64(stmt_auth_sel, 6);
 				ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueSetText(tblRow, "groupName", (str)sqlite3_column_text(stmt_auth_sel, 7));
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_auth_sel, 8);
-				}
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_auth_sel);
+			sqlite3_bind_text(stmt_auth_count_sel, 1, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_auth_count_sel, 2, sParam, -1, NULL);
+			if ( sqlite3_step(stmt_auth_count_sel) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_auth_count_sel, 0);
+			sqlite3_reset(stmt_auth_count_sel);
 		}
 		
 		// 构建返回值
@@ -1352,12 +1350,11 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				ValueSetText(tblRow, "pluginXid", (str)sqlite3_column_text(stmt_uris_all, 15));
 				ValueSetInt(tblRow, "pluginGeneration", sqlite3_column_int64(stmt_uris_all, 16));
 				ValueSetBool(tblRow, "routeActive", sqlite3_column_int(stmt_uris_all, 17) != 0);
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_all, 18);
-				}
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_uris_all);
+			if ( sqlite3_step(stmt_uris_count_all) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_uris_count_all, 0);
+			sqlite3_reset(stmt_uris_count_all);
 		} else {
 			// 筛选
 			sqlite3_bind_text(stmt_uris_sel, 1, sParam, iSize, NULL);
@@ -1389,12 +1386,15 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				ValueSetText(tblRow, "pluginXid", (str)sqlite3_column_text(stmt_uris_sel, 15));
 				ValueSetInt(tblRow, "pluginGeneration", sqlite3_column_int64(stmt_uris_sel, 16));
 				ValueSetBool(tblRow, "routeActive", sqlite3_column_int(stmt_uris_sel, 17) != 0);
-				if ( iCount <= 0 ) {
-					iCount = sqlite3_column_int64(stmt_uris_sel, 18);
-				}
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_uris_sel);
+			sqlite3_bind_text(stmt_uris_count_sel, 1, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_uris_count_sel, 2, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_uris_count_sel, 3, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_uris_count_sel, 4, sParam, -1, NULL);
+			if ( sqlite3_step(stmt_uris_count_sel) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_uris_count_sel, 0);
+			sqlite3_reset(stmt_uris_count_sel);
 		}
 		
 		// 构建返回值

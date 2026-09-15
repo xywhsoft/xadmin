@@ -16,64 +16,102 @@ static bool TraceMethodGet(XS_RequestObject objReq)
 }
 
 /* M4：dump 脱敏。原样倾倒会话表会泄露在线 XID（直接可冒充 Cookie），
- * 配置缓存会泄露 smtp_password/cp_url 等口令——克隆后原地打码。
- * 对象迭代期间不可变异：先收集命中键，出迭代后统一换值。 */
-#define TRACE_MASK_KEYS_MAX 48
-static void Trace_MaskSensitive(xvalue* value, bool sessionMode)
+ * 配置缓存会泄露 smtp_password/cp_url 等口令。
+ * 注意 xrtValueClone 是 COW 共享外壳——克隆后变异会污染原对象（实测会
+ * 改写活会话的 xid 导致 logout 失效）。因此这里对源结构**只读遍历**，
+ * 逐节点重建全新快照，敏感字符串在重建时打码，绝不触碰原值。 */
+static bool Trace_ShouldMask(const char* name, bool sessionMode)
+{
+	if (sessionMode) return strcmp(name, "xid") == 0;
+	{
+		char lower[40];
+		size_t k;
+		for (k = 0; name[k] && k < sizeof(lower) - 1; k++)
+			lower[k] = (name[k] >= 'A' && name[k] <= 'Z') ? (char)(name[k] + 32) : name[k];
+		lower[k] = '\0';
+		return (strstr(lower, "pass") != NULL || strstr(lower, "pwd") != NULL
+			|| strstr(lower, "secret") != NULL || strstr(lower, "token") != NULL
+			|| strcmp(lower, "cp_url") == 0);
+	}
+}
+
+static xvalue* Trace_MaskedString(const xvalue* src)
+{
+	xstrview text;
+	char buf[48];
+	size_t keep, rest, j;
+	if (!xrtValueGetString(src, &text)) return NULL;
+	keep = text.Size > 6 ? 6 : 0;
+	rest = text.Size - keep;
+	if (rest > 24) rest = 24;
+	if (keep) memcpy(buf, text.Data, keep);
+	for (j = 0; j < rest; j++) buf[keep + j] = '*';
+	buf[keep + rest] = '\0';
+	return xrtValueString(xrtStrView(buf));
+}
+
+static xvalue* Trace_SnapshotMasked(const xvalue* src, bool sessionMode)
 {
 	xvalueiter it = {0};
-	xvaluekey keys[TRACE_MASK_KEYS_MAX];
-	size_t keyCount = 0, i;
+	xvaluekey key;
 	xvalue* child;
+	xvaluetype type;
 
-	if (!value) return;
-	if (xrtValueType(value) == XVALUE_OBJECT) {
-		if (xrtValueIterBegin(value, &it)) {
-			while ((child = xrtValueIterNext(&it, &keys[keyCount])) != NULL) {
+	if (!src) return NULL;
+	type = xrtValueType(src);
+	if (type == XVALUE_OBJECT) {
+		xvalue* obj = xrtValueObject();
+		if (!obj) return NULL;
+		if (xrtValueIterBegin(src, &it)) {
+			while ((child = xrtValueIterNext(&it, &key)) != NULL) {
 				char name[40];
-				size_t n = keys[keyCount].String.Size < sizeof(name) - 1
-					? keys[keyCount].String.Size : sizeof(name) - 1;
-				bool mask = false;
-				memcpy(name, keys[keyCount].String.Data, n);
+				size_t n = key.String.Size < sizeof(name) - 1 ? key.String.Size : sizeof(name) - 1;
+				memcpy(name, key.String.Data, n);
 				name[n] = '\0';
-				if (sessionMode) {
-					mask = (strcmp(name, "xid") == 0);
+				if (Trace_ShouldMask(name, sessionMode) && xrtValueType(child) == XVALUE_STRING) {
+					xvalue* masked = Trace_MaskedString(child);
+					if (masked) xrtValueObjectSetNew(obj, key.String, masked);
 				} else {
-					size_t k;
-					for (k = 0; name[k]; k++)
-						if (name[k] >= 'A' && name[k] <= 'Z') name[k] = (char)(name[k] + 32);
-					mask = (strstr(name, "pass") != NULL || strstr(name, "pwd") != NULL
-						|| strstr(name, "secret") != NULL || strstr(name, "token") != NULL
-						|| strcmp(name, "cp_url") == 0);
-				}
-				if (mask && keyCount < TRACE_MASK_KEYS_MAX
-					&& xrtValueType(child) == XVALUE_STRING) {
-					keyCount++;
-				} else {
-					Trace_MaskSensitive(child, sessionMode);
+					xvalue* rebuilt = Trace_SnapshotMasked(child, sessionMode);
+					if (rebuilt) xrtValueObjectSetNew(obj, key.String, rebuilt);
 				}
 			}
 			xrtValueIterEnd(&it);
 		}
-		for (i = 0; i < keyCount; i++) {
-			xvalue* masked;
-			xstrview text;
-			char buf[48];
-			size_t keep, rest, j;
-			child = xrtValueObjectGet(value, keys[i].String);
-			if (!child || !xrtValueGetString(child, &text)) continue;
-			keep = text.Size > 6 ? 6 : 0;
-			rest = text.Size - keep;
-			if (rest > 24) rest = 24;
-			if (keep) memcpy(buf, text.Data, keep);
-			for (j = 0; j < rest; j++) buf[keep + j] = '*';
-			buf[keep + rest] = '\0';
-			masked = xrtValueString(xrtStrView(buf));
-			if (masked) xrtValueObjectSetNew(value, keys[i].String, masked);
+		return obj;
+	}
+	if (type == XVALUE_ARRAY) {
+		xvalue* arr = xrtValueArray();
+		size_t i, count = xrtValueCount(src);
+		if (!arr) return NULL;
+		for (i = 0; i < count; i++) {
+			xvalue* rebuilt = Trace_SnapshotMasked(xrtValueArrayGet(src, i), sessionMode);
+			if (rebuilt) xrtValueArrayAppendNew(arr, rebuilt);
 		}
-	} else if (xrtValueType(value) == XVALUE_ARRAY) {
-		size_t count = xrtValueCount(value);
-		for (i = 0; i < count; i++) Trace_MaskSensitive(xrtValueArrayGet(value, i), sessionMode);
+		return arr;
+	}
+	/* 标量：按类型重建（无变异、无共享） */
+	{
+		xstrview text;
+		bool b;
+		int64 i64;
+		double f;
+		switch (type) {
+		case XVALUE_STRING:
+			if (!xrtValueGetString(src, &text)) return NULL;
+			return xrtValueString(text);
+		case XVALUE_BOOL:
+			if (!xrtValueGetBool(src, &b)) return NULL;
+			return xrtValueBool(b);
+		case XVALUE_INT:
+			if (!xrtValueGetInt(src, &i64)) return NULL;
+			return xrtValueInt(i64);
+		case XVALUE_FLOAT:
+			if (!xrtValueGetFloat(src, &f)) return NULL;
+			return xrtValueFloat(f);
+		default:
+			return xrtValueNull();
+		}
 	}
 }
 
@@ -183,13 +221,13 @@ void Request_Trace_Session(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	} else {
 		ValueSetBool(tblRet, "result", true);
 		xvalue* tblData = ValueObject();
-		/* M4：XID 打码后输出（原样倾倒=在线身份凭据泄露） */
-		xvalue* adminCopy = xrtValueClone(G_AdminSessions);
-		xvalue* memberCopy = xrtValueClone(G_MemberSessions);
-		Trace_MaskSensitive(adminCopy, true);
-		Trace_MaskSensitive(memberCopy, true);
-		ValueSetOwn(tblData, "admin", adminCopy ? adminCopy : ValueObject());
-		ValueSetOwn(tblData, "member", memberCopy ? memberCopy : ValueObject());
+		/* M4：XID 打码的只读重建快照（COW 克隆不可变异） */
+		{
+			xvalue* adminSnap = Trace_SnapshotMasked(G_AdminSessions, true);
+			xvalue* memberSnap = Trace_SnapshotMasked(G_MemberSessions, true);
+			ValueSetOwn(tblData, "admin", adminSnap ? adminSnap : ValueObject());
+			ValueSetOwn(tblData, "member", memberSnap ? memberSnap : ValueObject());
+		}
 		ValueSetOwn(tblRet, "data", tblData);
 	}
 	TraceReplyJSON(objResp, tblRet);
@@ -215,10 +253,11 @@ void Request_Trace_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		ValueSetText(tblRet, "message", "Option 缓存不存在");
 	} else {
 		ValueSetBool(tblRet, "result", true);
-		/* M4：口令类配置值打码后输出（smtp_password/cp_url 等） */
-		xvalue* optionCopy = xrtValueClone(G_Option);
-		Trace_MaskSensitive(optionCopy, false);
-		ValueSetOwn(tblRet, "data", optionCopy ? optionCopy : ValueObject());
+		/* M4：口令类配置值打码的只读重建快照 */
+		{
+			xvalue* optionSnap = Trace_SnapshotMasked(G_Option, false);
+			ValueSetOwn(tblRet, "data", optionSnap ? optionSnap : ValueObject());
+		}
 	}
 	TraceReplyJSON(objResp, tblRet);
 	xrtValueRelease(tblRet);

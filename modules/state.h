@@ -54,7 +54,19 @@ sqlite3_stmt* stmt_role_sum = NULL;				// 统计关联的用户数量
 
 // 预编译的 SQL 语句 - user
 sqlite3_stmt* stmt_user_all = NULL;				// 分页获取所有用户数据
-sqlite3_stmt* stmt_user_sel = NULL;				// 分页条件查询用户数据
+sqlite3_stmt* stmt_user_sel = NULL;
+// L1：auth 系列表计数独立语句
+sqlite3_stmt* stmt_uris_count_all = NULL;
+sqlite3_stmt* stmt_uris_count_sel = NULL;
+sqlite3_stmt* stmt_auth_count_all = NULL;
+sqlite3_stmt* stmt_auth_count_sel = NULL;
+sqlite3_stmt* stmt_group_count_all = NULL;
+sqlite3_stmt* stmt_group_count_sel = NULL;
+sqlite3_stmt* stmt_role_count_all = NULL;
+sqlite3_stmt* stmt_role_count_sel = NULL;
+sqlite3_stmt* stmt_user_count_all = NULL;
+sqlite3_stmt* stmt_user_count_sel = NULL;
+				// 分页条件查询用户数据
 sqlite3_stmt* stmt_user_get = NULL;				// 根据 ID 获取用户记录
 sqlite3_stmt* stmt_user_add = NULL;				// 添加用户记录
 sqlite3_stmt* stmt_user_put = NULL;				// 修改用户记录
