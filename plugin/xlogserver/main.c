@@ -611,6 +611,9 @@ void XLog_Req_ViewTasksLogs(XS_ServerObject objServer, XS_HostObject objHost, XS
 	tblInfo = XLog_TaskGetOne(pSvcDb, taskId);
 	ValueSetInt(tblInfo, "serviceId", serviceId);
 	ValueSetInt(tblInfo, "taskId", taskId);
+	/* 模板 tasks_logs.html 的 G_Interval 需要：漏注时渲染为 `var G_Interval = ;`
+	 * JS 语法错误，整个脚本块失效 → 日志永不加载（此前"无法渲染"的真因） */
+	ValueSetInt(tblInfo, "refreshInterval", G_XLogConfig.iDefaultRefreshInterval);
 	XLog_SendTemplatePage(objResp, "tasks_logs.html", tblInfo);
 	xrtValueRelease(tblInfo);
 }
