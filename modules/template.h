@@ -21,7 +21,25 @@ static char* MakePageWithTemplate(const char* name, xvalue* data, size_t* size)
 		if (!compiled) { printf("[template][error] %s\n", name); return NULL; }
 		if (!xrtMapSetPtr(G_Templates, key, compiled)) { xrtTemplateRelease(compiled); return NULL; }
 	}
-	return xrtTemplateRender(compiled, data, size);
+	{
+		/* H1：动态 {{$path}} 输出统一 HTML 转义（& < > " '）。转义只作用于
+		 * 输出节点——模板原文与 {{#form}} 等扩展（自带转义）不受影响。 */
+		xtemplaterenderconfig renderConfig;
+		xstrbuf output;
+		str result;
+		xrtTemplateRenderHtmlConfigInit(&renderConfig);
+		renderConfig.Root = data;
+		renderConfig.Current = data;
+		xrtStrBufInit(&output);
+		if (!xrtTemplateRenderTo(compiled, &renderConfig, &output)) {
+			xrtStrBufFree(&output);
+			return NULL;
+		}
+		if (size) *size = output.Size;
+		result = xrtStrBufTake(&output);
+		xrtStrBufFree(&output);
+		return result;
+	}
 }
 static void Template_ReleaseCache(xmap* cache)
 {
