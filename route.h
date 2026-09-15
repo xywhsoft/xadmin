@@ -33,7 +33,7 @@ static void RouteHTTP_Init(void)
 	AddStaticRouteHTTP("/admin/view/option/files", XHTTP_METHOD_ANY, Request_View_Option_Files, false);
 	AddStaticRouteHTTP("/admin/option/files", XHTTP_METHOD_ANY, Request_Option_Files, false);
 	AddStaticRouteHTTP("/admin/view/option/file", XHTTP_METHOD_ANY, Request_View_Option_File, false);
-	AddStaticRouteHTTP("/admin/option/file", XHTTP_METHOD_ANY, Request_Option_File, false);
+	AddStaticRouteHTTP("/admin/option/file", XHTTP_METHOD_ANY, Request_Option_File, true); /* F2 掩码：保存体含配置口令明文（H3，与 /admin/option 同列） */
 	AddStaticRouteHTTP("/admin/view/plugin", XHTTP_METHOD_ANY, Request_View_Plugin_List, false);
 	AddStaticRouteHTTP("/admin/view/plugin/installed", XHTTP_METHOD_ANY, Request_View_Plugin_List, false); /* v1 别名 */
 	AddStaticRouteHTTP("/admin/view/content/page", XHTTP_METHOD_ANY, Request_View_Content_Page, false);

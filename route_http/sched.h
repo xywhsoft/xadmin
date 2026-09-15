@@ -16,8 +16,10 @@ static void Sched_ExportCommon(XS_RequestObject objReq, XS_ResponseObject objRes
 		"parallelLimit, retryCount, retryDelaySec FROM sched_task WHERE isDelete = 0 ORDER BY id ASC",
 		-1, 0, &stmt, NULL) == SQLITE_OK) {
 		xvalue* keep = NULL;
+		xvalue* form = NULL;
 		if (selected) {
-			xvalue* form = JsonParseN(XAdmin_ReqBody(objReq), XAdmin_ReqBodyLen(objReq));
+			form = JsonParseN(XAdmin_ReqBody(objReq), XAdmin_ReqBodyLen(objReq));
+			/* keep 为 ValueGet 借用引用（不可直接 release），存活期由 form 持有 */
 			keep = form && xrtValueType(form) == XVALUE_OBJECT ? ValueGet(form, "ids") : NULL;
 		}
 		while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -43,7 +45,7 @@ static void Sched_ExportCommon(XS_RequestObject objReq, XS_ResponseObject objRes
 			xrtValueArrayAppendNew(data, row);
 		}
 		sqlite3_finalize(stmt);
-		if (keep) xrtValueRelease(keep);
+		xrtValueRelease(form); /* 借用的 keep 随容器一并释放（M7：原实现泄漏 form 且过度释放借用） */
 	}
 	json = xrtJsonStringify(data, false, &size);
 	xrtValueRelease(data);

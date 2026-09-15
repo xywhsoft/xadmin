@@ -308,11 +308,27 @@ void Request_Option_Files(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 }
 
 // 设置文件 CRUD 接口
+/* authLevel 门槛（H2）：/admin/option 的 Request_Option 一直有此校验，本结构化
+ * 接口此前漏配——低权"设置管理"可读改高权配置（global.json 含 cp_url/口令）。 */
+static bool OptionFile_CheckAuthLevel(XS_RequestObject objReq, xvalue* objSession, const char* sFileName)
+{
+	xvalue* tblConfig;
+	int64 iRequired = 0, iUser = 0;
+	(void)objReq;
+	tblConfig = Option_LoadFile((str)sFileName);
+	if ( tblConfig == NULL ) return true; /* 不存在交给后续保存流程判定 */
+	iRequired = ValueInt(tblConfig, "authLevel");
+	xrtValueRelease(tblConfig);
+	if ( (objSession != NULL) && (xrtValueType(objSession) == XVALUE_OBJECT) ) {
+		iUser = ValueInt(objSession, "authLevel");
+	}
+	return !((iRequired > 0) && (iUser < iRequired));
+}
+
 void Request_Option_File(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	(void)objServer;
 	(void)objHost;
-	(void)objSession;
 
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		char sFileName[128];
@@ -325,6 +341,10 @@ void Request_Option_File(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		}
 		if ( !Option_IsValidFileName(sFileName) ) {
 			OptionFile_ReplyMessage(objResp, false, "非法的文件名");
+			return;
+		}
+		if ( !OptionFile_CheckAuthLevel(objReq, objSession, sFileName) ) {
+			OptionFile_ReplyMessage(objResp, false, "权限不足");
 			return;
 		}
 
@@ -363,6 +383,16 @@ void Request_Option_File(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			OptionFile_ReplyMessage(objResp, false, "缺少 data 参数");
 			return;
 		}
+		if ( !Option_IsValidFileName(sFileName) ) {
+			xrtValueRelease(tblBody);
+			OptionFile_ReplyMessage(objResp, false, "非法的文件名");
+			return;
+		}
+		if ( !OptionFile_CheckAuthLevel(objReq, objSession, sFileName) ) {
+			xrtValueRelease(tblBody);
+			OptionFile_ReplyMessage(objResp, false, "权限不足");
+			return;
+		}
 
 		bOK = Option_SaveDefinition(sFileName, tblData, bCreate, &sError);
 		xrtValueRelease(tblBody);
@@ -384,6 +414,10 @@ void Request_Option_File(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 
 		if ( iSize <= 0 ) {
 			OptionFile_ReplyMessage(objResp, false, "缺少 file 参数");
+			return;
+		}
+		if ( !OptionFile_CheckAuthLevel(objReq, objSession, sFileName) ) {
+			OptionFile_ReplyMessage(objResp, false, "权限不足");
 			return;
 		}
 

@@ -204,6 +204,14 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		str avatar = ValueText(tblForm, "avatar");
 		int64 status = ValueInt(tblForm, "status");
 		if ( groupId < 1 ) groupId = 1;
+		/* 记录权限相关旧值：组/权限级别变更须撤销会话（会话内是登录快照） */
+		int64 oldGroupId = 0, oldAuthLevel = 0;
+		sqlite3_bind_int64(stmt_member_get, 1, id);
+		if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
+			oldGroupId = sqlite3_column_int64(stmt_member_get, 2);
+			oldAuthLevel = sqlite3_column_int64(stmt_member_get, 3);
+		}
+		sqlite3_reset(stmt_member_get);
 		xtime now = xrtNow();
 		sqlite3_bind_int64(stmt_member_put, 1, groupId);
 		sqlite3_bind_int64(stmt_member_put, 2, authLevel);
@@ -217,8 +225,8 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		bool written = DB_Write(stmt_member_put, true);
 		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
-		if ( status == 0 ) {
-			/* F1：禁用即时生效，撤销该会员全部会话（与删除账号同语义）。 */
+		if ( status == 0 || oldGroupId != groupId || oldAuthLevel != authLevel ) {
+			/* F1：禁用即时生效；组/权限级别变更同样撤销（会话内是登录快照）。 */
 			Session_RevokeAccount(false, id);
 		}
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"前台用户更新成功！\"}", 0);

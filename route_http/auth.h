@@ -270,28 +270,44 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		bool written = DB_Write(stmt_user_put, true);
 		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
-		
+
+		/* 角色/权限级别已变更：撤销该账户既有会话（会话内 roleID 是登录快照，
+		 * 缓存重建救不了"换角色"这层——与 repwd/删除同一撤销语义）。 */
+		Session_RevokeAccount(true, id);
+
 		// 返回成功信息
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户更新成功！\"}", 0);
-		
+
 	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_DELETE) ) {
-		
+
 		// 删除用户（软删除）
 		// 从URL查询字符串中提取ID
 		char sID[24];
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 		int64 id = Util_ParseI64(sID);
-		if ( id > 0 ) {
+		if ( id <= 0 ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的用户ID\"}", 0);
+			return;
+		}
+		/* 自锁保护：id=1 为内置超管；删除自己会当场丢失会话（role 删除已有
+		 * 同款保护，此处补齐一致性）。 */
+		if ( id == 1 ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能删除内置超级管理员！\"}", 0);
+			return;
+		}
+		if ( (xrtValueType(objSession) == XVALUE_OBJECT) && (ValueInt(objSession, "id") == id) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能删除当前登录账户！\"}", 0);
+			return;
+		}
+		{
 			// 执行软删除
 			sqlite3_bind_int64(stmt_user_del, 1, id);
 			bool written = DB_Write(stmt_user_del, true);
 			if (ReplyIfWriteFailed(objResp, written)) return;
 			Session_RevokeAccount(true, id);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"用户删除成功！\"}", 0);
-		} else {
-			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的用户ID\"}", 0);
 		}
-		
+
 	} else {
 		
 		// 其他请求方法返回 404 页面
@@ -585,9 +601,9 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		
 		// 添加数据库记录
 		xtime now = xrtNow();
-		sqlite3_bind_text(stmt_role_add, 1, name, strlen(name), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_role_add, 2, desc, strlen(desc), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_role_add, 3, authList, strlen(authList), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_role_add, 1, name, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_role_add, 2, desc, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_role_add, 3, authList, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_role_add, 4, authLevel);
 		sqlite3_bind_int64(stmt_role_add, 5, now);
 		sqlite3_bind_int64(stmt_role_add, 6, now);
@@ -622,9 +638,9 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		
 		// 更新数据库记录
 		xtime now = xrtNow();
-		sqlite3_bind_text(stmt_role_put, 1, name, strlen(name), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_role_put, 2, desc, strlen(desc), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_role_put, 3, authList, strlen(authList), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_role_put, 1, name, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_role_put, 2, desc, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_role_put, 3, authList, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_role_put, 4, authLevel);
 		sqlite3_bind_int64(stmt_role_put, 5, now);
 		sqlite3_bind_int64(stmt_role_put, 6, id);
@@ -857,8 +873,8 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		int64 sort = ValueInt(tblForm, "sort");
 		xtime now = xrtNow();
 		
-		sqlite3_bind_text(stmt_group_add, 1, name, strlen(name), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_group_add, 2, desc, strlen(desc), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_group_add, 1, name, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_group_add, 2, desc, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_group_add, 3, sort);
 		sqlite3_bind_int64(stmt_group_add, 4, now);
 		sqlite3_bind_int64(stmt_group_add, 5, now);
@@ -888,8 +904,8 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		int64 sort = ValueInt(tblForm, "sort");
 		xtime now = xrtNow();
 		
-		sqlite3_bind_text(stmt_group_put, 1, name, strlen(name), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_group_put, 2, desc, strlen(desc), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_group_put, 1, name, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_group_put, 2, desc, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_group_put, 3, sort);
 		sqlite3_bind_int64(stmt_group_put, 4, now);
 		sqlite3_bind_int64(stmt_group_put, 5, id);
@@ -1125,8 +1141,8 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		xtime now = xrtNow();
 		
 		sqlite3_bind_int64(stmt_auth_add, 1, groupID);
-		sqlite3_bind_text(stmt_auth_add, 2, name, strlen(name), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_auth_add, 3, desc, strlen(desc), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_auth_add, 2, name, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_auth_add, 3, desc, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_auth_add, 4, sort);
 		sqlite3_bind_int64(stmt_auth_add, 5, now);
 		sqlite3_bind_int64(stmt_auth_add, 6, now);
@@ -1159,8 +1175,8 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		xtime now = xrtNow();
 		
 		sqlite3_bind_int64(stmt_auth_put, 1, groupID);
-		sqlite3_bind_text(stmt_auth_put, 2, name, strlen(name), SQLITE_STATIC);
-		sqlite3_bind_text(stmt_auth_put, 3, desc, strlen(desc), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_auth_put, 2, name, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt_auth_put, 3, desc, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_auth_put, 4, sort);
 		sqlite3_bind_int64(stmt_auth_put, 5, now);
 		sqlite3_bind_int64(stmt_auth_put, 6, id);
@@ -1417,7 +1433,7 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		
 		// UPDATE uris SET authID=?, desc=?, sort=?, isBackend=?, needAuth=?, needLog=?, keepActive=?, updateTime=? WHERE id=?
 		sqlite3_bind_int64(stmt_uris_put, 1, authID);
-		sqlite3_bind_text(stmt_uris_put, 2, desc, strlen(desc), SQLITE_STATIC);
+		sqlite3_bind_text(stmt_uris_put, 2, desc, -1, SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_uris_put, 3, sort);
 		sqlite3_bind_int64(stmt_uris_put, 4, isBackend);
 		sqlite3_bind_int64(stmt_uris_put, 5, needAuth);
