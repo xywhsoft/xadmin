@@ -8,14 +8,15 @@
 		line-height: 1.6;
 		white-space: pre-line;
 	}
-	.page-admin .page-editor {
+	/* 编辑器节点在 .page-admin 容器之外（layer 会把它移入弹窗），样式须直挂 */
+	.page-editor {
 		display: none;
 		padding: 16px 18px 4px 0;
 	}
-	.page-admin textarea.layui-textarea {
+	#Standalone_Page_Editor textarea.layui-textarea {
 		min-height: 72px;
 	}
-	.page-admin .page-content-input {
+	#Standalone_Page_Editor .page-content-input {
 		min-height: 260px;
 		font-family: Consolas, Monaco, monospace;
 	}
@@ -182,28 +183,36 @@
 				content: "",
 				cacheSeconds: 0
 			};
-			form.val("Standalone_Page_Form", {
-				id: data.id || 0,
-				title: data.title || "",
-				status: data.status || "enabled",
-				uris: data.uris || "",
-				header: data.header || "",
-				useTemplate: Number(data.useTemplate || 0) ? "1" : "",
-				content: data.content || "",
-				cacheSeconds: Number(data.cacheSeconds || 0)
-			});
+			/* 直接 DOM 赋值：form.val 依赖 layui 内部 filter 查找且对 switch/select
+			 * 的赋值时序敏感，此处逐字段设原生值后用 form.render 同步假控件 */
+			var formEl = document.getElementById("Standalone_Page_Form");
+			formEl.querySelector('[name=id]').value = data.id || 0;
+			formEl.querySelector('[name=title]').value = data.title || "";
+			var statusSel = formEl.querySelector('[name=status]');
+			var want = data.status || "enabled";
+			for ( var si = 0; si < statusSel.options.length; si++ ) {
+				statusSel.options[si].selected = (statusSel.options[si].value === want);
+			}
+			formEl.querySelector('[name=uris]').value = data.uris || "";
+			formEl.querySelector('[name=header]').value = data.header || "";
+			formEl.querySelector('[name=useTemplate]').checked = !!Number(data.useTemplate || 0);
+			formEl.querySelector('[name=content]').value = data.content || "";
+			formEl.querySelector('[name=cacheSeconds]').value = Number(data.cacheSeconds || 0);
 			editorIndex = layer.open({
 				title: data.id ? "编辑独立页面" : "新建独立页面",
 				type: 1,
 				area: ["920px", "88%"],
 				shadeClose: false,
-				content: document.getElementById("Standalone_Page_Editor"),
+				/* layui 2.13 的 layer 页面层对 content 调用 jQuery 风格 API（r.parents 等），
+				 * 传原生 DOM 会 TypeError → shade 已插入而弹窗未建 = 全页遮罩卡死。
+				 * 必须传 layui.$ 包装对象（运行时已验证）。 */
+				content: layui.$("#Standalone_Page_Editor"),
 				end: function(){
 					editorIndex = 0;
 					document.body.appendChild(document.getElementById("Standalone_Page_Editor"));
 				}
 			});
-			form.render();
+			form.render(null, "Standalone_Page_Form");
 		}
 
 		function savePage(data) {
