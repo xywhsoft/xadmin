@@ -44,7 +44,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/attachment/list.html",
     "target": "page/attachment/list.html",
-    "sha256": "e499dc72339ca80cc20da4bcb599e41c941bccd077d7a2015ef8e145119c0453"
+    "sha256": "e499dc72339ca80cc20da4bcb599e41c941bccd077d7a2015ef8e145119c0453",
+    "target_sha256": "02f369e47d5e5f8b6d358eb8159b07ee076b5f37bf62380e42a0a962aae59c42"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/attachment/stats.html",
@@ -75,7 +76,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/auth/role.html",
     "target": "page/auth/role.html",
-    "sha256": "37d078285aa16e0853f0c5cf48118b6ffe8cafbc206275ad945946a0c3f87637"
+    "sha256": "37d078285aa16e0853f0c5cf48118b6ffe8cafbc206275ad945946a0c3f87637",
+    "target_sha256": "c5a1e27478d60ab562a51acd6bfd5406cb2e416f27624ed4a28dbf7a9961654c"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/auth/uris.html",
@@ -116,12 +118,14 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/member/mail_task.html",
     "target": "page/member/mail_task.html",
-    "sha256": "9b54a95176b219aade44c3986da00a91c3c78bb84a299e957181bcb15b0f0654"
+    "sha256": "9b54a95176b219aade44c3986da00a91c3c78bb84a299e957181bcb15b0f0654",
+    "target_sha256": "e7c04b52bafe0c91a6312965b00b664b1a15138f059fec36f73d72dc5eda34bc"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/member/notify.html",
     "target": "page/member/notify.html",
-    "sha256": "e66bdc988d0af2df52fa31b8f4c7b61c1ef7d726f29c1d919ede92e78be21f68"
+    "sha256": "e66bdc988d0af2df52fa31b8f4c7b61c1ef7d726f29c1d919ede92e78be21f68",
+    "target_sha256": "6556e3adc0b2e2ac4b7f4340f39b296e0ed82d983846ff73f374a6ec40312d43"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/member/notify_send.html",
@@ -131,7 +135,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/member/user.html",
     "target": "page/member/user.html",
-    "sha256": "daa590af12d61c21b403875c72b40834e3f349436395bf636dc61c2872b22890"
+    "sha256": "daa590af12d61c21b403875c72b40834e3f349436395bf636dc61c2872b22890",
+    "target_sha256": "ce3a9b80b652f760135b36a670c32f6eb96a1b4797fb4a742c7fbd352eca00a4"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/model/add.html",
@@ -236,7 +241,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/sched/list.html",
     "target": "page/sched/list.html",
-    "sha256": "049ffd35c0bebd08eff579439056ae8be3b94a7c25f3fd11f203193ee037a8e4"
+    "sha256": "049ffd35c0bebd08eff579439056ae8be3b94a7c25f3fd11f203193ee037a8e4",
+    "target_sha256": "6187d70a7757d07552a7fc789790e39ab3eac0206c812cdeceab1e6cc5fd6636"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/sched/log.html",

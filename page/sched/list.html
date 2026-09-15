@@ -325,6 +325,20 @@ layui.use(['table', 'layer', 'form', 'dropdown'], function(){
 		});
 	}
 
+	function postQuery(url, params, callback) {
+		var q = new URLSearchParams();
+		Object.keys(params || {}).forEach(function(k){ q.set(k, params[k]); });
+		fetch(url + '?' + q.toString(), { method: 'POST' })
+		.then(function(response){ return response.json(); })
+		.then(function(result){
+			if ( callback ) callback(result || {});
+		})
+		.catch(function(error){
+			layer.msg('请求失败', {icon: 2});
+			console.error(error);
+		});
+	}
+
 	function postJson(url, data, callback) {
 		fetch(url, {
 			method: 'POST',
@@ -428,13 +442,17 @@ layui.use(['table', 'layer', 'form', 'dropdown'], function(){
 		}
 
 		fetch(url)
-		.then(function(response){ return response.json(); })
-		.then(function(result){
-			if ( !result.result ) {
-				layer.msg(result.message || '导出失败', {icon: 2});
+		.then(function(response){
+			if ( !response.ok ) { throw new Error('HTTP ' + response.status); }
+			return response.json();
+		})
+		.then(function(tasks){
+			/* 后端契约：导出返回任务 JSON 数组（附件下载形式） */
+			if ( !Array.isArray(tasks) || !tasks.length ) {
+				layer.msg('没有可导出的任务', {icon: 2});
 				return;
 			}
-			showExportDialog(id ? '导出任务' : '导出任务列表', result.data || []);
+			showExportDialog(id ? '导出任务' : '导出任务列表', tasks);
 		})
 		.catch(function(error){
 			layer.msg('导出失败', {icon: 2});
@@ -448,12 +466,26 @@ layui.use(['table', 'layer', 'form', 'dropdown'], function(){
 			layer.msg('请先勾选任务', {icon: 0});
 			return;
 		}
-		postJson('/admin/sched/export_selected', { ids: ids }, function(result){
-			if ( !result.result ) {
-				layer.msg(result.message || '导出失败', {icon: 2});
+		fetch('/admin/sched/export_selected', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ ids: ids })
+		})
+		.then(function(response){
+			if ( !response.ok ) { throw new Error('HTTP ' + response.status); }
+			return response.json();
+		})
+		.then(function(tasks){
+			if ( !Array.isArray(tasks) ) { throw new Error('bad payload'); }
+			if ( !tasks.length ) {
+				layer.msg('选中任务导出为空', {icon: 2});
 				return;
 			}
-			showExportDialog('导出选中任务', result.data || []);
+			showExportDialog('导出选中任务', tasks);
+		})
+		.catch(function(error){
+			layer.msg('导出失败', {icon: 2});
+			console.error(error);
 		});
 	}
 
@@ -598,7 +630,7 @@ layui.use(['table', 'layer', 'form', 'dropdown'], function(){
 		}
 
 		if ( obj.event === 'copy' ) {
-			postJson('/admin/sched/task/copy', { id: data.id }, function(result){
+			postQuery('/admin/sched/task/copy', { id: data.id }, function(result){
 				layer.msg(result.message || (result.result ? '任务复制成功' : '任务复制失败'), {icon: result.result ? 1 : 2});
 				reloadTable();
 				if ( result.result && result.id ) {
@@ -614,7 +646,7 @@ layui.use(['table', 'layer', 'form', 'dropdown'], function(){
 		}
 
 		if ( obj.event === 'run' ) {
-			postJson('/admin/sched/task/run', { id: data.id }, function(result){
+			postQuery('/admin/sched/task/run', { id: data.id }, function(result){
 				layer.msg(result.message || (result.result ? '任务已加入执行队列' : '执行失败'), {icon: result.result ? 1 : 2});
 				reloadTable();
 			});
@@ -622,7 +654,7 @@ layui.use(['table', 'layer', 'form', 'dropdown'], function(){
 		}
 
 		if ( obj.event === 'toggle' ) {
-			postJson('/admin/sched/task/enable', { id: data.id, enabled: data.enabled ? 0 : 1 }, function(result){
+			postQuery('/admin/sched/task/enable', { id: data.id, enabled: data.enabled ? 0 : 1 }, function(result){
 				layer.msg(result.message || (result.result ? '操作成功' : '操作失败'), {icon: result.result ? 1 : 2});
 				reloadTable();
 			});
