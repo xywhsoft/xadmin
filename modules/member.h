@@ -24,6 +24,14 @@ void Member_Init()
 		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime "
 		"FROM member WHERE isDelete = 0 AND (username LIKE ? OR nickname LIKE ? OR email LIKE ?) ORDER BY id DESC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_sel, NULL);
+
+	// L2/L3/L9：计数语句（预编译）+ LIKE 转义子句
+	sqlite3_prepare_v3(db,
+		"SELECT COUNT(*) FROM member WHERE isDelete = 0",
+		-1, SQL_PREPARE_DEFAULT, &stmt_member_count_all, NULL);
+	sqlite3_prepare_v3(db,
+		"SELECT COUNT(*) FROM member WHERE isDelete = 0 AND (username LIKE ?1 OR nickname LIKE ?1 OR email LIKE ?1)",
+		-1, SQL_PREPARE_DEFAULT, &stmt_member_count_sel, NULL);
 	
 	// member 表 - 根据 ID 获取前台用户记录
 	sqlite3_prepare_v3(db,

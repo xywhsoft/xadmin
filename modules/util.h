@@ -53,3 +53,19 @@ static void DirScan(const char* path, bool recursive, DirVisitProc proc, void* c
 	}
 	xrtDirClose(dir);
 }
+
+/* L9：LIKE 模式通配符转义（\ % _ → \\ \% \_），
+ * 配合 SQL 的 ESCAPE '\\' 子句。防止用户搜索串注入 %/_ 造成全表扫。
+ * 失败（容量不足）返回 false。 */
+static bool Util_LikeEscape(const char* in, char* out, size_t cap)
+{
+	size_t w = 0;
+	if (!in || !out || cap < 3) return false;
+	for (; *in; in++) {
+		if (w + 2 >= cap) { out[0] = 0; return false; }
+		if (*in == '\\' || *in == '%' || *in == '_') out[w++] = '\\';
+		out[w++] = *in;
+	}
+	out[w] = 0;
+	return true;
+}

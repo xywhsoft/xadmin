@@ -76,6 +76,8 @@ sqlite3_stmt* stmt_cache_uris = NULL;			// 获取所有URI记录（用于更新U
 // 预编译的 SQL 语句 - member
 sqlite3_stmt* stmt_member_all = NULL;			// 分页获取所有前台用户数据
 sqlite3_stmt* stmt_member_sel = NULL;			// 分页条件查询前台用户数据
+sqlite3_stmt* stmt_member_count_all = NULL;	// L3：member 全量计数（预编译，原为每请求 prepare）
+sqlite3_stmt* stmt_member_count_sel = NULL;	// L2/L9：member 按搜索条件计数
 sqlite3_stmt* stmt_member_get = NULL;			// 根据 ID 获取前台用户记录
 sqlite3_stmt* stmt_member_add = NULL;			// 添加前台用户记录
 sqlite3_stmt* stmt_member_put = NULL;			// 修改前台用户记录

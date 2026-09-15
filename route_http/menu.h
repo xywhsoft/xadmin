@@ -232,11 +232,33 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			return;
 		}
 		
-		// 防止将菜单设置为自己的子菜单
+		// 防止将菜单设置为自己的子菜单；并沿父链上溯防间接环（L4：A→B→A 会让
+		// 两菜单从 parent=0 的树构建中静默消失）
 		if ( iParent == iID ) {
 			xrtValueRelease(tblBody);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能将菜单设置为自己的子菜单\"}", 0);
 			return;
+		}
+		{
+			/* 上溯父链至根，深度上限 64（数据库本身不该超菜单树深） */
+			int64 iWalk = iParent;
+			int iDepth = 0;
+			bool bCycle = false;
+			while ( iWalk > 0 && iDepth++ < 64 ) {
+				if ( iWalk == iID ) { bCycle = true; break; }
+				sqlite3_bind_int(stmt_menu_get, 1, (int)iWalk);
+				if ( sqlite3_step(stmt_menu_get) == SQLITE_ROW ) {
+					iWalk = sqlite3_column_int(stmt_menu_get, 1); /* parent 列 */
+				} else {
+					iWalk = 0;
+				}
+				sqlite3_reset(stmt_menu_get);
+			}
+			if ( bCycle ) {
+				xrtValueRelease(tblBody);
+				xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"不能将菜单挂到自己的子菜单下\"}", 0);
+				return;
+			}
 		}
 		
 		// 更新菜单

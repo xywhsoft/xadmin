@@ -91,6 +91,12 @@ void Request_View_Member_User_Balance(XS_ServerObject objServer, XS_HostObject o
 			ValueSetText(tblInfo, "balanceYuan", sBalanceYuan);
 		}
 		sqlite3_reset(stmt_member_get);
+		if ( sqlite3_column_count(stmt_member_get) >= 0 && ValueCount(tblInfo) == 0 ) {
+			/* L6：查无记录渲染 404（与 edit 视图守卫同款，原为空表单 200） */
+			xrtValueRelease(tblInfo);
+			LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
+			return;
+		}
 		size_t iSize = 0;
 		str sPage = MakePageWithTemplate("member/user_balance.html", tblInfo, &iSize);
 		xrtValueRelease(tblInfo);
@@ -116,7 +122,33 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		
 		xvalue* data = ValueArray();
 		int64 iCount = 0;
-		
+		/* v1 契约：search 为 LIKE 模式串（前端预包 %kw%），按原样绑定 */
+		int iSearch = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
+
+		if ( iSearch > 0 ) {
+			sqlite3_bind_text(stmt_member_sel, 1, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_member_sel, 2, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_member_sel, 3, sParam, -1, NULL);
+			sqlite3_bind_int64(stmt_member_sel, 4, iLimit);
+			sqlite3_bind_int64(stmt_member_sel, 5, iOffset);
+			while ( sqlite3_step(stmt_member_sel) == SQLITE_ROW ) {
+				xvalue* tblRow = ValueObject();
+				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_member_sel, 0));
+				ValueSetText(tblRow, "username", (str)sqlite3_column_text(stmt_member_sel, 1));
+				ValueSetInt(tblRow, "groupId", sqlite3_column_int64(stmt_member_sel, 2));
+				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_member_sel, 3));
+				ValueSetInt(tblRow, "balance", sqlite3_column_int64(stmt_member_sel, 4));
+				ValueSetText(tblRow, "nickname", (str)sqlite3_column_text(stmt_member_sel, 5));
+				ValueSetInt(tblRow, "status", sqlite3_column_int64(stmt_member_sel, 9));
+				xtime iTime = sqlite3_column_int64(stmt_member_sel, 10);
+				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
+				ValueArrayOwn(data, tblRow);
+			}
+			sqlite3_reset(stmt_member_sel);
+			sqlite3_bind_text(stmt_member_count_sel, 1, sParam, -1, NULL);
+			if ( sqlite3_step(stmt_member_count_sel) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_member_count_sel, 0);
+			sqlite3_reset(stmt_member_count_sel);
+		} else {
 		sqlite3_bind_int64(stmt_member_all, 1, iLimit);
 		sqlite3_bind_int64(stmt_member_all, 2, iOffset);
 		while ( sqlite3_step(stmt_member_all) == SQLITE_ROW ) {
@@ -133,11 +165,9 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			ValueArrayOwn(data, tblRow);
 		}
 		sqlite3_reset(stmt_member_all);
-		
-		sqlite3_stmt* stmt_count;
-		sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM member WHERE isDelete = 0", -1, 0, &stmt_count, NULL);
-		if ( sqlite3_step(stmt_count) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_count, 0);
-		sqlite3_finalize(stmt_count);
+			if ( sqlite3_step(stmt_member_count_all) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_member_count_all, 0);
+			sqlite3_reset(stmt_member_count_all);
+		}
 		
 		xvalue* tblRet = ValueObject();
 		ValueSetBool(tblRet, "result", true);
@@ -204,6 +234,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		str avatar = ValueText(tblForm, "avatar");
 		int64 status = ValueInt(tblForm, "status");
 		if ( groupId < 1 ) groupId = 1;
+		if ( status != 0 && status != 1 ) status = 1; /* L7：与 POST 同款钳位 */
 		/* 记录权限相关旧值：组/权限级别变更须撤销会话（会话内是登录快照） */
 		int64 oldGroupId = 0, oldAuthLevel = 0;
 		sqlite3_bind_int64(stmt_member_get, 1, id);
