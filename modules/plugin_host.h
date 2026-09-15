@@ -9,6 +9,31 @@
 #define XS_PLUGIN_HOST_SIDE
 #include "../plugin_sdk/xs_plugin.h"
 
+/* multipart ABI 出口（modules/multipart.h 的插件侧包装）：
+ * 视图借用请求正文缓冲，原地解码与宿主附件上传同一实现；
+ * 逐字段拷贝避免 SDK 结构与内部结构布局耦合。 */
+static bool XAdmin_MultipartBoundary(const char* sContentType, char* sOut, size_t iCap)
+{
+	return MultipartBoundary(sContentType, sOut, iCap);
+}
+
+static bool XAdmin_MultipartNext(const char* sBody, size_t iBodySize, const char* sBoundary,
+	size_t iBoundaryLen, size_t* pOffset, XAdminMultipartPart* pOut)
+{
+	MultipartPart part;
+	if (!MultipartNext(sBody, iBodySize, sBoundary, iBoundaryLen, pOffset, &part))
+		return false;
+	if (pOut) {
+		pOut->name = part.name;
+		pOut->nameLen = part.nameLen;
+		pOut->filename = part.filename;
+		pOut->filenameLen = part.filenameLen;
+		pOut->data = part.data;
+		pOut->size = part.size;
+	}
+	return true;
+}
+
 static bool PluginHost_SetEnabled(const char* sXid, bool bEnable);
 static bool PluginHost_Reload(const char* sXid);
 
@@ -1711,6 +1736,8 @@ static bool Plugin_Compile(PluginInstance* inst, char* sError, size_t iErrorSize
 			{"XAdmin_PluginReqHeader", (const void*)XAdmin_PluginReqHeader},
 			{"XAdmin_ReqBody", (const void*)XAdmin_ReqBody},
 			{"XAdmin_ReqBodyLen", (const void*)XAdmin_ReqBodyLen},
+			{"XAdmin_MultipartBoundary", (const void*)XAdmin_MultipartBoundary},
+			{"XAdmin_MultipartNext", (const void*)XAdmin_MultipartNext},
 			{"XAdmin_RegisterRoute", (const void*)XAdmin_RegisterRoute},
 			{"XAdmin_UnregisterRoute", (const void*)XAdmin_UnregisterRoute},
 			{"XAdmin_RegisterDynamicRoute", (const void*)XAdmin_RegisterDynamicRoute},

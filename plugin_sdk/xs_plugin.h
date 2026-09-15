@@ -220,6 +220,23 @@ const char* XAdmin_ReqBody(XS_RequestObject objReq);
 size_t XAdmin_ReqBodyLen(XS_RequestObject objReq);
 #endif
 
+/* multipart/form-data 迭代（宿主 modules/multipart.h 同一实现的 ABI 出口）。
+ * 视图全部借用请求正文缓冲（原地解码），Part 存活期 = 正文存活期。
+ * 宿主侧在 modules/plugin_host.h 以 static 实现，声明仅插件侧可见。 */
+typedef struct XAdminMultipartPart {
+	const char* name;         /* 字段名（非 NUL 结尾，配合 nameLen） */
+	size_t      nameLen;
+	const char* filename;     /* 无文件字段时为 NULL（非 NUL 结尾） */
+	size_t      filenameLen;
+	const char* data;         /* Part 正文 */
+	size_t      size;
+} XAdminMultipartPart;
+#ifndef XS_PLUGIN_HOST_SIDE
+bool XAdmin_MultipartBoundary(const char* sContentType, char* sOut, size_t iCap);
+bool XAdmin_MultipartNext(const char* sBody, size_t iBodySize, const char* sBoundary,
+	size_t iBoundaryLen, size_t* pOffset, XAdminMultipartPart* pOut);
+#endif
+
 int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl* decl, XAdminRouteToken* token);
 int XAdmin_UnregisterRoute(XAdminRouteToken token);
 int XAdmin_RegisterDynamicRoute(XAdminPluginHandle plugin_handle, const XAdminDynamicRouteDecl* decl, XAdminRouteToken* token);

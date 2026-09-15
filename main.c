@@ -12,6 +12,7 @@
 #include <stdarg.h>
 #include "modules/value_util.h"
 #include "modules/util.h"
+#include "modules/multipart.h" /* http.h 的 multipart ABI 包装依赖，须在前 */
 #include "modules/http_io.h"
 #include "modules/http.h"
 #include "modules/define.h"
@@ -27,7 +28,6 @@
 #include "modules/member.h"
 #include "modules/member_auth.h"
 #include "modules/notify.h"
-#include "modules/multipart.h"
 #include "modules/attachment.h"
 #include "modules/sched.h"
 #include "modules/standalone_page.h"

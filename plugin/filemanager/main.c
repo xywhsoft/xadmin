@@ -6,32 +6,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/* multipart 本地桩：宿主尚未接入 xrt extlibs 解码器；上传路由走错误分支。 */
-typedef struct { const char* sPtr; size_t iLen; } xrtmultipartboundaryview;
-typedef struct xrtmultipartpartview {
-	struct { const char* sPtr; size_t iLen; } tName;
-	struct { const char* sPtr; size_t iLen; } tBody;
-} xrtmultipartpartview;
-static bool xrtMultipartBoundaryFromContentType(const char* sContentType, xrtmultipartboundaryview* pBoundary)
+/* 上传文件名净化：只取 basename，拒绝路径逃逸（v1 未净化，..\ 可逃出上传目录） */
+static size_t FM_SanitizeFileName(const char* sName, size_t iNameLen, char* sOut, size_t iOutSize)
 {
-	const char* sB;
-	if (!sContentType || !pBoundary) return false;
-	sB = strstr(sContentType, "boundary=");
-	if (!sB) return false;
-	sB += 9;
-	pBoundary->sPtr = sB;
-	pBoundary->iLen = strlen(sB);
-	return pBoundary->iLen > 0;
-}
-static bool xrtMultipartNextN(const char* sBody, size_t iBodyLen, const char* sBoundary, size_t iBoundaryLen, size_t* pOffset, xrtmultipartpartview* pPart)
-{
-	(void)sBody; (void)iBodyLen; (void)sBoundary; (void)iBoundaryLen; (void)pOffset; (void)pPart;
-	return false;
-}
-static bool xrtMultipartDecodeFileNameTo(const xrtmultipartpartview* pPart, char* sOut, size_t iOutSize, size_t* pNameLen)
-{
-	(void)pPart; (void)sOut; (void)iOutSize; (void)pNameLen;
-	return false;
+	size_t iStart = 0, i, n;
+	if (!sName || iNameLen == 0 || !sOut || iOutSize == 0) return 0;
+	for (i = 0; i < iNameLen; i++) {
+		if (sName[i] == '/' || sName[i] == '\\') iStart = i + 1;
+	}
+	n = iNameLen - iStart;
+	if (n == 0 || n >= iOutSize) return 0;
+	memcpy(sOut, sName + iStart, n);
+	sOut[n] = '\0';
+	if (strcmp(sOut, ".") == 0 || strcmp(sOut, "..") == 0) return 0;
+	return n;
 }
 /* 路径式文件信息（v3 原生为句柄/Stat 式，这里按路径包装） */
 static int64 FM_FileSize(const char* sPath)
@@ -710,7 +698,7 @@ void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	const char* sBody;
 	size_t iBodyLen;
 	const char* sContentType;
-	xrtmultipartboundaryview tBoundary;
+	char sBoundary[76];
 	size_t iOffset;
 	str sRelPath, sUploadDir;
 	xvalue* tblRet;
@@ -721,12 +709,17 @@ void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	iBodyLen = XAdmin_ReqBodyLen(objReq);
 	sContentType = XAdmin_PluginReqHeader(objReq, "Content-Type");
 
-	if ( !sContentType || !xrtMultipartBoundaryFromContentType(sContentType, &tBoundary) ) {
+	if ( !sContentType || !XAdmin_MultipartBoundary(sContentType, sBoundary, sizeof(sBoundary)) ) {
 		FM_SendError(objResp, 400, "invalid multipart request");
 		return;
 	}
 
 	sRelPath = FM_ReadQuery(objReq, "path");
+	if ( !sRelPath && strcmp(G_FMConfig.sRootPath, "*") == 0 ) {
+		/* 文件系统模式没有默认目录（字面 "*" 是无效路径），必须显式指定 */
+		FM_SendError(objResp, 400, "path required in filesystem mode");
+		return;
+	}
 	sUploadDir = sRelPath ? FM_ResolvePath((char*)sRelPath) : xrtStrDup(G_FMConfig.sRootPath);
 	if ( sRelPath ) xrtFree(sRelPath);
 
@@ -738,20 +731,18 @@ void FM_Req_ApiUpload(XS_ServerObject objServer, XS_HostObject objHost, XS_Reque
 	tblRet = NULL;
 
 	{
-		xrtmultipartpartview part;
+		XAdminMultipartPart part;
 		memset(&part, 0, sizeof(part));
-		while ( xrtMultipartNextN(sBody, iBodyLen, tBoundary.sPtr, tBoundary.iLen, &iOffset, &part) ) {
-			if ( part.tName.iLen == 4 && part.tName.sPtr && memcmp(part.tName.sPtr, "file", 4) == 0 ) {
-				char sFileName[256] = {0};
-				size_t iNameLen = 0;
-				if ( xrtMultipartDecodeFileNameTo(&part, sFileName, sizeof(sFileName), &iNameLen) && iNameLen > 0 ) {
+		while ( XAdmin_MultipartNext(sBody, iBodyLen, sBoundary, strlen(sBoundary), &iOffset, &part) ) {
+			if ( part.filename && part.filenameLen > 0 ) {
+				char sFileName[256];
+				if ( FM_SanitizeFileName(part.filename, part.filenameLen, sFileName, sizeof(sFileName)) > 0 ) {
 					str sFilePath = xrtPathJoin(sUploadDir, sFileName);
 					if ( sFilePath ) {
-						xrtFileWriteAll(sFilePath, (xbytesview){(cbytes)part.tBody.sPtr, part.tBody.iLen});
-						{
+						if ( xrtFileWriteAll(sFilePath, (xbytesview){(cbytes)part.data, part.size}) ) {
 							xvalue* r = FM_Ok("uploaded");
-							ValueSetOwnedText(r, "name", xrtStrDupView(xrtStrViewN(sFileName, (size_t)iNameLen)));
-							ValueSetOwnedText(r, "url", xrtStrDupView(xrtStrViewN(sFileName, (size_t)iNameLen)));
+							ValueSetText(r, "name", sFileName);
+							ValueSetText(r, "url", sFileName);
 							if ( tblRet ) xrtValueRelease(tblRet);
 							tblRet = r;
 						}
