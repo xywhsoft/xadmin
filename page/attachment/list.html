@@ -5,11 +5,24 @@
 
 <!-- 表格工具栏 -->
 <script type="text/html" id="Toolbar_Attachment_List">
+	<style>
+		/* 工具栏控件统一 38px 高 + 统一 8px 间距（下拉框为原生控件，
+		 * 各浏览器渲染不一，显式钉住高度/内边距/行高并对齐中线） */
+		#Toolbar_Attachment_List .layui-inline { vertical-align: middle; margin-right: 8px; }
+		#Toolbar_Attachment_List .layui-input { height: 38px; }
+		#Toolbar_Attachment_List select {
+			height: 38px; line-height: 36px; padding: 0 8px;
+			border: 1px solid #d2d2d2; border-radius: 2px;
+			background-color: #fff; color: #333; font-size: 14px;
+			box-sizing: border-box; vertical-align: middle; outline: none;
+		}
+		#Toolbar_Attachment_List .layui-btn { height: 38px; line-height: 38px; padding: 0 15px; }
+	</style>
 	<div class="layui-inline">
-		<input type="text" id="Search_Attachment_Filename" placeholder="搜索文件名..." class="layui-input" style="width: 160px; height: 32px; margin-right: 10px;">
+		<input type="text" id="Search_Attachment_Filename" placeholder="搜索文件名..." class="layui-input" style="width: 160px;">
 	</div>
 	<div class="layui-inline">
-		<select id="Search_Attachment_AccessType" style="width: 100px; height: 32px; line-height: 32px; padding: 0 10px; box-sizing: border-box;">
+		<select id="Search_Attachment_AccessType" style="width: 100px;">
 			<option value="">全部类型</option>
 			<option value="0">公开</option>
 			<option value="1">登录可见</option>
@@ -18,12 +31,12 @@
 		</select>
 	</div>
 	<div class="layui-inline">
-		<button class="layui-btn layui-btn-sm" lay-event="Attachment_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
-		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Attachment_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
+		<button class="layui-btn" lay-event="Attachment_Search"><i class="layui-icon layui-icon-search"></i> 搜索</button>
+		<button class="layui-btn layui-btn-primary" lay-event="Attachment_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
 	</div>
-	<div class="layui-inline" style="float: right;">
-		<button class="layui-btn layui-btn-sm" lay-event="Attachment_Upload"><i class="layui-icon layui-icon-upload"></i> 上传附件</button>
-		<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="Attachment_BatchDelete"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>
+	<div class="layui-inline" style="float: right; margin-right: 0;">
+		<button class="layui-btn" lay-event="Attachment_Upload"><i class="layui-icon layui-icon-upload"></i> 上传附件</button>
+		<button class="layui-btn layui-btn-danger" lay-event="Attachment_BatchDelete"><i class="layui-icon layui-icon-delete"></i> 批量删除</button>
 	</div>
 </script>
 
