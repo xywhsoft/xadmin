@@ -718,6 +718,12 @@ void Guestbook_RequestAdd(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		Guestbook_SendError(objResp, "content is too long");
 		return;
 	}
+	/* M6：公开留言写入限流（10/分/IP，防灌水） */
+	if ( !Util_RateAllow(XAdmin_ReqRemote(objReq), 10) ) {
+		xrtValueRelease(tblForm);
+		Guestbook_SendError(objResp, "too many submissions, please retry later");
+		return;
+	}
 
 	iStatus = G_GuestbookConfig.bRequireApproval ? GUESTBOOK_STATUS_PENDING : GUESTBOOK_STATUS_APPROVED;
 	if ( !Guestbook_InsertMessage(sNickname, sContent, iStatus) ) {

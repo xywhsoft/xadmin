@@ -15,6 +15,68 @@ static bool TraceMethodGet(XS_RequestObject objReq)
 	return xsReqMethodID(objReq) == XHTTP_METHOD_GET;
 }
 
+/* M4：dump 脱敏。原样倾倒会话表会泄露在线 XID（直接可冒充 Cookie），
+ * 配置缓存会泄露 smtp_password/cp_url 等口令——克隆后原地打码。
+ * 对象迭代期间不可变异：先收集命中键，出迭代后统一换值。 */
+#define TRACE_MASK_KEYS_MAX 48
+static void Trace_MaskSensitive(xvalue* value, bool sessionMode)
+{
+	xvalueiter it = {0};
+	xvaluekey keys[TRACE_MASK_KEYS_MAX];
+	size_t keyCount = 0, i;
+	xvalue* child;
+
+	if (!value) return;
+	if (xrtValueType(value) == XVALUE_OBJECT) {
+		if (xrtValueIterBegin(value, &it)) {
+			while ((child = xrtValueIterNext(&it, &keys[keyCount])) != NULL) {
+				char name[40];
+				size_t n = keys[keyCount].String.Size < sizeof(name) - 1
+					? keys[keyCount].String.Size : sizeof(name) - 1;
+				bool mask = false;
+				memcpy(name, keys[keyCount].String.Data, n);
+				name[n] = '\0';
+				if (sessionMode) {
+					mask = (strcmp(name, "xid") == 0);
+				} else {
+					size_t k;
+					for (k = 0; name[k]; k++)
+						if (name[k] >= 'A' && name[k] <= 'Z') name[k] = (char)(name[k] + 32);
+					mask = (strstr(name, "pass") != NULL || strstr(name, "pwd") != NULL
+						|| strstr(name, "secret") != NULL || strstr(name, "token") != NULL
+						|| strcmp(name, "cp_url") == 0);
+				}
+				if (mask && keyCount < TRACE_MASK_KEYS_MAX
+					&& xrtValueType(child) == XVALUE_STRING) {
+					keyCount++;
+				} else {
+					Trace_MaskSensitive(child, sessionMode);
+				}
+			}
+			xrtValueIterEnd(&it);
+		}
+		for (i = 0; i < keyCount; i++) {
+			xvalue* masked;
+			xstrview text;
+			char buf[48];
+			size_t keep, rest, j;
+			child = xrtValueObjectGet(value, keys[i].String);
+			if (!child || !xrtValueGetString(child, &text)) continue;
+			keep = text.Size > 6 ? 6 : 0;
+			rest = text.Size - keep;
+			if (rest > 24) rest = 24;
+			if (keep) memcpy(buf, text.Data, keep);
+			for (j = 0; j < rest; j++) buf[keep + j] = '*';
+			buf[keep + rest] = '\0';
+			masked = xrtValueString(xrtStrView(buf));
+			if (masked) xrtValueObjectSetNew(value, keys[i].String, masked);
+		}
+	} else if (xrtValueType(value) == XVALUE_ARRAY) {
+		size_t count = xrtValueCount(value);
+		for (i = 0; i < count; i++) Trace_MaskSensitive(xrtValueArrayGet(value, i), sessionMode);
+	}
+}
+
 // 获取全局缓存概览
 void Request_Trace_Overview(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
@@ -121,10 +183,13 @@ void Request_Trace_Session(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	} else {
 		ValueSetBool(tblRet, "result", true);
 		xvalue* tblData = ValueObject();
-		xrtValueRetain(G_AdminSessions);
-		ValueSetOwn(tblData, "admin", G_AdminSessions);
-		xrtValueRetain(G_MemberSessions);
-		ValueSetOwn(tblData, "member", G_MemberSessions);
+		/* M4：XID 打码后输出（原样倾倒=在线身份凭据泄露） */
+		xvalue* adminCopy = xrtValueClone(G_AdminSessions);
+		xvalue* memberCopy = xrtValueClone(G_MemberSessions);
+		Trace_MaskSensitive(adminCopy, true);
+		Trace_MaskSensitive(memberCopy, true);
+		ValueSetOwn(tblData, "admin", adminCopy ? adminCopy : ValueObject());
+		ValueSetOwn(tblData, "member", memberCopy ? memberCopy : ValueObject());
 		ValueSetOwn(tblRet, "data", tblData);
 	}
 	TraceReplyJSON(objResp, tblRet);
@@ -150,8 +215,10 @@ void Request_Trace_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		ValueSetText(tblRet, "message", "Option 缓存不存在");
 	} else {
 		ValueSetBool(tblRet, "result", true);
-		xrtValueRetain(G_Option);
-		ValueSetOwn(tblRet, "data", G_Option);
+		/* M4：口令类配置值打码后输出（smtp_password/cp_url 等） */
+		xvalue* optionCopy = xrtValueClone(G_Option);
+		Trace_MaskSensitive(optionCopy, false);
+		ValueSetOwn(tblRet, "data", optionCopy ? optionCopy : ValueObject());
 	}
 	TraceReplyJSON(objResp, tblRet);
 	xrtValueRelease(tblRet);

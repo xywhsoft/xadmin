@@ -108,6 +108,10 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 	if (!RouteHTTP_Compile()) { printf("[xadmin][error] business start: RouteHTTP_Compile failed\n"); return false; }
 	/* SQL 与业务缓存复用 v1。这里不执行历史数据修复/重新安装。 */
 	Auth_CompileSQL(); ReloadCache_Auth_Auth(); ReloadCache_Auth_Group();
+	{ /* M4：trace 调试接口访问必须留痕（历史 uris 种子 needLog=0；Auth_Init 为未接线的历史入口，故置于此） */
+		char* sErr = NULL;
+		if ( sqlite3_exec(G_DB, "UPDATE uris SET needLog = 1 WHERE uri LIKE '/admin/trace%'", NULL, NULL, &sErr) != SQLITE_OK && sErr ) sqlite3_free(sErr);
+	}
 	Member_Init(); MemberAuth_Init(); Notify_Init(); Attachment_Init(); Sched_Init(); StandalonePage_Init();
 #if XADMIN_WITH_SMTP
 	Mail_Init();

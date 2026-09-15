@@ -933,6 +933,7 @@ void Auth_Init()
 	ReloadCache_Auth_Auth();
 	ReloadCache_Auth_Group();
 	Auth_ReloadCache();
+
 }
 
 // 鍚屾 URI 琛紙搴斿湪鎵€鏈夎矾鐢辨敞鍐屽畬鎴愬悗璋冪敤锛?

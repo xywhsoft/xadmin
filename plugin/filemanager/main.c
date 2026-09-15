@@ -1071,13 +1071,8 @@ void FM_Req_ApiExtract(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 	if ( ext ) ext++;
 
 #if defined(_WIN32) || defined(_WIN64)
-	if ( ext && (strcmp(ext, "gz") == 0 || strcmp(ext, "tgz") == 0) ) {
 		snprintf(sCmd, sizeof(sCmd), "%s\\7z.exe x \"%s\" -o\"%s\" -y", (char*)G_FMConfig.sToolPath, (char*)sArc, (char*)sExtract);
 		ret = system(sCmd);
-	} else {
-		snprintf(sCmd, sizeof(sCmd), "%s\\7z.exe x \"%s\" -o\"%s\" -y", (char*)G_FMConfig.sToolPath, (char*)sArc, (char*)sExtract);
-		ret = system(sCmd);
-	}
 #else
 	if ( ext && (strcmp(ext, "gz") == 0 || strcmp(ext, "tgz") == 0) ) {
 		snprintf(sCmd, sizeof(sCmd), "tar -xzf \"%s\" -C \"%s\"", (char*)sArc, (char*)sExtract);

@@ -1075,6 +1075,17 @@ void XLog_Req_ApiLogPush(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		XLog_ReplyApiCode(objResp, 1, "invalid service or task id");
 		return;
 	}
+	/* M6：免鉴权外部接口——每 IP 限流 + 长度上限（防日志库灌水 DoS） */
+	if ( !Util_RateAllow(XAdmin_ReqRemote(objReq), 600) ) {
+		xrtValueRelease(tblForm);
+		XLog_ReplyApiCode(objResp, 1, "rate limit exceeded");
+		return;
+	}
+	if ( (sClass && strlen(sClass) > 64) || (sText && strlen(sText) > 65536) ) {
+		xrtValueRelease(tblForm);
+		XLog_ReplyApiCode(objResp, 1, "class/text too long");
+		return;
+	}
 
 	pSvcDb = XLog_ServiceGetDB(serviceId);
 	if ( pSvcDb == NULL ) {
@@ -1142,6 +1153,12 @@ void XLog_Req_ApiTaskCreate(XS_ServerObject objServer, XS_HostObject objHost, XS
 	if ( !sName || !sName[0] ) {
 		xrtValueRelease(tblForm);
 		XLog_ReplyApiCode(objResp, 1, "task name required");
+		return;
+	}
+	/* M6：免鉴权建任务——更严限流（10/分/IP） */
+	if ( !Util_RateAllow(XAdmin_ReqRemote(objReq), 10) ) {
+		xrtValueRelease(tblForm);
+		XLog_ReplyApiCode(objResp, 1, "rate limit exceeded");
 		return;
 	}
 
