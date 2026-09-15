@@ -196,10 +196,24 @@ sqlite3* XLog_ServiceConnectDB(int64 serviceId, const char* sDbName)
 			"tableName TEXT NOT NULL,"
 			"createTime INTEGER,"
 			"updateTime INTEGER,"
-			"isDelete INTEGER DEFAULT 0);",
+			"isDelete INTEGER DEFAULT 0,"
+			"noDelete INTEGER NOT NULL DEFAULT 0);",
 			NULL, NULL, &sErr) != SQLITE_OK ) {
 		printf("[xlogserver] schema ensure failed: %s\n", sErr ? sErr : "?");
 			if ( sErr ) sqlite3_free(sErr);
+		}
+		/* 幂等补列：noDelete（禁止删除开关）。探测避免重复 ALTER 报错刷屏 */
+		{
+			sqlite3_stmt* pCol = NULL;
+			if ( sqlite3_prepare_v2(pDb, "SELECT noDelete FROM tasks LIMIT 1;", -1, &pCol, NULL) != SQLITE_OK ) {
+				char* sAlterErr = NULL;
+				if ( sqlite3_exec(pDb, "ALTER TABLE tasks ADD COLUMN noDelete INTEGER NOT NULL DEFAULT 0;", NULL, NULL, &sAlterErr) != SQLITE_OK ) {
+					printf("[xlogserver] add noDelete column failed: %s\n", sAlterErr ? sAlterErr : "?");
+					if ( sAlterErr ) sqlite3_free(sAlterErr);
+				}
+			} else {
+				sqlite3_finalize(pCol);
+			}
 		}
 	}
 
@@ -347,13 +361,14 @@ xvalue* XLog_TaskGetOne(sqlite3* pDb, int64 id)
 			ValueSetText(tblInfo, "name", (str)sqlite3_column_text(stmt, 1));
 			ValueSetText(tblInfo, "desc", (str)sqlite3_column_text(stmt, 2));
 			ValueSetText(tblInfo, "tableName", (str)sqlite3_column_text(stmt, 3));
+		ValueSetInt(tblInfo, "noDelete", sqlite3_column_int(stmt, 7));
 		}
 		sqlite3_finalize(stmt);
 	}
 	return tblInfo;
 }
 
-int64 XLog_TaskCreate(sqlite3* pDb, const char* sName, const char* sDesc)
+int64 XLog_TaskCreate(sqlite3* pDb, const char* sName, const char* sDesc, int iNoDelete)
 {
 	xtime now = xrtNow();
 	int64 newId = 0;
@@ -361,12 +376,13 @@ int64 XLog_TaskCreate(sqlite3* pDb, const char* sName, const char* sDesc)
 	str sql;
 	str tableName;
 
-	sql = "INSERT INTO tasks (name, desc, tableName, createTime, updateTime, isDelete) VALUES (?, ?, '', ?, ?, 0);";
+	sql = "INSERT INTO tasks (name, desc, tableName, createTime, updateTime, isDelete, noDelete) VALUES (?, ?, '', ?, ?, 0, ?);";
 	if ( sqlite3_prepare_v2(pDb, sql, -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_text(stmt, 1, sName ? sName : "", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_text(stmt, 2, sDesc ? sDesc : "", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int64(stmt, 3, now);
 		sqlite3_bind_int64(stmt, 4, now);
+		sqlite3_bind_int(stmt, 5, iNoDelete ? 1 : 0);
 		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 			newId = sqlite3_last_insert_rowid(pDb);
 		} else {
@@ -578,6 +594,8 @@ void XLog_Req_ViewTasksEdit(XS_ServerObject objServer, XS_HostObject objHost, XS
 
 	tblInfo = XLog_TaskGetOne(pSvcDb, taskId);
 	ValueSetInt(tblInfo, "serviceId", serviceId);
+	/* 编辑页开关回显：role_edit 的 {{$checked}} 同款服务端拼接（引擎无嵌套条件） */
+	ValueSetText(tblInfo, "noDeleteChecked", ValueInt(tblInfo, "noDelete") ? (str)" checked" : (str)"");
 	XLog_SendTemplatePage(objResp, "tasks_edit.html", tblInfo);
 	xrtValueRelease(tblInfo);
 }
@@ -720,7 +738,7 @@ void XLog_Req_ApiServices(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 
 		pSvcDb = XLog_ServiceConnectDB(newId, sDbName);
 		if ( pSvcDb ) {
-			if ( sqlite3_prepare_v2(pSvcDb, "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, desc TEXT, tableName TEXT NOT NULL, createTime INTEGER, updateTime INTEGER, isDelete INTEGER DEFAULT 0);", -1, &stmt, NULL) == SQLITE_OK ) {
+			if ( sqlite3_prepare_v2(pSvcDb, "CREATE TABLE IF NOT EXISTS tasks (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, desc TEXT, tableName TEXT NOT NULL, createTime INTEGER, updateTime INTEGER, isDelete INTEGER DEFAULT 0, noDelete INTEGER NOT NULL DEFAULT 0);", -1, &stmt, NULL) == SQLITE_OK ) {
 				sqlite3_step(stmt);
 				sqlite3_finalize(stmt);
 			}
@@ -857,7 +875,8 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 					iTime = sqlite3_column_int64(stmt, 5);
 					ValueSetOwnedText(tblRow, "updateTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				}
-				if ( iCount <= 0 ) iCount = sqlite3_column_int64(stmt, 7);
+				ValueSetInt(tblRow, "noDelete", sqlite3_column_int(stmt, 7));
+				if ( iCount <= 0 ) iCount = sqlite3_column_int64(stmt, 8);
 				ValueArrayOwn(arrData, tblRow);
 			}
 			sqlite3_finalize(stmt);
@@ -880,7 +899,8 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		if ( !sName || !sName[0] ) sName = "Unnamed Task";
 		sDesc = ValueText(tblForm, "desc");
 		if ( !sDesc ) sDesc = "";
-		newId = XLog_TaskCreate(pSvcDb, sName, sDesc);
+		{ int iNoDel = (int)ValueInt(tblForm, "noDelete");
+		newId = XLog_TaskCreate(pSvcDb, sName, sDesc, iNoDel); }
 		xrtValueRelease(tblForm);
 		{
 			xvalue* tblRet = XLog_CreateResult(true, NULL);
@@ -902,12 +922,14 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sDesc = ValueText(tblForm, "desc");
 		if ( !sDesc ) sDesc = "";
 		{
+		int iNoDelete = (int)ValueInt(tblForm, "noDelete");
 			xtime now = xrtNow();
-			if ( sqlite3_prepare_v2(pSvcDb, "UPDATE tasks SET name = ?, desc = ?, updateTime = ? WHERE id = ?;", -1, &stmt, NULL) == SQLITE_OK ) {
+			if ( sqlite3_prepare_v2(pSvcDb, "UPDATE tasks SET name = ?, desc = ?, noDelete = ?, updateTime = ? WHERE id = ?;", -1, &stmt, NULL) == SQLITE_OK ) {
 				sqlite3_bind_text(stmt, 1, sName, -1, SQLITE_TRANSIENT);
 				sqlite3_bind_text(stmt, 2, sDesc, -1, SQLITE_TRANSIENT);
-				sqlite3_bind_int64(stmt, 3, now);
-				sqlite3_bind_int64(stmt, 4, id);
+				sqlite3_bind_int(stmt, 3, iNoDelete ? 1 : 0);
+				sqlite3_bind_int64(stmt, 4, now);
+				sqlite3_bind_int64(stmt, 5, id);
 				sqlite3_step(stmt);
 				sqlite3_finalize(stmt);
 			}
@@ -922,24 +944,44 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			XLog_SendError(objResp, "invalid request data");
 			return;
 		}
-		{
-			int iCount = ValueCount(arrID);
-			int i;
-			for ( i = 0; i < iCount; i++ ) {
-				int64 id = ValueArrayInt(arrID, i);
-				if ( id > 0 ) {
-					sqlite3_stmt* stmt = NULL;
-					if ( sqlite3_prepare_v2(pSvcDb, "UPDATE tasks SET isDelete = 1 WHERE id = ?;", -1, &stmt, NULL) == SQLITE_OK ) {
-						sqlite3_bind_int64(stmt, 1, id);
-						sqlite3_step(stmt);
+	{
+		int iDeleted = 0, iSkipped = 0;
+		int iCount = ValueCount(arrID);
+		int i;
+		for ( i = 0; i < iCount; i++ ) {
+			int64 id = ValueArrayInt(arrID, i);
+			if ( id <= 0 ) continue;
+			{
+				sqlite3_stmt* stmt = NULL;
+				/* 禁止删除：开启开关的任务不可删（单删拒报错；批删跳过并计数） */
+				if ( sqlite3_prepare_v2(pSvcDb, "SELECT noDelete FROM tasks WHERE id = ? AND isDelete = 0;", -1, &stmt, NULL) == SQLITE_OK ) {
+					sqlite3_bind_int64(stmt, 1, id);
+					if ( sqlite3_step(stmt) == SQLITE_ROW && sqlite3_column_int(stmt, 0) ) {
 						sqlite3_finalize(stmt);
+						iSkipped++;
+						continue;
 					}
 				}
+				sqlite3_finalize(stmt);
+				if ( sqlite3_prepare_v2(pSvcDb, "UPDATE tasks SET isDelete = 1 WHERE id = ?;", -1, &stmt, NULL) == SQLITE_OK ) {
+					sqlite3_bind_int64(stmt, 1, id);
+					sqlite3_step(stmt);
+					sqlite3_finalize(stmt);
+				}
 			}
+			iDeleted++;
 		}
 		xrtValueRelease(arrID);
-		XLog_SendOk(objResp, "deleted");
-
+		if ( iSkipped > 0 && iDeleted == 0 ) {
+			XLog_SendError(objResp, "该任务已开启禁止删除，请先在编辑中关闭后再删除");
+		} else if ( iSkipped > 0 ) {
+			char sMsg[96];
+			snprintf(sMsg, sizeof(sMsg), "已删除 %d 个，跳过受保护任务 %d 个", iDeleted, iSkipped);
+			XLog_SendOk(objResp, sMsg);
+		} else {
+			XLog_SendOk(objResp, "deleted");
+		}
+	}
 	} else {
 		xsHttpReplyAuto(objResp, 405, "Content-Type: application/json\r\n", "{\"result\":false,\"message\":\"method not allowed\"}", 0);
 	}
@@ -1172,7 +1214,7 @@ void XLog_Req_ApiTaskCreate(XS_ServerObject objServer, XS_HostObject objHost, XS
 		return;
 	}
 
-	taskId = XLog_TaskCreate(pSvcDb, sName, sDesc ? sDesc : "");
+	taskId = XLog_TaskCreate(pSvcDb, sName, sDesc ? sDesc : "", (int)ValueInt(tblForm, "noDelete"));
 	xrtValueRelease(tblForm);
 
 	{

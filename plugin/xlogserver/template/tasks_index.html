@@ -71,6 +71,9 @@
 					{field:'name', width:200, title: '任务名称'},
 					{field:'desc', title: '任务描述'},
 					{field:'tableName', width:220, title: '数据表'},
+					{field:'noDelete', width:110, title: '禁止删除', align: 'center', templet: function(d){
+						return d.noDelete ? '<span class="layui-badge layui-bg-orange">禁止删除</span>' : '<span class="layui-badge layui-bg-gray">允许</span>';
+					}},
 					{field:'createTime', width:180, title: '创建时间'},
 					{field:'updateTime', width:180, title: '修改时间'},
 					{width:150, title: '操作', templet: '#Tool_Tasks'}
