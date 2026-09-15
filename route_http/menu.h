@@ -76,7 +76,7 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 		// 获取类型
 		int iType = sqlite3_column_int(stmt_menu_get, 4);
 		
-		// 构建数据�?
+		// 构建数据表
 		xvalue* tblMenu = ValueObject();
 		ValueSetInt(tblMenu, "id", sqlite3_column_int(stmt_menu_get, 0));
 		ValueSetInt(tblMenu, "parent", sqlite3_column_int(stmt_menu_get, 1));
@@ -93,7 +93,7 @@ void Request_View_Option_Menu_Edit(XS_ServerObject objServer, XS_HostObject objH
 		// 根据类型选择模板
 		str sTemplate = (iType == 0) ? "option/menu_edit_category.html" : "option/menu_edit.html";
 		
-		// 构建页面并返�?
+		// 构建页面并返回
 		size_t iRetSize = 0;
 		str sPage = MakePageWithTemplate(sTemplate, tblMenu, &iRetSize);
 		xrtValueRelease(tblMenu);
@@ -114,7 +114,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 {
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
-		// 获取所有菜单数�?
+		// 获取所有菜单数据
 		xvalue* arrData = ValueArray();
 		int iCount = 0;
 
@@ -150,7 +150,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		
 	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
-		// 解析请求�?
+		// 解析请求体
 		xvalue* tblBody = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
@@ -200,7 +200,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		
 	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_PUT) ) {
 		
-		// 解析请求�?
+		// 解析请求体
 		xvalue* tblBody = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( tblBody == NULL ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"请求数据格式错误\"}", 0);
@@ -275,7 +275,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		
 		int iID = atoi(sID);
 		
-		// 检查是否有子菜�?
+		// 检查是否有子菜单
 		if ( Menu_HasChildren(iID) > 0 ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"该菜单下存在子菜单，请先删除子菜单\"}", 0);
 			return;

@@ -37,7 +37,7 @@ void Request_View_Home(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 
 
-// 动态菜单接�?
+// 动态菜单接口
 void Request_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
@@ -45,7 +45,7 @@ void Request_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		// 从数据库动态获取菜单树
 		xvalue* arrMenu = Menu_BuildTree();
 		
-		// 生成 JSON 并返�?
+		// 生成 JSON 并返回
 		size_t iRetSize = 0;
 		char* sRet = xrtJsonStringify(arrMenu, false, &iRetSize);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, sRet, iRetSize);

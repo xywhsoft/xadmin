@@ -19,12 +19,12 @@ void Request_View_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 
 
 
-// logs 主接�?
+// logs 主接口
 void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_GET) ) {
 		
-		// �?URL 查询字符串中提取参数
+		// 从 URL 查询字符串中提取参数
 		char sParam[64];
 		xsReqQueryValue(objReq, "page", sParam, sizeof(sParam));
 		int64 iPage = Util_ParseI64(sParam);
@@ -36,7 +36,7 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		int64 iOffset = (iPage - 1) * iLimit;
 		int iSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
 		
-		// 从数据库中查询数�?
+		// 从数据库中查询数据
 		xvalue* data = ValueArray();
 		int64 iCount = 0;
 		if ( iSize <= 0 ) {
@@ -58,7 +58,7 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 			}
 			sqlite3_reset(stmt_logs_all);
 		} else {
-			// 筛�?
+			// 筛选
 			sqlite3_bind_text(stmt_logs_sel, 1, sParam, iSize, NULL);
 			sqlite3_bind_int64(stmt_logs_sel, 2, iLimit);
 			sqlite3_bind_int64(stmt_logs_sel, 3, iOffset);
@@ -78,7 +78,7 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 			sqlite3_reset(stmt_logs_sel);
 		}
 		
-		// 构建返回�?
+		// 构建返回值
 		xvalue* tblRet = ValueObject();
 		ValueSetBool(tblRet, "result", true);
 		ValueSetInt(tblRet, "code", 0);
@@ -117,12 +117,12 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 
 
 
-// 清理 7 天前的日�?
+// 清理 7 天前的日志
 void Request_Logs_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
-		// 清理数据�?
+		// 清理数据库
 		xtime tDay7 = xrtNow() - (7LL * 24 * 60 * 60 * 1000000);
 		sqlite3_bind_int64(stmt_logs_clear, 1, tDay7);
 		if (ReplyIfWriteFailed(objResp, DB_Write(stmt_logs_clear, false))) return;

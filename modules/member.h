@@ -7,57 +7,57 @@
 
 // ==================== SQL 预编译初始化 ====================
 
-// 初始化前台用户模�?
+// 初始化前台用户模块
 void Member_Init()
 {
 	printf("        Member_Init \n");
 	sqlite3* db = G_DB;
 	
-	// member �?- 分页获取所有前台用户数�?
+	// member 表 - 分页获取所有前台用户数据
 	sqlite3_prepare_v3(db,
 		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime "
 		"FROM member WHERE isDelete = 0 ORDER BY id DESC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_all, NULL);
 	
-	// member �?- 分页条件查询前台用户数据
+	// member 表 - 分页条件查询前台用户数据
 	sqlite3_prepare_v3(db,
 		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime "
 		"FROM member WHERE isDelete = 0 AND (username LIKE ? OR nickname LIKE ? OR email LIKE ?) ORDER BY id DESC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_sel, NULL);
 	
-	// member �?- 根据 ID 获取前台用户记录
+	// member 表 - 根据 ID 获取前台用户记录
 	sqlite3_prepare_v3(db,
 		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime "
 		"FROM member WHERE id = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_get, NULL);
 	
-	// member �?- 添加前台用户记录
+	// member 表 - 添加前台用户记录
 	sqlite3_prepare_v3(db,
 		"INSERT INTO member (username, salt, pwd, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime, isDelete) "
 		"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_add, NULL);
 	
-	// member �?- 修改前台用户记录
+	// member 表 - 修改前台用户记录
 	sqlite3_prepare_v3(db,
 		"UPDATE member SET groupId = ?, authLevel = ?, nickname = ?, email = ?, phone = ?, avatar = ?, status = ?, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_put, NULL);
 	
-	// member �?- 删除前台用户记录（软删除�?
+	// member 表 - 删除前台用户记录（软删除）
 	sqlite3_prepare_v3(db,
 		"UPDATE member SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_del, NULL);
 	
-	// member �?- 检查用户名是否已存�?
+	// member 表 - 检查用户名是否已存在
 	sqlite3_prepare_v3(db,
 		"SELECT COUNT(*) FROM member WHERE username = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_chk, NULL);
 	
-	// member �?- 修改用户密码
+	// member 表 - 修改用户密码
 	sqlite3_prepare_v3(db,
 		"UPDATE member SET salt = ?, pwd = ?, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_pwd, NULL);
 	
-	// member �?- 修改用户余额
+	// member 表 - 修改用户余额
 	sqlite3_prepare_v3(db,
 		"UPDATE member SET balance = ?, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_balance, NULL);
@@ -67,97 +67,97 @@ void Member_Init()
 		"UPDATE member SET nickname = ?, email = ?, phone = ?, avatar = ?, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_profile, NULL);
 	
-	// member �?- 前台登录查询
+	// member 表 - 前台登录查询
 	sqlite3_prepare_v3(db,
 		"SELECT id, username, salt, pwd, groupId, authLevel, balance, nickname, status "
 		"FROM member WHERE username = ? AND isDelete = 0 AND status = 1",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_login, NULL);
 	
-	// memberGroup �?- 分页获取所有前台用户组数据 (包含 total 计数)
+	// memberGroup 表 - 分页获取所有前台用户组数据 (包含 total 计数)
 	sqlite3_prepare_v3(db,
 		"SELECT id, name, desc, authList, authLevel, createTime, updateTime, "
 		"(SELECT COUNT(*) FROM memberGroup WHERE isDelete = 0) AS total "
 		"FROM memberGroup WHERE isDelete = 0 ORDER BY id ASC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_all, NULL);
 	
-	// memberGroup �?- 分页条件查询前台用户组数�?(支持搜索名称和描�?
+	// memberGroup 表 - 分页条件查询前台用户组数据 (支持搜索名称和描述)
 	sqlite3_prepare_v3(db,
 		"SELECT id, name, desc, authList, authLevel, createTime, updateTime, "
 		"(SELECT COUNT(*) FROM memberGroup WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1)) AS total "
 		"FROM memberGroup WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1) ORDER BY id ASC LIMIT ?2 OFFSET ?3",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_sel, NULL);
 	
-	// memberGroup �?- 根据 ID 获取前台用户组记�?
+	// memberGroup 表 - 根据 ID 获取前台用户组记录
 	sqlite3_prepare_v3(db,
 		"SELECT id, name, desc, authList, authLevel, createTime, updateTime "
 		"FROM memberGroup WHERE id = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_get, NULL);
 	
-	// memberGroup �?- 添加前台用户组记�?
+	// memberGroup 表 - 添加前台用户组记录
 	sqlite3_prepare_v3(db,
 		"INSERT INTO memberGroup (name, desc, authList, authLevel, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, 0)",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_add, NULL);
 	
-	// memberGroup �?- 修改前台用户组记�?
+	// memberGroup 表 - 修改前台用户组记录
 	sqlite3_prepare_v3(db,
 		"UPDATE memberGroup SET name = ?, desc = ?, authList = ?, authLevel = ?, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_put, NULL);
 	
-	// memberGroup �?- 删除前台用户组记录（软删除）
+	// memberGroup 表 - 删除前台用户组记录（软删除）
 	sqlite3_prepare_v3(db,
 		"UPDATE memberGroup SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_del, NULL);
 	
-	// memberGroup �?- 统计关联的用户数�?
+	// memberGroup 表 - 统计关联的用户数量
 	sqlite3_prepare_v3(db,
 		"SELECT COUNT(*) FROM member WHERE groupId = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mgroup_sum, NULL);
 	
-	// memberAuthGroup �?- 分页获取所有前台权限分类数�?(包含 total 计数)
+	// memberAuthGroup 表 - 分页获取所有前台权限分类数据 (包含 total 计数)
 	sqlite3_prepare_v3(db,
 		"SELECT id, name, desc, sort, createTime, updateTime, "
 		"(SELECT COUNT(*) FROM memberAuthGroup WHERE isDelete = 0) AS total "
 		"FROM memberAuthGroup WHERE isDelete = 0 ORDER BY sort ASC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_all, NULL);
 	
-	// memberAuthGroup �?- 分页条件查询前台权限分类数据 (支持搜索名称和描�?
+	// memberAuthGroup 表 - 分页条件查询前台权限分类数据 (支持搜索名称和描述)
 	sqlite3_prepare_v3(db,
 		"SELECT id, name, desc, sort, createTime, updateTime, "
 		"(SELECT COUNT(*) FROM memberAuthGroup WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1)) AS total "
 		"FROM memberAuthGroup WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1) ORDER BY sort ASC LIMIT ?2 OFFSET ?3",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_sel, NULL);
 	
-	// memberAuthGroup �?- 根据 ID 获取前台权限分类记录
+	// memberAuthGroup 表 - 根据 ID 获取前台权限分类记录
 	sqlite3_prepare_v3(db,
 		"SELECT id, name, desc, sort, createTime, updateTime FROM memberAuthGroup WHERE id = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_get, NULL);
 	
-	// memberAuthGroup �?- 添加前台权限分类记录
+	// memberAuthGroup 表 - 添加前台权限分类记录
 	sqlite3_prepare_v3(db,
 		"INSERT INTO memberAuthGroup (name, desc, sort, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, 0)",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_add, NULL);
 	
-	// memberAuthGroup �?- 修改前台权限分类记录
+	// memberAuthGroup 表 - 修改前台权限分类记录
 	sqlite3_prepare_v3(db,
 		"UPDATE memberAuthGroup SET name = ?, desc = ?, sort = ?, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_put, NULL);
 	
-	// memberAuthGroup �?- 删除前台权限分类记录（软删除�?
+	// memberAuthGroup 表 - 删除前台权限分类记录（软删除）
 	sqlite3_prepare_v3(db,
 		"UPDATE memberAuthGroup SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_del, NULL);
 	
-	// memberAuthGroup �?- 统计关联的权限分组数�?
+	// memberAuthGroup 表 - 统计关联的权限分组数量
 	sqlite3_prepare_v3(db,
 		"SELECT COUNT(*) FROM memberAuth WHERE groupID = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_sum, NULL);
 	
-	// memberAuthGroup �?- 移动权限分类下的权限分组到默认分�?
+	// memberAuthGroup 表 - 移动权限分类下的权限分组到默认分组
 	sqlite3_prepare_v3(db,
 		"UPDATE memberAuth SET groupID = 1, updateTime = ? WHERE groupID = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_magroup_mov, NULL);
 	
-	// memberAuth �?- 分页获取所有前台权限分组数�?(JOIN memberAuthGroup 获取分类名称)
+	// memberAuth 表 - 分页获取所有前台权限分组数据 (JOIN memberAuthGroup 获取分类名称)
 	sqlite3_prepare_v3(db,
 		"SELECT a.id, a.groupID, a.name, a.desc, a.sort, a.createTime, a.updateTime, g.name AS groupName, "
 		"(SELECT COUNT(*) FROM memberAuth WHERE isDelete = 0) AS total "
@@ -165,7 +165,7 @@ void Member_Init()
 		"WHERE a.isDelete = 0 ORDER BY a.sort ASC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_all, NULL);
 	
-	// memberAuth �?- 分页条件查询前台权限分组数据 (JOIN memberAuthGroup 获取分类名称)
+	// memberAuth 表 - 分页条件查询前台权限分组数据 (JOIN memberAuthGroup 获取分类名称)
 	sqlite3_prepare_v3(db,
 		"SELECT a.id, a.groupID, a.name, a.desc, a.sort, a.createTime, a.updateTime, g.name AS groupName, "
 		"(SELECT COUNT(*) FROM memberAuth WHERE isDelete = 0 AND (name LIKE ?1 OR desc LIKE ?1)) AS total "
@@ -173,63 +173,63 @@ void Member_Init()
 		"WHERE a.isDelete = 0 AND (a.name LIKE ?1 OR a.desc LIKE ?1) ORDER BY a.sort ASC LIMIT ?2 OFFSET ?3",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_sel, NULL);
 	
-	// memberAuth �?- 根据 ID 获取前台权限分组记录
+	// memberAuth 表 - 根据 ID 获取前台权限分组记录
 	sqlite3_prepare_v3(db,
 		"SELECT id, groupID, name, desc, sort, createTime, updateTime FROM memberAuth WHERE id = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_get, NULL);
 	
-	// memberAuth �?- 添加前台权限分组记录
+	// memberAuth 表 - 添加前台权限分组记录
 	sqlite3_prepare_v3(db,
 		"INSERT INTO memberAuth (groupID, name, desc, sort, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, ?, 0)",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_add, NULL);
 	
-	// memberAuth �?- 修改前台权限分组记录
+	// memberAuth 表 - 修改前台权限分组记录
 	sqlite3_prepare_v3(db,
 		"UPDATE memberAuth SET groupID = ?, name = ?, desc = ?, sort = ?, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_put, NULL);
 	
-	// memberAuth �?- 删除前台权限分组记录（软删除�?
+	// memberAuth 表 - 删除前台权限分组记录（软删除）
 	sqlite3_prepare_v3(db,
 		"UPDATE memberAuth SET isDelete = 1, updateTime = ? WHERE id = ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_del, NULL);
 	
-	// memberAuth �?- 统计关联�?URI 权限数量（从 uris 表筛选前�?URI�?
+	// memberAuth 表 - 统计关联的 URI 权限数量（从 uris 表筛选前台 URI）
 	sqlite3_prepare_v3(db,
 		"SELECT COUNT(*) FROM uris WHERE authID = ? AND isBackend = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_sum, NULL);
 	
-	// memberAuth �?- 移动权限分组下的 URI 权限到默认分组（仅前�?URI�?
+	// memberAuth 表 - 移动权限分组下的 URI 权限到默认分组（仅前台 URI）
 	sqlite3_prepare_v3(db,
 		"UPDATE uris SET authID = 1, updateTime = ? WHERE authID = ? AND isBackend = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mauth_mov, NULL);
 	
-	// memberBalanceLog �?- 分页获取余额变动日志
+	// memberBalanceLog 表 - 分页获取余额变动日志
 	sqlite3_prepare_v3(db,
 		"SELECT id, memberId, type, amount, balance, remark, operator, createTime "
 		"FROM memberBalanceLog WHERE memberId = ? ORDER BY id DESC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mbalance_all, NULL);
 	
-	// memberBalanceLog �?- 添加余额变动日志
+	// memberBalanceLog 表 - 添加余额变动日志
 	sqlite3_prepare_v3(db,
 		"INSERT INTO memberBalanceLog (memberId, type, amount, balance, remark, operator, createTime) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		-1, SQL_PREPARE_DEFAULT, &stmt_mbalance_add, NULL);
 	
-	// 缓存�?SQL - 获取所有前台权限分组数�?
+	// 缓存用 SQL - 获取所有前台权限分组数据
 	sqlite3_prepare_v3(db,
 		"SELECT id, groupID, name, desc, sort FROM memberAuth WHERE isDelete = 0 ORDER BY sort ASC",
 		-1, SQL_PREPARE_DEFAULT, &stmt_cache_mauth, NULL);
 	
-	// 缓存�?SQL - 获取所有前台权限分类数�?
+	// 缓存用 SQL - 获取所有前台权限分类数据
 	sqlite3_prepare_v3(db,
 		"SELECT id, name, desc, sort FROM memberAuthGroup WHERE isDelete = 0 ORDER BY sort ASC",
 		-1, SQL_PREPARE_DEFAULT, &stmt_cache_magroup, NULL);
 	
-	// 缓存�?SQL - 获取所有前台用户组数据
+	// 缓存用 SQL - 获取所有前台用户组数据
 	sqlite3_prepare_v3(db,
 		"SELECT id, name, desc, authList, authLevel FROM memberGroup WHERE isDelete = 0 ORDER BY id ASC",
 		-1, SQL_PREPARE_DEFAULT, &stmt_cache_mgroup, NULL);
 	
-	// 缓存�?SQL - 获取所有前�?URI 记录（从 uris 表筛�?isBackend=0 的前台接口）
+	// 缓存用 SQL - 获取所有前台 URI 记录（从 uris 表筛选 isBackend=0 的前台接口）
 	sqlite3_prepare_v3(db,
 		"SELECT id, authID, uri, desc, sort FROM uris WHERE isBackend = 0 ORDER BY sort ASC",
 		-1, SQL_PREPARE_DEFAULT, &stmt_cache_muris, NULL);
@@ -300,8 +300,8 @@ void Member_Unit()
 
 // ==================== 余额操作函数 ====================
 
-// 修改用户余额并记录日�?
-// type: 0=系统调整, 1=充�? 2=消费, 3=退�? 4=提现
+// 修改用户余额并记录日志
+// type: 0=系统调整, 1=充值, 2=消费, 3=退款, 4=提现
 // amount: 变动金额（正数增加，负数减少，单位：分）
 // 返回: true=成功, false=失败
 bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, str operator)
@@ -316,7 +316,7 @@ bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, st
 	int64 currentBalance = sqlite3_column_int64(stmt_member_get, 4); // balance 字段
 	sqlite3_reset(stmt_member_get);
 	
-	// 计算新余�?
+	// 计算新余额
 	int64 newBalance = currentBalance + amount;
 	if (newBalance < 0) {
 		return DB_EndWrite(false); // 余额不足

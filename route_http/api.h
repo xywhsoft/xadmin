@@ -4,7 +4,7 @@
 
 // 前台 API 路由处理 - /api/v1/*
 // Cookie 名称: MSID
-// Session �? G_MemberSession
+// Session 名称: G_MemberSession
 // 权限缓存: G_CACHE_MemberGroupAuth
 
 
@@ -19,7 +19,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 		return;
 	}
 	
-	// step 1 : 暴力破解防火�?
+	// step 1 : 暴力破解防火墙
 	xtime tCD = Guard_Check(G_GuardMember, (str)xsReqRemote(objReq));
 	if ( tCD ) {
 		str sTime = TimeText(tCD, TIME_TEXT_DATETIME);
@@ -48,7 +48,7 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 		return;
 	}
 	
-	// step 3 : 查询用户并验证密�?
+	// step 3 : 查询用户并验证密码
 	bool bOK = false;
 	str MSID = NULL;
 	xvalue* tblSession = NULL;
@@ -63,11 +63,11 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 			return;
 		}
 		
-		// 获取用户�?salt �?pwd
+		// 获取用户的 salt 和 pwd
 		str sSalt = (str)sqlite3_column_text(stmt_member_login, 2);
 		str sStoredPwd = (str)sqlite3_column_text(stmt_member_login, 3);
 		
-		// 服务端二�?SHA-256 哈希
+		// 服务端二次 SHA-256 哈希
 		str sPwdHash = ServerHashPassword(sUsername, sSalt, sClientHash);
 		
 		// 比对密码
@@ -89,11 +89,11 @@ void API_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObjec
 					return;
 				}
 				
-				// 获取 authLevel（用户级�?> 用户组级别取较大值）
+				// 获取 authLevel（用户级别 > 用户组级别取较大值）
 				int64 iLvUser = sqlite3_column_int64(stmt_member_login, 5);
 				int64 iAuthLevel = iLvUser > iLvGroup ? iLvUser : iLvGroup;
 				
-				// step 6 : 将用户信息填�?Session �?
+				// step 6 : 将用户信息填入 Session 中
 				ValueSetOwnedText(tblSession, "msid", MSID);
 				MSID = ValueText(tblSession, "msid");
 				ValueSetInt(tblSession, "id", sqlite3_column_int64(stmt_member_login, 0));
@@ -220,7 +220,7 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		return;
 	}
 	
-	// step 3 : 检查用户名是否已存�?
+	// step 3 : 检查用户名是否已存在
 	sqlite3_bind_text(stmt_member_chk, 1, sUsername, -1, NULL);
 	int iCount = 0;
 	if ( sqlite3_step(stmt_member_chk) == SQLITE_ROW ) {
@@ -234,16 +234,16 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		return;
 	}
 	
-	// step 4 : 生成 salt 和密码哈�?
+	// step 4 : 生成 salt 和密码哈希
 	str sSalt = Util_Token();
 	str sPwdHash = ServerHashPassword(sUsername, sSalt, sPassword);
 	
-	// step 5 : 插入新用�?
+	// step 5 : 插入新用户
 	int64 now = xrtNow();
 	sqlite3_bind_text(stmt_member_add, 1, sUsername, -1, NULL);
 	sqlite3_bind_text(stmt_member_add, 2, sSalt, -1, NULL);
 	sqlite3_bind_text(stmt_member_add, 3, sPwdHash, -1, NULL);
-	sqlite3_bind_int64(stmt_member_add, 4, 1);  // 默认用户�?ID = 1
+	sqlite3_bind_int64(stmt_member_add, 4, 1);  // 默认用户组 ID = 1
 	sqlite3_bind_int64(stmt_member_add, 5, 0);  // authLevel = 0
 	sqlite3_bind_int64(stmt_member_add, 6, 0);  // balance = 0
 	sqlite3_bind_text(stmt_member_add, 7, sNickname && strlen(sNickname) > 0 ? sNickname : sUsername, -1, NULL);
@@ -417,7 +417,7 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	int64 iMemberId = ValueInt(objSession, "id");
 	str sUsername = ValueText(objSession, "username");
 	
-	// 验证原密�?
+	// 验证原密码
 	sqlite3_bind_text(stmt_member_login, 1, sUsername, -1, NULL);
 	bool bOldPwdOK = false;
 	while ( sqlite3_step(stmt_member_login) == SQLITE_ROW ) {
@@ -437,7 +437,7 @@ void API_Password(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		return;
 	}
 	
-	// 生成�?salt 和密码哈�?
+	// 生成新 salt 和密码哈希
 	str sNewSalt = Util_Token();
 	str sNewPwdHash = ServerHashPassword(sUsername, sNewSalt, sNewPassword);
 	
@@ -478,7 +478,7 @@ void API_Balance(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 	
 	int64 iMemberId = ValueInt(objSession, "id");
 	
-	// 从数据库获取最新余�?
+	// 从数据库获取最新余额
 	sqlite3_bind_int64(stmt_member_get, 1, iMemberId);
 	if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
 		int64 iBalance = sqlite3_column_int64(stmt_member_get, 4);

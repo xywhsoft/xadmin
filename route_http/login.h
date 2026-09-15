@@ -17,7 +17,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 		
 		// 登录请求
 		
-		// step 1 : 暴力破解防火�?
+		// step 1 : 暴力破解防火墙
 		xtime tCD = Guard_Check(G_GuardAdmin, (str)xsReqRemote(objReq));
 		if ( tCD ) {
 			str sTime = TimeText(tCD, TIME_TEXT_DATETIME);
@@ -28,7 +28,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 		
 		// F7：guard 通过即留痕（洪泛被 guard 拒绝，不产生日志行）
 		Logs_Add(objReq, NULL, true);
-		// step 2 : 根据用户名查询用户信息（获取 salt �?pwd�?
+		// step 2 : 根据用户名查询用户信息（获取 salt 和 pwd）
 		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0);
@@ -48,23 +48,23 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 			return;
 		}
 		
-		// step 3 : 查询用户并验证密�?
+		// step 3 : 查询用户并验证密码
 		bool bOK = false;
 		str XID = NULL;
 		xvalue* tblSession = NULL;
 		sqlite3_bind_text(stmt_login_get, 1, sUser, -1, NULL);
 		while ( sqlite3_step(stmt_login_get) == SQLITE_ROW ) {
-			// 获取用户�?salt �?pwd
+			// 获取用户的 salt 和 pwd
 			str sSalt = (str)sqlite3_column_text(stmt_login_get, 2);
 			str sStoredPwd = (str)sqlite3_column_text(stmt_login_get, 3);
 			
-			// 服务端二�?SHA-256 哈希
+			// 服务端二次 SHA-256 哈希
 			str sPwdHash = ServerHashPassword(sUser, sSalt, sClientHash);
 			
 			// 比对密码
 			if ( sPwdHash && sStoredPwd && strcmp(sPwdHash, sStoredPwd) == 0 ) {
 				
-				// step 4 : 检查是否有对应�?role 权限�?
+				// step 4 : 检查是否有对应的 role 权限配置
 				int64 iRoleID = sqlite3_column_int64(stmt_login_get, 4);
 				int64 iLvRole = -1;
 				if ( Auth_DBRoleGetAccess(iRoleID, 0, &iLvRole) ) {
@@ -84,7 +84,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 					int64 iLvUser = sqlite3_column_int64(stmt_login_get, 5);
 					int64 iAuthLevel = iLvUser > iLvRole ? iLvUser : iLvRole;
 					
-					// step 6 : 将用户信息填入用�?Session �?
+					// step 6 : 将用户信息填入用户 Session 中
 					ValueSetOwnedText(tblSession, "xid", XID);
 					/* 转交字符串后重新借用值内地址，不继续使用旧分配的指针。 */
 					XID = ValueText(tblSession, "xid");
@@ -116,7 +116,7 @@ void Request_Login(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestO
 			// step 7 : 重置防护模块信息
 			Guard_Reset(G_GuardAdmin, (str)xsReqRemote(objReq));
 			
-			// step 8 : 返回响应，附�?cookie 信息（remember 字段在勾�?[记住登录状态] 时传递为字符�?on，不勾选时不传递参数）
+			// step 8 : 返回响应，附带 cookie 信息（remember 字段在勾选 [记住登录状态] 时传递为字符串 on，不勾选时不传递参数）
 			str sHeader;
 			if ( xrtValueType(ValueGet(tblForm, "remember")) == XVALUE_STRING ) {
 				sHeader = Session_AdminHeaders(objReq, XID, 604800, NULL);
@@ -161,7 +161,7 @@ void Request_Logout(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 			Session_RemoveAdminByID(sID);
 		}
 		
-		// 清除 Cookie 并跳转到登录�?
+		// 清除 Cookie 并跳转到登录页
 		str sHeader = Session_AdminHeaders(objReq, "", 0, Option_GetAdminLoginPath());
 		xsHttpReplyAuto(objResp, 302, sHeader, "{\"result\": true, \"message\": \"注销成功！\"}", 0);
 		xrtFree(sHeader);

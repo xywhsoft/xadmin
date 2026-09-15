@@ -2,7 +2,7 @@
 
 
 
-// 后台管理前台用户的路由处�?- /admin/member/*
+// 后台管理前台用户的路由处理 - /admin/member/*
 
 
 
@@ -78,7 +78,7 @@ void Request_View_Member_User_Balance(XS_ServerObject objServer, XS_HostObject o
 			ValueSetText(tblInfo, "username", (str)sqlite3_column_text(stmt_member_get, 1));
 			int64 balance = sqlite3_column_int64(stmt_member_get, 4);
 			ValueSetInt(tblInfo, "balance", balance);
-			// 转换为元，保�?位小�?
+			// 转换为元，保留两位小数
 			char sBalanceYuan[32];
 			snprintf(sBalanceYuan, sizeof(sBalanceYuan), "%.2f", balance / 100.0);
 			ValueSetText(tblInfo, "balanceYuan", sBalanceYuan);
@@ -288,7 +288,7 @@ void Request_Member_User_Balance(XS_ServerObject objServer, XS_HostObject objHos
 
 
 
-// ==================== 前台用户组管�?====================
+// ==================== 前台用户组管理 ====================
 
 void Request_View_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
@@ -403,7 +403,7 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 			}
 			sqlite3_reset(stmt_mgroup_all);
 		} else {
-			// 筛选查�?
+			// 筛选查询
 			sqlite3_bind_text(stmt_mgroup_sel, 1, sParam, iSize, NULL);
 			sqlite3_bind_int64(stmt_mgroup_sel, 2, iLimit);
 			sqlite3_bind_int64(stmt_mgroup_sel, 3, iOffset);
@@ -570,7 +570,7 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 			}
 			sqlite3_reset(stmt_magroup_all);
 		} else {
-			// 筛选查�?
+			// 筛选查询
 			sqlite3_bind_text(stmt_magroup_sel, 1, sParam, iSize, NULL);
 			sqlite3_bind_int64(stmt_magroup_sel, 2, iLimit); sqlite3_bind_int64(stmt_magroup_sel, 3, iOffset);
 			while ( sqlite3_step(stmt_magroup_sel) == SQLITE_ROW ) {
@@ -700,7 +700,7 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			}
 			sqlite3_reset(stmt_mauth_all);
 		} else {
-			// 筛选查�?
+			// 筛选查询
 			sqlite3_bind_text(stmt_mauth_sel, 1, sParam, iSize, NULL);
 			sqlite3_bind_int64(stmt_mauth_sel, 2, iLimit); sqlite3_bind_int64(stmt_mauth_sel, 3, iOffset);
 			while ( sqlite3_step(stmt_mauth_sel) == SQLITE_ROW ) {
