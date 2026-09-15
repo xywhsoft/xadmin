@@ -8,10 +8,9 @@
 	<div class="layui-inline">
 		<input type="text" id="Search_Attachment_Filename" placeholder="搜索文件名..." class="layui-input" style="width: 160px; height: 32px; margin-right: 10px;">
 	</div>
-	<div class="layui-inline">
-		<!-- 原生 select 在 Chrome 下的实际高度受 padding/字号撑高（曾明显高于同行 32px 控件）：
-			 缩小垂直 padding + 降字号压回 32px；margin-right 拉开与搜索按钮的间距 -->
-		<select id="Search_Attachment_AccessType" style="width: 100px; height: 32px; padding: 0 4px; box-sizing: border-box; font-size: 13px; margin-right: 14px;">
+	<div class="layui-inline attach-type-box">
+		<!-- 原生 select 被 layui form 隐藏并重建为 .layui-form-select（样式见上方 style 区） -->
+		<select id="Search_Attachment_AccessType" style="width: 100px;">
 			<option value="">全部类型</option>
 			<option value="0">公开</option>
 			<option value="1">登录可见</option>
@@ -151,6 +150,15 @@
 	white-space: pre-wrap;
 	word-wrap: break-word;
 }
+	/* 类型筛选下拉框：layui form 隐藏原生 select 并重建 .layui-form-select
+	 * （内含 38px 标准高的 layui-input），导致它比同行 32px 控件高——压回 32px；
+	 * 容器 margin 拉开与搜索按钮的间距 */
+	.attach-type-box { margin-right: 14px !important; }
+	.attach-type-box .layui-form-select .layui-input {
+		height: 32px;
+		line-height: 32px;
+		font-size: 13px;
+	}
 </style>
 
 <!-- 页面逻辑处理 -->

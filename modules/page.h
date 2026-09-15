@@ -4,6 +4,8 @@ static void LoadPage(XS_ResponseObject response, int code, const char* head, con
 {
 	size_t size = 0; bytes data = RootFileReadAll(G_PageRoot, page, &size);
 	if (!data) { xsHttpReplyAuto(response, 404, HTTP_CT_HTML, "<h1>404</h1>", 0); return; }
-	xsHttpReplyAuto(response, code, head, data, size);
+	/* 组件页禁缓存：页面热更新后浏览器 iframe 常驻旧副本（普通 F5 不刷新
+	 * 子 frame 缓存），附 no-cache 头让浏览器每次回源校验 */
+	xsHttpReplyAuto(response, code, "Cache-Control: no-cache\r\n", data, size);
 	xrtFree(data);
 }
