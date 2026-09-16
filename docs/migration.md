@@ -753,3 +753,9 @@ smoke 40 PASS + write_regression PASS。
 **潜伏缺陷 2 处（被本轮暴露）**：模板本地 xrtReplace 无 NUL 越界（SEO 模板特性自迁移起配置即坏）；栏目 detail/contents 数组元素悬垂（×2）。
 
 **工作坑**：生成插件调试需 disable→enable 重编译 generated/main.c（直接改生成物可快速二分）；bash heredoc python 仍吃反斜杠（printf 调试栽一次）。
+
+### 2026-09-16：R3/R4/R6 静态烘焙批次（1688367）
+
+216 处能力配置运行时读取烘焙清零（Config{Int,Bool,TextDup,ArrayDup}+SearchWeight+RoutePrefixDup+SeoConfigText 双形态）；R4 三值烘焙+defaultSort 断链接通；R6 displayGroups 静态详情分组段落。配置变更=重生成实证（4321→8888 跟随）。门禁 phase1 34（+4 断言）/fullchain 16/smoke 42/cms 13。
+
+**工作坑**：模板补丁脚本被"重写脚本"操作静默破坏（结构损坏但退出 0）——多步补丁后必须 grep 占位符计数实证；Bare pass 首参解析 needle 含括号时 q 直指引号（勿再检查 '('）。剩余 R1+R2（payload 类型化列+字段解释消除）待排期。
