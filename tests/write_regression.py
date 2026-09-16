@@ -240,3 +240,34 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     assert query("SELECT count(*) FROM logs WHERE uri='/__write/log'") == [(0,)]
     call('POST', '/admin/logs/clear')
     print('PASS URI write isolation, balance/log atomicity and log-clear failures')
+
+    # E1 (campaign finding): management writes reject oversized fields, while
+    # values at exactly the cap stay accepted.
+    def oversize_rejected(path, payload, table, tweak):
+        before = snapshot(table)
+        call('POST', path, {**payload, **tweak}, success=False)
+        assert snapshot(table) == before, (path, 'oversize write accepted', list(tweak))
+
+    admin_payload = lambda name: {'username': name, 'password': client_hash(name, password), 'role': 1}
+    member_payload = lambda name: {'username': name, 'password': client_hash(name, password), 'groupId': 1, 'status': 1}
+    oversize_rejected('/admin/auth/user', admin_payload('write_e1_user'), 'user', {'username': 'x' * 65})
+    oversize_rejected('/admin/auth/user', admin_payload('write_e1_user'), 'user', {'password': 'x' * 129})
+    oversize_rejected('/admin/auth/role', {'name': 'write_e1_role', 'desc': ''}, 'role', {'name': 'x' * 65})
+    oversize_rejected('/admin/auth/role', {'name': 'write_e1_role', 'desc': ''}, 'role', {'desc': 'x' * 1025})
+    oversize_rejected('/admin/auth/role', {'name': 'write_e1_role', 'desc': ''}, 'role', {'authList': 'x' * 4097})
+    oversize_rejected('/admin/auth/group', {'name': 'write_e1_group', 'desc': ''}, 'authGroup', {'name': 'x' * 65})
+    oversize_rejected('/admin/member/user', member_payload('write_e1_member'), 'member', {'nickname': 'x' * 65})
+    oversize_rejected('/admin/member/group', {'name': 'write_e1_mgroup', 'desc': ''}, 'memberGroup', {'desc': 'x' * 1025})
+    _, created = call('POST', '/admin/auth/role', {'name': 'y' * 64, 'desc': 'z' * 1024, 'authList': '[]', 'authLevel': 0})
+    call('DELETE', '/admin/auth/role?id=' + str(created['data']['id']))
+    _, created = call('POST', '/admin/auth/user', {'username': 'u' * 64, 'password': 'p' * 128, 'role': 1})
+    call('DELETE', '/admin/auth/user?id=' + str(created['data']['id']))
+    _, created = call('POST', '/admin/member/user', member_payload('write_e1_put'))
+    before = snapshot('member')
+    call('PUT', '/admin/member/user', {'id': created['data']['id'], 'groupId': 1, 'authLevel': 0,
+                                       'nickname': 'n', 'email': 'x' * 129, 'phone': '', 'avatar': '', 'status': 1}, success=False)
+    assert snapshot('member') == before, 'oversize email accepted'
+    call('PUT', '/admin/member/user', {'id': created['data']['id'], 'groupId': 1, 'authLevel': 0,
+                                       'nickname': 'n', 'email': '', 'phone': '', 'avatar': 'x' * 513, 'status': 1}, success=False)
+    call('DELETE', '/admin/member/user?id=' + str(created['data']['id']))
+    print('PASS E1 oversize field rejection on management writes')

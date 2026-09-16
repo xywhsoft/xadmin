@@ -282,6 +282,7 @@ class GdbServer:
             try:
                 if c.request('GET', '/admin/login', bucket='boot')[0] == 200:
                     MEM.set_pid(find_server_pid())
+                    STATE['mem_reported'] = False
                     log('server up (run %d, xs pid %s)' % (self.run_idx, MEM.pid))
                     return True
             except Exception:
@@ -550,7 +551,7 @@ def worker_reload(stop, seed):
                 time.sleep(6)  # 等代际切换完成
             else:
                 ck = None
-        time.sleep(rng.uniform(5, 15))
+        time.sleep(rng.uniform(30, 75))  # 泄漏已证实(28MB/代)：降频拉长单代窗口，熔断兜底
 
 
 def worker_session(stop, seed):
@@ -665,14 +666,16 @@ def metrics_loop(stop):
         row['stats'] = snap
         with open(RUNTIME / 'metrics.jsonl', 'a', encoding='utf-8') as f:
             f.write(json.dumps(row, ensure_ascii=False) + '\n')
-        # 性能薄弱点：p95 超阈值
-        for bucket, agg in row.items():
-            if isinstance(agg, dict) and agg.get('p95') and agg['p95'] > 5000 and agg.get('n', 0) > 10:
-                finding('PERF-%s-%d' % (bucket, n), 'medium', '性能薄弱点：p95>5s',
-                        '%s p95=%sms p99=%sms n=%s' % (bucket, agg['p95'], agg.get('p99'), agg['n']))
-        # 内存增长告警（>1.5GB）
-        if rss > 1536:
-            finding('MEM-%d' % n, 'high', '内存超 1.5GB', 'rss=%dMB' % rss)
+        # 性能薄弱点：p95 超阈值（内存高压期的慢是系统性的，不算端点缺陷）
+        if rss < 1200:
+            for bucket, agg in row.items():
+                if isinstance(agg, dict) and agg.get('p95') and agg['p95'] > 5000 and agg.get('n', 0) > 10:
+                    finding('PERF-%s-%d' % (bucket, n), 'medium', '性能薄弱点：p95>5s',
+                            '%s p95=%sms p99=%sms n=%s' % (bucket, agg['p95'], agg.get('p99'), agg['n']))
+        # 内存增长告警（>1.5GB，每代只报一次防刷屏）
+        if rss > 1536 and not STATE.get('mem_reported'):
+            STATE['mem_reported'] = True
+            finding('MEM-%d' % n, 'high', '内存超 1.5GB（重载泄漏）', 'rss=%dMB' % rss)
         log('t+%dmin | req=%s ok=%s 5xx=%s conn=%s reload=%s crash=%s rss=%sMB'
             % (int((time.time() - STATE['started']) / 60), snap['req'], snap['ok'],
                snap['err5xx'], snap['connerr'], snap['reloads'], snap['crashes'], rss))
@@ -726,6 +729,27 @@ def main():
     save_state()
     while time.time() < deadline:
         time.sleep(5)
+        # 内存熔断：重载泄漏已证实（leg1: 28.1MB/代线性），2.6GB 保护整机
+        # ——干净重启续测（非崩溃），每周期落一条 critical 记录
+        if time.time() - STATE['started'] > 120:
+            rss_now = MEM.read()[0]
+            if rss_now > 2600:
+                STATS['leak_cycles'] = STATS.get('leak_cycles', 0) + 1
+                n = STATS['leak_cycles']
+                with LOCK:
+                    rl = STATS['reloads']
+                finding('LEAK-%d' % n, 'critical', '重换代内存泄漏（熔断重启）',
+                        'rss=%dMB 触发 2.6GB 熔断；本代 reloads=%d（≈%.1fMB/代）'
+                        % (rss_now, rl, rss_now / max(1, rl)))
+                SRV.stop()
+                time.sleep(2)
+                try:
+                    SRV.boot()
+                    log('leak cycle %d: restarted' % n)
+                except Exception as e:
+                    finding('BOOT-FAIL', 'critical', '熔断后重启失败', str(e))
+                    break
+                continue
         if not SRV.alive():
             log('!! server process exited — archiving crash')
             SRV.archive_crash()

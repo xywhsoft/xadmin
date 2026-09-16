@@ -191,6 +191,10 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		int64 status = ValueInt(tblForm, "status");
 		if ( !username || strlen(username) == 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名不能为空！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( !password || strlen(password) == 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码不能为空！\"}", 0); xrtValueRelease(tblForm); return; }
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( strlen(username) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( strlen(password) > 128 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码最多128个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( nickname && strlen(nickname) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"昵称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( groupId < 1 ) groupId = 1;
 		if ( status != 0 && status != 1 ) status = 1;
 		
@@ -232,6 +236,11 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		str email = ValueText(tblForm, "email");
 		str phone = ValueText(tblForm, "phone");
 		str avatar = ValueText(tblForm, "avatar");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( nickname && strlen(nickname) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"昵称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( email && strlen(email) > 128 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"邮箱最多128个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( phone && strlen(phone) > 32 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"手机号最多32个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( avatar && strlen(avatar) > 512 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"头像地址最多512个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		int64 status = ValueInt(tblForm, "status");
 		if ( groupId < 1 ) groupId = 1;
 		if ( status != 0 && status != 1 ) status = 1; /* L7：与 POST 同款钳位 */
@@ -292,6 +301,9 @@ void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost,
 		str password = ValueText(tblForm, "password");
 		if ( !username || strlen(username) == 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名不能为空！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( !password || strlen(password) == 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码不能为空！\"}", 0); xrtValueRelease(tblForm); return; }
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( strlen(username) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( strlen(password) > 128 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码最多128个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		str sSalt = Util_Token();
 		/* L5：哈希必须用库内真实用户名——表单 username 与库不符时会生成永远
 		 * 无法登录的口令（静默锁号）。column_text 是借用视图，必须在 reset
@@ -516,6 +528,10 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		str authList = ValueText(tblForm, "authList");
 		int64 authLevel = ValueInt(tblForm, "authLevel");
 		if ( !authList || strlen(authList) == 0 ) authList = "[]";
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( strlen(authList) > 4096 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限列表最多4096个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_mgroup_add, 1, name, -1, NULL);
 		sqlite3_bind_text(stmt_mgroup_add, 2, desc ? desc : (str)"", -1, NULL);
@@ -538,6 +554,10 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		str authList = ValueText(tblForm, "authList");
 		int64 authLevel = ValueInt(tblForm, "authLevel");
 		if ( !authList || strlen(authList) == 0 ) authList = "[]";
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( strlen(authList) > 4096 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限列表最多4096个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_mgroup_put, 1, name, -1, NULL);
 		sqlite3_bind_text(stmt_mgroup_put, 2, desc ? desc : (str)"", -1, NULL);
@@ -671,6 +691,9 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xrtValueRelease(tblForm); return; }
 		str name = ValueText(tblForm, "name"); str desc = ValueText(tblForm, "desc"); int64 sort = ValueInt(tblForm, "sort");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		xtime now = xrtNow(); sqlite3_bind_text(stmt_magroup_add, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_add, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_int64(stmt_magroup_add, 3, sort); sqlite3_bind_int64(stmt_magroup_add, 4, now); sqlite3_bind_int64(stmt_magroup_add, 5, now);
 		bool written = DB_Write(stmt_magroup_add, true);
@@ -683,6 +706,9 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xrtValueRelease(tblForm); return; }
 		int64 id = ValueInt(tblForm, "id"); str name = ValueText(tblForm, "name"); str desc = ValueText(tblForm, "desc"); int64 sort = ValueInt(tblForm, "sort");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		xtime now = xrtNow(); sqlite3_bind_text(stmt_magroup_put, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_put, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_int64(stmt_magroup_put, 3, sort); sqlite3_bind_int64(stmt_magroup_put, 4, now); sqlite3_bind_int64(stmt_magroup_put, 5, id);
 		bool written = DB_Write(stmt_magroup_put, true);
@@ -808,6 +834,9 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xrtValueRelease(tblForm); return; }
 		int64 groupID = ValueInt(tblForm, "groupID"); str name = ValueText(tblForm, "name");
 		str desc = ValueText(tblForm, "desc"); int64 sort = ValueInt(tblForm, "sort");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		xtime now = xrtNow(); sqlite3_bind_int64(stmt_mauth_add, 1, groupID); sqlite3_bind_text(stmt_mauth_add, 2, name, -1, NULL);
 		sqlite3_bind_text(stmt_mauth_add, 3, desc ? desc : (str)"", -1, NULL); sqlite3_bind_int64(stmt_mauth_add, 4, sort);
 		sqlite3_bind_int64(stmt_mauth_add, 5, now); sqlite3_bind_int64(stmt_mauth_add, 6, now);
@@ -822,6 +851,9 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xrtValueRelease(tblForm); return; }
 		int64 id = ValueInt(tblForm, "id"); int64 groupID = ValueInt(tblForm, "groupID");
 		str name = ValueText(tblForm, "name"); str desc = ValueText(tblForm, "desc"); int64 sort = ValueInt(tblForm, "sort");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		xtime now = xrtNow(); sqlite3_bind_int64(stmt_mauth_put, 1, groupID); sqlite3_bind_text(stmt_mauth_put, 2, name, -1, NULL);
 		sqlite3_bind_text(stmt_mauth_put, 3, desc ? desc : (str)"", -1, NULL); sqlite3_bind_int64(stmt_mauth_put, 4, sort);
 		sqlite3_bind_int64(stmt_mauth_put, 5, now); sqlite3_bind_int64(stmt_mauth_put, 6, id);

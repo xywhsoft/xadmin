@@ -683,3 +683,13 @@ smoke 40 PASS + write_regression PASS。
 **验证**：旧 schema 场景实测（无 tasks 表旧库 + 主库服务行）→ 启用后自动补表（`['other','tasks','sqlite_sequence']`）→ 建任务成功 → 列表出现；xlogserver e2e 22/22；全量 17 门禁绿。
 
 **附带**：smoke 夹具归一化（UPDATE plugin_runtime SET enabled=0）——测试自管插件状态不再继承根库用户态；消除 xlogserver 自启把多代重载时序竞态带入 smoke 的间歇挂死（该竞态 storm 门禁单测 26/26 可过，完整 smoke 序列偶发，根治待后续专项）。
+
+### 2026-09-16：7h 混合极端战役收官——E1 管理写接口长度上限
+
+**战役终态**：86.2 万请求 0 5xx、306 次重载零真实崩溃（4 次"GDB 崩溃"=探针开发期外部按名误杀，`exited code 01` 无栈签名）、渗透载荷零得手；49 轮 2.6GB 内存熔断干净重启。终报见 `docs/campaign-extreme-2026-09-16.md`。
+
+**修复（E1）**：泄漏归因主因=管理写接口只查非空无长度上限（fuzzer `default=str` 合法化怪载荷落库，RSS≈10×DB）。管理侧补长度上限 18 站点（auth.h 9 + member.h 9）：username/name/nickname 64、password 128、email 128、phone 32、avatar 512、desc 1024、authList 4096。公开 API 注册 3-32 先例已在，管理侧此前缺失（v1 同样无校验，定向加固非保真回填）。
+
+**门禁**：write_regression 新增 E1 块（8 组超限拒写+DB 快照不变、边界值放行、member PUT 超限拒写）；smoke 41 项全绿零警告。
+
+**移交**：xrt block 层换代泄漏 ~2-4MB/代（blockAlloc 3.5MB vs blockFree 1.65MB/代）→ xserver 仓跟进；登录失败锁定/管理写频控（循 R2 先例）列纵深防御建议。

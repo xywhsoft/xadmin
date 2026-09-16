@@ -196,6 +196,17 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			return;
 		}
 		
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( strlen(user) > 64 ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名最多64个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( strlen(password) > 128 ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码最多128个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
 		// 检查用户名是否已存在
 		bool bExists = false;
 		sqlite3_bind_text(stmt_user_chk, 1, user, strlen(user), SQLITE_STATIC);
@@ -342,6 +353,17 @@ void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, X
 			return;
 		}
 		
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( strlen(username) > 64 ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名最多64个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( strlen(password) > 128 ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码最多128个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
 		// 生成新的随机 salt（使用 XID）
 		str sSalt = Util_Token();
 		
@@ -596,6 +618,22 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		if ( !authList || (strlen(authList) == 0) ) {
 			authList = "[]";
 		}
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && (strlen(name) > 64) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( desc && (strlen(desc) > 1024) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( strlen(authList) > 4096 ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限列表最多4096个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
 		
 		// 添加数据库记录
 		xtime now = xrtNow();
@@ -632,6 +670,22 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		int64 authLevel = ValueInt(tblForm, "authLevel");
 		if ( !authList || (strlen(authList) == 0) ) {
 			authList = "[]";
+		}
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && (strlen(name) > 64) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( desc && (strlen(desc) > 1024) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( strlen(authList) > 4096 ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限列表最多4096个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
 		}
 		
 		// 更新数据库记录
@@ -869,6 +923,17 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		str name = ValueText(tblForm, "name");
 		str desc = ValueText(tblForm, "desc");
 		int64 sort = ValueInt(tblForm, "sort");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && (strlen(name) > 64) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( desc && (strlen(desc) > 1024) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
 		xtime now = xrtNow();
 		
 		sqlite3_bind_text(stmt_group_add, 1, name, -1, SQLITE_STATIC);
@@ -900,6 +965,17 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		str name = ValueText(tblForm, "name");
 		str desc = ValueText(tblForm, "desc");
 		int64 sort = ValueInt(tblForm, "sort");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && (strlen(name) > 64) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( desc && (strlen(desc) > 1024) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
 		xtime now = xrtNow();
 		
 		sqlite3_bind_text(stmt_group_put, 1, name, -1, SQLITE_STATIC);
@@ -1136,6 +1212,17 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		str name = ValueText(tblForm, "name");
 		str desc = ValueText(tblForm, "desc");
 		int64 sort = ValueInt(tblForm, "sort");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && (strlen(name) > 64) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( desc && (strlen(desc) > 1024) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
 		xtime now = xrtNow();
 		
 		sqlite3_bind_int64(stmt_auth_add, 1, groupID);
@@ -1170,6 +1257,17 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		str name = ValueText(tblForm, "name");
 		str desc = ValueText(tblForm, "desc");
 		int64 sort = ValueInt(tblForm, "sort");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( name && (strlen(name) > 64) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
+		if ( desc && (strlen(desc) > 1024) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
 		xtime now = xrtNow();
 		
 		sqlite3_bind_int64(stmt_auth_put, 1, groupID);
@@ -1424,6 +1522,12 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		int64 id = ValueInt(tblForm, "id");
 		int64 authID = ValueInt(tblForm, "authID");
 		str desc = ValueText(tblForm, "desc");
+		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
+		if ( desc && (strlen(desc) > 1024) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0);
+			xrtValueRelease(tblForm);
+			return;
+		}
 		int64 sort = ValueInt(tblForm, "sort");
 		// 几个字段:
 		int64 isBackend = ValueInt(tblForm, "isBackend");
