@@ -1,3 +1,19 @@
+<!-- 插件筛选下拉框：与附件列表页同款处理（layui form 隐藏原生 select 重建
+     .layui-form-select 时压回 32px；原生态也统一 32px，容器 margin 拉开间距） -->
+<style>
+.uris-plugin-box { margin-right: 10px !important; }
+.uris-plugin-box select {
+	height: 32px;
+	padding: 0 4px;
+	font-size: 13px;
+}
+.uris-plugin-box .layui-form-select .layui-input {
+	height: 32px;
+	line-height: 32px;
+	font-size: 13px;
+}
+</style>
+
 <!-- 主体表格 -->
 <div style="padding: 16px;">
 	<table class="layui-hide" id="Table_Auth_URIs" lay-filter="Table_Auth_URIs"></table>
@@ -5,6 +21,12 @@
 
 <!-- 表格工具栏 -->
 <script type="text/html" id="Toolbar_Auth_URIs">
+	<div class="layui-inline uris-plugin-box">
+		<select id="Search_URIs_Plugin" lay-filter="uris-plugin-filter" style="width: 170px;">
+			<option value="__core__">xAdmin 本体</option>
+			<option value="__all__">全部接口</option>
+		</select>
+	</div>
 	<div class="layui-inline">
 		<input type="text" id="searchUris" placeholder="搜索URI或描述..." class="layui-input" style="width: 240px; height: 32px; margin-right: 10px;">
 	</div>
@@ -38,27 +60,77 @@
 			var iAuthID = Number(d.authID) || 0;
 			var bBackend = Number(d.isBackend) === 1;
 			var sName = bBackend ? d.authName : d.memberAuthName;
-			
+
 			if ( Number(d.needAuth) !== 1 ) {
 				return '<span class="layui-badge layui-bg-green">公开</span>';
 			}
-			
+
 			if ( iAuthID <= 0 ) {
 				return '<span class="layui-badge layui-bg-gray">未分配</span>';
 			}
-			
+
 			if ( !sName ) {
 				sName = 'ID ' + iAuthID;
 			}
-			
+
 			return '<span class="layui-badge ' + (bBackend ? ('backend-auth-color-' + iAuthID) : ('member-auth-color-' + iAuthID)) + '">' + escapeHtml(sName) + '</span>';
 		}
-		
+
+		function currentPluginFilter()
+		{
+			var el = document.getElementById('Search_URIs_Plugin');
+			return el && el.value ? el.value : '__core__';
+		}
+
+		function applyPluginFilter(sValue)
+		{
+			table.reloadData('Table_Auth_URIs', {
+				where: { plugin: sValue || '__core__' },
+			});
+		}
+
+		// 用响应里的插件清单回填下拉选项（保留当前选择）
+		function syncPluginOptions(arrPlugins)
+		{
+			var el = document.getElementById('Search_URIs_Plugin');
+			if ( !el || !Array.isArray(arrPlugins) ) return;
+			var sCurrent = el.value || '__core__';
+			var bChanged = arrPlugins.length !== el.options.length - 2;
+			if ( !bChanged ) {
+				for ( var i = 0; i < arrPlugins.length; i++ ) {
+					if ( el.options[i + 2].value !== arrPlugins[i] ) { bChanged = true; break; }
+				}
+			}
+			if ( !bChanged ) return;
+			while ( el.options.length > 2 ) el.remove(2);
+			for ( var j = 0; j < arrPlugins.length; j++ ) {
+				var opt = document.createElement('option');
+				opt.value = arrPlugins[j];
+				opt.textContent = arrPlugins[j];
+				el.appendChild(opt);
+			}
+			el.value = sCurrent;
+			// 当前选择对应的插件已无注册 URI 时回到本体
+			if ( el.value !== sCurrent ) el.value = '__core__';
+			// layui form 若已把原生 select 重建为 .layui-form-select，其 dl 是
+			// 初渲染快照——须重渲染 select 才能看到新增选项
+			layui.use('form', function(){
+				if ( document.querySelector('.uris-plugin-box .layui-form-select') ) {
+					layui.form.render('select');
+				}
+			});
+		}
+
 		// 创建渲染实例
 		table.render({
 			elem: '#Table_Auth_URIs',
 			toolbar: '#Toolbar_Auth_URIs',
 			url: '/admin/auth/uris',
+			where: { plugin: '__core__' },
+			parseData: function(res){
+				// 保留自定义 plugins 字段供下拉框回填
+				return { code: res.code, msg: res.msg, count: res.count, data: res.data, plugins: res.plugins };
+			},
 			defaultToolbar: ['filter', 'exports', 'print'],
 			height: 'full-135',			// 最大高度减去其他容器已占有的高度差
 			css: "",					// 重设当前表格样式
@@ -82,21 +154,33 @@
 				{field:'updateTime', width:180, title: '修改时间'},
 				{width:70, title: '操作', templet: '#Tool_Auth_URIs'},
 			]],
-			done: function(){
+			done: function(res){
+				syncPluginOptions(res && res.plugins);
 			},
 			error: function(res, msg){
 				console.log(res, msg)
 			}
 		});
-		
+
+		// 下拉筛选即时生效（原生 change + layui form 重建态双保险）
+		document.getElementById('Search_URIs_Plugin').addEventListener('change', function(){
+			applyPluginFilter(this.value);
+		});
+		layui.use('form', function(){
+			layui.form.on('select(uris-plugin-filter)', function(data){
+				applyPluginFilter(data.value);
+			});
+		});
+
 		// 工具栏事件
 		table.on('toolbar(Table_Auth_URIs)', function(obj){
 			switch ( obj.event ) {
 				case 'Auth_URIs_Search':
-					// 搜索
+					// 搜索（带上当前插件筛选）
 					table.reloadData('Table_Auth_URIs', {
 						where: {
 							search: "%" + document.getElementById('searchUris').value + "%",
+							plugin: currentPluginFilter(),
 						},
 					});
 				break;

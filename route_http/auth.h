@@ -1417,14 +1417,20 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		if ( iLimit > 100 ) { iLimit = 100; }	/* F9 */
 		int64 iOffset = (iPage - 1) * iLimit;
 		int iSize = xsReqQueryValue(objReq, "search", sParam, sizeof(sParam));
-		
+		/* 插件筛选：__core__=xAdmin 本体（无插件归属）、__all__/缺省=全部（兼容旧调用）、其余=插件 xid */
+		char sPlugin[96];
+		if ( !xsReqQueryValue(objReq, "plugin", sPlugin, sizeof(sPlugin)) || !sPlugin[0] ) {
+			snprintf(sPlugin, sizeof(sPlugin), "__all__");
+		}
+
 		// 从数据库中查询数据
 		xvalue* data = ValueArray();
 		int64 iCount = 0;
 		if ( iSize <= 0 ) {
 			// 查询全部
-			sqlite3_bind_int64(stmt_uris_all, 1, iLimit);
-			sqlite3_bind_int64(stmt_uris_all, 2, iOffset);
+			sqlite3_bind_text(stmt_uris_all, 1, sPlugin, -1, NULL);
+			sqlite3_bind_int64(stmt_uris_all, 2, iLimit);
+			sqlite3_bind_int64(stmt_uris_all, 3, iOffset);
 			while ( sqlite3_step(stmt_uris_all) == SQLITE_ROW ) {
 				xvalue* tblRow = ValueObject();
 				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_uris_all, 0));
@@ -1451,16 +1457,18 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_uris_all);
+			sqlite3_bind_text(stmt_uris_count_all, 1, sPlugin, -1, NULL);
 			if ( sqlite3_step(stmt_uris_count_all) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_uris_count_all, 0);
 			sqlite3_reset(stmt_uris_count_all);
 		} else {
 			// 筛选
-			sqlite3_bind_text(stmt_uris_sel, 1, sParam, iSize, NULL);
+			sqlite3_bind_text(stmt_uris_sel, 1, sPlugin, -1, NULL);
 			sqlite3_bind_text(stmt_uris_sel, 2, sParam, iSize, NULL);
 			sqlite3_bind_text(stmt_uris_sel, 3, sParam, iSize, NULL);
 			sqlite3_bind_text(stmt_uris_sel, 4, sParam, iSize, NULL);
-			sqlite3_bind_int64(stmt_uris_sel, 5, iLimit);
-			sqlite3_bind_int64(stmt_uris_sel, 6, iOffset);
+			sqlite3_bind_text(stmt_uris_sel, 5, sParam, iSize, NULL);
+			sqlite3_bind_int64(stmt_uris_sel, 6, iLimit);
+			sqlite3_bind_int64(stmt_uris_sel, 7, iOffset);
 			while ( sqlite3_step(stmt_uris_sel) == SQLITE_ROW ) {
 				xvalue* tblRow = ValueObject();
 				ValueSetInt(tblRow, "id", sqlite3_column_int64(stmt_uris_sel, 0));
@@ -1487,14 +1495,15 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 				ValueArrayOwn(data, tblRow);
 			}
 			sqlite3_reset(stmt_uris_sel);
-			sqlite3_bind_text(stmt_uris_count_sel, 1, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_uris_count_sel, 1, sPlugin, -1, NULL);
 			sqlite3_bind_text(stmt_uris_count_sel, 2, sParam, -1, NULL);
 			sqlite3_bind_text(stmt_uris_count_sel, 3, sParam, -1, NULL);
 			sqlite3_bind_text(stmt_uris_count_sel, 4, sParam, -1, NULL);
+			sqlite3_bind_text(stmt_uris_count_sel, 5, sParam, -1, NULL);
 			if ( sqlite3_step(stmt_uris_count_sel) == SQLITE_ROW ) iCount = sqlite3_column_int64(stmt_uris_count_sel, 0);
 			sqlite3_reset(stmt_uris_count_sel);
 		}
-		
+
 		// 构建返回值
 		xvalue* tblRet = ValueObject();
 		ValueSetBool(tblRet, "result", true);
@@ -1502,6 +1511,16 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		ValueSetInt(tblRet, "count", iCount);
 		ValueSetText(tblRet, "message", "接口数据获取成功！");
 		ValueSetOwn(tblRet, "data", data);
+		/* 筛选下拉框数据源：已注册 URI 的插件清单（column_text 借用视图，构造即拷贝） */
+		{
+			xvalue* arrPlugins = ValueArray();
+			while ( sqlite3_step(stmt_uris_plugins) == SQLITE_ROW ) {
+				str sXid = (str)sqlite3_column_text(stmt_uris_plugins, 0);
+				ValueArrayOwn(arrPlugins, xrtValueString(xrtStrView(sXid ? sXid : (str)"")));
+			}
+			sqlite3_reset(stmt_uris_plugins);
+			ValueSetOwn(tblRet, "plugins", arrPlugins);
+		}
 		
 		// 生成 JSON
 		size_t iRetSize = 0;

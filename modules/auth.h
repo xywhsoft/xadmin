@@ -5,12 +5,12 @@
 void Auth_CompileSQL()
 {
 	// 棰勭紪璇?SQL 璇彞 - uris 琛?
-	int iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_all, NULL);
+	int iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id WHERE (CASE WHEN ?1='__all__' THEN 1 WHEN ?1='__core__' THEN (uris.plugin_xid IS NULL OR uris.plugin_xid='') ELSE uris.plugin_xid=?1 END)=1 ORDER BY uris.sort ASC, uris.id ASC LIMIT ?2  OFFSET ?3;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_all, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_all] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
 	}
-	iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id WHERE (uris.uri LIKE ?) OR (uris.desc LIKE ?) OR (uris.namespace LIKE ?) OR (uris.plugin_xid LIKE ?) ORDER BY uris.sort ASC, uris.id ASC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_sel, NULL);
+	iRet = sqlite3_prepare_v3(G_DB, "SELECT uris.id, uris.authID, uris.uri, uris.desc, uris.isBackend, uris.needAuth, uris.needLog, uris.keepActive, uris.sort, uris.createTime, uris.updateTime, auth.name AS authName, memberAuth.name AS memberAuthName, uris.isPersistent, uris.namespace, uris.plugin_xid, uris.plugin_generation, uris.routeActive FROM uris LEFT JOIN auth ON uris.authID = auth.id LEFT JOIN memberAuth ON uris.authID = memberAuth.id WHERE (CASE WHEN ?1='__all__' THEN 1 WHEN ?1='__core__' THEN (uris.plugin_xid IS NULL OR uris.plugin_xid='') ELSE uris.plugin_xid=?1 END)=1 AND ((uris.uri LIKE ?2) OR (uris.desc LIKE ?3) OR (uris.namespace LIKE ?4) OR (uris.plugin_xid LIKE ?5)) ORDER BY uris.sort ASC, uris.id ASC LIMIT ?6  OFFSET ?7;", -1, SQL_PREPARE_DEFAULT, &stmt_uris_sel, NULL);
 	if ( iRet != SQLITE_OK ) {
 		printf("!!! ERROR !!! Auth_Init [stmt_uris_sel] - sqlite3_prepare_v3 error code : %d\n%s\n", iRet, sqlite3_errmsg(G_DB));
 		exit(0);
@@ -229,8 +229,9 @@ void Auth_CompileSQL()
 	}
 	
 	// L1：列表计数独立语句（拆掉 COUNT(*) OVER() 宽表反模式）
-	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM uris", -1, SQL_PREPARE_DEFAULT, &stmt_uris_count_all, NULL);
-	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM uris WHERE (uri LIKE ? OR [desc] LIKE ? OR namespace LIKE ? OR plugin_xid LIKE ?)", -1, SQL_PREPARE_DEFAULT, &stmt_uris_count_sel, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM uris WHERE (CASE WHEN ?1='__all__' THEN 1 WHEN ?1='__core__' THEN (plugin_xid IS NULL OR plugin_xid='') ELSE plugin_xid=?1 END)=1", -1, SQL_PREPARE_DEFAULT, &stmt_uris_count_all, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM uris WHERE (CASE WHEN ?1='__all__' THEN 1 WHEN ?1='__core__' THEN (plugin_xid IS NULL OR plugin_xid='') ELSE plugin_xid=?1 END)=1 AND (uri LIKE ?2 OR [desc] LIKE ?3 OR namespace LIKE ?4 OR plugin_xid LIKE ?5)", -1, SQL_PREPARE_DEFAULT, &stmt_uris_count_sel, NULL);
+	sqlite3_prepare_v3(G_DB, "SELECT DISTINCT plugin_xid FROM uris WHERE plugin_xid IS NOT NULL AND plugin_xid != '' ORDER BY plugin_xid", -1, SQL_PREPARE_DEFAULT, &stmt_uris_plugins, NULL);
 	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM auth WHERE isDelete = 0", -1, SQL_PREPARE_DEFAULT, &stmt_auth_count_all, NULL);
 	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM auth WHERE isDelete = 0 AND (name LIKE ? OR [desc] LIKE ?)", -1, SQL_PREPARE_DEFAULT, &stmt_auth_count_sel, NULL);
 	sqlite3_prepare_v3(G_DB, "SELECT COUNT(*) FROM authGroup WHERE isDelete = 0", -1, SQL_PREPARE_DEFAULT, &stmt_group_count_all, NULL);
@@ -1017,6 +1018,7 @@ void Auth_Unit()
 	/* L1：计数语句 */
 	sqlite3_finalize(stmt_uris_count_all);
 	sqlite3_finalize(stmt_uris_count_sel);
+	sqlite3_finalize(stmt_uris_plugins);
 	sqlite3_finalize(stmt_auth_count_all);
 	sqlite3_finalize(stmt_auth_count_sel);
 	sqlite3_finalize(stmt_group_count_all);

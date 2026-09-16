@@ -83,7 +83,7 @@
     "source": "dev/v1/hosts/xadmin/data/page/auth/uris.html",
     "target": "page/auth/uris.html",
     "sha256": "6759d2e1913a5539d0764b362be978fc9f509983a8f39072b3ae4a88378cf365",
-    "target_sha256": "2f77400dee9e1fbf3fcd90d578f94b81289b8ecfafb14632d4d328fe6cadcf99"
+    "target_sha256": "9ed7d7576d21f906c83fbc08e58fc56992cc70ebface13ff0caeddec36d94f03"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/auth/user.html",

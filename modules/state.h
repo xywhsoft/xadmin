@@ -58,6 +58,7 @@ sqlite3_stmt* stmt_user_sel = NULL;
 // L1：auth 系列表计数独立语句
 sqlite3_stmt* stmt_uris_count_all = NULL;
 sqlite3_stmt* stmt_uris_count_sel = NULL;
+sqlite3_stmt* stmt_uris_plugins = NULL;			// 已注册 URI 的插件清单（筛选下拉框数据源）
 sqlite3_stmt* stmt_auth_count_all = NULL;
 sqlite3_stmt* stmt_auth_count_sel = NULL;
 sqlite3_stmt* stmt_group_count_all = NULL;
