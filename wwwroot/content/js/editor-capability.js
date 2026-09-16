@@ -1,68 +1,75 @@
+/* 能力页签：左侧点击切换属性页，中间展示该能力包的 xform 渲染表单；
+ * 启用动作收敛到表单区的「启用此能力包」开关。表单 HTML 由
+ * /admin/content/pack/form 服务端渲染（标准属性接口），客户端叠加
+ * 当前配置值并按 name 收集回 contentState.capabilityConfig。 */
+
+var capSwitchBound = false;
+
 function packKey(pack) {
 	return pack && (pack.packId || pack.key || pack.name) ? (pack.packId || pack.key || pack.name) : '';
 }
 
+function selectedPack() {
+	var key = contentState.selectedCapability;
+	for (var i = 0; i < (contentState.capabilities || []).length; i++) {
+		if (packKey(contentState.capabilities[i]) === key) return contentState.capabilities[i];
+	}
+	return null;
+}
+
 function renderCapabilities() {
 	var side = $('side_capabilities');
-	var main = $('capability_workspace');
 	var packs = contentState.capabilities || [];
 
 	if (!packs.length) {
 		side.innerHTML = '<div class="side-item"><div class="side-item-meta">暂无能力包</div></div>';
-		main.innerHTML = '<div class="status-text">暂无可用能力包。</div>';
+		$('capability_workspace').innerHTML = '<div class="status-text">暂无可用能力包。</div>';
 		return;
+	}
+	if (!contentState.selectedCapability || !selectedPack()) {
+		contentState.selectedCapability = packKey(packs[0]);
 	}
 
 	side.innerHTML = packs.map(function(pack) {
 		var key = packKey(pack);
 		var enabled = !!contentState.enabledCapabilities[key];
-		return '<div class="side-item ' + (enabled ? 'active' : '') + '" data-cap="' + esc(key) + '">'
+		var active = key === contentState.selectedCapability;
+		return '<div class="side-item ' + (active ? 'active' : '') + '" data-cap="' + esc(key) + '">'
 			+ '<div class="side-item-title">' + esc(pack.title || key) + '</div>'
-			+ '<div class="side-item-meta">' + esc(key) + ' | ' + (enabled ? '已启用' : '未启用') + '</div>'
-			+ '</div>';
-	}).join('');
-
-	main.innerHTML = packs.map(function(pack) {
-		var key = packKey(pack);
-		var enabled = !!contentState.enabledCapabilities[key];
-		var checked = enabled ? 'checked' : '';
-		var cfg = contentState.capabilityConfig[key] || {};
-		var effects = readPackEffects(pack.effectsJson);
-		var configHtml = renderPackConfig(key, cfg, enabled);
-		return '<div class="cap-item">'
-			+ '<div>'
-			+ '<div class="cap-title">' + esc(pack.title || key) + '</div>'
-			+ '<div class="cap-meta">' + esc(key) + ' | ' + esc(pack.version || 'v0.0.0') + ' | ' + esc(pack.installType || 'local') + '</div>'
-			+ '<div class="cap-meta">' + esc(pack.description || '用于增强生成内容插件的能力包。') + '</div>'
-			+ '<div class="cap-meta">生成影响：' + esc(effects || '未声明') + '</div>'
-			+ configHtml
-			+ '</div>'
-			+ '<input type="checkbox" class="cap-check" data-key="' + esc(key) + '" ' + checked + '>'
+			+ '<div class="side-item-meta">' + esc(key) + (enabled ? ' <span class="layui-badge layui-bg-green">已启用</span>' : '') + '</div>'
 			+ '</div>';
 	}).join('');
 
 	Array.prototype.forEach.call(side.querySelectorAll('.side-item'), function(item) {
-		item.onclick = function() {
-			var key = item.getAttribute('data-cap');
-			togglePack(key, !contentState.enabledCapabilities[key]);
-		};
+		item.onclick = function() { selectCapability(item.getAttribute('data-cap')); };
 	});
 
-	Array.prototype.forEach.call(main.querySelectorAll('.cap-check'), function(chk) {
-		chk.onchange = function() {
-			togglePack(chk.getAttribute('data-key'), chk.checked);
-		};
-	});
+	bindCapabilitySwitchOnce();
+	renderCapabilityWorkspace();
+}
 
-	Array.prototype.forEach.call(main.querySelectorAll('.cap-config-input'), function(input) {
-		input.onchange = function() {
-			var key = input.getAttribute('data-key');
-			var name = input.getAttribute('data-name');
-			if (!contentState.capabilityConfig[key]) contentState.capabilityConfig[key] = {};
-			contentState.capabilityConfig[key][name] = input.type === 'checkbox' ? input.checked : input.value;
-			updateImpact();
-		};
+/* 启用开关事件只在页面生命周期注册一次（layui form.on 按 filter 委派，
+ * 重复注册会叠加），回调里实时读当前选中能力。 */
+function bindCapabilitySwitchOnce() {
+	if (capSwitchBound) return;
+	capSwitchBound = true;
+	layui.use('form', function() {
+		layui.form.on('switch(cap-enable-switch)', function(data) {
+			var key = contentState.selectedCapability;
+			if (!key) return;
+			togglePack(key, data.elem.checked);
+			var host = $('cap_form_host');
+			if (host) host.className = data.elem.checked ? '' : 'cap-form-disabled';
+		});
 	});
+}
+
+function selectCapability(key) {
+	contentState.selectedCapability = key;
+	Array.prototype.forEach.call(document.querySelectorAll('#side_capabilities .side-item'), function(item) {
+		item.className = 'side-item' + (item.getAttribute('data-cap') === key ? ' active' : '');
+	});
+	renderCapabilityWorkspace();
 }
 
 function togglePack(key, enabled) {
@@ -70,86 +77,120 @@ function togglePack(key, enabled) {
 	if (enabled && !contentState.capabilityConfig[key]) {
 		contentState.capabilityConfig[key] = capabilityDefaults(key);
 	}
-	renderCapabilities();
+	var meta = document.querySelector('#side_capabilities .side-item[data-cap="' + key + '"] .side-item-meta');
+	if (meta) {
+		meta.innerHTML = esc(key) + (enabled ? ' <span class="layui-badge layui-bg-green">已启用</span>' : '');
+	}
 	updateImpact();
 }
 
-function renderPackConfig(key, cfg, enabled) {
-	if (!enabled) return '';
-
-	var xformHtml = renderPackConfigFromXForm(key, cfg);
-	if (xformHtml) return xformHtml;
-
-	if (key === 'content.comment') {
-		return '<div class="cap-config">'
-			+ '<label>审核方式</label><select class="cap-config-input" data-key="' + esc(key) + '" data-name="moderation">'
-			+ '<option value="manual" ' + ((cfg.moderation || 'manual') === 'manual' ? 'selected' : '') + '>人工审核</option>'
-			+ '<option value="auto" ' + (cfg.moderation === 'auto' ? 'selected' : '') + '>自动通过</option>'
-			+ '</select>'
-			+ '<label><input type="checkbox" class="cap-config-input" data-key="' + esc(key) + '" data-name="allowPublicPost" ' + (cfg.allowPublicPost !== false ? 'checked' : '') + '> 允许前台提交</label>'
-			+ '</div>';
-	}
-
-	if (key === 'content.seo') {
-		return '<div class="cap-config">'
-			+ '<label>栏目 Title 模板</label><input class="cap-config-input" data-key="' + esc(key) + '" data-name="categoryTitleTemplate" value="' + esc(cfg.categoryTitleTemplate || '{categoryTitle} - {siteName}') + '" placeholder="{categoryTitle} - {siteName}">'
-			+ '<label>栏目 Keywords 模板</label><input class="cap-config-input" data-key="' + esc(key) + '" data-name="categoryKeywordsTemplate" value="' + esc(cfg.categoryKeywordsTemplate || '{categoryTitle},{siteName}') + '" placeholder="{categoryTitle},{siteName}">'
-			+ '<label>栏目 Description 模板</label><input class="cap-config-input" data-key="' + esc(key) + '" data-name="categoryDescriptionTemplate" value="' + esc(cfg.categoryDescriptionTemplate || '{categoryDescription}') + '" placeholder="{categoryDescription}">'
-			+ '<label>栏目 Canonical 模板</label><input class="cap-config-input" data-key="' + esc(key) + '" data-name="categoryCanonicalTemplate" value="' + esc(cfg.categoryCanonicalTemplate || '/plugin/{pluginXid}?categoryId={categoryId}') + '" placeholder="/plugin/{pluginXid}?categoryId={categoryId}">'
-			+ '<div class="cap-meta">模板变量在生成后的公开页按需消费：{siteName}、{pluginXid}、{categoryId}、{categoryTitle}、{categorySlug}、{categoryPath}、{categoryDescription}。</div>'
-			+ '</div>';
-	}
-
-	return '<div class="cap-config"><div class="cap-meta">该能力包的实例配置将由 XForm 配置面板渲染。</div></div>';
+function renderCapabilityWorkspace() {
+	var main = $('capability_workspace');
+	var pack = selectedPack();
+	if (!pack) { main.innerHTML = '<div class="status-text">请选择能力包。</div>'; return; }
+	var key = packKey(pack);
+	var enabled = !!contentState.enabledCapabilities[key];
+	var effects = readPackEffects(pack.effectsJson);
+	main.innerHTML = '<div class="cap-head">'
+		+ '<div class="cap-title">' + esc(pack.title || key) + '</div>'
+		+ '<div class="cap-meta">' + esc(key) + ' | ' + esc(pack.version || 'v0.0.0') + ' | ' + esc(pack.installType || 'local') + '</div>'
+		+ (pack.description ? '<div class="cap-meta">' + esc(pack.description) + '</div>' : '')
+		+ '<div class="cap-meta">生成影响：' + esc(effects || '未声明') + '</div>'
+		+ '</div>'
+		+ '<div class="layui-form cap-enable-row">'
+		+ '<input type="checkbox" lay-skin="switch" lay-text="启用|停用" lay-filter="cap-enable-switch"' + (enabled ? ' checked' : '') + '>'
+		+ '<span class="cap-enable-label">启用此能力包</span>'
+		+ '</div>'
+		+ '<div id="cap_form_host"' + (enabled ? '' : ' class="cap-form-disabled"') + '><div class="cap-form-empty">正在加载属性表单...</div></div>';
+	if (layuiForm) layuiForm.render('checkbox');
+	loadCapabilityForm(key);
 }
 
-function renderPackConfigFromXForm(key, cfg) {
-	var pack = null;
-	var form = null;
-	var groups = [];
-	for (var i = 0; i < (contentState.capabilities || []).length; i++) {
-		if (packKey(contentState.capabilities[i]) === key) {
-			pack = contentState.capabilities[i];
-			break;
+function loadCapabilityForm(key) {
+	var host = $('cap_form_host');
+	if (!host) return;
+	ContentApi.request('/admin/content/pack/form?packId=' + encodeURIComponent(key))
+		.then(function(ret) {
+			/* 异步回来时已切换到其他能力——丢弃过期响应 */
+			if (contentState.selectedCapability !== key || !host.isConnected) return;
+			if (!ret || !ret.result) {
+				host.innerHTML = '<div class="cap-form-empty">' + esc(ret && ret.message || '加载属性表单失败') + '</div>';
+				return;
+			}
+			var data = ret.data || {};
+			host.innerHTML = data.html || '<div class="cap-form-empty">该能力包没有可配置属性。</div>';
+			applyCapabilityValues(host, contentState.capabilityConfig[key] || {});
+			host.onchange = function() { collectCapabilityConfig(host, key); };
+		})
+		.catch(function() {
+			if (contentState.selectedCapability !== key || !host.isConnected) return;
+			host.innerHTML = '<div class="cap-form-empty">加载属性表单失败</div>';
+		});
+}
+
+/* 把当前配置叠加进渲染产物（值形态与收集端约定一致） */
+function applyCapabilityValues(host, cfg) {
+	Array.prototype.forEach.call(host.querySelectorAll('[name]'), function(el) {
+		var name = el.getAttribute('name');
+		if (!name) return;
+		var base = name;
+		var side = -1;
+		if (name.length > 6 && name.slice(-6) === '_start') { base = name.slice(0, -6); side = 0; }
+		else if (name.length > 4 && name.slice(-4) === '_end') { base = name.slice(0, -4); side = 1; }
+		var value = cfg[base];
+		if (side >= 0) {
+			value = (value && typeof value === 'object' && typeof value.length === 'number') ? value[side] : undefined;
+			if (value === undefined || value === null) return;
+			el.value = value;
+			return;
 		}
-	}
-	if (!pack || !pack.instanceFormJson) return '';
-	try {
-		form = JSON.parse(pack.instanceFormJson || '{}');
-	} catch (err) {
-		return '';
-	}
-	if (Array.isArray(form.groups)) groups = form.groups;
-	if (Array.isArray(form.fields)) groups = [{ fields: form.fields }];
-	if (!groups.length) return '';
-	return '<div class="cap-config">' + groups.map(function(group) {
-		var fields = Array.isArray(group.fields) ? group.fields : [];
-		if (!fields.length) return '';
-		return (group.title ? '<div class="cap-meta">' + esc(group.title) + '</div>' : '')
-			+ fields.map(function(field) { return renderXFormConfigField(key, cfg, field); }).join('');
-	}).join('') + '</div>';
+		if (value === undefined || value === null) return;
+		if (el.type === 'checkbox') el.checked = !!value;
+		else if (el.type === 'radio') el.checked = (String(value) === el.value);
+		else el.value = value;
+	});
 }
 
-function renderXFormConfigField(key, cfg, field) {
-	if (!field || !field.name) return '';
-	var type = String(field.type || 'input');
-	var name = String(field.name);
-	var value = cfg[name] !== undefined ? cfg[name] : (field.defaultValue !== undefined ? field.defaultValue : field.value);
-	var label = esc(field.label || name);
-	if (type === 'switch' || type === 'checkbox') {
-		return '<label><input type="checkbox" class="cap-config-input" data-key="' + esc(key) + '" data-name="' + esc(name) + '" ' + (value !== false ? 'checked' : '') + '> ' + label + '</label>';
+/* 从渲染产物收集全部字段值（checkbox→布尔，range 双输入→数组，其余→字符串；
+ * 与旧迷你渲染器的值形态保持一致，生成器消费端无需变化） */
+function collectCapabilityConfig(host, key) {
+	var cfg = {};
+	var seen = {};
+	Array.prototype.forEach.call(host.querySelectorAll('[name]'), function(el) {
+		var name = el.getAttribute('name');
+		if (!name) return;
+		var base = name;
+		var side = -1;
+		if (name.length > 6 && name.slice(-6) === '_start') { base = name.slice(0, -6); side = 0; }
+		else if (name.length > 4 && name.slice(-4) === '_end') { base = name.slice(0, -4); side = 1; }
+		if (side >= 0) {
+			if (!cfg[base] || !Array.isArray(cfg[base])) cfg[base] = [];
+			cfg[base][side] = el.value;
+			seen[base] = 1;
+			return;
+		}
+		if (el.type === 'radio') {
+			if (el.checked) { cfg[base] = el.value; seen[base] = 1; }
+			return;
+		}
+		if (el.type === 'checkbox') {
+			var group = host.querySelectorAll('[name="' + name + '"]');
+			if (group.length > 1) {
+				if (!cfg[base] || !Array.isArray(cfg[base])) cfg[base] = [];
+				if (el.checked && cfg[base].indexOf(el.value) < 0) cfg[base].push(el.value);
+			} else {
+				cfg[base] = el.checked;
+			}
+			seen[base] = 1;
+			return;
+		}
+		cfg[base] = el.value;
+		seen[base] = 1;
+	});
+	if (Object.keys(seen).length) {
+		contentState.capabilityConfig[key] = cfg;
+		updateImpact();
 	}
-	if (type === 'select') {
-		var list = Array.isArray(field.list) ? field.list : [];
-		return '<label>' + label + '</label><select class="cap-config-input" data-key="' + esc(key) + '" data-name="' + esc(name) + '">'
-			+ list.map(function(item) {
-				var itemValue = item && item.value !== undefined ? item.value : item;
-				var itemLabel = item && item.label !== undefined ? item.label : itemValue;
-				return '<option value="' + esc(itemValue) + '" ' + (String(value) === String(itemValue) ? 'selected' : '') + '>' + esc(itemLabel) + '</option>';
-			}).join('')
-			+ '</select>';
-	}
-	return '<label>' + label + '</label><input type="' + (type === 'number' ? 'number' : 'text') + '" class="cap-config-input" data-key="' + esc(key) + '" data-name="' + esc(name) + '" value="' + esc(value == null ? '' : value) + '">';
 }
 
 function capabilityDefaults(key) {

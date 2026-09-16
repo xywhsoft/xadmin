@@ -8,6 +8,7 @@ var contentState = {
 		{name:'status', title:'状态', type:'integer', required:false, list:true, detail:true}
 	],
 	capabilities: [],
+	selectedCapability: '',
 	enabledCapabilities: {},
 	capabilityConfig: {},
 	pages: {

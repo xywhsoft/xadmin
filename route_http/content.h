@@ -187,6 +187,43 @@ void Request_Content_Pack(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 	Content_SendData(objResp, true, NULL, detail);
 }
 
+/* 能力包属性面板：服务端把 instanceForm 渲染为自包含 HTML（标准属性接口，
+ * 内联样式无外部依赖）；附字段默认值，客户端叠加当前配置并负责收集。 */
+void Request_Content_Pack_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
+{
+	char packId[128] = {0};
+	xvalue* detail = NULL;
+	str formJson = NULL;
+	xvalue* schema = NULL;
+	xvalue* defaults = NULL;
+	xvalue* data = NULL;
+	char* html = NULL;
+	str error = NULL;
+	(void)objServer; (void)objHost; (void)objSession;
+	if (xsReqMethodID(objReq) != XHTTP_METHOD_GET) { LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html"); return; }
+	xsReqQueryValue(objReq, "packId", packId, sizeof(packId));
+	detail = packId[0] ? ContentPack_GetDetail(packId) : NULL;
+	if (!detail) { PluginRoute_SendResult(objResp, false, "能力包不存在"); return; }
+	formJson = ValueText(detail, "instanceFormJson");
+	if (formJson && formJson[0]) schema = JsonParseN(formJson, strlen(formJson));
+	if (schema && xrtValueType(schema) == XVALUE_OBJECT) {
+		defaults = ContentPack_FormDefaults(schema);
+		/* 渲染器无 file 分支直接以 spec 为 schema，读 spec.values 作初始值 */
+		ValueSetOwn(schema, "values", xrtValueClone(defaults));
+		html = Form_RenderTemplateBlockHTML(schema, &error);
+	}
+	data = ValueObject();
+	ValueSetText(data, "packId", packId);
+	ValueSetText(data, "title", ValueText(detail, "title"));
+	ValueSetText(data, "html", html ? html : (str)"");
+	ValueSetOwn(data, "defaults", defaults ? defaults : ValueObject());
+	xrtValueRelease(detail);
+	xrtValueRelease(schema);
+	xrtFree(html);
+	if (error) xrtFree(error);
+	Content_SendData(objResp, true, NULL, data);
+}
+
 void Request_Content_Pack_Options(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	xvalue* body; str packId; xvalue* options; char* optionsJson = NULL; bool ok;

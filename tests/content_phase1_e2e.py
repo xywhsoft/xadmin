@@ -62,6 +62,17 @@ try:
     r = json.loads(body)
     detail = r.get('data') or {}
     check('pack detail with contracts json', r.get('result') is True and 'contractsJson' in detail and 'hooksJson' in detail, body[:150])
+    # ---- 属性面板标准接口：服务端渲染 xform + 默认值 ----
+    st, _, body = smoke.request(PORT, 'GET', '/admin/content/pack/form?packId=content.comment', cookie=cookie)
+    r = json.loads(body)
+    fdata = r.get('data') or {}
+    check('pack form renders xform html', st == 200 and r.get('result') is True
+          and 'xform-tpl-block' in (fdata.get('html') or '')
+          and 'name="moderation"' in (fdata.get('html') or ''), body[:150])
+    check('pack form defaults extracted', len(fdata.get('defaults') or {}) >= 10
+          and fdata['defaults'].get('moderation') == 'manual', str((fdata.get('defaults') or {}))[:120])
+    st, _, body = smoke.request(PORT, 'GET', '/admin/content/pack/form?packId=nosuch.pack', cookie=cookie)
+    check('pack form unknown pack rejected', json.loads(body).get('result') is False, body[:100])
     st, _, body = smoke.request(PORT, 'POST', '/admin/content/pack/options',
                                 {'packId': 'content.comment', 'options': {'moderation': 'pre'}}, cookie=cookie)
     check('pack options saved', json.loads(body).get('result') is True, body[:150])
@@ -93,6 +104,19 @@ try:
     with sqlite3.connect(target / 'db/main.db') as db:
         mp = db.execute("SELECT pack_id, enabled FROM content_model_pack").fetchall()
     check('model-pack row synced', mp == [('content.category', 1)], str(mp))
+
+    # ---- 属性面板值往返：能力 config 随修订落盘（xform 收集形态） ----
+    spec3 = json.loads(json.dumps(SPEC))
+    spec3['capabilities'] = [{'key': 'content.comment', 'enabled': True,
+                              'config': {'moderation': 'manual', 'allowPublicPost': True, 'minBodyLength': '5'}}]
+    st, _, body = smoke.request(PORT, 'POST', '/admin/content/save', spec3, cookie=cookie)
+    r = json.loads(body)
+    check('capability config save', r.get('result') is True, body[:200])
+    st, _, body = smoke.request(PORT, 'GET', '/admin/content/type?xid=demo.article', cookie=cookie)
+    saved = json.loads(json.loads(body)['data']['specJson']) if isinstance(json.loads(body).get('data', {}).get('specJson'), str) else json.loads(body).get('data', {}).get('specJson', {})
+    saved_cfg = ((saved.get('capabilities') or [{}])[0]).get('config', {})
+    check('capability config roundtrip', saved_cfg.get('minBodyLength') == '5'
+          and saved_cfg.get('moderation') == 'manual' and saved_cfg.get('allowPublicPost') is True, str(saved_cfg)[:150])
 
     # ---- 校验负例 ----
     bad = json.loads(json.dumps(SPEC)); bad['fields'][1]['name'] = 'title'

@@ -917,6 +917,9 @@ static char* Form_RenderTemplateBlockHTML(const xvalue* spec, str* error)
 	}
 	Form_RenderTemplateGroups(buf, resolved.schema, resolved.values);
 	Form_BufferAppendText(buf, "</div>");
+	/* xbuffer 不保证 NUL 终止：补零后再转 C 串，防止 strlen 越界读堆
+	 * （越界垃圾进 JSON 会使 xrtJsonStringify 静默失败返回 NULL） */
+	xrtBufferAppendByte(buf, 0);
 	result = buf->Data ? xrtStrDup((const char*)buf->Data) : xrtStrDup("");
 	xrtBufferDestroy(buf);
 	xrtValueRelease(resolved.schema);

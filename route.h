@@ -71,6 +71,7 @@ static void RouteHTTP_Init(void)
 	AddStaticRouteHTTP("/admin/content/generate", XHTTP_METHOD_ANY, Request_Content_Generate, false);
 	AddStaticRouteHTTP("/admin/content/packs", XHTTP_METHOD_ANY, Request_Content_Packs, false);
 	AddStaticRouteHTTP("/admin/content/pack", XHTTP_METHOD_ANY, Request_Content_Pack, false);
+	AddStaticRouteHTTP("/admin/content/pack/form", XHTTP_METHOD_ANY, Request_Content_Pack_Form, false);
 	AddStaticRouteHTTP("/admin/content/pack/options", XHTTP_METHOD_ANY, Request_Content_Pack_Options, false);
 	AddStaticRouteHTTP("/admin/content/templates", XHTTP_METHOD_ANY, Request_Content_Templates, false);
     AddStaticRouteHTTP("/admin/view/plugin/store", XHTTP_METHOD_ANY, Request_View_Plugin_Store, false);

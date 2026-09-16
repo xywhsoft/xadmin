@@ -387,6 +387,42 @@ static xvalue* ContentPack_GetDetail(const char* packId)
 	return row;
 }
 
+/* 收集单个表单字段的默认值（defaultValue/value/default 三键兼容） */
+static void ContentPack_FieldDefault(const xvalue* field, xvalue* defaults)
+{
+	str name;
+	const xvalue* dv;
+	if (!field || xrtValueType(field) != XVALUE_OBJECT) return;
+	name = ValueText(field, "name");
+	if (!name || !name[0]) return;
+	dv = ValueGet(field, "defaultValue");
+	if (!dv) dv = ValueGet(field, "value");
+	if (!dv) dv = ValueGet(field, "default");
+	if (dv) ValueSetRef(defaults, name, dv);
+}
+
+/* 遍历表单 schema（groups[]/fields[] 两种形态）收集字段默认值 */
+static xvalue* ContentPack_FormDefaults(const xvalue* schema)
+{
+	xvalue* defaults = ValueObject();
+	const xvalue* groups = ValueGet(schema, "groups");
+	const xvalue* fields;
+	uint32 i, j;
+	if (groups && xrtValueType(groups) == XVALUE_ARRAY) {
+		for (i = 0; i < ValueCount(groups); i++) {
+			const xvalue* group = xrtValueArrayGet(groups, i);
+			fields = group ? ValueGet(group, "fields") : NULL;
+			if (!fields || xrtValueType(fields) != XVALUE_ARRAY) continue;
+			for (j = 0; j < ValueCount(fields); j++) ContentPack_FieldDefault(xrtValueArrayGet(fields, j), defaults);
+		}
+	}
+	fields = ValueGet(schema, "fields");
+	if (fields && xrtValueType(fields) == XVALUE_ARRAY) {
+		for (j = 0; j < ValueCount(fields); j++) ContentPack_FieldDefault(xrtValueArrayGet(fields, j), defaults);
+	}
+	return defaults;
+}
+
 static bool ContentPack_SaveOptions(const char* packId, const char* optionsJson)
 {
 	sqlite3_stmt* stmt = NULL;
