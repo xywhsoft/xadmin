@@ -1087,6 +1087,420 @@ static void Content_ApplyR3R4Baking(char** pTemplate, xvalue* spec)
 	*pTemplate = t;
 }
 
+/* ==================== R2：字段解释烘焙（静态字段表） ====================
+ * 五解释器（defaults/nullable/coerce/validate/extract）不再每请求装载
+ * spec.json 解释字段——生成期落为编译期常量表 + 专属循环。 */
+
+static str Content_R2NormalizeStorage(const char* sType)
+{
+	if (!sType || !sType[0]) return xrtStrDup("text");
+	if (strcmp(sType, "int") == 0) return xrtStrDup("integer");
+	if (strcmp(sType, "real") == 0 || strcmp(sType, "number") == 0) return xrtStrDup("float");
+	if (strcmp(sType, "bool") == 0) return xrtStrDup("boolean");
+	return xrtStrDup(sType);
+}
+
+/* 语义角色解析（与 Content_FieldSemanticRole/字段 semantic.role 对齐） */
+static str Content_R2ResolveRoleField(xvalue* spec, const char* sRole, const char* sFallbackName)
+{
+	xvalue* fields = spec ? ValueGet(spec, "fields") : NULL;
+	uint32 i;
+	if (fields && xrtValueType(fields) == XVALUE_ARRAY) {
+		for (i = 0; i < ValueCount(fields); i++) {
+			xvalue* f = xrtValueArrayGet(fields, i);
+			xvalue* sem = f ? ValueGet(f, "semantic") : NULL;
+			str role = sem ? ValueText(sem, "role") : NULL;
+			if (role && strcmp(role, sRole) == 0) {
+				str name = ValueText(f, "name");
+				return xrtStrDup(name ? name : "");
+			}
+		}
+		for (i = 0; i < ValueCount(fields); i++) {
+			xvalue* f = xrtValueArrayGet(fields, i);
+			str name = f ? ValueText(f, "name") : NULL;
+			if (name && strcmp(name, sFallbackName) == 0) return xrtStrDup(name);
+		}
+	}
+	return NULL;
+}
+
+static void Content_ApplyR2Baking(char** pTemplate, xvalue* spec)
+{
+	char* t = *pTemplate;
+	xvalue* fields = spec ? ValueGet(spec, "fields") : NULL;
+	xbuffer* code = xrtBufferCreate();
+	xbuffer* tbl = xrtBufferCreate();
+	str sRoleTitle = Content_R2ResolveRoleField(spec, "title", "title");
+	str sRoleStatus = Content_R2ResolveRoleField(spec, "status", "status");
+	str sRoleSlug = Content_R2ResolveRoleField(spec, "slug", "slug");
+	str sRoleSummary = NULL;
+	char body[256];
+	uint32 i;
+	(void)sRoleSummary;
+
+	if (!code || !tbl) {
+		if (code) xrtBufferDestroy(code);
+		if (tbl) xrtBufferDestroy(tbl);
+		xrtFree(sRoleTitle);
+		xrtFree(sRoleStatus);
+		xrtFree(sRoleSlug);
+		return;
+	}
+
+	/* ---- 字段表 + 烘焙变体助手（经 BAKED_CONFIG_HELPERS 通道发射） ---- */
+	{
+		str sHead = xrtStrDup(
+			"bool Managed_ValueIsEmpty(xvalue* objValue);\n"
+			"str Managed_ValueToTextDup(xvalue* objValue);\n"
+			"bool Managed_TextEqualsIgnoreCase(const char* sLeft, const char* sRight);\n"
+			"typedef struct {\n"
+			"\tconst char* name;\n"
+			"\tconst char* title;\n"
+			"\tconst char* storageType;\n"
+			"\tbool columnar;\n"
+			"\tbool required;\n"
+			"\tbool nullable;\n"
+			"\tchar defaultKind;\n"
+			"\tint64 defaultInt;\n"
+			"\tdouble defaultFloat;\n"
+			"\tbool defaultBool;\n"
+			"\tconst char* defaultString;\n"
+			"} Managed_BakedField;\n\n"
+			"static void Managed_ApplyMissingBakedFieldDefault(xvalue* tblData, const Managed_BakedField* fld)\n"
+			"{\n"
+			"\txvalue* objCurrent;\n"
+			"\tif ((tblData == NULL) || (xrtValueType(tblData) != XVALUE_OBJECT) || (fld == NULL)) return;\n"
+			"\tobjCurrent = ValueGet(tblData, fld->name);\n"
+			"\tif (objCurrent != NULL) return;\n"
+			"\tif (fld->defaultKind == 'i') ValueSetOwn(tblData, fld->name, xrtValueInt(fld->defaultInt));\n"
+			"\telse if (fld->defaultKind == 'f') ValueSetOwn(tblData, fld->name, xrtValueFloat(fld->defaultFloat));\n"
+			"\telse if (fld->defaultKind == 'b') ValueSetOwn(tblData, fld->name, xrtValueBool(fld->defaultBool));\n"
+			"\telse if (fld->defaultKind == 's') ValueSetOwn(tblData, fld->name, xrtValueString(xrtStrView(fld->defaultString)));\n"
+			"}\n\n"
+			"static void Managed_NormalizeNullableBakedField(xvalue* tblData, const Managed_BakedField* fld)\n"
+			"{\n"
+			"\txvalue* objValue;\n"
+			"\tif ((tblData == NULL) || (xrtValueType(tblData) != XVALUE_OBJECT) || (fld == NULL)) return;\n"
+			"\tif (!fld->nullable) return;\n"
+			"\tobjValue = ValueGet(tblData, fld->name);\n"
+			"\tif ((objValue == NULL) || !Managed_ValueIsEmpty(objValue)) return;\n"
+			"\tValueSetOwn(tblData, fld->name, xrtValueNull());\n"
+			"}\n\n"
+			"static void Managed_CoerceBakedFieldValue(xvalue* tblData, const Managed_BakedField* fld)\n"
+			"{\n"
+			"\txvalue* objValue;\n"
+			"\tconst char* sType;\n"
+			"\tif ((tblData == NULL) || (xrtValueType(tblData) != XVALUE_OBJECT) || (fld == NULL)) return;\n"
+			"\tobjValue = ValueGet(tblData, fld->name);\n"
+			"\tif (Managed_ValueIsEmpty(objValue)) return;\n"
+			"\tsType = fld->storageType;\n"
+			"\tif (strcmp(sType, \"text\") == 0) {\n"
+			"\t\tif (xrtValueType(objValue) != XVALUE_STRING) {\n"
+			"\t\t\tstr sText = Managed_ValueToTextDup(objValue);\n"
+			"\t\t\tValueSetOwnedText(tblData, fld->name, sText ? sText : (str)\"\");\n"
+			"\t\t\tif (sText) xrtFree(sText);\n"
+			"\t\t}\n"
+			"\t\treturn;\n"
+			"\t}\n"
+			"\tif (strcmp(sType, \"integer\") == 0) {\n"
+			"\t\tif (xrtValueType(objValue) == XVALUE_FLOAT) ValueSetInt(tblData, fld->name, (int64)ValueFloatOf(objValue));\n"
+			"\t\telse if (xrtValueType(objValue) == XVALUE_STRING) ValueSetInt(tblData, fld->name, atoll(ValueTextOf(objValue)));\n"
+			"\t\treturn;\n"
+			"\t}\n"
+			"\tif (strcmp(sType, \"float\") == 0) {\n"
+			"\t\tif (xrtValueType(objValue) == XVALUE_INT) ValueSetFloat(tblData, fld->name, (double)ValueIntOf(objValue));\n"
+			"\t\telse if (xrtValueType(objValue) == XVALUE_STRING) ValueSetFloat(tblData, fld->name, strtod(ValueTextOf(objValue), NULL));\n"
+			"\t\treturn;\n"
+			"\t}\n"
+			"\tif (strcmp(sType, \"boolean\") == 0) {\n"
+			"\t\tif (xrtValueType(objValue) == XVALUE_INT) ValueSetBool(tblData, fld->name, ValueIntOf(objValue) != 0);\n"
+			"\t\telse if (xrtValueType(objValue) == XVALUE_FLOAT) ValueSetBool(tblData, fld->name, ValueFloatOf(objValue) != 0.0);\n"
+			"\t\telse if (xrtValueType(objValue) == XVALUE_STRING) {\n"
+			"\t\t\tconst char* sText = ValueTextOf(objValue);\n"
+			"\t\t\tValueSetBool(tblData, fld->name, Managed_TextEqualsIgnoreCase(sText, \"true\") || (strcmp(sText, \"1\") == 0));\n"
+			"\t\t}\n"
+			"\t}\n"
+			"}\n\n"
+			"static const Managed_BakedField MANAGED_BAKED_FIELDS[] = {\n");
+		{
+			xrtBufferAppend(tbl, (xbytesview){(cbytes)sHead, strlen(sHead)});
+			xrtFree(sHead);
+		}
+		if (fields && xrtValueType(fields) == XVALUE_ARRAY) {
+			for (i = 0; i < ValueCount(fields); i++) {
+				xvalue* f = xrtValueArrayGet(fields, i);
+				str name = f ? ValueText(f, "name") : NULL;
+				str title = f ? ValueText(f, "title") : NULL;
+				str rawStorage = f ? ValueText(f, "type") : NULL;
+				xvalue* storage = f ? ValueGet(f, "storage") : NULL;
+				str storageType = storage ? ValueText(storage, "type") : NULL;
+				xvalue* dv = f ? ValueGet(f, "defaultValue") : NULL;
+				str sNorm;
+				str eName = Content_EscapeCString(name ? name : "");
+				str eTitle = Content_EscapeCString(title ? title : "");
+				char line[1024];
+				char kind = 0;
+				int64 di = 0;
+				double df = 0;
+				bool db = false;
+				str ds = NULL;
+				if (!name || !name[0]) { xrtFree(eName); xrtFree(eTitle); continue; }
+				sNorm = Content_R2NormalizeStorage(storageType ? storageType : rawStorage);
+				if (dv) {
+					if (xrtValueType(dv) == XVALUE_INT) { kind = 'i'; di = ValueIntOf(dv); }
+					else if (xrtValueType(dv) == XVALUE_FLOAT) { kind = 'f'; df = ValueFloatOf(dv); }
+					else if (xrtValueType(dv) == XVALUE_BOOL) { kind = 'b'; db = ValueBoolOf(dv); }
+					else if (xrtValueType(dv) == XVALUE_STRING) { kind = 's'; ds = Content_EscapeCString(ValueTextOf(dv)); }
+				}
+				{
+					bool bColumnar = true;
+					if (sRoleTitle && name && strcmp(sRoleTitle, name) == 0) bColumnar = false;
+					if (sRoleStatus && name && strcmp(sRoleStatus, name) == 0) bColumnar = false;
+					snprintf(line, sizeof(line),
+						"\t{ \"%s\", \"%s\", \"%s\", %s, %s, %s, '%c', %lld, %.17g, %s, \"%s\" },\n",
+						eName ? eName : "", eTitle ? eTitle : "", sNorm ? sNorm : "text",
+						bColumnar ? "true" : "false",
+						(f && ValueBool(f, "required")) ? "true" : "false",
+						(f && ValueBool(f, "nullable")) ? "true" : "false",
+						kind ? kind : '0', (long long)di, df, db ? "true" : "false", ds ? ds : "");
+				}
+				xrtBufferAppend(tbl, (xbytesview){(cbytes)line, strlen(line)});
+				xrtFree(sNorm);
+				xrtFree(eName);
+				xrtFree(eTitle);
+				xrtFree(ds);
+			}
+		}
+		{
+			const char* tail = "};\n#define MANAGED_BAKED_FIELD_COUNT (sizeof(MANAGED_BAKED_FIELDS)/sizeof(MANAGED_BAKED_FIELDS[0]))\n\n"
+			"static int64 Managed_BakedFieldIntOf(xvalue* v)\n"
+			"{\n"
+			"\tif (!v) return 0;\n"
+			"\tif (xrtValueType(v) == XVALUE_INT) return ValueIntOf(v);\n"
+			"\tif (xrtValueType(v) == XVALUE_FLOAT) return (int64)ValueFloatOf(v);\n"
+			"\tif (xrtValueType(v) == XVALUE_BOOL) return ValueBoolOf(v) ? 1 : 0;\n"
+			"\tif (xrtValueType(v) == XVALUE_STRING) return atoll(ValueTextOf(v));\n"
+			"\treturn 0;\n"
+			"}\n\n"
+			"static double Managed_BakedFieldFloatOf(xvalue* v)\n"
+			"{\n"
+			"\tif (!v) return 0.0;\n"
+			"\tif (xrtValueType(v) == XVALUE_FLOAT) return ValueFloatOf(v);\n"
+			"\tif (xrtValueType(v) == XVALUE_INT) return (double)ValueIntOf(v);\n"
+			"\tif (xrtValueType(v) == XVALUE_STRING) return strtod(ValueTextOf(v), NULL);\n"
+			"\treturn 0.0;\n"
+			"}\n\n"
+			"static int Managed_BakedFieldBoolOf(xvalue* v)\n"
+			"{\n"
+			"\tif (!v) return 0;\n"
+			"\tif (xrtValueType(v) == XVALUE_BOOL) return ValueBoolOf(v) ? 1 : 0;\n"
+			"\tif (xrtValueType(v) == XVALUE_INT) return ValueIntOf(v) != 0;\n"
+			"\tif (xrtValueType(v) == XVALUE_FLOAT) return ValueFloatOf(v) != 0.0;\n"
+			"\tif (xrtValueType(v) == XVALUE_STRING) { const char* s = ValueTextOf(v); return (strcmp(s, \"true\") == 0 || strcmp(s, \"1\") == 0) ? 1 : 0; }\n"
+			"\treturn 0;\n"
+			"}\n\n"
+			"/* R1：模型字段类型化列绑定（columnar 字段按 storage 类型写入 f_<name> 列） */\n"
+			"static int Managed_BindFieldColumns(sqlite3_stmt* stmt, int iStart, xvalue* tblData)\n"
+			"{\n"
+			"\tint idx = iStart;\n"
+			"\tsize_t i;\n"
+			"\tfor (i = 0; i < MANAGED_BAKED_FIELD_COUNT; i++) {\n"
+			"\t\tconst Managed_BakedField* fld = &MANAGED_BAKED_FIELDS[i];\n"
+			"\t\txvalue* v;\n"
+			"\t\tif (!fld->columnar) continue;\n"
+			"\t\tv = tblData ? ValueGet(tblData, fld->name) : NULL;\n"
+			"\t\tif (strcmp(fld->storageType, \"integer\") == 0) {\n"
+			"\t\t\tsqlite3_bind_int64(stmt, idx, (sqlite3_int64)Managed_BakedFieldIntOf(v));\n"
+			"\t\t} else if (strcmp(fld->storageType, \"float\") == 0) {\n"
+			"\t\t\tsqlite3_bind_double(stmt, idx, Managed_BakedFieldFloatOf(v));\n"
+			"\t\t} else if (strcmp(fld->storageType, \"boolean\") == 0) {\n"
+			"\t\t\tsqlite3_bind_int(stmt, idx, Managed_BakedFieldBoolOf(v));\n"
+			"\t\t} else if (v && xrtValueType(v) == XVALUE_STRING) {\n"
+			"\t\t\tsqlite3_bind_text(stmt, idx, ValueTextOf(v), -1, SQLITE_TRANSIENT);\n"
+			"\t\t} else if (v && !Managed_ValueIsEmpty(v)) {\n"
+			"\t\t\tstr s = Managed_ValueToTextDup(v);\n"
+			"\t\t\tsqlite3_bind_text(stmt, idx, s ? s : (str)\"\", -1, SQLITE_TRANSIENT);\n"
+			"\t\t\tif (s) xrtFree(s);\n"
+			"\t\t} else {\n"
+			"\t\t\tsqlite3_bind_null(stmt, idx);\n"
+			"\t\t}\n"
+			"\t\tidx++;\n"
+			"\t}\n"
+			"\treturn idx - iStart;\n"
+			"}\n\n";
+			xrtBufferAppend(tbl, (xbytesview){(cbytes)tail, strlen(tail)});
+		}
+	}
+
+	/* ---- 四解释器体 + 三 getter 体 ---- */
+	snprintf(body, sizeof(body),
+		"\t(void)tblSpec;\n\t{\n\t\tsize_t i;\n\t\tfor (i = 0; i < MANAGED_BAKED_FIELD_COUNT; i++) Managed_ApplyMissingBakedFieldDefault(tblData, &MANAGED_BAKED_FIELDS[i]);\n\t}\n");
+	t = Content_TemplateSet(t, "{{CONTENT_FIELD_DEFAULTS_BODY}}", body);
+	snprintf(body, sizeof(body),
+		"\t(void)tblSpec;\n\t{\n\t\tsize_t i;\n\t\tfor (i = 0; i < MANAGED_BAKED_FIELD_COUNT; i++) Managed_NormalizeNullableBakedField(tblData, &MANAGED_BAKED_FIELDS[i]);\n\t}\n");
+	t = Content_TemplateSet(t, "{{CONTENT_FIELD_NULLABLE_BODY}}", body);
+	snprintf(body, sizeof(body),
+		"\t(void)tblSpec;\n\t{\n\t\tsize_t i;\n\t\tfor (i = 0; i < MANAGED_BAKED_FIELD_COUNT; i++) Managed_CoerceBakedFieldValue(tblData, &MANAGED_BAKED_FIELDS[i]);\n\t}\n");
+	t = Content_TemplateSet(t, "{{CONTENT_FIELD_COERCE_BODY}}", body);
+	{
+		xbuffer* vb = xrtBufferCreate();
+		const char* head =
+			"\t(void)tblSpec;\n"
+			"\tif ( psError ) *psError = NULL;\n"
+			"\tif ( (tblData == NULL) || (xrtValueType(tblData) != XVALUE_OBJECT) ) {\n"
+			"\t\tif ( psError ) *psError = xrtStrDup(\"data must be an object\");\n"
+			"\t\treturn false;\n"
+			"\t}\n"
+			"\t{\n"
+			"\t\tsize_t i;\n"
+			"\t\tfor (i = 0; i < MANAGED_BAKED_FIELD_COUNT; i++) {\n"
+			"\t\t\tconst Managed_BakedField* fld = &MANAGED_BAKED_FIELDS[i];\n"
+			"\t\t\txvalue* objValue = ValueGet(tblData, fld->name);\n"
+			"\t\t\tif ( !Managed_ValueIsEmpty(objValue) ) {\n"
+			"\t\t\t\tif ( !Managed_ValueMatchesStorageType(objValue, fld->storageType) ) {\n"
+			"\t\t\t\t\tif ( psError ) *psError = xrtFormat(\"%s must match storage.type = %s\", (fld->title[0] ? fld->title : fld->name), fld->storageType);\n"
+			"\t\t\t\t\treturn false;\n"
+			"\t\t\t\t}\n"
+			"\t\t\t\tcontinue;\n"
+			"\t\t\t}\n"
+			"\t\t\tif ( bSkipRequired ) continue;\n"
+			"\t\t\tif ( !fld->required ) continue;\n"
+			"\t\t\tif ( psError ) *psError = xrtFormat(\"%s is required\", (fld->title[0] ? fld->title : fld->name));\n"
+			"\t\t\t\treturn false;\n"
+			"\t\t}\n"
+			"\t}\n"
+			"\treturn true;\n";
+		if (vb) {
+			xrtBufferAppend(vb, (xbytesview){(cbytes)head, strlen(head)});
+			{
+				str sBody = Content_BakeBufferToString(vb);
+				t = Content_TemplateSet(t, "{{CONTENT_FIELD_VALIDATE_BODY}}", sBody ? sBody : "");
+				xrtFree(sBody);
+			}
+		}
+	}
+	if (sRoleTitle) snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn \"%s\";", sRoleTitle);
+	else snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn NULL;");
+	t = Content_TemplateSet(t, "{{CONTENT_TITLE_FIELD_BODY}}", body);
+	if (sRoleStatus) snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn \"%s\";", sRoleStatus);
+	else snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn NULL;");
+	t = Content_TemplateSet(t, "{{CONTENT_STATUS_FIELD_BODY}}", body);
+	if (sRoleSlug) snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn \"%s\";", sRoleSlug);
+	else snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn NULL;");
+	t = Content_TemplateSet(t, "{{CONTENT_SLUG_FIELD_BODY}}", body);
+
+	/* 字段表并入 BAKED_CONFIG_HELPERS：重取旧值拼接 */
+	{
+		const char* ph = "{{CONTENT_BAKED_CONFIG_HELPERS}}";
+		const char* pHit = strstr(t, ph);
+		if (pHit) {
+			xbuffer* merged = xrtBufferCreate();
+			if (merged) {
+				xrtBufferAppend(merged, (xbytesview){(cbytes)t, (size_t)(pHit - t)});
+				xrtBufferAppend(merged, (xbytesview){(cbytes)tbl->Data, tbl->Size});
+				xrtBufferAppend(merged, (xbytesview){(cbytes)pHit, strlen(ph)});
+				xrtBufferAppend(merged, (xbytesview){(cbytes)pHit + strlen(ph), strlen(pHit + strlen(ph))});
+				xrtFree(t);
+				t = Content_BakeBufferToString(merged);
+			}
+		}
+	}
+
+	xrtFree(sRoleTitle);
+	xrtFree(sRoleStatus);
+	xrtFree(sRoleSlug);
+	xrtBufferDestroy(code);
+	xrtBufferDestroy(tbl);
+	*pTemplate = t;
+}
+
+/* R1：模型字段 → 类型化列（f_<name>）。DDL 探测式幂等 ALTER + json_extract
+ * 回填；写入路径经 Managed_BindFieldColumns；读取仍走 payload_json（双写）。 */
+static const char* Content_R1ColumnType(const char* sStorage)
+{
+	if (!sStorage) return "TEXT";
+	if (strcmp(sStorage, "integer") == 0) return "INTEGER";
+	if (strcmp(sStorage, "boolean") == 0) return "INTEGER";
+	if (strcmp(sStorage, "float") == 0) return "REAL";
+	return "TEXT";
+}
+
+static void Content_ApplyR1Baking(char** pTemplate, xvalue* spec)
+{
+	char* t = *pTemplate;
+	xvalue* fields = spec ? ValueGet(spec, "fields") : NULL;
+	xbuffer* ddl = xrtBufferCreate();
+	xbuffer* sets = xrtBufferCreate();
+	xbuffer* cols = xrtBufferCreate();
+	xbuffer* vals = xrtBufferCreate();
+	str sRoleTitle = Content_R2ResolveRoleField(spec, "title", "title");
+	str sRoleStatus = Content_R2ResolveRoleField(spec, "status", "status");
+	uint32 i;
+	if (!ddl || !sets || !cols || !vals) {
+		if (ddl) xrtBufferDestroy(ddl);
+		if (sets) xrtBufferDestroy(sets);
+		if (cols) xrtBufferDestroy(cols);
+		if (vals) xrtBufferDestroy(vals);
+		xrtFree(sRoleTitle);
+		xrtFree(sRoleStatus);
+		return;
+	}
+	if (fields && xrtValueType(fields) == XVALUE_ARRAY) {
+		for (i = 0; i < ValueCount(fields); i++) {
+			xvalue* f = xrtValueArrayGet(fields, i);
+			str name = f ? ValueText(f, "name") : NULL;
+			xvalue* storage = f ? ValueGet(f, "storage") : NULL;
+			str st = storage ? ValueText(storage, "type") : (f ? ValueText(f, "type") : NULL);
+			str sNorm;
+			char col[160];
+			char block[640];
+			if (!name || !name[0]) continue;
+			if (sRoleTitle && strcmp(sRoleTitle, name) == 0) continue;
+			if (sRoleStatus && strcmp(sRoleStatus, name) == 0) continue;
+			sNorm = Content_R2NormalizeStorage(st);
+			snprintf(col, sizeof(col), "f_%s", name);
+			snprintf(block, sizeof(block),
+				"\tif ( bOK && !Managed_TableColumnExists(pDb, \"content_item\", \"%s\") ) {\n"
+				"\t\tbOK = Managed_ExecSql(pDb, \"ALTER TABLE content_item ADD COLUMN %s %s\");\n"
+				"\t\tif ( bOK ) bOK = Managed_ExecSql(pDb, \"UPDATE content_item SET %s = json_extract(payload_json, '$.%s') WHERE %s IS NULL AND json_extract(payload_json, '$.%s') IS NOT NULL\");\n"
+				"\t}\n",
+				col, col, Content_R1ColumnType(sNorm), col, name, col, name);
+			xrtBufferAppend(ddl, (xbytesview){(cbytes)block, strlen(block)});
+			{
+				char seg[160];
+				snprintf(seg, sizeof(seg), ",%s=?", col);
+				xrtBufferAppend(sets, (xbytesview){(cbytes)seg, strlen(seg)});
+				snprintf(seg, sizeof(seg), ",%s", col);
+				xrtBufferAppend(cols, (xbytesview){(cbytes)seg, strlen(seg)});
+				snprintf(seg, sizeof(seg), ",?");
+				xrtBufferAppend(vals, (xbytesview){(cbytes)seg, 2});
+			}
+			xrtFree(sNorm);
+		}
+	}
+	{
+		str sDdl = Content_BakeBufferToString(ddl);
+		str sSets = Content_BakeBufferToString(sets);
+		str sCols = Content_BakeBufferToString(cols);
+		str sVals = Content_BakeBufferToString(vals);
+		t = Content_TemplateSet(t, "{{CONTENT_FIELD_COLUMN_DDL}}", sDdl ? sDdl : "");
+		t = Content_TemplateSet(t, "{{CONTENT_FIELD_UPDATE_SETS}}", sSets ? sSets : "");
+		t = Content_TemplateSet(t, "{{CONTENT_FIELD_INSERT_COLS}}", sCols ? sCols : "");
+		t = Content_TemplateSet(t, "{{CONTENT_FIELD_INSERT_VALS}}", sVals ? sVals : "");
+		xrtFree(sDdl);
+		xrtFree(sSets);
+		xrtFree(sCols);
+		xrtFree(sVals);
+	}
+	xrtFree(sRoleTitle);
+	xrtFree(sRoleStatus);
+	xrtBufferDestroy(ddl);
+	xrtBufferDestroy(sets);
+	xrtBufferDestroy(cols);
+	xrtBufferDestroy(vals);
+	*pTemplate = t;
+}
+
 static char* Content_BuildManagedMainC(const char* pluginXid, const char* pluginTitle, const char* menuTitle, xvalue* spec)
 {
 	char* template = Content_LoadGeneratorTemplate("managed_main.c.tpl");
@@ -1232,6 +1646,8 @@ static char* Content_BuildManagedMainC(const char* pluginXid, const char* plugin
 		xrtFree(sSaveGuards);
 		xrtFree(sFilterFn);
 	}
+	Content_ApplyR2Baking(&template, spec);
+	Content_ApplyR1Baking(&template, spec);
 	Content_ApplyR3R4Baking(&template, spec);
 	/* 菜单标题覆盖：pluginTitle 与 menuTitle 不同时改写根菜单标题行（v1 同） */
 	if (safeMenuTitle && pluginTitle && menuTitle && strcmp(pluginTitle, menuTitle) != 0) {

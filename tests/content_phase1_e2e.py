@@ -161,6 +161,11 @@ try:
     check('R4 baked: ui helpers static', '(void)tblSpec;' in gen_main.split('Managed_GetUiListPageSize')[1][:200],
           'pageSize body not baked')
     check('R3 helpers emitted', 'Managed_BakedSeoTemplateText(const char* sKey)' in gen_main, 'seo value table missing')
+    check('R2 baked field table', 'Managed_BakedField MANAGED_BAKED_FIELDS[]' in gen_main
+          and 'Managed_ApplyMissingBakedFieldDefault' in gen_main, 'static field table missing')
+    check('R1 typed columns ddl', 'ADD COLUMN f_body' in gen_main
+          and 'json_extract(payload_json' in gen_main, 'field column DDL missing')
+    check('R1 dual-write binds', 'Managed_BindFieldColumns(stmt, 8, tblData)' in gen_main, 'column binds missing')
 
     # ---- 删除 ----
     st, _, body = smoke.request(PORT, 'POST', '/admin/content/delete', {'xid': 'demo.article'}, cookie=cookie)

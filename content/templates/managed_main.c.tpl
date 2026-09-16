@@ -463,6 +463,7 @@ bool Managed_EnsureSchema(void)
 	if ( bOK && !Managed_TableColumnExists(pDb, "content_item", "category_id") ) {
 		bOK = Managed_ExecSql(pDb, "ALTER TABLE content_item ADD COLUMN category_id INTEGER NOT NULL DEFAULT 0");
 	}
+{{CONTENT_FIELD_COLUMN_DDL}}
 	if ( bOK && Managed_AbilityPackMounted("content.category") && !Managed_TableColumnExists(pDb, "content_category", "description") ) {
 		bOK = Managed_ExecSql(pDb, "ALTER TABLE content_category ADD COLUMN description TEXT NOT NULL DEFAULT ''");
 	}
@@ -1325,18 +1326,17 @@ const char* Managed_GetEntityFieldOrRole(xvalue* tblSpec, const char* sEntityKey
 
 const char* Managed_GetTitleField(xvalue* tblSpec)
 {
-	return Managed_GetEntityFieldOrRole(tblSpec, "titleField", "title");
+{{CONTENT_TITLE_FIELD_BODY}}
 }
 
 const char* Managed_GetStatusField(xvalue* tblSpec)
 {
-	return Managed_GetEntityFieldOrRole(tblSpec, "statusField", "status");
+{{CONTENT_STATUS_FIELD_BODY}}
 }
 
 const char* Managed_GetSlugField(xvalue* tblSpec)
 {
-	const char* sField = Managed_GetEntityFieldOrRole(tblSpec, "slugField", "slug");
-	return Managed_IsBlank(sField) ? "slug" : sField;
+{{CONTENT_SLUG_FIELD_BODY}}
 }
 
 const char* Managed_GetSummaryField(xvalue* tblSpec)
@@ -2294,14 +2294,7 @@ void Managed_ApplyMissingFieldDefault(xvalue* tblData, xvalue* tblField)
 
 void Managed_ApplyMissingDefaults(xvalue* tblData, xvalue* tblSpec)
 {
-	xvalue* arrFields = Managed_GetFields(tblSpec);
-
-	if ( (tblData == NULL) || (xrtValueType(tblData) != XVALUE_OBJECT) || (arrFields == NULL) || (xrtValueType(arrFields) != XVALUE_ARRAY) ) {
-		return;
-	}
-	for ( int i = 0; i < ValueCount(arrFields); i++ ) {
-		Managed_ApplyMissingFieldDefault(tblData, xrtValueArrayGet(arrFields, i));
-	}
+{{CONTENT_FIELD_DEFAULTS_BODY}}
 }
 
 void Managed_NormalizeNullableField(xvalue* tblData, xvalue* tblField)
@@ -2328,14 +2321,7 @@ void Managed_NormalizeNullableField(xvalue* tblData, xvalue* tblField)
 
 void Managed_NormalizeNullableFields(xvalue* tblData, xvalue* tblSpec)
 {
-	xvalue* arrFields = Managed_GetFields(tblSpec);
-
-	if ( (tblData == NULL) || (xrtValueType(tblData) != XVALUE_OBJECT) || (arrFields == NULL) || (xrtValueType(arrFields) != XVALUE_ARRAY) ) {
-		return;
-	}
-	for ( int i = 0; i < ValueCount(arrFields); i++ ) {
-		Managed_NormalizeNullableField(tblData, xrtValueArrayGet(arrFields, i));
-	}
+{{CONTENT_FIELD_NULLABLE_BODY}}
 }
 
 bool Managed_IsAsciiSpace(char c)
@@ -2529,70 +2515,12 @@ void Managed_CoerceFieldValue(xvalue* tblData, xvalue* tblField)
 
 void Managed_CoerceFieldValues(xvalue* tblData, xvalue* tblSpec)
 {
-	xvalue* arrFields = Managed_GetFields(tblSpec);
-
-	if ( (tblData == NULL) || (xrtValueType(tblData) != XVALUE_OBJECT) || (arrFields == NULL) || (xrtValueType(arrFields) != XVALUE_ARRAY) ) {
-		return;
-	}
-	for ( int i = 0; i < ValueCount(arrFields); i++ ) {
-		Managed_CoerceFieldValue(tblData, xrtValueArrayGet(arrFields, i));
-	}
+{{CONTENT_FIELD_COERCE_BODY}}
 }
 
 bool Managed_ValidateData(xvalue* tblSpec, xvalue* tblData, bool bSkipRequired, str* psError)
 {
-	xvalue* arrFields = Managed_GetFields(tblSpec);
-
-	if ( psError ) *psError = NULL;
-	if ( (tblData == NULL) || (xrtValueType(tblData) != XVALUE_OBJECT) ) {
-		if ( psError ) *psError = xrtStrDup("data must be an object");
-		return false;
-	}
-	if ( (arrFields == NULL) || (xrtValueType(arrFields) != XVALUE_ARRAY) ) {
-		return true;
-	}
-
-	for ( int i = 0; i < ValueCount(arrFields); i++ ) {
-		xvalue* tblField = xrtValueArrayGet(arrFields, i);
-		const char* sName;
-		const char* sTitle;
-		const char* sStorageType;
-		xvalue* objValue;
-
-		if ( (tblField == NULL) || (xrtValueType(tblField) != XVALUE_OBJECT) ) {
-			continue;
-		}
-		sName = ValueText(tblField, "name");
-		sTitle = ValueText(tblField, "title");
-		sStorageType = Managed_GetNestedText(tblField, "storage", "type");
-		if ( Managed_IsBlank(sName) ) {
-			continue;
-		}
-		objValue = ValueGet(tblData, sName);
-		if ( !Managed_ValueIsEmpty(objValue) ) {
-			if ( !Managed_ValueMatchesStorageType(objValue, sStorageType) ) {
-				if ( psError ) {
-					*psError = xrtFormat(
-						"%s must match storage.type = %s",
-						(!Managed_IsBlank(sTitle) ? sTitle : sName),
-						Managed_NormalizeStorageTypeName(sStorageType));
-				}
-				return false;
-			}
-			continue;
-		}
-		if ( bSkipRequired ) {
-			continue;
-		}
-		if ( !ValueBool(tblField, "required") ) {
-			continue;
-		}
-		if ( psError ) {
-			*psError = xrtFormat("%s is required", (!Managed_IsBlank(sTitle) ? sTitle : sName));
-		}
-		return false;
-	}
-	return true;
+{{CONTENT_FIELD_VALIDATE_BODY}}
 }
 
 str Managed_ExtractTitle(xvalue* tblData, xvalue* tblSpec)
@@ -19773,14 +19701,17 @@ void Managed_RequestImportCommitAdmin(XS_ServerObject objServer, XS_HostObject o
 					iContentId = iImportContentId;
 					bSkipped = true;
 				} else if ( bUpdateExisting && Managed_ContentExists(pDb, iImportContentId) ) {
-					if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title=?,status=?,payload_json=?,category_id=?,is_draft=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+					if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title=?,status=?,payload_json=?,category_id=?,is_draft=?,update_time=?{{CONTENT_FIELD_UPDATE_SETS}} WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
 						sqlite3_bind_text(stmt, 1, sTitle ? (const char*)sTitle : "", -1, SQLITE_TRANSIENT);
 						sqlite3_bind_int(stmt, 2, iStatus);
 						sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
 						sqlite3_bind_int(stmt, 4, iCategoryId > 0 ? iCategoryId : 0);
 						sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
 						sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME((sqlite3_int64)iNow));
-						sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iImportContentId);
+						{
+							int iFieldCols = Managed_BindFieldColumns(stmt, 7, tblData);
+							sqlite3_bind_int64(stmt, 7 + iFieldCols, (sqlite3_int64)iImportContentId);
+						}
 						if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 							iContentId = iImportContentId;
 						} else {
@@ -19791,7 +19722,7 @@ void Managed_RequestImportCommitAdmin(XS_ServerObject objServer, XS_HostObject o
 						bOk = false;
 						sError = xrtStrDup("prepare update failed");
 					}
-				} else if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_item(title,status,payload_json,category_id,is_draft,create_time,update_time,delete_time) VALUES(?,?,?,?,?,?,?,0)", -1, &stmt, NULL) == SQLITE_OK ) {
+				} else if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_item(title,status,payload_json,category_id,is_draft,create_time,update_time,delete_time{{CONTENT_FIELD_INSERT_COLS}}) VALUES(?,?,?,?,?,?,?,0{{CONTENT_FIELD_INSERT_VALS}})", -1, &stmt, NULL) == SQLITE_OK ) {
 					sqlite3_bind_text(stmt, 1, sTitle ? (const char*)sTitle : "", -1, SQLITE_TRANSIENT);
 					sqlite3_bind_int(stmt, 2, iStatus);
 					sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
@@ -19799,6 +19730,7 @@ void Managed_RequestImportCommitAdmin(XS_ServerObject objServer, XS_HostObject o
 					sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
 					sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME((sqlite3_int64)iNow));
 					sqlite3_bind_int64(stmt, 7, MANAGED_CONTENT_TIME((sqlite3_int64)iNow));
+					Managed_BindFieldColumns(stmt, 8, tblData);
 					if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 						iContentId = sqlite3_last_insert_rowid(pDb);
 					} else {
@@ -23447,14 +23379,17 @@ void Managed_RequestRevisionRestoreAdmin(XS_ServerObject objServer, XS_HostObjec
 		Managed_SendError(objResp, "revision not found");
 		return;
 	}
-	if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title=?,status=?,payload_json=?,category_id=?,is_draft=?,update_time=? WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title=?,status=?,payload_json=?,category_id=?,is_draft=?,update_time=?{{CONTENT_FIELD_UPDATE_SETS}} WHERE id=? AND delete_time=0", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_text(stmt, 1, sTitle ? (const char*)sTitle : "", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 2, iStatus);
 		sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 4, iCategoryId);
 		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
 		sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME((sqlite3_int64)iNow));
-		sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iContentId);
+		{
+			int iFieldCols = Managed_BindFieldColumns(stmt, 7, tblData);
+			sqlite3_bind_int64(stmt, 7 + iFieldCols, (sqlite3_int64)iContentId);
+		}
 		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 			bUpdated = sqlite3_changes(pDb) > 0 ? true : false;
 		}
@@ -25008,7 +24943,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	sPayloadJson = xrtJsonStringify(tblData, false, NULL);
 
 	if ( iId > 0 ) {
-		if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title = ?, status = ?, payload_json = ?, category_id = ?, is_draft = ?, update_time = ? WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET title = ?, status = ?, payload_json = ?, category_id = ?, is_draft = ?, update_time = ?{{CONTENT_FIELD_UPDATE_SETS}} WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) != SQLITE_OK ) {
 			Managed_CloseDb(pDb);
 			xrtValueRelease(tblSpec);
 			xrtValueRelease(tblForm);
@@ -25026,12 +24961,15 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int(stmt, 4, iCategoryId > 0 ? iCategoryId : 0);
 		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
 		sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME(iNow));
-		sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iId);
+		{
+			int iFieldCols = Managed_BindFieldColumns(stmt, 7, tblData);
+			sqlite3_bind_int64(stmt, 7 + iFieldCols, (sqlite3_int64)iId);
+		}
 		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 			bSaved = sqlite3_changes(pDb) > 0 ? true : false;
 		}
 	} else {
-		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_item(title, status, payload_json, category_id, is_draft, create_time, update_time, delete_time) VALUES(?, ?, ?, ?, ?, ?, ?, 0)", -1, &stmt, NULL) != SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "INSERT INTO content_item(title, status, payload_json, category_id, is_draft, create_time, update_time, delete_time{{CONTENT_FIELD_INSERT_COLS}}) VALUES(?, ?, ?, ?, ?, ?, ?, 0{{CONTENT_FIELD_INSERT_VALS}})", -1, &stmt, NULL) != SQLITE_OK ) {
 			Managed_CloseDb(pDb);
 			xrtValueRelease(tblSpec);
 			xrtValueRelease(tblForm);
@@ -25049,6 +24987,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
 		sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME(iNow));
 		sqlite3_bind_int64(stmt, 7, MANAGED_CONTENT_TIME(iNow));
+		Managed_BindFieldColumns(stmt, 8, tblData);
 		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 			iId = sqlite3_last_insert_rowid(pDb);
 			bSaved = iId > 0 ? true : false;
