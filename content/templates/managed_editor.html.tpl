@@ -104,6 +104,9 @@ layui.use(['form'], function(){
     cancel: 'Cancel_' + domBase,
     status: 'Status_' + domBase
   };
+  /* R5：生成期烘焙的表单 schema（零运行时 spec 解释） */
+  var BAKED_FORM_SCHEMA = {{CONTENT_FORM_SCHEMA_JSON}};
+
   var state = {
     meta: null,
     categories: null,
@@ -205,6 +208,9 @@ layui.use(['form'], function(){
     var result = await response.json();
     if (!result || !result.result) throw new Error((result && result.message) || t('metaLoadFailed'));
     state.meta = result.data || {};
+    if (BAKED_FORM_SCHEMA && BAKED_FORM_SCHEMA.groups) {
+      state.meta.schema = BAKED_FORM_SCHEMA;
+    }
     state.hasCategory = hasMountedPack(state.meta, 'content.category');
     state.hasSeo = hasMountedPack(state.meta, 'content.seo');
     state.hasSlug = hasMountedPack(state.meta, 'content.slug');

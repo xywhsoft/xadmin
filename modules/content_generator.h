@@ -1414,6 +1414,114 @@ static void Content_ApplyR2Baking(char** pTemplate, xvalue* spec)
 	*pTemplate = t;
 }
 
+/* ==================== R5：编辑器表单 schema 烘焙 ==================== */
+static const char* Content_R5MapFieldType(xvalue* field)
+{
+	str comp = ValueText(field, "type");
+	xvalue* cpt = ValueGet(field, "component");
+	str ct = cpt ? ValueText(cpt, "type") : NULL;
+	str s = (ct && ct[0]) ? ct : (comp ? comp : "input");
+	if (!strcmp(s, "textarea")) return "textarea";
+	if (!strcmp(s, "number")) return "number";
+	if (!strcmp(s, "int")) return "int";
+	if (!strcmp(s, "image")) return "image";
+	if (!strcmp(s, "images")) return "images";
+	if (!strcmp(s, "file")) return "file";
+	if (!strcmp(s, "files")) return "files";
+	if (!strcmp(s, "switch")) return "switch";
+	if (!strcmp(s, "select")) return "select";
+	if (!strcmp(s, "combobox")) return "combobox";
+	if (!strcmp(s, "radio")) return "radio";
+	if (!strcmp(s, "checkbox")) return "checkbox";
+	if (!strcmp(s, "checklist")) return "checklist";
+	if (!strcmp(s, "date")) return "date";
+	if (!strcmp(s, "datetime")) return "datetime";
+	if (!strcmp(s, "time")) return "time";
+	if (!strcmp(s, "richtext")) return "editor_html";
+	if (!strcmp(s, "markdown")) return "editor_md";
+	if (!strcmp(s, "code")) return "editor_code";
+	if (!strcmp(s, "editor_html")) return "editor_html";
+	if (!strcmp(s, "editor_md")) return "editor_md";
+	if (!strcmp(s, "editor_code")) return "editor_code";
+	return "input";
+}
+
+static char* Content_BuildFormSchemaJson(xvalue* spec)
+{
+	xvalue* root = ValueObject();
+	xvalue* arrGroups = ValueArray();
+	xvalue* fields = spec ? ValueGet(spec, "fields") : NULL;
+	xvalue* pagesObj = spec ? ValueGet(spec, "pages") : NULL;
+	xvalue* fgArr = (pagesObj && xrtValueType(pagesObj) == XVALUE_OBJECT) ? ValueGet(pagesObj, "fieldGroups") : NULL;
+	char* json;
+	str title = spec ? ValueText(spec, "title") : NULL;
+	uint32 i;
+
+	ValueSetText(root, "title", title ? title : (str)"Content");
+	ValueSetOwn(root, "groups", arrGroups);
+
+	if (fields && xrtValueType(fields) == XVALUE_ARRAY) {
+		for (i = 0; i < ValueCount(fields); i++) {
+			xvalue* f = xrtValueArrayGet(fields, i);
+			str name = f ? ValueText(f, "name") : NULL;
+			str ftitle = f ? ValueText(f, "title") : NULL;
+			str group = f ? ValueText(f, "group") : NULL;
+			bool required = f ? ValueBool(f, "required") : false;
+			xvalue* one;
+			xvalue* grp = NULL;
+			uint32 g;
+			str gtitle = NULL;
+			if (!name || !name[0]) continue;
+			/* 查找/建组 */
+			for (g = 0; g < ValueCount(arrGroups); g++) {
+				xvalue* gg = xrtValueArrayGet(arrGroups, g);
+				str gk = ValueText(gg, "key");
+				str want = (group && group[0]) ? group : "content";
+				if (gk && strcmp(gk, want) == 0) { grp = gg; break; }
+			}
+			if (!grp) {
+				str want = (group && group[0]) ? group : "content";
+				/* 从 fieldGroups 数组找标题 */
+				if (fgArr && xrtValueType(fgArr) == XVALUE_ARRAY) {
+					for (g = 0; g < ValueCount(fgArr); g++) {
+						xvalue* fgm = xrtValueArrayGet(fgArr, g);
+						xvalue* names = fgm ? ValueGet(fgm, "fields") : NULL;
+						uint32 m;
+						str gt = fgm ? ValueText(fgm, "title") : NULL;
+						if (names && xrtValueType(names) == XVALUE_ARRAY) {
+							for (m = 0; m < ValueCount(names); m++) {
+								str nm = ValueArrayText(names, m);
+								if (nm && strcmp(nm, name) == 0) { gtitle = gt; group = want; break; }
+							}
+						}
+						if (gtitle) break;
+					}
+				}
+				grp = ValueObject();
+				ValueSetText(grp, "key", want);
+				ValueSetText(grp, "title", gtitle ? gtitle : ((group && group[0] && strcmp(group, "content") != 0) ? group : (str)"Content Fields"));
+				ValueSetOwn(grp, "fields", ValueArray());
+				ValueArrayOwn(arrGroups, grp);
+			}
+			one = ValueObject();
+			ValueSetText(one, "name", name);
+			ValueSetText(one, "type", (str)Content_R5MapFieldType(f));
+			ValueSetText(one, "label", ftitle ? ftitle : name);
+			ValueSetBool(one, "required", required);
+			{
+				xvalue* list = f ? ValueGet(f, "list") : NULL;
+				if (list && xrtValueType(list) == XVALUE_ARRAY && ValueCount(list) > 0) {
+					ValueSetOwn(one, "list", xrtValueDeepClone(list));
+				}
+			}
+			ValueArrayOwn(ValueGet(grp, "fields"), one);
+		}
+	}
+	json = Content_StringifyJson(root, false);
+	xrtValueRelease(root);
+	return json;
+}
+
 /* R1：模型字段 → 类型化列（f_<name>）。DDL 探测式幂等 ALTER + json_extract
  * 回填；写入路径经 Managed_BindFieldColumns；读取仍走 payload_json（双写）。 */
 static const char* Content_R1ColumnType(const char* sStorage)
@@ -1769,7 +1877,7 @@ static char* Content_BuildManagedAdminPageHtml(const char* pluginXid, const char
 	return template;
 }
 
-static char* Content_BuildManagedEditorHtml(const char* pluginXid)
+static char* Content_BuildManagedEditorHtml(const char* pluginXid, xvalue* spec)
 {
 	char* template = Content_LoadGeneratorTemplate("managed_editor.html.tpl");
 	char* domIdBase = Content_BuildPluginDomIdBase(pluginXid);
@@ -1782,6 +1890,14 @@ static char* Content_BuildManagedEditorHtml(const char* pluginXid)
 	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
 	template = Content_TemplateSet(template, "{{PLUGIN_DOM_ID_BASE}}", pageDomIdBase ? pageDomIdBase : (domIdBase ? domIdBase : "Content_MakePlugin_Editor"));
 	template = Content_TemplateSet(template, "{{PLUGIN_LIST_DOM_ID_BASE}}", domIdBase ? domIdBase : "Content_MakePlugin");
+	/* R5：烘焙 form schema 到编辑器页（零运行时 spec 解释） */
+	{
+		char* sSchema = Content_BuildFormSchemaJson(spec);
+		str sEsc = sSchema ? Content_EscapeCString(sSchema) : NULL;
+		template = Content_TemplateSet(template, "{{CONTENT_FORM_SCHEMA_JSON}}", sEsc ? sEsc : "{}");
+		xrtFree(sSchema);
+		xrtFree(sEsc);
+	}
 	xrtFree(pageDomIdBase);
 	xrtFree(domIdBase);
 	return template;
@@ -2880,7 +2996,7 @@ static xvalue* Content_GeneratePluginForModel(const char* xid, str* error)
 		spec);
 	adminHtml = Content_BuildManagedAdminPageHtml(pluginXid, "articles", spec);
 	draftHtml = Content_BuildManagedAdminPageHtml(pluginXid, "drafts", spec);
-	editorHtml = Content_BuildManagedEditorHtml(pluginXid);
+	editorHtml = Content_BuildManagedEditorHtml(pluginXid, spec);
 	if (categoryPack) categoryHtml = Content_BuildManagedCategoryHtml(pluginXid);
 	if (metricPack) dashboardHtml = Content_BuildManagedDashboardHtml(pluginXid);
 	if (taskPack) tasksHtml = Content_BuildManagedTasksHtml(pluginXid);
