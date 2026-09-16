@@ -717,3 +717,15 @@ smoke 40 PASS + write_regression PASS。
 **实测**：本体 172/全部 199/单插件 13/搜索叠加 12/缺省 199 全对；浏览器下拉/回填/切换/高度全过；smoke 42 全绿。
 
 **撞见并登记（非本批范围）**：单次宿主热重载后 xlogserver 的 uris 台账行被清（进程内路由仍在服务、services API 200，但接口管理页看不到）——旧代 teardown 阶段的 Auth_SyncURIS/孤儿清理以旧代视角的"已启动清单"操作共享 DB 所致；disable→enable 周期可恢复台账（10 条 UriAuth 回来）。属记忆中"xlogserver×多代重载时序竞态（根治待专项）"家族，gui.cmsdemo 等生成插件未复现。修复方向：台账清理须由持有最新代的执行体做或按代次守卫。
+
+### 2026-09-16：内容系统其余页面/API 排查轮（da3775c）
+
+**覆盖**：编辑器 7 页签（页面/能力/策略/生成/高级，零报错）、修订/生成历史 API、能力包管理页（12 包列表）+ 商店页（设计占位）、模型编辑流（打开已有→改→存→重生成）、模型删除流（建→删→查不存在）、生成插件后台页面（文章列表含栏目列联动、文章编辑器含自定义字段/栏目/标签挂件）。
+
+**能力链路实测**：UI 启用栏目+标签→存修订 3→预检（警告走原生 confirm）→生成→重启用插件→category save/tree、tag save/公开 list（status 门控自洽）、内容带 categoryId 落库——全通。
+
+**修复 1 项（da3775c）**：字段表单静默丢失——applyField 只绑在"应用字段"按钮，直接保存修订丢输入（保存占位 field_N）。拆 commitFieldForm（无弹窗/catch parseJsonField throw），saveModel 与 runPreflightForSpec 开头强制落表。
+
+**观感项（不修，记录）**：编辑器沿用 v1 原生 alert/confirm（预检警告 confirm 会阻塞）；tag 管理面无 admin 侧 list 路由（列表走公开 /api/plugin/<xid>/tag/list，admin 侧仅 save/delete/batch-status/stats/bind/unbind/merge/content-list）——均为 v1 模板既有设计。
+
+**门禁**：fullchain 16/16、smoke 42 全绿。
