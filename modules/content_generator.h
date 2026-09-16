@@ -1487,6 +1487,35 @@ static void Content_ApplyR1Baking(char** pTemplate, xvalue* spec)
 		t = Content_TemplateSet(t, "{{CONTENT_FIELD_UPDATE_SETS}}", sSets ? sSets : "");
 		t = Content_TemplateSet(t, "{{CONTENT_FIELD_INSERT_COLS}}", sCols ? sCols : "");
 		t = Content_TemplateSet(t, "{{CONTENT_FIELD_INSERT_VALS}}", sVals ? sVals : "");
+	{
+		/* R1 读侧：SELECT 列段 + 列数常量 + payload parse 开关 */
+		xbuffer* selc = xrtBufferCreate();
+		str sSelCols;
+		int nColumnar = 0;
+		uint32 k;
+		xvalue* caps = ValueGet(spec, "capabilities");
+		bool bHasCaps = false;
+		for (k = 0; fields && xrtValueType(fields) == XVALUE_ARRAY && k < ValueCount(fields); k++) {
+			xvalue* f = xrtValueArrayGet(fields, k);
+			str name = f ? ValueText(f, "name") : NULL;
+			char seg[160];
+			if (!name || !name[0]) continue;
+			if (sRoleTitle && strcmp(sRoleTitle, name) == 0) continue;
+			if (sRoleStatus && strcmp(sRoleStatus, name) == 0) continue;
+			snprintf(seg, sizeof(seg), ",f_%s", name);
+			if (selc) xrtBufferAppend(selc, (xbytesview){(cbytes)seg, strlen(seg)});
+			nColumnar++;
+		}
+		sSelCols = Content_BakeBufferToString(selc);
+		t = Content_TemplateSet(t, "{{CONTENT_FIELD_SELECT_COLS}}", sSelCols ? sSelCols : "");
+		xrtFree(sSelCols);
+		if (caps && xrtValueType(caps) == XVALUE_ARRAY && ValueCount(caps) > 0) bHasCaps = true;
+		{
+			char defs[128];
+			snprintf(defs, sizeof(defs), "#define MANAGED_COLUMNAR_FIELD_COUNT %d\n#define MANAGED_PAYLOAD_PARSE_ENABLED %d\n", nColumnar, bHasCaps ? 1 : 0);
+			t = Content_TemplateSet(t, "{{CONTENT_FIELD_READ_DEFINES}}", defs);
+		}
+	}
 		xrtFree(sDdl);
 		xrtFree(sSets);
 		xrtFree(sCols);

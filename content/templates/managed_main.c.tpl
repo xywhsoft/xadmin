@@ -250,6 +250,7 @@ static const char* G_BackgroundTaskSchemaSql =
 #define MANAGED_STATIC_URL_PREFIX "/plugin-static/{{PLUGIN_XID}}/"
 /* 策略烘焙（生成期由模型 policies 决定，运行时零动态判断） */
 {{CONTENT_POLICY_DEFINES}}
+{{CONTENT_FIELD_READ_DEFINES}}
 static void Managed_ApplyCategorySeoTemplates(xvalue* tblRow);
 {{CONTENT_BAKED_CONFIG_HELPERS}}
 
@@ -1519,7 +1520,7 @@ str Managed_SelectListSql(xvalue* tblSpec, bool bAdmin, const char* sSortField, 
 		return NULL;
 	}
 	sSql = xrtFormat(
-		"SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE %s ORDER BY %s LIMIT ?",
+		"SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE %s ORDER BY %s LIMIT ?",
 		(const char*)sWhere,
 		sOrderBy);
 	xrtFree(sWhere);
@@ -2663,6 +2664,53 @@ void Managed_AppendPayload(xvalue* tblItem, const char* sPayloadJson)
 	ValueSetOwn(tblItem, "data", tblPayload);
 }
 
+/* R1 读侧：模型字段从 f_ 列直读（权威），能力字段从 payload 合并。
+ * 无能力注入时编译期跳过 payload parse（纯列读零 JSON 解析）。 */
+static void Managed_AppendRowDataFromColumns(xvalue* tblItem, sqlite3_stmt* stmt, const char* sPayloadJson)
+{
+	xvalue* tblData = ValueObject();
+	int iTotal;
+	int iFieldStart;
+	int colIdx = 0;
+	size_t i;
+
+#if MANAGED_PAYLOAD_PARSE_ENABLED
+	if ( sPayloadJson && sPayloadJson[0] ) {
+		xvalue* tblPayload = JsonParseN((str)sPayloadJson, strlen(sPayloadJson));
+		if ( tblPayload && (xrtValueType(tblPayload) == XVALUE_OBJECT) ) {
+			xrtValueRelease(tblData);
+			tblData = tblPayload;
+		} else {
+			if ( tblPayload ) xrtValueRelease(tblPayload);
+		}
+	}
+#endif
+
+	iTotal = sqlite3_column_count(stmt);
+	iFieldStart = iTotal - MANAGED_COLUMNAR_FIELD_COUNT;
+	if ( iFieldStart < 0 ) iFieldStart = 0;
+	for ( i = 0; i < MANAGED_BAKED_FIELD_COUNT; i++ ) {
+		const Managed_BakedField* fld = &MANAGED_BAKED_FIELDS[i];
+		int idx;
+		if ( !fld->columnar ) continue;
+		idx = iFieldStart + colIdx;
+		if ( idx >= iTotal ) break;
+		if ( sqlite3_column_type(stmt, idx) == SQLITE_NULL ) { colIdx++; continue; }
+		if ( strcmp(fld->storageType, "integer") == 0 ) {
+			ValueSetInt(tblData, fld->name, sqlite3_column_int64(stmt, idx));
+		} else if ( strcmp(fld->storageType, "float") == 0 ) {
+			ValueSetFloat(tblData, fld->name, sqlite3_column_double(stmt, idx));
+		} else if ( strcmp(fld->storageType, "boolean") == 0 ) {
+			ValueSetBool(tblData, fld->name, sqlite3_column_int(stmt, idx) != 0);
+		} else {
+			const char* txt = (const char*)sqlite3_column_text(stmt, idx);
+			ValueSetText(tblData, fld->name, (str)(txt ? txt : ""));
+		}
+		colIdx++;
+	}
+	ValueSetOwn(tblItem, "data", tblData);
+}
+
 void Managed_AppendDerivedFields(xvalue* tblItem, xvalue* tblSpec)
 {
 	xvalue* tblData;
@@ -2722,7 +2770,7 @@ void Managed_AppendRow(xvalue* arrList, sqlite3_stmt* stmt, xvalue* tblSpec)
 	ValueSetInt(tblItem, "id", sqlite3_column_int64(stmt, 0));
 	ValueSetText(tblItem, "title", (str)sqlite3_column_text(stmt, 1));
 	ValueSetInt(tblItem, "status", sqlite3_column_int(stmt, 2));
-	Managed_AppendPayload(tblItem, sPayload);
+	Managed_AppendRowDataFromColumns(tblItem, stmt, sPayload);
 	ValueSetBool(tblItem, "isDraft", sqlite3_column_int(stmt, 4) ? true : false);
 	Managed_SetTimeText(tblItem, "createTimeText", 14, sqlite3_column_int64(stmt, 5));
 	Managed_SetTimeText(tblItem, "updateTimeText", 14, sqlite3_column_int64(stmt, 6));
@@ -2749,7 +2797,7 @@ xvalue* Managed_CreateItemFromStmt(sqlite3_stmt* stmt, xvalue* tblSpec)
 	ValueSetInt(tblItem, "id", sqlite3_column_int64(stmt, 0));
 	ValueSetText(tblItem, "title", (str)sqlite3_column_text(stmt, 1));
 	ValueSetInt(tblItem, "status", sqlite3_column_int(stmt, 2));
-	Managed_AppendPayload(tblItem, sPayload);
+	Managed_AppendRowDataFromColumns(tblItem, stmt, sPayload);
 	ValueSetBool(tblItem, "isDraft", sqlite3_column_int(stmt, 4) ? true : false);
 	ValueSetInt(tblItem, "createTime", sqlite3_column_int64(stmt, 5));
 	ValueSetInt(tblItem, "updateTime", sqlite3_column_int64(stmt, 6));
@@ -2772,7 +2820,7 @@ xvalue* Managed_LoadContentItemById(sqlite3* pDb, xvalue* tblSpec, int64 iConten
 	xvalue* tblItem = NULL;
 
 	if ( (pDb == NULL) || (tblSpec == NULL) || (iContentId <= 0) ) return NULL;
-	if ( sqlite3_prepare_v2(pDb, Managed_TableColumnExists(pDb, "content_item", "slug_value") ? "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id,slug_value FROM content_item WHERE id=? AND delete_time=0 LIMIT 1" : "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v2(pDb, Managed_TableColumnExists(pDb, "content_item", "slug_value") ? "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id,slug_value{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id=? AND delete_time=0 LIMIT 1" : "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
 		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			tblItem = Managed_CreateItemFromStmt(stmt, tblSpec);
@@ -3417,7 +3465,7 @@ str Managed_LoadContentSlug(sqlite3* pDb, xvalue* tblSpec, int64 iId)
 	if ( (pDb == NULL) || (tblSpec == NULL) || (iId <= 0) ) {
 		return NULL;
 	}
-	if ( sqlite3_prepare_v2(pDb, "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);
 		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			tblItem = Managed_CreateItemFromStmt(stmt, tblSpec);
@@ -3454,7 +3502,7 @@ bool Managed_SlugExists(sqlite3* pDb, xvalue* tblSpec, const char* sSlug, int64 
 	if ( bFound ) {
 		return true;
 	}
-	if ( sqlite3_prepare_v2(pDb, Managed_TableColumnExists(pDb, "content_item", "slug_value") ? "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id,slug_value FROM content_item WHERE delete_time=0 AND id<>? AND slug_value='' ORDER BY id DESC" : "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 AND id<>? ORDER BY id DESC", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v2(pDb, Managed_TableColumnExists(pDb, "content_item", "slug_value") ? "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id,slug_value{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 AND id<>? AND slug_value='' ORDER BY id DESC" : "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 AND id<>? ORDER BY id DESC", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iExcludeId);
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			xvalue* tblCandidate = Managed_CreateItemFromStmt(stmt, tblSpec);
@@ -4412,7 +4460,7 @@ int64 Managed_AccessLoadContentCategory(sqlite3* pDb, int64 iContentId)
 	if ( (pDb == NULL) || (iContentId <= 0) ) return 0;
 	iCategoryId = Managed_CategoryBindLoad(pDb, iContentId);
 	if ( iCategoryId > 0 ) return iCategoryId;
-	if ( sqlite3_prepare_v2(pDb, "SELECT category_id FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v2(pDb, "SELECT category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
 		if ( sqlite3_step(stmt) == SQLITE_ROW ) iCategoryId = sqlite3_column_int64(stmt, 0);
 	}
@@ -7004,7 +7052,7 @@ void Managed_RequestTagContentsPublic(XS_ServerObject objServer, XS_HostObject o
 		if ( iMaxRows > 1000 ) iMaxRows = 1000;
 		if ( iLimit <= 0 ) iLimit = iMaxRows;
 		if ( iLimit > iMaxRows ) iLimit = iMaxRows;
-		if ( sqlite3_prepare_v2(pDb, "SELECT c.id,c.title,c.status,c.payload_json,c.is_draft,c.create_time,c.update_time,c.category_id FROM content_item c INNER JOIN content_tag ct ON ct.content_id=c.id WHERE ct.tag_id=? AND c.delete_time=0 AND c.is_draft=0 AND c.status>=1 ORDER BY c.update_time DESC,c.id DESC LIMIT ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "SELECT c.id,c.title,c.status,c.payload_json,c.is_draft,c.create_time,c.update_time,c.category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item c INNER JOIN content_tag ct ON ct.content_id=c.id WHERE ct.tag_id=? AND c.delete_time=0 AND c.is_draft=0 AND c.status>=1 ORDER BY c.update_time DESC,c.id DESC LIMIT ?", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTagId);
 		sqlite3_bind_int(stmt, 2, iLimit);
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
@@ -8152,7 +8200,7 @@ void Managed_RequestTopicContentsPublic(XS_ServerObject objServer, XS_HostObject
 		if ( iMaxRows > 1000 ) iMaxRows = 1000;
 		if ( iLimit <= 0 ) iLimit = iMaxRows;
 		if ( iLimit > iMaxRows ) iLimit = iMaxRows;
-		if ( sqlite3_prepare_v2(pDb, "SELECT c.id,c.title,c.status,c.payload_json,c.is_draft,c.create_time,c.update_time,c.category_id FROM content_item c INNER JOIN topic_content tc ON tc.content_id=c.id WHERE tc.topic_id=? AND c.delete_time=0 AND c.is_draft=0 AND c.status>=1 ORDER BY tc.sort ASC,c.update_time DESC,c.id DESC LIMIT ?", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "SELECT c.id,c.title,c.status,c.payload_json,c.is_draft,c.create_time,c.update_time,c.category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item c INNER JOIN topic_content tc ON tc.content_id=c.id WHERE tc.topic_id=? AND c.delete_time=0 AND c.is_draft=0 AND c.status>=1 ORDER BY tc.sort ASC,c.update_time DESC,c.id DESC LIMIT ?", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTopicId);
 		sqlite3_bind_int(stmt, 2, iLimit);
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
@@ -9434,7 +9482,7 @@ xvalue* Managed_StaticLoadContentItem(sqlite3* pDb, int64 iTargetId, xvalue* tbl
 	if ( (pDb == NULL) || (iTargetId <= 0) ) {
 		return NULL;
 	}
-	if ( sqlite3_prepare_v2(pDb, "SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id=? AND delete_time=0 AND is_draft=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v2(pDb, "SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id=? AND delete_time=0 AND is_draft=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iTargetId);
 		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			tblItem = Managed_CreateItemFromStmt(stmt, tblSpec);
@@ -15015,7 +15063,7 @@ void Managed_RequestSearchRebuildAdmin(XS_ServerObject objServer, XS_HostObject 
 		return;
 	}
 	if ( iOffset == 0 ) Managed_ExecSql(pDb, "DELETE FROM content_search_index");
-	if ( sqlite3_prepare_v2(pDb, "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ? OFFSET ?", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v2(pDb, "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ? OFFSET ?", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int(stmt, 1, iLimit + 1);
 		sqlite3_bind_int(stmt, 2, iOffset);
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
@@ -15404,7 +15452,7 @@ void Managed_RequestSitemapEntryListAdmin(XS_ServerObject objServer, XS_HostObje
 		Managed_SendError(objResp, "sitemap ability pack is not enabled");
 		return;
 	}
-	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d AND (?<=0 OR id=?) AND (?=2147483647 OR status=?) ORDER BY update_time DESC,id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
+	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d AND (?<=0 OR id=?) AND (?=2147483647 OR status=?) ORDER BY update_time DESC,id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
 	if ( (sSql == NULL) || !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
 		if ( pDb ) Managed_CloseDb(pDb);
 		if ( sSql ) xrtFree(sSql);
@@ -15539,7 +15587,7 @@ void Managed_RequestSitemapRefreshAdmin(XS_ServerObject objServer, XS_HostObject
 		Managed_SendError(objResp, "sitemap ability pack is not enabled");
 		return;
 	}
-	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
+	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
 	if ( (sSql == NULL) || !Managed_EnsureSchema() || !Managed_OpenDb(&pDb) ) {
 		if ( pDb ) Managed_CloseDb(pDb);
 		if ( sSql ) xrtFree(sSql);
@@ -15917,7 +15965,7 @@ void Managed_RequestSitemapXmlPublic(XS_ServerObject objServer, XS_HostObject ob
 		if ( sXml ) xrtFree(sXml);
 		return;
 	}
-	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT %d OFFSET %d", Managed_PublicStatusThreshold(tblSpec), iPageSize, iOffset);
+	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT %d OFFSET %d", Managed_PublicStatusThreshold(tblSpec), iPageSize, iOffset);
 	if ( Managed_EnsureSchema() && Managed_OpenDb(&pDb) && (!bAccessPack) ) {
 		iCached = Managed_AppendCachedSitemapXmlPage(pDb, &sXml, iPageSize, iOffset);
 	}
@@ -16000,7 +16048,7 @@ void Managed_RequestRssXmlPublic(XS_ServerObject objServer, XS_HostObject objHos
 		if ( sXml ) xrtFree(sXml);
 		return;
 	}
-	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
+	sSql = xrtFormat("SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 AND is_draft=0 AND status >= %d ORDER BY update_time DESC,id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
 	if ( Managed_EnsureSchema() && Managed_OpenDb(&pDb) && (!bAccessPack) ) {
 		iCached = Managed_AppendCachedRssXml(pDb, &sXml, iRssLimit);
 	}
@@ -16758,7 +16806,7 @@ void Managed_RequestRelatedRebuildAdmin(XS_ServerObject objServer, XS_HostObject
 		}
 		if ( stmt ) sqlite3_finalize(stmt);
 		stmt = NULL;
-		if ( sqlite3_prepare_v2(pDb, "SELECT id,category_id FROM content_item WHERE id=? AND delete_time=0 AND is_draft=0 AND status>=1 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "SELECT id,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id=? AND delete_time=0 AND is_draft=0 AND status>=1 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
 			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 				int iCategoryId = (int)Managed_CategoryBindLoad(pDb, sqlite3_column_int64(stmt, 0));
@@ -20030,8 +20078,8 @@ void Managed_RequestExportJsonAdmin(XS_ServerObject objServer, XS_HostObject obj
 	stmt = NULL;
 	if ( sqlite3_prepare_v2(pDb,
 		bChunked
-			? "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ? OFFSET ?"
-			: "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 ORDER BY id ASC",
+			? "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ? OFFSET ?"
+			: "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 ORDER BY id ASC",
 		-1, &stmt, NULL) == SQLITE_OK ) {
 		if ( bChunked ) {
 			sqlite3_bind_int(stmt, 1, iLimit);
@@ -20335,11 +20383,11 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 	if ( iSlugLookupLimit <= 0 ) iSlugLookupLimit = 5000;
 	if ( iSlugLookupLimit > 50000 ) iSlugLookupLimit = 50000;
 	sSqlById = bAdmin
-		? xrtStrDup("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id = ? AND delete_time = 0")
-		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d", Managed_PublicStatusThreshold(tblSpec));
+		? xrtStrDup("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id = ? AND delete_time = 0")
+		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d", Managed_PublicStatusThreshold(tblSpec));
 	sSqlScan = bAdmin
-		? xrtStrDup("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 ORDER BY update_time DESC, id DESC LIMIT ?")
-		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
+		? xrtStrDup("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time = 0 ORDER BY update_time DESC, id DESC LIMIT ?")
+		: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
 	xsReqQueryValue(objReq, "id", sId, sizeof(sId));
 	xsReqQueryValue(objReq, "slug", sSlug, sizeof(sSlug));
 	if ( (sSlug[0] != '\0') && !Managed_AbilityPackMounted("content.slug") ) {
@@ -20366,8 +20414,8 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 	}
 	if ( (sId[0] == '\0') && (sSlug[0] != '\0') && Managed_TableColumnExists(pDb, "content_item", "slug_value") ) {
 		str sSqlSlug = bAdmin
-			? xrtStrDup("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id, slug_value FROM content_item WHERE slug_value = ? AND delete_time = 0 LIMIT 1")
-			: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id, slug_value FROM content_item WHERE slug_value = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d LIMIT 1", Managed_PublicStatusThreshold(tblSpec));
+			? xrtStrDup("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id, slug_value{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE slug_value = ? AND delete_time = 0 LIMIT 1")
+			: xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id, slug_value{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE slug_value = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d LIMIT 1", Managed_PublicStatusThreshold(tblSpec));
 		if ( sSqlSlug && sqlite3_prepare_v2(pDb, sSqlSlug, -1, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_text(stmt, 1, sSlug, -1, SQLITE_TRANSIENT);
 			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
@@ -20513,7 +20561,7 @@ void Managed_RequestSlugResolvePublic(XS_ServerObject objServer, XS_HostObject o
 		return;
 	}
 	if ( Managed_TableColumnExists(pDb, "content_item", "slug_value") ) {
-		sSql = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id, slug_value FROM content_item WHERE slug_value = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d LIMIT 1", Managed_PublicStatusThreshold(tblSpec));
+		sSql = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id, slug_value{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE slug_value = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d LIMIT 1", Managed_PublicStatusThreshold(tblSpec));
 		if ( sSql && sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_text(stmt, 1, sSlug, -1, SQLITE_TRANSIENT);
 			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
@@ -20531,7 +20579,7 @@ void Managed_RequestSlugResolvePublic(XS_ServerObject objServer, XS_HostObject o
 		if ( sSql ) xrtFree(sSql);
 		sSql = NULL;
 	}
-	sSql = xrtFormat(Managed_TableColumnExists(pDb, "content_item", "slug_value") ? "SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id, slug_value FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d AND slug_value = '' ORDER BY update_time DESC, id DESC LIMIT ?" : "SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
+	sSql = xrtFormat(Managed_TableColumnExists(pDb, "content_item", "slug_value") ? "SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id, slug_value{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d AND slug_value = '' ORDER BY update_time DESC, id DESC LIMIT ?" : "SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
 	if ( (tblItem == NULL) && sqlite3_prepare_v2(pDb, sSql, -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int(stmt, 1, iSlugLookupLimit + 1);
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
@@ -20781,7 +20829,7 @@ void Managed_RequestSlugRepairAdmin(XS_ServerObject objServer, XS_HostObject obj
 		Managed_SendError(objResp, "slug repair transaction failed");
 		return;
 	}
-	if ( sqlite3_prepare_v2(pDb, Managed_TableColumnExists(pDb, "content_item", "slug_value") ? "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id,slug_value FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ?" : "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ?", -1, &stmt, NULL) == SQLITE_OK ) {
+	if ( sqlite3_prepare_v2(pDb, Managed_TableColumnExists(pDb, "content_item", "slug_value") ? "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id,slug_value{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ?" : "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time=0 ORDER BY id ASC LIMIT ?", -1, &stmt, NULL) == SQLITE_OK ) {
 		sqlite3_bind_int(stmt, 1, iLimit);
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			int64 iContentId = sqlite3_column_int64(stmt, 0);
@@ -23278,7 +23326,7 @@ void Managed_RequestRevisionRestorePreviewAdmin(XS_ServerObject objServer, XS_Ho
 	tblTarget = Managed_LoadRevisionRecord(pDb, iId);
 	iContentId = tblTarget ? ValueInt(tblTarget, "contentId") : 0;
 	if ( iContentId > 0 ) {
-		if ( sqlite3_prepare_v2(pDb, "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
+		if ( sqlite3_prepare_v2(pDb, "SELECT id,title,status,payload_json,is_draft,create_time,update_time,category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id=? AND delete_time=0 LIMIT 1", -1, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iContentId);
 			if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 				tblCurrent = Managed_CreateItemFromStmt(stmt, tblSpec);
@@ -24495,8 +24543,8 @@ void Managed_RequestSeoMetaPublic(XS_ServerObject objServer, XS_HostObject objHo
 		Managed_SendError(objResp, "failed to open plugin database");
 		return;
 	}
-	sSqlById = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE id = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d", Managed_PublicStatusThreshold(tblSpec));
-	sSqlScan = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
+	sSqlById = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE id = ? AND delete_time = 0 AND is_draft = 0 AND status >= %d", Managed_PublicStatusThreshold(tblSpec));
+	sSqlScan = xrtFormat("SELECT id, title, status, payload_json, is_draft, create_time, update_time, category_id{{CONTENT_FIELD_SELECT_COLS}} FROM content_item WHERE delete_time = 0 AND is_draft = 0 AND status >= %d ORDER BY update_time DESC, id DESC LIMIT ?", Managed_PublicStatusThreshold(tblSpec));
 	if ( sqlite3_prepare_v2(pDb, (sId[0] != '\0') ? sSqlById : sSqlScan, -1, &stmt, NULL) == SQLITE_OK ) {
 		if ( sId[0] != '\0' ) {
 			sqlite3_bind_int64(stmt, 1, (sqlite3_int64)atoll(sId));
