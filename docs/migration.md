@@ -765,3 +765,7 @@ smoke 40 PASS + write_regression PASS。
 R2 五解释器（defaults/nullable/coerce/validate/extract×3）改走编译期常量字段表；R1 模型字段→f_<name> 类型化列（探测式幂等 ALTER + json_extract 回填 + 五写路径类型绑定，payload_json 双写兼容）。门禁 phase1 37/fullchain 16/smoke 42/cms 13 全绿。
 
 **调试实录（三连环坑）**：heredoc 反斜杠双吃（printf 调试两次断串——最终一律走脚本文件+chr(92)）；R2 发射块须先于 R3（占位符消费序）；字段表 columnar 列序错位（struct 第 4 位 vs 格式串第 6 位——title 误判 columnar 致 f_summary 存 title 值，printf 实证定位）。R1 后续（读取列直读）与 R5 待排期。
+
+### 2026-09-16：R1 读侧完成（315b597）
+
+32 处 content_item SELECT 追加 f_ 列；AppendRow/CreateItemFromStmt 改 Managed_AppendRowDataFromColumns（列读权威+payload 合并）；无能力模型编译期 MANAGED_PAYLOAD_PARSE_ENABLED=0 跳过 parse（零 JSON 解析/行）。**R1+R2 至此全部完成**，仅剩 R5（编辑器表单动态 schema 烘焙）。
