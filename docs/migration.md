@@ -707,3 +707,13 @@ smoke 40 PASS + write_regression PASS。
 **门禁**：phase1 25/fullchain 16/cms 13/revival 10/smoke 全绿；根库零污染。
 
 **架构备忘**：`/content/{id}.html` 公开 HTML 页非运行时路由（cms.article 同为 0）——公开面=JSON API+静态化产物（content.static 能力），非缺陷。
+
+### 2026-09-16：接口管理页按插件筛选（d1c1c4a）
+
+**需求**：设置-接口管理 增加插件筛选（默认 xAdmin 本体），便于为指定插件的 URI 分配权限；下拉框样式与附件列表页同款（32px 对齐+10px 间距）。
+
+**实现**：/admin/auth/uris 增 plugin 参数三态（__core__=无插件归属/__all__ 或缺省=旧行为/插件 xid），list/count/search 四语句统一 CASE 谓词；响应附 plugins 数组。前端下拉框 done 回填（layui form 重建态须 form.render('select') 刷新 dl——选项在 form 初渲染后追加，dl 是旧快照）+ 双 change 通道即时过滤。v1-assets 登记 uris.html。
+
+**实测**：本体 172/全部 199/单插件 13/搜索叠加 12/缺省 199 全对；浏览器下拉/回填/切换/高度全过；smoke 42 全绿。
+
+**撞见并登记（非本批范围）**：单次宿主热重载后 xlogserver 的 uris 台账行被清（进程内路由仍在服务、services API 200，但接口管理页看不到）——旧代 teardown 阶段的 Auth_SyncURIS/孤儿清理以旧代视角的"已启动清单"操作共享 DB 所致；disable→enable 周期可恢复台账（10 条 UriAuth 回来）。属记忆中"xlogserver×多代重载时序竞态（根治待专项）"家族，gui.cmsdemo 等生成插件未复现。修复方向：台账清理须由持有最新代的执行体做或按代次守卫。
