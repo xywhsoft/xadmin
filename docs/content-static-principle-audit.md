@@ -26,8 +26,8 @@
 
 | 编号 | 违反项 | 现状 | 整改方向 | 量级 |
 |---|---|---|---|---|
-| R1 | **payload_json JSON 行存储** | 全部自定义字段存单列 JSON，每行每请求 parse/stringify | 字段→**类型化真实列**（schema.sql 按字段生成列+索引，SQL 直读直写）——用户点名的核心项 | 大（生成器数据层重写） |
-| R2 | **运行时字段解释** | Managed_LoadSpec + ValidateData/CoerceFieldValues/ExtractTitle/Slug 每请求解释 spec | 生成期烘焙：校验代码/标题提取 SQL 常量/列清单静态化 | 大（随 R1 一并） |
+| R1 | ~~payload_json JSON 行存储~~ | **第一阶段完成（775f83f）**：f_<name> 类型化列+幂等 ALTER+json_extract 回填+五写路径类型绑定；payload_json 保留双写兼容——读取路径迁移（SELECT 列直读替代 payload parse）列入后续 | ✅（写入侧） |
+| R2 | ~~运行时字段解释~~ | **已完成（775f83f）**：五解释器改走编译期常量字段表（Managed_BakedField），语义字段名烘焙常量 | ✅ |
 | R3 | ~~162 个能力配置运行时读取~~ | **已完成（1688367）**：216 处烘焙（含 SEO 模板/搜索权重/路由前缀/数组配置），生成物运行时读取 grep 归零；配置变更=重生成 | ✅ |
 | R4 | ~~页面配置运行时读取~~ | **已完成（1688367）**：三值烘焙常量返回；defaultSort 断链（从未进 managed spec）一并接通 | ✅ |
 | R5 | 编辑器表单动态 schema | form-meta API 动态返回字段 schema 驱动编辑器 | 字段表单定义直接烘焙进生成的 editor 页 | 中 |
@@ -36,6 +36,6 @@
 
 ## 三、建议实施顺序
 
-~~R3+R4~~ ✅ → ~~R6~~ ✅ → **R1+R2（下一步，大工程：payload_json 类型化列 + 运行时字段解释消除，需存量数据迁移+全链路门禁，建议单独排期）** → R5。
+~~R3+R4~~ ✅ → ~~R6~~ ✅ → ~~R1（写入侧）+R2~~ ✅（775f83f）→ **R1 后续：读取路径列直读（SELECT 替代 payload parse）+ R5（编辑器表单动态 schema 烘焙）**。
 
 每步验收标准：生成产物 grep 无对应运行时读取调用；e2e 断言生成代码包含烘焙常量；既有 phase1/fullchain/smoke/cms 门禁全绿。
