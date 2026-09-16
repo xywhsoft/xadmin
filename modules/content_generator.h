@@ -1094,9 +1094,16 @@ static void Content_ApplyR3R4Baking(char** pTemplate, xvalue* spec)
 static str Content_R2NormalizeStorage(const char* sType)
 {
 	if (!sType || !sType[0]) return xrtStrDup("text");
-	if (strcmp(sType, "int") == 0) return xrtStrDup("integer");
-	if (strcmp(sType, "real") == 0 || strcmp(sType, "number") == 0) return xrtStrDup("float");
-	if (strcmp(sType, "bool") == 0) return xrtStrDup("boolean");
+	if (strcmp(sType, "int") == 0 || strcmp(sType, "integer") == 0) return xrtStrDup("integer");
+	if (strcmp(sType, "real") == 0 || strcmp(sType, "number") == 0 || strcmp(sType, "float") == 0 || strcmp(sType, "double") == 0) return xrtStrDup("float");
+	if (strcmp(sType, "bool") == 0 || strcmp(sType, "boolean") == 0 || strcmp(sType, "switch") == 0 || strcmp(sType, "checkbox") == 0) return xrtStrDup("boolean");
+	/* 编辑器组件类型（textarea/radio/select/date/datetime/editor_* 等）存储层均为文本 */
+	if (strcmp(sType, "textarea") == 0 || strcmp(sType, "radio") == 0 || strcmp(sType, "select") == 0
+		|| strcmp(sType, "combobox") == 0 || strcmp(sType, "checklist") == 0 || strcmp(sType, "image") == 0
+		|| strcmp(sType, "images") == 0 || strcmp(sType, "file") == 0 || strcmp(sType, "files") == 0
+		|| strcmp(sType, "date") == 0 || strcmp(sType, "datetime") == 0 || strcmp(sType, "time") == 0
+		|| strcmp(sType, "richtext") == 0 || strcmp(sType, "markdown") == 0 || strcmp(sType, "code") == 0
+		|| strcmp(sType, "editor_html") == 0 || strcmp(sType, "editor_md") == 0 || strcmp(sType, "editor_code") == 0) return xrtStrDup("text");
 	return xrtStrDup(sType);
 }
 
