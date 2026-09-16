@@ -759,3 +759,9 @@ smoke 40 PASS + write_regression PASS。
 216 处能力配置运行时读取烘焙清零（Config{Int,Bool,TextDup,ArrayDup}+SearchWeight+RoutePrefixDup+SeoConfigText 双形态）；R4 三值烘焙+defaultSort 断链接通；R6 displayGroups 静态详情分组段落。配置变更=重生成实证（4321→8888 跟随）。门禁 phase1 34（+4 断言）/fullchain 16/smoke 42/cms 13。
 
 **工作坑**：模板补丁脚本被"重写脚本"操作静默破坏（结构损坏但退出 0）——多步补丁后必须 grep 占位符计数实证；Bare pass 首参解析 needle 含括号时 q 直指引号（勿再检查 '('）。剩余 R1+R2（payload 类型化列+字段解释消除）待排期。
+
+### 2026-09-16：R1/R2 静态烘焙批次（775f83f）
+
+R2 五解释器（defaults/nullable/coerce/validate/extract×3）改走编译期常量字段表；R1 模型字段→f_<name> 类型化列（探测式幂等 ALTER + json_extract 回填 + 五写路径类型绑定，payload_json 双写兼容）。门禁 phase1 37/fullchain 16/smoke 42/cms 13 全绿。
+
+**调试实录（三连环坑）**：heredoc 反斜杠双吃（printf 调试两次断串——最终一律走脚本文件+chr(92)）；R2 发射块须先于 R3（占位符消费序）；字段表 columnar 列序错位（struct 第 4 位 vs 格式串第 6 位——title 误判 columnar 致 f_summary 存 title 值，printf 实证定位）。R1 后续（读取列直读）与 R5 待排期。
