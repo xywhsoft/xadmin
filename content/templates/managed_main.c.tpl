@@ -72,6 +72,8 @@ static str xrtReplace(const char* text, size_t textLen, const char* find, size_t
 		cur = hit + flen;
 	}
 	xrtBufferAppend(buf, (xbytesview){(cbytes)cur, strlen(cur)});
+	/* xbuffer 无 NUL 终止：补零后再转 C 串，防 strlen 越界读堆垃圾 */
+	xrtBufferAppendByte(buf, 0);
 	out = buf->Data ? xrtStrDup((const char*)buf->Data) : xrtStrDup("");
 	xrtBufferDestroy(buf);
 	return out;
@@ -246,6 +248,9 @@ static const char* G_BackgroundTaskSchemaSql =
 	"CREATE INDEX IF NOT EXISTS idx_content_background_task_target ON content_background_task(target_type, target_id, update_time DESC);";
 
 #define MANAGED_STATIC_URL_PREFIX "/plugin-static/{{PLUGIN_XID}}/"
+/* 策略烘焙（生成期由模型 policies 决定，运行时零动态判断） */
+{{CONTENT_POLICY_DEFINES}}
+static void Managed_ApplyCategorySeoTemplates(xvalue* tblRow);
 
 bool Managed_AbilityPackMounted(const char* sPackId);
 bool Managed_AbilityPackConfigBool(const char* sPackId, const char* sName, bool bDefault);
@@ -19737,7 +19742,7 @@ void Managed_RequestImportCommitAdmin(XS_ServerObject objServer, XS_HostObject o
 						sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
 						sqlite3_bind_int(stmt, 4, iCategoryId > 0 ? iCategoryId : 0);
 						sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
-						sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iNow);
+						sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME((sqlite3_int64)iNow));
 						sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iImportContentId);
 						if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 							iContentId = iImportContentId;
@@ -19755,8 +19760,8 @@ void Managed_RequestImportCommitAdmin(XS_ServerObject objServer, XS_HostObject o
 					sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
 					sqlite3_bind_int(stmt, 4, iCategoryId > 0 ? iCategoryId : 0);
 					sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
-					sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iNow);
-					sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iNow);
+					sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME((sqlite3_int64)iNow));
+					sqlite3_bind_int64(stmt, 7, MANAGED_CONTENT_TIME((sqlite3_int64)iNow));
 					if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 						iContentId = sqlite3_last_insert_rowid(pDb);
 					} else {
@@ -20332,6 +20337,7 @@ void Managed_RequestExportDownloadAdmin(XS_ServerObject objServer, XS_HostObject
 	Managed_CloseDb(pDb);
 }
 
+{{CONTENT_DETAIL_FILTER_FN}}
 void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject objReq, xvalue* objSession, bool bAdmin)
 {
 	char sId[32];
@@ -20472,6 +20478,9 @@ void Managed_RequestDetailCommon(XS_ResponseObject objResp, XS_RequestObject obj
 			}
 		}
 		Managed_AttachRelatedFields(pDb, tblData, tblSpec, bAttachRelated);
+		if ( !bAdmin ) {
+			Managed_ApplyDetailFieldFilter(tblData);
+		}
 	}
 	Managed_CloseDb(pDb);
 	if ( sSqlById ) xrtFree(sSqlById);
@@ -23407,7 +23416,7 @@ void Managed_RequestRevisionRestoreAdmin(XS_ServerObject objServer, XS_HostObjec
 		sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 4, iCategoryId);
 		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
-		sqlite3_bind_int64(stmt, 6, (sqlite3_int64)iNow);
+		sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME((sqlite3_int64)iNow));
 		sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iContentId);
 		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 			bUpdated = sqlite3_changes(pDb) > 0 ? true : false;
@@ -24905,6 +24914,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 
 	iId = ValueInt(tblForm, "id");
 	bInsert = iId <= 0;
+{{CONTENT_SAVE_GUARDS}}
 	iCategoryId = (int)ValueInt(tblForm, "categoryId");
 	if ( iCategoryId <= 0 ) {
 		iCategoryId = (int)ValueInt(tblData, "categoryId");
@@ -24978,7 +24988,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 4, iCategoryId > 0 ? iCategoryId : 0);
 		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
-		sqlite3_bind_int64(stmt, 6, iNow);
+		sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME(iNow));
 		sqlite3_bind_int64(stmt, 7, (sqlite3_int64)iId);
 		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 			bSaved = sqlite3_changes(pDb) > 0 ? true : false;
@@ -25000,8 +25010,8 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_text(stmt, 3, sPayloadJson ? (const char*)sPayloadJson : "{}", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 4, iCategoryId > 0 ? iCategoryId : 0);
 		sqlite3_bind_int(stmt, 5, bDraft ? 1 : 0);
-		sqlite3_bind_int64(stmt, 6, iNow);
-		sqlite3_bind_int64(stmt, 7, iNow);
+		sqlite3_bind_int64(stmt, 6, MANAGED_CONTENT_TIME(iNow));
+		sqlite3_bind_int64(stmt, 7, MANAGED_CONTENT_TIME(iNow));
 		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
 			iId = sqlite3_last_insert_rowid(pDb);
 			bSaved = iId > 0 ? true : false;
@@ -25125,15 +25135,7 @@ void Managed_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 	tblSpec = Managed_LoadSpec();
-	if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET delete_time = ?, update_time = ? WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) == SQLITE_OK ) {
-		xtime iNow = xrtNow();
-		sqlite3_bind_int64(stmt, 1, iNow);
-		sqlite3_bind_int64(stmt, 2, iNow);
-		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
-		if ( sqlite3_step(stmt) == SQLITE_DONE ) {
-			bDeleted = sqlite3_changes(pDb) > 0 ? true : false;
-		}
-	}
+{{CONTENT_DELETE_EXEC}}
 	if ( stmt ) sqlite3_finalize(stmt);
 	if ( !bDeleted ) {
 		Managed_CloseDb(pDb);
@@ -25459,6 +25461,7 @@ void Managed_RequestCategoryListPublic(XS_ServerObject objServer, XS_HostObject 
 		while ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			Managed_AppendCategoryRow(arrList, stmt);
 			Managed_CategoryMaskPublicCountForAccess(xrtValueArrayGet(arrList, ValueCount(arrList) - 1), bAccessPack);
+			Managed_ApplyCategorySeoTemplates(xrtValueArrayGet(arrList, ValueCount(arrList) - 1));
 			iCount++;
 		}
 	}
@@ -25471,6 +25474,67 @@ void Managed_RequestCategoryListPublic(XS_ServerObject objServer, XS_HostObject 
 	ValueSetInt(tblRet, "maxPublicTreeRows", iLimit);
 	ValueSetOwn(tblRet, "data", arrList);
 	Managed_SendJsonValue(objResp, tblRet);
+}
+
+/* 栏目 SEO：栏目级模板（category*Template）在栏目自身 SEO 为空时生效，
+ * 变量 {categoryTitle}/{categorySlug}/{categoryPath}/{categoryDescription}/{categoryId}/{siteName}/{pluginXid} */
+static str Managed_CategoryApplyTemplate(xvalue* tblConfig, const char* sCfgKey, xvalue* tblRow)
+{
+	const char* sTmpl = Managed_SeoConfigText(tblConfig, sCfgKey);
+	str sOut = NULL;
+	str v;
+	char sCatId[32];
+	if (!sTmpl || !sTmpl[0]) return NULL;
+	v = ValueText(tblRow, "title");
+	sOut = Managed_SeoReplaceToken(xrtStrDup(sTmpl), "{categoryTitle}", v ? v : (str)"");
+	v = ValueText(tblRow, "slug");
+	sOut = Managed_SeoReplaceToken(sOut, "{categorySlug}", v ? v : (str)"");
+	v = ValueText(tblRow, "path");
+	sOut = Managed_SeoReplaceToken(sOut, "{categoryPath}", v ? v : (str)"");
+	v = ValueText(tblRow, "description");
+	sOut = Managed_SeoReplaceToken(sOut, "{categoryDescription}", v ? v : (str)"");
+	snprintf(sCatId, sizeof(sCatId), "%lld", (long long)ValueInt(tblRow, "id"));
+	sOut = Managed_SeoReplaceToken(sOut, "{categoryId}", sCatId);
+	sOut = Managed_SeoReplaceToken(sOut, "{siteName}", "{{PLUGIN_TITLE_C}}");
+	sOut = Managed_SeoReplaceToken(sOut, "{pluginXid}", "{{PLUGIN_XID}}");
+	return sOut;
+}
+
+static void Managed_ApplyCategorySeoTemplates(xvalue* tblRow)
+{
+	xvalue* tblContracts = Managed_LoadContractsMeta();
+	xvalue* tblConfig = tblContracts ? Managed_AbilityPackConfig(tblContracts, "content.seo") : NULL;
+	str sTitle = NULL;
+	str sKeywords = NULL;
+	str sDescription = NULL;
+	str sCanonical = NULL;
+	xvalue* tblSeo;
+	str own;
+	if (!tblConfig || !tblRow || xrtValueType(tblRow) != XVALUE_OBJECT) {
+		if (tblContracts) xrtValueRelease(tblContracts);
+		return;
+	}
+	own = ValueText(tblRow, "seoTitle");
+	if (!own || !own[0]) sTitle = Managed_CategoryApplyTemplate(tblConfig, "categoryTitleTemplate", tblRow);
+	own = ValueText(tblRow, "seoKeywords");
+	if (!own || !own[0]) sKeywords = Managed_CategoryApplyTemplate(tblConfig, "categoryKeywordsTemplate", tblRow);
+	own = ValueText(tblRow, "seoDescription");
+	if (!own || !own[0]) sDescription = Managed_CategoryApplyTemplate(tblConfig, "categoryDescriptionTemplate", tblRow);
+	sCanonical = Managed_CategoryApplyTemplate(tblConfig, "categoryCanonicalTemplate", tblRow);
+	tblSeo = ValueObject();
+	{
+		str rowTitle = ValueText(tblRow, "title");
+		ValueSetText(tblSeo, "title", sTitle ? sTitle : (rowTitle ? rowTitle : (str)""));
+	}
+	ValueSetText(tblSeo, "keywords", sKeywords ? sKeywords : (str)"");
+	ValueSetText(tblSeo, "description", sDescription ? sDescription : (str)"");
+	if (sCanonical && sCanonical[0]) ValueSetText(tblSeo, "canonical", sCanonical);
+	ValueSetOwn(tblRow, "seo", tblSeo);
+	if (sTitle) xrtFree(sTitle);
+	if (sKeywords) xrtFree(sKeywords);
+	if (sDescription) xrtFree(sDescription);
+	if (sCanonical) xrtFree(sCanonical);
+	if (tblContracts) xrtValueRelease(tblContracts);
 }
 
 void Managed_RequestCategoryDetailPublic(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
@@ -25526,6 +25590,7 @@ void Managed_RequestCategoryDetailPublic(XS_ServerObject objServer, XS_HostObjec
 		if ( sqlite3_step(stmt) == SQLITE_ROW ) {
 			Managed_AppendCategoryRow(arrList, stmt);
 			Managed_CategoryMaskPublicCountForAccess(xrtValueArrayGet(arrList, ValueCount(arrList) - 1), bAccessPack);
+			Managed_ApplyCategorySeoTemplates(xrtValueArrayGet(arrList, ValueCount(arrList) - 1));
 		}
 	}
 	if ( stmt ) sqlite3_finalize(stmt);
@@ -25538,7 +25603,8 @@ void Managed_RequestCategoryDetailPublic(XS_ServerObject objServer, XS_HostObjec
 		return;
 	}
 	tblRet = Managed_CreateResult(true, NULL);
-	ValueSetOwn(tblRet, "data", xrtValueArrayGet(arrList, 0));
+	/* ArrayGet 返回借用引用：数组释放后即悬垂，须深拷贝再移交 */
+	ValueSetOwn(tblRet, "data", xrtValueDeepClone(xrtValueArrayGet(arrList, 0)));
 	xrtValueRelease(arrList);
 	Managed_SendJsonValue(objResp, tblRet);
 }
@@ -25652,7 +25718,8 @@ void Managed_RequestCategoryGetAdmin(XS_ServerObject objServer, XS_HostObject ob
 		return;
 	}
 	tblRet = Managed_CreateResult(true, NULL);
-	ValueSetOwn(tblRet, "data", xrtValueArrayGet(arrList, 0));
+	/* ArrayGet 返回借用引用：数组释放后即悬垂，须深拷贝再移交 */
+	ValueSetOwn(tblRet, "data", xrtValueDeepClone(xrtValueArrayGet(arrList, 0)));
 	xrtValueRelease(arrList);
 	Managed_SendJsonValue(objResp, tblRet);
 }

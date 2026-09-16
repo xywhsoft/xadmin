@@ -523,6 +523,100 @@ static char* Content_BuildAbilityPackAuthCode(const char* pluginXid, const char*
 	return code;
 }
 
+/* 解析 "key|标题:f1,f2" 多行分组映射 → [{key,title,fields:[name]}]（行分隔为换行符） */
+static xvalue* Content_ParseGroupAssignments(const char* text)
+{
+	xvalue* arr = ValueArray();
+	const char* p = text ? text : "";
+	while (*p) {
+		const char* lineEnd = strchr(p, 10);
+		size_t lineLen = lineEnd ? (size_t)(lineEnd - p) : strlen(p);
+		const char* colon = NULL;
+		size_t i;
+		char sKey[96];
+		char sTitle[96];
+		xvalue* grp;
+		xvalue* names;
+		const char* q;
+		if (lineLen < 2) { p = lineEnd ? lineEnd + 1 : p + lineLen; continue; }
+		for (i = 0; i < lineLen; i++) {
+			if (p[i] == ':') { colon = p + i; break; }
+		}
+		if (!colon || colon == p) { p = lineEnd ? lineEnd + 1 : p + lineLen; continue; }
+		{
+			size_t keyLen = (size_t)(colon - p);
+			const char* bar = NULL;
+			for (i = 0; i < keyLen; i++) {
+				if (p[i] == '|') { bar = p + i; break; }
+			}
+			if (bar) {
+				size_t t1 = (size_t)(bar - p);
+				size_t t2 = keyLen - t1 - 1;
+				if (t1 >= sizeof(sKey)) t1 = sizeof(sKey) - 1;
+				if (t2 >= sizeof(sTitle)) t2 = sizeof(sTitle) - 1;
+				memcpy(sKey, p, t1); sKey[t1] = 0;
+				memcpy(sTitle, bar + 1, t2); sTitle[t2] = 0;
+			} else {
+				if (keyLen >= sizeof(sKey)) keyLen = sizeof(sKey) - 1;
+				memcpy(sKey, p, keyLen); sKey[keyLen] = 0;
+				snprintf(sTitle, sizeof(sTitle), "%s", sKey);
+			}
+		}
+		grp = ValueObject();
+		ValueSetText(grp, "key", sKey);
+		ValueSetText(grp, "title", sTitle);
+		names = ValueArray();
+		q = colon + 1;
+		for (;;) {
+			const char* comma = q;
+			char sName[96];
+			size_t n = 0;
+			while (comma < p + lineLen && *comma != ',') comma++;
+			n = (size_t)(comma - q);
+			if (n > 0 && n < sizeof(sName)) {
+				memcpy(sName, q, n); sName[n] = 0;
+				ValueArrayOwn(names, xrtValueString(xrtStrView(sName)));
+			}
+			if (comma >= p + lineLen) break;
+			q = comma + 1;
+		}
+		ValueSetOwn(grp, "fields", names);
+		ValueArrayOwn(arr, grp);
+		p = lineEnd ? lineEnd + 1 : p + lineLen;
+	}
+	return arr;
+}
+
+/* 逗号分隔字段名 → 字符串数组 */
+static xvalue* Content_ParseNameList(const char* text)
+{
+	xvalue* arr = ValueArray();
+	const char* p = text ? text : "";
+	while (*p) {
+		char sName[96];
+		size_t n = 0;
+		while (*p && *p != ',' && *p != 32 && *p != 9 && n + 1 < sizeof(sName)) sName[n++] = *p++;
+		sName[n] = 0;
+		if (n) ValueArrayOwn(arr, xrtValueString(xrtStrView(sName)));
+		while (*p == ',' || *p == 32 || *p == 9) p++;
+	}
+	return arr;
+}
+
+/* 策略角色名 → authLevel（生成期解析烘焙；未配置/找不到=0 不设门） */
+static int64 Content_ResolveRoleAuthLevel(const char* roleName)
+{
+	sqlite3_stmt* stmt = NULL;
+	int64 level = 0;
+	if (!roleName || !roleName[0] || !G_DB) return 0;
+	if (sqlite3_prepare_v2(G_DB, "SELECT authLevel FROM role WHERE name=? AND isDelete=0 ORDER BY id ASC LIMIT 1", -1, &stmt, NULL) != SQLITE_OK)
+		return 0;
+	sqlite3_bind_text(stmt, 1, roleName, -1, NULL);
+	if (sqlite3_step(stmt) == SQLITE_ROW) level = sqlite3_column_int64(stmt, 0);
+	sqlite3_finalize(stmt);
+	return level;
+}
+
 static char* Content_BuildManagedMainC(const char* pluginXid, const char* pluginTitle, const char* menuTitle, xvalue* spec)
 {
 	char* template = Content_LoadGeneratorTemplate("managed_main.c.tpl");
@@ -548,6 +642,126 @@ static char* Content_BuildManagedMainC(const char* pluginXid, const char* plugin
 	template = Content_TemplateSet(template, "{{ABILITY_PACK_MENU_REGISTRATIONS}}", Content_TextOr(packMenus, ""));
 	template = Content_TemplateSet(template, "{{ABILITY_PACK_SCHEMA_SQL}}", Content_TextOr(packSchemaSql, ""));
 	template = Content_TemplateSet(template, "{{ABILITY_PACK_AUTH_REGISTRATIONS}}", Content_TextOr(packAuth, ""));
+	/* 策略/页面 tab 烘焙：softDelete/auditTime/createRole/manageRole、detailFields 投影——
+	 * 生成期决策为常量与专属代码，运行时零动态判断 */
+	{
+		xvalue* policies = ValueGet(spec, "policies");
+		xvalue* pagesObj = ValueGet(spec, "pages");
+		bool bHasPolicies = policies && xrtValueType(policies) == XVALUE_OBJECT;
+		bool bSoftDelete = !bHasPolicies || ValueBool(policies, "softDelete");
+		bool bAuditTime = !bHasPolicies || ValueBool(policies, "auditTime");
+		str createRole = bHasPolicies ? ValueText(policies, "createRole") : NULL;
+		str manageRole = bHasPolicies ? ValueText(policies, "manageRole") : NULL;
+		int64 createLevel = Content_ResolveRoleAuthLevel(createRole);
+		int64 manageLevel = Content_ResolveRoleAuthLevel(manageRole);
+		str detailFields = (pagesObj && xrtValueType(pagesObj) == XVALUE_OBJECT) ? ValueText(pagesObj, "detailFields") : NULL;
+		char sDefines[512];
+		char* sDeleteExec = NULL;
+		char* sSaveGuards = NULL;
+		char* sFilterFn = xrtStrDup("static void Managed_ApplyDetailFieldFilter(xvalue* tblItem)\n{\n\t(void)tblItem;\n}\n");
+		snprintf(sDefines, sizeof(sDefines),
+			"#define MANAGED_CONTENT_TIME(now) (%s)\n#define MANAGED_CREATE_AUTH_LEVEL %lld\n#define MANAGED_MANAGE_AUTH_LEVEL %lld",
+			bAuditTime ? "now" : "0", (long long)createLevel, (long long)manageLevel);
+		if ( bSoftDelete ) {
+			sDeleteExec = xrtFormat(
+				"{\n"
+				"	if ( MANAGED_MANAGE_AUTH_LEVEL > 0 ) {\n"
+				"		int64 iSessionLevel = 0;\n"
+				"		if ( objSession && (xrtValueType(objSession) == XVALUE_OBJECT) ) {\n"
+				"			iSessionLevel = ValueInt(objSession, \"authLevel\");\n"
+				"			if ( iSessionLevel <= 0 ) iSessionLevel = ValueInt(objSession, \"__authLevel__\");\n"
+				"		}\n"
+				"		if ( iSessionLevel < MANAGED_MANAGE_AUTH_LEVEL ) {\n"
+				"			Managed_CloseDb(pDb);\n"
+				"			xrtValueRelease(tblSpec);\n"
+				"			xrtValueRelease(tblForm);\n"
+				"			Managed_SendError(objResp, \"delete denied by model policy\");\n"
+				"			return;\n"
+				"		}\n"
+				"	}\n"
+				"	if ( sqlite3_prepare_v2(pDb, \"UPDATE content_item SET delete_time = ?, update_time = ? WHERE id = ? AND delete_time = 0\", -1, &stmt, NULL) == SQLITE_OK ) {\n"
+				"		xtime iNow = xrtNow();\n"
+				"		sqlite3_bind_int64(stmt, 1, iNow);\n"
+				"		sqlite3_bind_int64(stmt, 2, MANAGED_CONTENT_TIME(iNow));\n"
+				"		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);\n"
+				"		if ( sqlite3_step(stmt) == SQLITE_DONE ) {\n"
+				"			bDeleted = sqlite3_changes(pDb) > 0 ? true : false;\n"
+				"		}\n"
+				"	}\n"
+				"}");
+		} else {
+			sDeleteExec = xrtFormat(
+				"{\n"
+				"	if ( MANAGED_MANAGE_AUTH_LEVEL > 0 ) {\n"
+				"		int64 iSessionLevel = 0;\n"
+				"		if ( objSession && (xrtValueType(objSession) == XVALUE_OBJECT) ) {\n"
+				"			iSessionLevel = ValueInt(objSession, \"authLevel\");\n"
+				"			if ( iSessionLevel <= 0 ) iSessionLevel = ValueInt(objSession, \"__authLevel__\");\n"
+				"		}\n"
+				"		if ( iSessionLevel < MANAGED_MANAGE_AUTH_LEVEL ) {\n"
+				"			Managed_CloseDb(pDb);\n"
+				"			xrtValueRelease(tblSpec);\n"
+				"			xrtValueRelease(tblForm);\n"
+				"			Managed_SendError(objResp, \"delete denied by model policy\");\n"
+				"			return;\n"
+				"		}\n"
+				"	}\n"
+				"	if ( sqlite3_prepare_v2(pDb, \"DELETE FROM content_item WHERE id = ?\", -1, &stmt, NULL) == SQLITE_OK ) {\n"
+				"		sqlite3_bind_int64(stmt, 1, (sqlite3_int64)iId);\n"
+				"		if ( sqlite3_step(stmt) == SQLITE_DONE ) {\n"
+				"			bDeleted = sqlite3_changes(pDb) > 0 ? true : false;\n"
+				"		}\n"
+				"	}\n"
+				"}");
+		}
+		sSaveGuards = xrtFormat(
+			"{\n"
+			"	int64 iSessionLevel = 0;\n"
+			"	if ( objSession && (xrtValueType(objSession) == XVALUE_OBJECT) ) {\n"
+			"		iSessionLevel = ValueInt(objSession, \"authLevel\");\n"
+			"		if ( iSessionLevel <= 0 ) iSessionLevel = ValueInt(objSession, \"__authLevel__\");\n"
+			"	}\n"
+			"	if ( bInsert && (MANAGED_CREATE_AUTH_LEVEL > 0) && (iSessionLevel < MANAGED_CREATE_AUTH_LEVEL) ) {\n"
+			"		xrtValueRelease(tblSpec);\n"
+			"		xrtValueRelease(tblForm);\n"
+			"		Managed_SendError(objResp, \"create denied by model policy\");\n"
+			"		return;\n"
+			"	}\n"
+			"	if ( !bInsert && (MANAGED_MANAGE_AUTH_LEVEL > 0) && (iSessionLevel < MANAGED_MANAGE_AUTH_LEVEL) ) {\n"
+			"		xrtValueRelease(tblSpec);\n"
+			"		xrtValueRelease(tblForm);\n"
+			"		Managed_SendError(objResp, \"update denied by model policy\");\n"
+			"		return;\n"
+			"	}\n"
+			"}");
+		if ( detailFields && detailFields[0] ) {
+			/* detailFields 投影：允许清单烘焙为静态数组（覆盖默认空实现） */
+			xvalue* flds = Content_ParseNameList(detailFields);
+			char* fn = NULL;
+			uint32 fi;
+			xrtFree(sFilterFn);
+			fn = xrtStrDup("static void Managed_ApplyDetailFieldFilter(xvalue* tblItem)\n{\n\tstatic const char* sAllowed[] = {");
+			for ( fi = 0; fi < ValueCount(flds); fi++ ) {
+				char* next = xrtFormat("%s \"%s\",", Content_TextOr(fn, ""), Content_TextOr(ValueArrayText(flds, fi), ""));
+				xrtFree(fn);
+				fn = next;
+			}
+			if ( fn ) {
+				char* next = xrtFormat("%s NULL };\n\txvalue* tblData = tblItem ? ValueGet(tblItem, \"data\") : NULL;\n\txvalue* tblNew;\n\tuint32 ai;\n\tif ( !tblData || xrtValueType(tblData) != XVALUE_OBJECT ) return;\n\ttblNew = ValueObject();\n\tfor ( ai = 0; sAllowed[ai]; ai++ ) {\n\t\txvalue* v = ValueGet(tblData, sAllowed[ai]);\n\t\tif ( v ) ValueSetRef(tblNew, sAllowed[ai], v);\n\t}\n\tValueSetOwn(tblItem, \"data\", tblNew);\n}\n", Content_TextOr(fn, ""));
+				xrtFree(fn);
+				fn = next;
+			}
+			sFilterFn = fn;
+			xrtValueRelease(flds);
+		}
+		template = Content_TemplateSet(template, "{{CONTENT_POLICY_DEFINES}}", sDefines);
+		template = Content_TemplateSet(template, "{{CONTENT_DELETE_EXEC}}", sDeleteExec ? sDeleteExec : "");
+		template = Content_TemplateSet(template, "{{CONTENT_SAVE_GUARDS}}", sSaveGuards ? sSaveGuards : "");
+		template = Content_TemplateSet(template, "{{CONTENT_DETAIL_FILTER_FN}}", sFilterFn ? sFilterFn : "");
+		xrtFree(sDeleteExec);
+		xrtFree(sSaveGuards);
+		xrtFree(sFilterFn);
+	}
 	/* 菜单标题覆盖：pluginTitle 与 menuTitle 不同时改写根菜单标题行（v1 同） */
 	if (safeMenuTitle && pluginTitle && menuTitle && strcmp(pluginTitle, menuTitle) != 0) {
 		char* needle = xrtFormat("menu.title = \"%s\";", Content_TextOr(safePluginTitle, ""));
@@ -590,7 +804,7 @@ static char* Content_BuildPluginDomIdBase(const char* pluginXid)
 	return out;
 }
 
-static char* Content_BuildManagedAdminPageHtml(const char* pluginXid, const char* pageKind)
+static char* Content_BuildManagedAdminPageHtml(const char* pluginXid, const char* pageKind, xvalue* spec)
 {
 	char* template = Content_LoadGeneratorTemplate("managed_admin.html.tpl");
 	char* domIdBase = Content_BuildPluginDomIdBase(pluginXid);
@@ -603,6 +817,37 @@ static char* Content_BuildManagedAdminPageHtml(const char* pluginXid, const char
 	template = Content_TemplateSet(template, "{{PLUGIN_XID}}", pluginXid ? pluginXid : "");
 	template = Content_TemplateSet(template, "{{PLUGIN_DOM_ID_BASE}}", pageDomIdBase ? pageDomIdBase : (domIdBase ? domIdBase : "Content_MakePlugin"));
 	template = Content_TemplateSet(template, "{{PLUGIN_PAGE_KIND}}", pageKind ? pageKind : "articles");
+	/* 页面 tab 列表列：烘焙列配置（含字段标题），空数组=默认三列 */
+	{
+		xvalue* pagesObj = spec ? ValueGet(spec, "pages") : NULL;
+		str listColumns = (pagesObj && xrtValueType(pagesObj) == XVALUE_OBJECT) ? ValueText(pagesObj, "listColumns") : NULL;
+		char* sColsJson = NULL;
+		if ( listColumns && listColumns[0] ) {
+			xvalue* cols = Content_ParseNameList(listColumns);
+			xvalue* arr = ValueArray();
+			xvalue* fields = spec ? ValueGet(spec, "fields") : NULL;
+			uint32 ci;
+			for ( ci = 0; ci < ValueCount(cols); ci++ ) {
+				str name = ValueArrayText(cols, ci);
+				xvalue* one = ValueObject();
+				str title = NULL;
+				uint32 fi;
+				for ( fi = 0; fields && fi < ValueCount(fields); fi++ ) {
+					xvalue* f = xrtValueArrayGet(fields, fi);
+					str fname = f ? ValueText(f, "name") : NULL;
+					if ( fname && name && strcmp(fname, name) == 0 ) { title = ValueText(f, "title"); break; }
+				}
+				ValueSetText(one, "field", name ? name : (str)"");
+				ValueSetText(one, "title", Content_TextOr(title, name ? name : ""));
+				ValueArrayOwn(arr, one);
+			}
+			sColsJson = Content_StringifyJson(arr, false);
+			xrtValueRelease(arr);
+			xrtValueRelease(cols);
+		}
+		template = Content_TemplateSet(template, "{{CONTENT_LIST_COLUMNS_JS}}", sColsJson ? sColsJson : "[]");
+		xrtFree(sColsJson);
+	}
 	xrtFree(pageDomIdBase);
 	xrtFree(domIdBase);
 	return template;
@@ -906,6 +1151,41 @@ static char* Content_BuildManagedSpecJson(xvalue* spec, const char* modelXid, co
 				ValueArrayOwn(managedFields, Content_BuildManagedSpecField(field));
 		}
 	}
+	/* fieldGroups（数组 {title,fields}）落到字段 group 键——编辑器表单分组生效；
+	 * key 由标题清洗派生，presentation.groups 同源构建 */
+	{
+		xvalue* fgArr = pages ? ValueGet(pages, "fieldGroups") : NULL;
+		if (fgArr && xrtValueType(fgArr) == XVALUE_ARRAY) {
+			uint32 g, f, m;
+			for (g = 0; g < ValueCount(fgArr); g++) {
+				xvalue* grp = xrtValueArrayGet(fgArr, g);
+				xvalue* names = grp ? ValueGet(grp, "fields") : NULL;
+				str title = grp ? ValueText(grp, "title") : NULL;
+				char sKey[80];
+				size_t w = 0;
+				const char* q = (title && title[0]) ? title : "group";
+				while (*q && w + 1 < sizeof(sKey)) {
+					char ch = *q++;
+					bool bOk = ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z')) || ((ch >= '0') && (ch <= '9')) || (ch == '_');
+					sKey[w++] = bOk ? ch : '_';
+				}
+				sKey[w] = 0;
+				if (!names || xrtValueType(names) != XVALUE_ARRAY) continue;
+				for (f = 0; f < ValueCount(names); f++) {
+					str want = ValueArrayText(names, f);
+					for (m = 0; m < ValueCount(managedFields); m++) {
+						xvalue* fld = xrtValueArrayGet(managedFields, m);
+						str have = fld ? ValueText(fld, "name") : NULL;
+						if (have && want && strcmp(have, want) == 0) {
+							ValueSetText(fld, "group", sKey);
+							ValueSetText(fld, "groupTitle", title ? title : (str)sKey);
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
 	ValueSetText(identity, "xid", Content_TextOr(modelXid, ""));
 	ValueSetText(identity, "name", Content_TextOr(name, modelXid));
 	ValueSetText(identity, "namespace", Content_TextOr(ns, ""));
@@ -925,6 +1205,25 @@ static char* Content_BuildManagedSpecJson(xvalue* spec, const char* modelXid, co
 	ValueSetBool(core, "publicApi", true);
 	ValueSetOwn(root, "coreFeatures", core);
 	ValueSetInt(uiList, "pageSize", pages ? ValueInt(pages, "pageSize") : 20);
+	{
+		str listColumns = pages ? ValueText(pages, "listColumns") : NULL;
+		str detailFields = pages ? ValueText(pages, "detailFields") : NULL;
+		if (listColumns && listColumns[0]) {
+			xvalue* cols = Content_ParseNameList(listColumns);
+			if (ValueCount(cols) > 0) ValueSetOwn(uiList, "columns", cols);
+			else xrtValueRelease(cols);
+		}
+		if (detailFields && detailFields[0]) {
+			xvalue* flds = Content_ParseNameList(detailFields);
+			if (ValueCount(flds) > 0) {
+				xvalue* uiDetail = ValueObject();
+				ValueSetOwn(uiDetail, "fields", flds);
+				ValueSetOwn(ui, "detail", uiDetail);
+			} else {
+				xrtValueRelease(flds);
+			}
+		}
+	}
 	ValueSetOwn(ui, "list", uiList);
 	ValueSetText(uiForm, "layout", "single-column");
 	ValueSetOwn(ui, "form", uiForm);
@@ -933,10 +1232,41 @@ static char* Content_BuildManagedSpecJson(xvalue* spec, const char* modelXid, co
 		ValueSetOwn(root, "policies", xrtValueDeepClone(policies));
 	ValueSetOwn(root, "capabilitySlots", Content_CollectEnabledCapabilities(spec));
 	if (pages && xrtValueType(pages) == XVALUE_OBJECT) {
-		xvalue* groups = ValueGet(pages, "fieldGroups");
-		if (groups && xrtValueType(groups) == XVALUE_ARRAY) {
+		/* fieldGroups/displayGroups（数组 {title,fields}）直通 presentation：
+		 * groups 驱动编辑器表单分组，displayGroups 驱动详情展示分组 */
+		xvalue* fgArr = ValueGet(pages, "fieldGroups");
+		xvalue* dgArr = ValueGet(pages, "displayGroups");
+		bool bFg = fgArr && xrtValueType(fgArr) == XVALUE_ARRAY && ValueCount(fgArr) > 0;
+		bool bDg = dgArr && xrtValueType(dgArr) == XVALUE_ARRAY && ValueCount(dgArr) > 0;
+		if (bFg || bDg) {
 			xvalue* presentation = ValueObject();
-			ValueSetOwn(presentation, "groups", xrtValueDeepClone(groups));
+			if (bFg) {
+				xvalue* groups = ValueArray();
+				uint32 g;
+				for (g = 0; g < ValueCount(fgArr); g++) {
+					xvalue* grp = xrtValueArrayGet(fgArr, g);
+					xvalue* one = ValueObject();
+					str title = grp ? ValueText(grp, "title") : NULL;
+					char sKey[80];
+					size_t w = 0;
+					const char* q = (title && title[0]) ? title : "group";
+					while (*q && w + 1 < sizeof(sKey)) {
+						char ch = *q++;
+						bool bOk = ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z')) || ((ch >= '0') && (ch <= '9')) || (ch == '_');
+						sKey[w++] = bOk ? ch : '_';
+					}
+					sKey[w] = 0;
+					ValueSetText(one, "key", sKey);
+					ValueSetText(one, "title", title ? title : (str)sKey);
+					if (grp) {
+						xvalue* names = ValueGet(grp, "fields");
+						if (names) ValueSetOwn(one, "fields", xrtValueDeepClone(names));
+					}
+					ValueArrayOwn(groups, one);
+				}
+				ValueSetOwn(presentation, "groups", groups);
+			}
+			if (bDg) ValueSetOwn(presentation, "displayGroups", xrtValueDeepClone(dgArr));
 			ValueSetOwn(root, "presentation", presentation);
 		}
 	}
@@ -1632,8 +1962,8 @@ static xvalue* Content_GeneratePluginForModel(const char* xid, str* error)
 		Content_TextOr(pluginTitle, modelTitle),
 		Content_TextOr(menuTitle, Content_TextOr(pluginTitle, modelTitle)),
 		spec);
-	adminHtml = Content_BuildManagedAdminPageHtml(pluginXid, "articles");
-	draftHtml = Content_BuildManagedAdminPageHtml(pluginXid, "drafts");
+	adminHtml = Content_BuildManagedAdminPageHtml(pluginXid, "articles", spec);
+	draftHtml = Content_BuildManagedAdminPageHtml(pluginXid, "drafts", spec);
 	editorHtml = Content_BuildManagedEditorHtml(pluginXid);
 	if (categoryPack) categoryHtml = Content_BuildManagedCategoryHtml(pluginXid);
 	if (metricPack) dashboardHtml = Content_BuildManagedDashboardHtml(pluginXid);

@@ -63,6 +63,7 @@ layui.use(['table', 'form'], function(){
     topicWrap: 'TopicWrap_' + domBase
   };
   var state = {
+    listColumns: {{CONTENT_LIST_COLUMNS_JS}},
     meta: null,
     categories: null,
     tags: null,
@@ -300,13 +301,28 @@ layui.use(['table', 'form'], function(){
     layer.msg(message, { icon: 2 });
   }
 
+  function payloadColText(d, name) {
+    var v = d && d.data ? d.data[name] : undefined;
+    return escapeHtml(v === undefined || v === null || v === '' ? '-' : String(v));
+  }
+
   function tableColumns() {
     var cols = [
       { field: 'id', width: 80, title: 'ID' },
       { title: t('title'), minWidth: 220, templet: function(d){ return '<code>' + escapeHtml(rowTitle(d)) + '</code>'; } },
       { title: t('status'), width: 100, templet: statusTemplate },
-      { field: 'summary', minWidth: 180, title: t('summary'), templet: function(d){ return escapeHtml(d.summary || '-'); } },
     ];
+    var listCols = state.listColumns;
+    if (!listCols || !listCols.length) {
+      cols.push({ field: 'summary', minWidth: 180, title: t('summary'), templet: function(d){ return escapeHtml(d.summary || '-'); } });
+    } else {
+      for (var i = 0; i < listCols.length; i++) {
+        if (listCols[i].field === 'title' || listCols[i].field === 'status') continue;
+        (function(cfg){
+          cols.push({ field: cfg.field, minWidth: 160, title: cfg.title, templet: function(d){ return payloadColText(d, cfg.field); } });
+        })(listCols[i]);
+      }
+    }
     if (state.hasCategory) cols.push({ field: 'categoryId', width: 150, title: '\u680f\u76ee', templet: function(d){ return escapeHtml(categoryTitle(d.categoryId)); } });
     if (state.hasTag) cols.push({ field: 'tagNamesText', minWidth: 140, title: '\u6807\u7b7e', templet: function(d){ return escapeHtml(d.tagNamesText || '-'); } });
     if (state.hasTopic) cols.push({ field: 'topicTitlesText', minWidth: 140, title: '\u4e13\u9898', templet: function(d){ return escapeHtml(d.topicTitlesText || '-'); } });
