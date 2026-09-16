@@ -148,6 +148,20 @@ try:
     r = json.loads(body)
     check('generate succeeds (phase 2 wired)', r.get('result') is True and r.get('data', {}).get('generated') is True, body[:200])
 
+    # ---- R3/R4 静态烘焙：生成物零运行时配置读取 ----
+    gen_main = (target / 'plugin/demo.article/generated/main.c').read_text(encoding='utf-8', errors='replace')
+    runtime_reads = ['Managed_AbilityPackConfigInt("', 'Managed_AbilityPackConfigBool("',
+                     'Managed_AbilityPackConfigTextDup("', 'Managed_SearchWeight("',
+                     'Managed_AbilityRoutePrefixDup("', 'Managed_SeoConfigText(tblConfig',
+                     'Managed_AbilityPackConfigArrayDup("']
+    leftover = [pat for pat in runtime_reads if pat in gen_main]
+    check('R3 baked: zero runtime config reads', not leftover, 'leftover=%s' % leftover)
+    check('R3 baked: constants present', '((int)' in gen_main and 'xrtStrDup("' in gen_main,
+          'baked const markers missing')
+    check('R4 baked: ui helpers static', '(void)tblSpec;' in gen_main.split('Managed_GetUiListPageSize')[1][:200],
+          'pageSize body not baked')
+    check('R3 helpers emitted', 'Managed_BakedSeoTemplateText(const char* sKey)' in gen_main, 'seo value table missing')
+
     # ---- 删除 ----
     st, _, body = smoke.request(PORT, 'POST', '/admin/content/delete', {'xid': 'demo.article'}, cookie=cookie)
     check('model deleted', json.loads(body).get('result') is True, body[:150])

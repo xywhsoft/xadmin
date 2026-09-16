@@ -251,6 +251,7 @@ static const char* G_BackgroundTaskSchemaSql =
 /* 策略烘焙（生成期由模型 policies 决定，运行时零动态判断） */
 {{CONTENT_POLICY_DEFINES}}
 static void Managed_ApplyCategorySeoTemplates(xvalue* tblRow);
+{{CONTENT_BAKED_CONFIG_HELPERS}}
 
 bool Managed_AbilityPackMounted(const char* sPackId);
 bool Managed_AbilityPackConfigBool(const char* sPackId, const char* sName, bool bDefault);
@@ -1460,27 +1461,12 @@ bool Managed_UiFormIsTwoColumn(xvalue* tblSpec)
 
 int Managed_GetUiListPageSize(xvalue* tblSpec, int iFallback)
 {
-	xvalue* tblList = Managed_GetUiListConfig(tblSpec);
-	xvalue* objValue = Managed_GetTableValue(tblList, "pageSize");
-	int iPageSize = (objValue && (xrtValueType(objValue) == XVALUE_INT)) ? (int)ValueIntOf(objValue) : iFallback;
-
-	if ( iPageSize < 1 ) iPageSize = iFallback;
-	if ( iPageSize < 1 ) iPageSize = 20;
-	if ( iPageSize > 200 ) iPageSize = 200;
-	return iPageSize;
+{{CONTENT_UI_PAGE_SIZE_BODY}}
 }
 
 int Managed_GetUiListMaxScanRows(xvalue* tblSpec, int iFallback)
 {
-	xvalue* tblList = Managed_GetUiListConfig(tblSpec);
-	xvalue* objValue = Managed_GetTableValue(tblList, "maxScanRows");
-	int iRows = (objValue && (xrtValueType(objValue) == XVALUE_INT)) ? (int)ValueIntOf(objValue) : iFallback;
-
-	if ( iRows < 1 ) iRows = iFallback;
-	if ( iRows < 1 ) iRows = 5000;
-	if ( iRows < 200 ) iRows = 200;
-	if ( iRows > 50000 ) iRows = 50000;
-	return iRows;
+{{CONTENT_UI_MAXSCAN_BODY}}
 }
 
 const char* Managed_NormalizeListSortField(const char* sField)
@@ -1500,30 +1486,12 @@ const char* Managed_NormalizeListSortField(const char* sField)
 
 const char* Managed_GetUiListSortField(xvalue* tblSpec)
 {
-	xvalue* tblList = Managed_GetUiListConfig(tblSpec);
-	xvalue* objSort = Managed_GetTableValue(tblList, "defaultSort");
-
-	if ( (objSort != NULL) && (xrtValueType(objSort) == XVALUE_ARRAY) && (ValueCount(objSort) >= 1) ) {
-		xvalue* objField = xrtValueArrayGet(objSort, 0);
-		if ( (objField != NULL) && (xrtValueType(objField) == XVALUE_STRING) ) {
-			return ValueTextOf(objField);
-		}
-	}
-	return NULL;
+{{CONTENT_UI_SORTFIELD_BODY}}
 }
 
 bool Managed_GetUiListSortAsc(xvalue* tblSpec)
 {
-	xvalue* tblList = Managed_GetUiListConfig(tblSpec);
-	xvalue* objSort = Managed_GetTableValue(tblList, "defaultSort");
-
-	if ( (objSort != NULL) && (xrtValueType(objSort) == XVALUE_ARRAY) && (ValueCount(objSort) >= 2) ) {
-		xvalue* objDir = xrtValueArrayGet(objSort, 1);
-		if ( (objDir != NULL) && (xrtValueType(objDir) == XVALUE_STRING) ) {
-			return strcmp(ValueTextOf(objDir), "asc") == 0;
-		}
-	}
-	return false;
+{{CONTENT_UI_SORTASC_BODY}}
 }
 
 str Managed_SelectListSql(xvalue* tblSpec, bool bAdmin, const char* sSortField, bool bAsc)
@@ -9399,6 +9367,79 @@ void Managed_StaticPrepareFieldHtml(xvalue* tblRender, xvalue* tblData, xvalue* 
 	if ( sRaw ) xrtFree(sRaw);
 }
 
+static str Managed_DisplayGroupEscapeHtml(const char* sText)
+{
+	xbuffer* buf = xrtBufferCreate();
+	str out;
+	const char* p = sText ? sText : "";
+	if ( !buf ) return xrtStrDup("");
+	for ( ; *p; p++ ) {
+		if ( *p == '&' ) xrtBufferAppend(buf, (xbytesview){(cbytes)"&amp;", 5});
+		else if ( *p == '<' ) xrtBufferAppend(buf, (xbytesview){(cbytes)"&lt;", 4});
+		else if ( *p == '>' ) xrtBufferAppend(buf, (xbytesview){(cbytes)"&gt;", 4});
+		else if ( *p == '"' ) xrtBufferAppend(buf, (xbytesview){(cbytes)"&quot;", 6});
+		else xrtBufferAppend(buf, (xbytesview){(cbytes)p, 1});
+	}
+	xrtBufferAppendByte(buf, 0);
+	out = buf->Data ? xrtStrDup((const char*)buf->Data) : xrtStrDup("");
+	xrtBufferDestroy(buf);
+	return out;
+}
+
+static void Managed_DGAppend(xbuffer* buf, const char* sText)
+{
+	xrtBufferAppend(buf, (xbytesview){(cbytes)sText, strlen(sText)});
+}
+
+static str Managed_BuildDisplayGroupsHtml(xvalue* tblData, const char* sGroupsJson)
+{
+	xvalue* arrGroups = (sGroupsJson && sGroupsJson[0] == '[') ? JsonParseN((str)sGroupsJson, strlen(sGroupsJson)) : NULL;
+	xbuffer* buf;
+	str out;
+	uint32 g, f;
+	if ( !arrGroups || xrtValueType(arrGroups) != XVALUE_ARRAY || ValueCount(arrGroups) == 0 ) {
+		if ( arrGroups ) xrtValueRelease(arrGroups);
+		return NULL;
+	}
+	buf = xrtBufferCreate();
+	if ( !buf ) { xrtValueRelease(arrGroups); return NULL; }
+	for ( g = 0; g < ValueCount(arrGroups); g++ ) {
+		xvalue* grp = xrtValueArrayGet(arrGroups, g);
+		xvalue* flds = grp ? ValueGet(grp, "fields") : NULL;
+		str title = grp ? ValueText(grp, "title") : NULL;
+		str escTitle = Managed_DisplayGroupEscapeHtml(title ? title : "");
+		Managed_DGAppend(buf, "<section class=\"field-group\"><h2>");
+		Managed_DGAppend(buf, escTitle);
+		Managed_DGAppend(buf, "</h2><dl>");
+		xrtFree(escTitle);
+		if ( flds && xrtValueType(flds) == XVALUE_ARRAY ) {
+			for ( f = 0; f < ValueCount(flds); f++ ) {
+				xvalue* one = xrtValueArrayGet(flds, f);
+				str name = one ? ValueText(one, "name") : NULL;
+				str ftitle = one ? ValueText(one, "title") : NULL;
+				xvalue* v = (name && tblData) ? ValueGet(tblData, name) : NULL;
+				char* vText = v ? Managed_ValueToTextDup(v) : NULL;
+				str escLabel = Managed_DisplayGroupEscapeHtml(ftitle ? ftitle : (name ? name : ""));
+				str escValue = Managed_DisplayGroupEscapeHtml(vText ? vText : "");
+				Managed_DGAppend(buf, "<dt>");
+				Managed_DGAppend(buf, escLabel);
+				Managed_DGAppend(buf, "</dt><dd>");
+				Managed_DGAppend(buf, escValue);
+				Managed_DGAppend(buf, "</dd>");
+				xrtFree(escLabel);
+				xrtFree(escValue);
+				if ( vText ) xrtFree(vText);
+			}
+		}
+		Managed_DGAppend(buf, "</dl></section>");
+	}
+	xrtBufferAppendByte(buf, 0);
+	out = buf->Data ? xrtStrDup((const char*)buf->Data) : xrtStrDup("");
+	xrtBufferDestroy(buf);
+	xrtValueRelease(arrGroups);
+	return out;
+}
+
 xvalue* Managed_StaticPrepareRenderData(xvalue* tblItem, xvalue* tblSpec)
 {
 	xvalue* tblRender = ValueObject();
@@ -9427,6 +9468,10 @@ xvalue* Managed_StaticPrepareRenderData(xvalue* tblItem, xvalue* tblSpec)
 		for ( uint32 i = 0; i < ValueCount(arrFields); i++ ) {
 			Managed_StaticPrepareFieldHtml(tblRender, tblData, xrtValueArrayGet(arrFields, i));
 		}
+	}
+	{
+		str sGroupsHtml = Managed_BuildDisplayGroupsHtml(tblData, {{CONTENT_DISPLAY_GROUPS_JSON}});
+		if ( sGroupsHtml ) ValueSetOwnedText(tblRender, "display_groups_html", sGroupsHtml);
 	}
 	return tblRender;
 }
@@ -14543,14 +14588,6 @@ str Managed_SearchBuildSnippet(const char* sText, const char* sQuery)
 		iStart = iLen - 240;
 	}
 	return Managed_CopyStrN(sText + iStart, 240);
-}
-
-int Managed_SearchWeight(const char* sName, int iDefault)
-{
-	int iWeight = Managed_AbilityPackConfigInt("content.search", sName, iDefault);
-	if ( iWeight < 0 ) iWeight = 0;
-	if ( iWeight > 1000 ) iWeight = 1000;
-	return iWeight;
 }
 
 int Managed_SearchTermCoverageCount(const char* sQuery, const char* sTitle, const char* sKeywords, const char* sSummary, const char* sBody)

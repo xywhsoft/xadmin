@@ -617,6 +617,476 @@ static int64 Content_ResolveRoleAuthLevel(const char* roleName)
 	return level;
 }
 
+/* ==================== R3/R4 烘焙：运行时配置读取 → 生成期常量 ====================
+ * 原则：配置好的模型编译为静态操作代码。spec.capabilities[].config 在生成期
+ * 解析为常量/专属调用，运行时不再装载 contracts.json 解释配置值。 */
+
+static xvalue* Content_FindCapabilityConfig(xvalue* spec, const char* sPackId)
+{
+	xvalue* caps = spec ? ValueGet(spec, "capabilities") : NULL;
+	uint32 i;
+	if (!caps || xrtValueType(caps) != XVALUE_ARRAY) return NULL;
+	for (i = 0; i < ValueCount(caps); i++) {
+		xvalue* cap = xrtValueArrayGet(caps, i);
+		str key = (cap && xrtValueType(cap) == XVALUE_OBJECT) ? ValueText(cap, "key") : NULL;
+		if (key && strcmp(key, sPackId) == 0 && Content_CapabilityEnabled(cap)) {
+			xvalue* cfg = ValueGet(cap, "config");
+			return (cfg && xrtValueType(cfg) == XVALUE_OBJECT) ? cfg : NULL;
+		}
+	}
+	return NULL;
+}
+
+static long long Content_BakeIntValue(xvalue* cfg, const char* sKey, long long iDef)
+{
+	xvalue* v = cfg ? ValueGet(cfg, sKey) : NULL;
+	if (!v) return iDef;
+	if (xrtValueType(v) == XVALUE_INT) return ValueIntOf(v);
+	if (xrtValueType(v) == XVALUE_STRING) {
+		str t = ValueTextOf(v);
+		return t ? atoll(t) : iDef;
+	}
+	if (xrtValueType(v) == XVALUE_BOOL) return ValueBoolOf(v) ? 1 : 0;
+	return iDef;
+}
+
+static bool Content_BakeBoolValue(xvalue* cfg, const char* sKey, bool bDef)
+{
+	xvalue* v = cfg ? ValueGet(cfg, sKey) : NULL;
+	if (!v) return bDef;
+	if (xrtValueType(v) == XVALUE_BOOL) return ValueBoolOf(v) ? true : false;
+	if (xrtValueType(v) == XVALUE_INT) return ValueIntOf(v) != 0;
+	if (xrtValueType(v) == XVALUE_STRING) {
+		str t = ValueTextOf(v);
+		return t && (strcmp(t, "true") == 0 || strcmp(t, "1") == 0 || strcmp(t, "on") == 0);
+	}
+	return bDef;
+}
+
+static str Content_BakeTextValueDup(xvalue* cfg, const char* sKey, const char* sDef)
+{
+	xvalue* v = cfg ? ValueGet(cfg, sKey) : NULL;
+	str t = NULL;
+	if (v && xrtValueType(v) == XVALUE_STRING) t = ValueTextOf(v);
+	return xrtStrDup(t ? t : (sDef ? sDef : ""));
+}
+
+/* 追加片段并保证 NUL 终止（xbuffer 无 NUL 约定） */
+static char* Content_BakeBufferToString(xbuffer* buf)
+{
+	str out;
+	if (!buf) return xrtStrDup("");
+	xrtBufferAppendByte(buf, 0);
+	out = buf->Data ? xrtStrDup((const char*)buf->Data) : xrtStrDup("");
+	xrtBufferDestroy(buf);
+	return out;
+}
+
+static void Content_BakeAppend(xbuffer* buf, const char* sText, size_t iLen)
+{
+	xrtBufferAppend(buf, (xbytesview){(cbytes)sText, iLen});
+}
+
+/* 读双引号字面量内容（起点为开引号后），返回结束引号位置 */
+static const char* Content_BakeReadQuoted(const char* p, char* out, size_t cap)
+{
+	size_t n = 0;
+	while (*p && *p != '"') {
+		if (n + 1 < cap) out[n++] = *p;
+		p++;
+	}
+	out[n] = 0;
+	return (*p == '"') ? p : NULL;
+}
+
+/* 形态 A：FN("PACK", "KEY", DEF)（DEF 为数字或 true/false）→ 常量表达式 */
+static char* Content_BakePassBare(char* text, xvalue* spec, const char* sFn, bool bIsBool, const char* sForcePack, int* pCount)
+{
+	xbuffer* out = xrtBufferCreate();
+	const char* p = text;
+	size_t nFn = strlen(sFn);
+	char sPack[96], sKey[96];
+	if (!out) return text;
+	while (*p) {
+		const char* hit = strstr(p, sFn);
+		char sRep[256];
+		const char* q;
+		if (!hit) { Content_BakeAppend(out, p, strlen(p)); break; }
+		Content_BakeAppend(out, p, (size_t)(hit - p));
+		q = hit + nFn;
+		if (q[0] != '"') {
+			Content_BakeAppend(out, sFn, nFn);
+			p = hit + nFn;
+			continue;
+		}
+		if (sForcePack) {
+			if (!(q = Content_BakeReadQuoted(q + 1, sKey, sizeof(sKey)))) {
+				Content_BakeAppend(out, sFn, nFn);
+				p = hit + nFn;
+				continue;
+			}
+		} else {
+			if (!(q = Content_BakeReadQuoted(q + 1, sPack, sizeof(sPack)))) {
+				Content_BakeAppend(out, sFn, nFn);
+				p = hit + nFn;
+				continue;
+			}
+			q++;
+			if (q[0] != ',' || q[1] != ' ' || q[2] != '"' || !(q = Content_BakeReadQuoted(q + 3, sKey, sizeof(sKey)))) {
+				Content_BakeAppend(out, sFn, nFn);
+				p = hit + nFn;
+				continue;
+			}
+		}
+		q++;
+		if (q[0] == ',' && q[1] == ' ') {
+			xvalue* cfg = Content_FindCapabilityConfig(spec, sForcePack ? sForcePack : sPack);
+			const char* d = q + 2;
+			const char* e = strchr(d, ')');
+			char sDef[64];
+			size_t n = e ? (size_t)(e - d) : 0;
+			if (e && n < sizeof(sDef)) {
+				memcpy(sDef, d, n); sDef[n] = 0;
+				if (bIsBool) {
+					bool bVal = Content_BakeBoolValue(cfg, sKey, strcmp(sDef, "true") == 0);
+					snprintf(sRep, sizeof(sRep), "(%s)", bVal ? "1" : "0");
+				} else {
+					long long iVal = Content_BakeIntValue(cfg, sKey, atoll(sDef));
+					/* SearchWeight 家族 0..1000 钳位（对齐被删助手的语义） */
+					if (sForcePack) {
+						if (iVal < 0) iVal = 0;
+						if (iVal > 1000) iVal = 1000;
+					}
+					snprintf(sRep, sizeof(sRep), "((int)%lld)", iVal);
+				}
+				Content_BakeAppend(out, sRep, strlen(sRep));
+				(*pCount)++;
+				p = e + 1;
+				continue;
+			}
+		}
+		Content_BakeAppend(out, sFn, nFn);
+		p = hit + nFn;
+	}
+	return Content_BakeBufferToString(out);
+}
+
+/* 形态 B：FN("PACK", "KEY", "DEF")（DEF 为字符串字面量）→ xrtStrDup("VALUE") */
+static char* Content_BakePassQuoted(char* text, xvalue* spec, const char* sFn, int* pCount)
+{
+	xbuffer* out = xrtBufferCreate();
+	const char* p = text;
+	size_t nFn = strlen(sFn);
+	char sPack[96], sKey[96], sDef[256];
+	if (!out) return text;
+	while (*p) {
+		const char* hit = strstr(p, sFn);
+		const char* q;
+		if (!hit) { Content_BakeAppend(out, p, strlen(p)); break; }
+		Content_BakeAppend(out, p, (size_t)(hit - p));
+		q = hit + nFn;
+		if (q[0] != '"' || !(q = Content_BakeReadQuoted(q + 1, sPack, sizeof(sPack)))) {
+			Content_BakeAppend(out, sFn, nFn); p = hit + nFn; continue;
+		}
+		q++;
+		if (q[0] != ',' || q[1] != ' ' || q[2] != '"' || !(q = Content_BakeReadQuoted(q + 3, sKey, sizeof(sKey)))) {
+			Content_BakeAppend(out, sFn, nFn); p = hit + nFn; continue;
+		}
+		q++;
+		if (q[0] == ',' && q[1] == ' ' && q[2] == '"' && (q = Content_BakeReadQuoted(q + 3, sDef, sizeof(sDef))) && q[1] == ')') {
+			xvalue* cfg = Content_FindCapabilityConfig(spec, sPack);
+			str sVal = Content_BakeTextValueDup(cfg, sKey, sDef);
+			str sEsc = Content_EscapeCString(sVal ? sVal : "");
+			xbuffer* rep = xrtBufferCreate();
+			if (rep) {
+				Content_BakeAppend(rep, "xrtStrDup(\"", 11);
+				Content_BakeAppend(rep, sEsc ? sEsc : "", sEsc ? strlen(sEsc) : 0);
+				Content_BakeAppend(rep, "\")", 2);
+			}
+			{
+				str sRepStr = Content_BakeBufferToString(rep);
+				Content_BakeAppend(out, sRepStr ? sRepStr : "xrtStrDup(\"\")", sRepStr ? strlen(sRepStr) : 13);
+				xrtFree(sRepStr);
+			}
+			xrtFree(sVal);
+			xrtFree(sEsc);
+			(*pCount)++;
+			p = q + 2;
+			continue;
+		}
+		Content_BakeAppend(out, sFn, nFn);
+		p = hit + nFn;
+	}
+	return Content_BakeBufferToString(out);
+}
+
+static void Content_BakeSanitizeIdent(const char* sIn, char* out, size_t cap)
+{
+	size_t n = 0;
+	for (; sIn && *sIn && n + 1 < cap; sIn++) {
+		char ch = *sIn;
+		bool bOk = ((ch >= 'a') && (ch <= 'z')) || ((ch >= 'A') && (ch <= 'Z')) || ((ch >= '0') && (ch <= '9')) || (ch == '_');
+		out[n++] = bOk ? ch : '_';
+	}
+	out[n] = 0;
+}
+
+/* SeoConfigText(tblConfig, "KEY") → Managed_BakedSeoTemplateText("KEY") */
+static char* Content_BakePassSeoLiteral(char* text, int* pCount)
+{
+	xbuffer* out = xrtBufferCreate();
+	const char* p = text;
+	const char* ND = "Managed_SeoConfigText(tblConfig, \"";
+	size_t nFn = strlen(ND);
+	char sKey[96];
+	if (!out) return text;
+	while (*p) {
+		const char* hit = strstr(p, ND);
+		const char* q;
+		char sRep[160];
+		if (!hit) { Content_BakeAppend(out, p, strlen(p)); break; }
+		Content_BakeAppend(out, p, (size_t)(hit - p));
+		q = hit + nFn;
+		if ((q = Content_BakeReadQuoted(q, sKey, sizeof(sKey))) && q[1] == ')') {
+			snprintf(sRep, sizeof(sRep), "Managed_BakedSeoTemplateText(\"%s\")", sKey);
+			Content_BakeAppend(out, sRep, strlen(sRep));
+			(*pCount)++;
+			p = q + 2;
+			continue;
+		}
+		Content_BakeAppend(out, "Managed_SeoConfigText(", 22);
+		p = hit + 22;
+	}
+	return Content_BakeBufferToString(out);
+}
+
+/* ArrayDup("PACK","KEY") → 烘焙数组辅助函数调用（辅助定义累积到 *psHelpers） */
+static char* Content_BakePassArray(char* text, xvalue* spec, str* psHelpers, int* pCount)
+{
+	xbuffer* out = xrtBufferCreate();
+	const char* p = text;
+	const char* ND = "Managed_AbilityPackConfigArrayDup(\"";
+	size_t nFn = strlen(ND);
+	if (!out) return text;
+	while (*p) {
+		const char* hit = strstr(p, ND);
+		const char* q;
+		char sPack[96], sKey[96];
+		if (!hit) { Content_BakeAppend(out, p, strlen(p)); break; }
+		Content_BakeAppend(out, p, (size_t)(hit - p));
+		q = hit + nFn;
+		if ((q = Content_BakeReadQuoted(q, sPack, sizeof(sPack))) && q[1] == ',' && q[2] == ' ' && q[3] == '"' && (q = Content_BakeReadQuoted(q + 4, sKey, sizeof(sKey))) && q[1] == ')') {
+			char sCleanPack[96], sCleanKey[96], sFnName[200], sNeedle[220];
+			Content_BakeSanitizeIdent(sPack, sCleanPack, sizeof(sCleanPack));
+			Content_BakeSanitizeIdent(sKey, sCleanKey, sizeof(sCleanKey));
+			snprintf(sFnName, sizeof(sFnName), "Managed_BakedConfigArray_%s_%s()", sCleanPack, sCleanKey);
+			snprintf(sNeedle, sizeof(sNeedle), "Managed_BakedConfigArray_%s_%s(void)", sCleanPack, sCleanKey);
+			if (!(*psHelpers) || !strstr(*psHelpers, sNeedle)) {
+				xvalue* cfg = Content_FindCapabilityConfig(spec, sPack);
+				xvalue* v = cfg ? ValueGet(cfg, sKey) : NULL;
+				str sDef = NULL;
+				if (v && xrtValueType(v) == XVALUE_ARRAY) {
+					char* sJson = Content_StringifyJson(v, false);
+					str sEsc = Content_EscapeCString(sJson ? sJson : "[]");
+					if (sEsc) sDef = xrtFormat("static xvalue* %s\n{\n\treturn JsonParseN((str)\"%s\", %d);\n}\n\n", sNeedle, sEsc, (int)strlen(sEsc));
+					xrtFree(sJson);
+					xrtFree(sEsc);
+				}
+				if (!sDef) sDef = xrtFormat("static xvalue* %s\n{\n\treturn NULL;\n}\n\n", sNeedle);
+				{
+					str sOld = *psHelpers;
+					*psHelpers = xrtFormat("%s%s", sOld ? sOld : "", sDef);
+					xrtFree(sOld);
+				}
+				xrtFree(sDef);
+			}
+			Content_BakeAppend(out, sFnName, strlen(sFnName));
+			(*pCount)++;
+			p = q + 2;
+			continue;
+		}
+		Content_BakeAppend(out, "Managed_AbilityPackConfigArrayDup(", 35);
+		p = hit + 35;
+	}
+	return Content_BakeBufferToString(out);
+}
+
+/* R3 总编排：全部配置读取烘焙为常量/烘焙调用，返回新文本与辅助函数代码 */
+static char* Content_BakeConfigReads(char* text, xvalue* spec, str* psHelpers, int* pCount)
+{
+	str sHelpers = NULL;
+	xvalue* seoCfg = Content_FindCapabilityConfig(spec, "content.seo");
+	char* t = text;
+	int i = 0;
+	int k;
+	static const char* SEO_KEYS[8] = {
+		"titleTemplate", "keywordsTemplate", "descriptionTemplate", "canonicalTemplate",
+		"categoryTitleTemplate", "categoryKeywordsTemplate", "categoryDescriptionTemplate", "categoryCanonicalTemplate"
+	};
+
+	/* SeoConfigText 动态形态（栏目模板函数内 sCfgKey） */
+	{
+		const char* ND = "Managed_SeoConfigText(tblConfig, sCfgKey)";
+		const char* hit = strstr(t, ND);
+		if (hit) {
+			xbuffer* out = xrtBufferCreate();
+			if (out) {
+				Content_BakeAppend(out, t, (size_t)(hit - t));
+				Content_BakeAppend(out, "Managed_BakedSeoTemplateText(sCfgKey)", 37);
+				Content_BakeAppend(out, hit + strlen(ND), strlen(hit + strlen(ND)));
+				xrtFree(t);
+				t = Content_BakeBufferToString(out);
+				i++;
+			}
+		}
+	}
+
+	t = Content_BakePassBare(t, spec, "Managed_AbilityPackConfigInt(", false, NULL, &i);
+	t = Content_BakePassBare(t, spec, "Managed_AbilityPackConfigBool(", true, NULL, &i);
+	t = Content_BakePassQuoted(t, spec, "Managed_AbilityPackConfigTextDup(", &i);
+	t = Content_BakePassBare(t, spec, "Managed_SearchWeight(", false, "content.search", &i);
+	t = Content_BakePassQuoted(t, spec, "Managed_AbilityRoutePrefixDup(", &i);
+	t = Content_BakePassSeoLiteral(t, &i);
+	t = Content_BakePassArray(t, spec, &sHelpers, &i);
+
+	/* SEO 模板值表（8 键全量烘焙；未配置=空串） */
+	{
+		str sHead = xrtFormat("%sstatic const char* Managed_BakedSeoTemplateText(const char* sKey)\n{\n\tif ( sKey == NULL ) return \"\";\n", sHelpers ? sHelpers : "");
+		xrtFree(sHelpers);
+		sHelpers = sHead;
+	}
+	for (k = 0; k < 8; k++) {
+		str sVal = Content_BakeTextValueDup(seoCfg, SEO_KEYS[k], "");
+		str sEsc = Content_EscapeCString(sVal ? sVal : "");
+		str line = xrtFormat("\tif ( strcmp(sKey, \"%s\") == 0 ) return \"%s\";\n", SEO_KEYS[k], sEsc ? sEsc : "");
+		str next = xrtFormat("%s%s", sHelpers ? sHelpers : "", line ? line : "");
+		xrtFree(sVal);
+		xrtFree(sEsc);
+		xrtFree(line);
+		xrtFree(sHelpers);
+		sHelpers = next;
+	}
+	{
+		str next = xrtFormat("%s\treturn \"\";\n}\n\n", sHelpers ? sHelpers : "");
+		xrtFree(sHelpers);
+		sHelpers = next;
+	}
+
+	*pCount = i;
+	if (psHelpers) *psHelpers = sHelpers;
+	else xrtFree(sHelpers);
+	return t;
+}
+
+/* R4：页面 tab 数值烘焙（defaultSort 此前从未进 managed spec=断链，本处一并接通） */
+static void Content_ApplyR3R4Baking(char** pTemplate, xvalue* spec)
+{
+	char* t = *pTemplate;
+	str sHelpers = NULL;
+	int iBaked = 0;
+	xvalue* pagesObj = spec ? ValueGet(spec, "pages") : NULL;
+	bool bHasPages = pagesObj && xrtValueType(pagesObj) == XVALUE_OBJECT;
+	long long pageSize = bHasPages ? ValueInt(pagesObj, "pageSize") : 0;
+	long long maxScan = bHasPages ? ValueInt(pagesObj, "maxScanRows") : 0;
+	str defaultSort = bHasPages ? ValueText(pagesObj, "defaultSort") : NULL;
+	char body[160];
+
+	t = Content_BakeConfigReads(t, spec, &sHelpers, &iBaked);
+	t = Content_TemplateSet(t, "{{CONTENT_BAKED_CONFIG_HELPERS}}", sHelpers ? sHelpers : "");
+	xrtFree(sHelpers);
+
+	if (pageSize >= 1) {
+		if (pageSize > 200) pageSize = 200;
+		snprintf(body, sizeof(body), "\t(void)tblSpec;\n\t(void)iFallback;\n\treturn %lld;", pageSize);
+	} else {
+		snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn (iFallback > 0) ? iFallback : 20;");
+	}
+	t = Content_TemplateSet(t, "{{CONTENT_UI_PAGE_SIZE_BODY}}", body);
+
+	if (maxScan >= 1) {
+		if (maxScan < 200) maxScan = 200;
+		if (maxScan > 50000) maxScan = 50000;
+		snprintf(body, sizeof(body), "\t(void)tblSpec;\n\t(void)iFallback;\n\treturn %lld;", maxScan);
+	} else {
+		snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn (iFallback > 0) ? iFallback : 5000;");
+	}
+	t = Content_TemplateSet(t, "{{CONTENT_UI_MAXSCAN_BODY}}", body);
+
+	{
+		str field = NULL;
+		bool bAsc = false;
+		bool bHas = false;
+		if (defaultSort && defaultSort[0]) {
+			str s = defaultSort;
+			size_t n = strlen(s);
+			if (n > 4 && strcmp(s + n - 4, "_asc") == 0) { bAsc = true; bHas = true; }
+			else if (n > 5 && strcmp(s + n - 5, "_desc") == 0) { bHas = true; }
+			else bHas = true;
+			if (strcmp(s, "id") == 0 || strcmp(s, "id_desc") == 0 || strcmp(s, "id_asc") == 0) field = "id";
+			else if (strcmp(s, "title") == 0 || strcmp(s, "title_desc") == 0 || strcmp(s, "title_asc") == 0) field = "title";
+			else if (strcmp(s, "status") == 0 || strcmp(s, "status_desc") == 0 || strcmp(s, "status_asc") == 0) field = "status";
+			else if (strcmp(s, "createTime") == 0 || strcmp(s, "createTime_desc") == 0 || strcmp(s, "createTime_asc") == 0) field = "create_time";
+			else if (strcmp(s, "updateTime") == 0 || strcmp(s, "updateTime_desc") == 0 || strcmp(s, "updateTime_asc") == 0
+				|| strcmp(s, "update_time_desc") == 0 || strcmp(s, "update_time_asc") == 0) field = "update_time";
+		}
+		if (bHas && field) snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn \"%s\";", field);
+		else snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn NULL;");
+		t = Content_TemplateSet(t, "{{CONTENT_UI_SORTFIELD_BODY}}", body);
+		snprintf(body, sizeof(body), "\t(void)tblSpec;\n\treturn %s;", bAsc ? "true" : "false");
+		t = Content_TemplateSet(t, "{{CONTENT_UI_SORTASC_BODY}}", body);
+	}
+
+	/* R6：displayGroups（含字段标题）烘焙为 C 字符串常量 */
+	{
+		xvalue* dgArr = bHasPages ? ValueGet(pagesObj, "displayGroups") : NULL;
+		bool bDg = dgArr && xrtValueType(dgArr) == XVALUE_ARRAY && ValueCount(dgArr) > 0;
+		char* sConst = NULL;
+		if (bDg) {
+			xvalue* out = ValueArray();
+			xvalue* fieldsAll = spec ? ValueGet(spec, "fields") : NULL;
+			uint32 g, f, m;
+			for (g = 0; g < ValueCount(dgArr); g++) {
+				xvalue* grp = xrtValueArrayGet(dgArr, g);
+				xvalue* names = grp ? ValueGet(grp, "fields") : NULL;
+				xvalue* one = ValueObject();
+				xvalue* flds = ValueArray();
+				str title = grp ? ValueText(grp, "title") : NULL;
+				ValueSetText(one, "title", title ? title : (str)"");
+				if (names && xrtValueType(names) == XVALUE_ARRAY) {
+					for (f = 0; f < ValueCount(names); f++) {
+						str name = ValueArrayText(names, f);
+						str ftitle = NULL;
+						xvalue* fo = ValueObject();
+						for (m = 0; fieldsAll && m < ValueCount(fieldsAll); m++) {
+							xvalue* fl = xrtValueArrayGet(fieldsAll, m);
+							str fn = fl ? ValueText(fl, "name") : NULL;
+							if (fn && name && strcmp(fn, name) == 0) { ftitle = ValueText(fl, "title"); break; }
+						}
+						ValueSetText(fo, "name", name ? name : (str)"");
+						ValueSetText(fo, "title", ftitle ? ftitle : (name ? name : (str)""));
+						ValueArrayOwn(flds, fo);
+					}
+				}
+				ValueSetOwn(one, "fields", flds);
+				ValueArrayOwn(out, one);
+			}
+			{
+				char* sJson = Content_StringifyJson(out, false);
+				str sEsc = Content_EscapeCString(sJson ? sJson : "[]");
+				sConst = xrtFormat("\"%s\"", sEsc ? sEsc : "[]");
+				xrtFree(sJson);
+				xrtFree(sEsc);
+			}
+			xrtValueRelease(out);
+		}
+		t = Content_TemplateSet(t, "{{CONTENT_DISPLAY_GROUPS_JSON}}", sConst ? sConst : "\"[]\"");
+		xrtFree(sConst);
+	}
+
+	printf("        [content-generator] R3/R4 baked %d runtime config reads\n", iBaked);
+	*pTemplate = t;
+}
+
 static char* Content_BuildManagedMainC(const char* pluginXid, const char* pluginTitle, const char* menuTitle, xvalue* spec)
 {
 	char* template = Content_LoadGeneratorTemplate("managed_main.c.tpl");
@@ -762,6 +1232,7 @@ static char* Content_BuildManagedMainC(const char* pluginXid, const char* plugin
 		xrtFree(sSaveGuards);
 		xrtFree(sFilterFn);
 	}
+	Content_ApplyR3R4Baking(&template, spec);
 	/* 菜单标题覆盖：pluginTitle 与 menuTitle 不同时改写根菜单标题行（v1 同） */
 	if (safeMenuTitle && pluginTitle && menuTitle && strcmp(pluginTitle, menuTitle) != 0) {
 		char* needle = xrtFormat("menu.title = \"%s\";", Content_TextOr(safePluginTitle, ""));

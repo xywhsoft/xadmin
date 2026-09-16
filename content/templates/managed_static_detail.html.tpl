@@ -11,6 +11,7 @@
       <h1>@@title@@</h1>
       <div class="meta">@@updateTimeText@@</div>
       <div class="summary">@@summary_html@@</div>
+      <div class="groups">@@display_groups_html@@</div>
       <div class="content-body">@@content_html@@</div>
     </article>
   </main>
