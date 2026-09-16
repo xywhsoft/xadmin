@@ -28,14 +28,14 @@
 |---|---|---|---|---|
 | R1 | **payload_json JSON 行存储** | 全部自定义字段存单列 JSON，每行每请求 parse/stringify | 字段→**类型化真实列**（schema.sql 按字段生成列+索引，SQL 直读直写）——用户点名的核心项 | 大（生成器数据层重写） |
 | R2 | **运行时字段解释** | Managed_LoadSpec + ValidateData/CoerceFieldValues/ExtractTitle/Slug 每请求解释 spec | 生成期烘焙：校验代码/标题提取 SQL 常量/列清单静态化 | 大（随 R1 一并） |
-| R3 | **162 个能力配置运行时读取** | Managed_AbilityPackConfig* 每次调用走 contracts.json 装载+查找 | 生成期烘焙为 `#define`/静态常量（变更配置=重新生成，符合"编译固化"语义；运行期调参场景可保留少数白名单键走配置） | 中（生成器+模板批量） |
-| R4 | 页面配置运行时读取 | pageSize/maxScanRows/defaultSort 从 spec 读 | 同上烘焙常量 | 小（随 R3） |
+| R3 | ~~162 个能力配置运行时读取~~ | **已完成（1688367）**：216 处烘焙（含 SEO 模板/搜索权重/路由前缀/数组配置），生成物运行时读取 grep 归零；配置变更=重生成 | ✅ |
+| R4 | ~~页面配置运行时读取~~ | **已完成（1688367）**：三值烘焙常量返回；defaultSort 断链（从未进 managed spec）一并接通 | ✅ |
 | R5 | 编辑器表单动态 schema | form-meta API 动态返回字段 schema 驱动编辑器 | 字段表单定义直接烘焙进生成的 editor 页 | 中 |
-| R6 | displayGroups 渲染消费 | 已透传 presentation.displayGroups，静态详情页未按分组渲染 | 静态化详情生成按分组输出段落 | 小 |
+| R6 | ~~displayGroups 渲染消费~~ | **已完成（1688367）**：分组结构+字段标题烘焙 JSON 常量，静态详情输出 display_groups_html 分组段落 | ✅ |
 | R7 | 已对齐项 | 路由注册/菜单/权限绑定/本轮策略与投影均已静态 | — | ✅ |
 
 ## 三、建议实施顺序
 
-R3+R4（低风险高确定性，收益立现）→ R6（小）→ R1+R2（大工程：数据层类型化，需迁移既有 payload 数据，建议单独排期+全链路门禁）→ R5。
+~~R3+R4~~ ✅ → ~~R6~~ ✅ → **R1+R2（下一步，大工程：payload_json 类型化列 + 运行时字段解释消除，需存量数据迁移+全链路门禁，建议单独排期）** → R5。
 
 每步验收标准：生成产物 grep 无对应运行时读取调用；e2e 断言生成代码包含烘焙常量；既有 phase1/fullchain/smoke/cms 门禁全绿。
