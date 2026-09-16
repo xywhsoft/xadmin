@@ -199,18 +199,21 @@ function newField() {
 	selectField(contentState.fields.length - 1);
 }
 
-function applyField() {
+function commitFieldForm() {
+	/* 表单→状态落表：无弹窗版（保存/预检/生成前兜底共用）。
+	 * 返回 {ok, message}；不 ok 时不动 contentState。 */
 	syncOptionText();
+	try {
 	var data = formData('content_field_form');
 	var componentType = data.type || 'text';
 	var storageType = data.storageType || defaultStorageType(componentType);
 	var componentProps = parseJsonField(data.componentPropsJson, {}, '组件属性 JSON 必须是合法对象');
 	var optionList = parseJsonField(data.listJson, null, '选项 JSON 必须是合法数组');
 	var defaultValue = data.defaultValue;
-	if (!data.name) { alert('字段名不能为空'); return; }
+	if (!data.name) { return {ok:false, message:'字段名不能为空'}; }
 	if (!data.title) data.title = data.name;
-	if (!componentProps || typeof componentProps !== 'object' || Array.isArray(componentProps)) { alert('组件属性 JSON 必须是对象'); return; }
-	if (optionList && !Array.isArray(optionList)) { alert('选项 JSON 必须是数组'); return; }
+	if (!componentProps || typeof componentProps !== 'object' || Array.isArray(componentProps)) { return {ok:false, message:'组件属性 JSON 必须是对象'}; }
+	if (optionList && !Array.isArray(optionList)) { return {ok:false, message:'选项 JSON 必须是数组'}; }
 	if (data.placeholder) componentProps.placeholder = data.placeholder;
 	if (data.uploadUrl) componentProps.uploadUrl = data.uploadUrl;
 	if (data.accept) componentProps.accept = data.accept;
@@ -254,6 +257,16 @@ function applyField() {
 	if (contentState.selectedField < 0) contentState.fields.push(field);
 	else contentState.fields[contentState.selectedField] = field;
 	renderFields();
+	return {ok:true, message:''};
+	} catch (err) {
+		/* parseJsonField 对非法 JSON alert 后 throw——实时输入的中间态不落表 */
+		return {ok:false, message:String(err && err.message || err)};
+	}
+}
+
+function applyField() {
+	var ret = commitFieldForm();
+	if (!ret.ok) alert(ret.message);
 }
 
 function deleteField() {

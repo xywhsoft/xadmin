@@ -58,6 +58,8 @@ function renderAdvisorItems(data, pluginXid) {
 }
 
 function runPreflightForSpec(spec) {
+	var fieldRet = commitFieldForm();
+	if (!fieldRet.ok) { alert('字段表单未生效：' + fieldRet.message); return {ok:false, message:fieldRet.message, data:null}; }
 	var pluginXid = spec.generatedPluginXid || spec.xid || '';
 	updateImpact();
 	return ContentApi.preflight(spec).then(function(ret) {
@@ -72,6 +74,8 @@ function runPreflightForSpec(spec) {
 }
 
 function saveModel() {
+	var fieldRet = commitFieldForm();
+	if (!fieldRet.ok) { alert('字段表单未生效：' + fieldRet.message); return; }
 	var spec = buildSpec();
 	if (!spec.xid) { alert('XID 不能为空'); return; }
 	if (!spec.title) { alert('标题不能为空'); return; }
