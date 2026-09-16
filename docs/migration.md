@@ -693,3 +693,17 @@ smoke 40 PASS + write_regression PASS。
 **门禁**：write_regression 新增 E1 块（8 组超限拒写+DB 快照不变、边界值放行、member PUT 超限拒写）；smoke 41 项全绿零警告。
 
 **移交**：xrt block 层换代泄漏 ~2-4MB/代（blockAlloc 3.5MB vs blockFree 1.65MB/代）→ xserver 仓跟进；登录失败锁定/管理写频控（循 R2 先例）列纵深防御建议。
+
+### 2026-09-16：内容系统编辑器前端资产补齐（17d7589）
+
+**现象**：模型管理-新建模型界面显示不正常，链路不可用。
+
+**根因**：编辑器页（v1 原样迁移的 page/content/editor.html）引用 `/content/css/editor.css` + 7 个 `/content/js/*.js`，但 `wwwroot/content/` 目录从未从 v1 迁移——全部 404，编辑器无 JS/CSS。页面本体（data/page/content/*.html）与 v3 后端路由契约（content-api.js 的 5 个端点）本就一致，缺的只有静态资产层。
+
+**修复**：v1 wwwroot/content 8 文件（1081 行）原样拷入；夹具（longtest）wwwroot 同步。
+
+**浏览器全链路验证**（18400 GUI 实测）：新建模型→表单→字段页签（默认 3 字段+新增 price）→保存修订×2→生成预检通过→生成插件（落盘 generated/main.c+spec.json+5 页面；编译启动 generation 1；DB discovered→enabled；后台菜单自动注册）→管理 CRUD（save/get/list/delete；自定义字段 price 端到端存活）→公开 JSON API（/api/plugin/<xid>/list|detail 无鉴权可读+草稿隔离）→列表回显。注意：插件启用触发换代会使会话失效需重登（已知语义）。
+
+**门禁**：phase1 25/fullchain 16/cms 13/revival 10/smoke 全绿；根库零污染。
+
+**架构备忘**：`/content/{id}.html` 公开 HTML 页非运行时路由（cms.article 同为 0）——公开面=JSON API+静态化产物（content.static 能力），非缺陷。
