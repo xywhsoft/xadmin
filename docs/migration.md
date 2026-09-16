@@ -729,3 +729,15 @@ smoke 40 PASS + write_regression PASS。
 **观感项（不修，记录）**：编辑器沿用 v1 原生 alert/confirm（预检警告 confirm 会阻塞）；tag 管理面无 admin 侧 list 路由（列表走公开 /api/plugin/<xid>/tag/list，admin 侧仅 save/delete/batch-status/stats/bind/unbind/merge/content-list）——均为 v1 模板既有设计。
 
 **门禁**：fullchain 16/16、smoke 42 全绿。
+
+### 2026-09-16：能力包属性配置 xform 化（33539b6）
+
+**需求**：编辑器能力页签改交互——左侧点击切换属性页、启用收敛到表单区开关、中间展示能力包配置的标准渲染表单。
+
+**标准属性接口**：`GET /admin/content/pack/form?packId=<id>` → 服务端用 Form_RenderTemplateBlockHTML 把 instanceForm 渲染为自包含 HTML（内联样式、27 种控件）+ ContentPack_FormDefaults 收集的默认值。后续商店配置预览/packs 详情"实例表单"tab/生成插件设置页可复用同端点。
+
+**前端**：editor-capability.js 重写——左侧切换选中（启用徽标）、layui 开关启用（.layui-form 容器内才渲染 switch；form.on(filter) 委派仅注册一次防叠加）、#cap_form_host 注入+客户端叠加当前值+按 name 收集（值形态与旧一致，buildSpec/生成器零改动）、未启用置灰、异步切页丢弃过期响应。手写 comment/seo 表单删除（定义本就全：comment 20 字段 vs 旧手写 2）。
+
+**顺带修复**：form.h 渲染产物 `xrtStrDup(buf->Data)` xbuffer 无 NUL 越界读堆——模板路径仅插 HTML 侥幸未炸，JSON 化端点使 stringify 静默失败返回空体；补 `xrtBufferAppendByte(buf, 0)` 后转 C 串。
+
+**门禁**：phase1 30/30（+5：端点渲染/默认值/未知包拒绝/能力配置往返）；fullchain 16/smoke 42/cms 13 全绿。GUI 实测修订 5 落盘 comment 20 键配置全量。
