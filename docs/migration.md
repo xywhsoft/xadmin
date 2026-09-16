@@ -769,3 +769,9 @@ R2 五解释器（defaults/nullable/coerce/validate/extract×3）改走编译期
 ### 2026-09-16：R1 读侧完成（315b597）
 
 32 处 content_item SELECT 追加 f_ 列；AppendRow/CreateItemFromStmt 改 Managed_AppendRowDataFromColumns（列读权威+payload 合并）；无能力模型编译期 MANAGED_PAYLOAD_PARSE_ENABLED=0 跳过 parse（零 JSON 解析/行）。**R1+R2 至此全部完成**，仅剩 R5（编辑器表单动态 schema 烘焙）。
+
+### 2026-09-16：R5 编辑器 schema 烘焙（c849eca）——R1-R6 整改全部完成
+
+Content_BuildFormSchemaJson 生成期构建 XForm schema（类型映射/分组/必填），烘焙 BAKED_FORM_SCHEMA JS 常量进 editor 页。loadMeta 优先用烘焙值消除运行时 spec 解释。
+
+**整改终态**：R1（payload→类型化列，读写零 JSON parse）+ R2（五解释器→常量字段表）+ R3（216 处配置读取→编译期常量）+ R4（页面配置+defaultSort 断链）+ R5（表单 schema→烘焙 JS）+ R6（displayGroups 分组渲染）——全部完成。生成插件=纯静态操作代码+烘焙常量，与手写插件等价。
