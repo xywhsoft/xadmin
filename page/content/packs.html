@@ -1,7 +1,11 @@
 <style>
 	.content-pack-page { padding: 16px; }
-	.content-pack-meta { color: #777; font-size: 12px; line-height: 1.7; }
-	.content-pack-title { font-weight: 600; line-height: 1.7; }
+	/* 名称列是标题+ID 两行结构：layui 表格单元格默认 28px 定高 + overflow hidden
+	 * 会把第二行（packId）底部裁掉——放开高度并加内边距，行随之变高 */
+	.content-pack-page .layui-table-cell { height: auto; padding: 10px 8px; white-space: normal; line-height: 1.7; }
+	.content-pack-title { font-weight: 600; line-height: 22px; }
+	.content-pack-meta { color: #777; font-size: 12px; line-height: 20px; }
+	.content-pack-meta code { white-space: nowrap; }
 	.content-pack-json { min-height: 320px; white-space: pre; font-family: Consolas, Menlo, monospace; font-size: 12px; }
 	.content-pack-detail .layui-tab-content { padding: 12px 0 0; }
 </style>
