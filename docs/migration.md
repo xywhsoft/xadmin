@@ -741,3 +741,15 @@ smoke 40 PASS + write_regression PASS。
 **顺带修复**：form.h 渲染产物 `xrtStrDup(buf->Data)` xbuffer 无 NUL 越界读堆——模板路径仅插 HTML 侥幸未炸，JSON 化端点使 stringify 静默失败返回空体；补 `xrtBufferAppendByte(buf, 0)` 后转 C 串。
 
 **门禁**：phase1 30/30（+5：端点渲染/默认值/未知包拒绝/能力配置往返）；fullchain 16/smoke 42/cms 13 全绿。GUI 实测修订 5 落盘 comment 20 键配置全量。
+
+### 2026-09-16：内容系统缺口补全——策略/页面 tab 静态烘焙（589be75）
+
+按用户原则（配置→生成期烘焙，运行时零动态判断）补全 12 死字段中的 11 项 + 潜伏缺陷修复。详见 docs/content-static-principle-audit.md（含 R1-R7 整改清单：payload_json 类型化列改造为最大项）。
+
+**关键事实**：v1 原生成器同样未实现这些字段（UI 收集、生成器忽略），属全新实现而非保真回归；fieldGroups 断链真因=生成器从未给字段分配 group 键。
+
+**烘焙机制**：生成器占位符（{{CONTENT_POLICY_DEFINES}}/{{CONTENT_DELETE_EXEC}}/{{CONTENT_SAVE_GUARDS}}/{{CONTENT_DETAIL_FILTER_FN}}/{{CONTENT_LIST_COLUMNS_JS}}）+ 角色名生成期主库解析。
+
+**潜伏缺陷 2 处（被本轮暴露）**：模板本地 xrtReplace 无 NUL 越界（SEO 模板特性自迁移起配置即坏）；栏目 detail/contents 数组元素悬垂（×2）。
+
+**工作坑**：生成插件调试需 disable→enable 重编译 generated/main.c（直接改生成物可快速二分）；bash heredoc python 仍吃反斜杠（printf 调试栽一次）。
