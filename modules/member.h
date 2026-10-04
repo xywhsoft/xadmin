@@ -15,13 +15,17 @@ void Member_Init()
 	
 	// member 表 - 分页获取所有前台用户数据
 	sqlite3_prepare_v3(db,
-		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime "
+		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime, phone_verified_at, email_verified_at, "
+		"EXISTS(SELECT 1 FROM member_security_question WHERE member_id=member.id), "
+		"EXISTS(SELECT 1 FROM member_security_recovery WHERE member_id=member.id AND closed_at=0 AND expires_at>unixepoch()) "
 		"FROM member WHERE isDelete = 0 ORDER BY id DESC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_all, NULL);
 	
 	// member 表 - 分页条件查询前台用户数据
 	sqlite3_prepare_v3(db,
-		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime "
+		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime, phone_verified_at, email_verified_at, "
+		"EXISTS(SELECT 1 FROM member_security_question WHERE member_id=member.id), "
+		"EXISTS(SELECT 1 FROM member_security_recovery WHERE member_id=member.id AND closed_at=0 AND expires_at>unixepoch()) "
 		"FROM member WHERE isDelete = 0 AND (username LIKE ? OR nickname LIKE ? OR email LIKE ?) ORDER BY id DESC LIMIT ? OFFSET ?",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_sel, NULL);
 
@@ -35,7 +39,9 @@ void Member_Init()
 	
 	// member 表 - 根据 ID 获取前台用户记录
 	sqlite3_prepare_v3(db,
-		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime "
+		"SELECT id, username, groupId, authLevel, balance, nickname, email, phone, avatar, status, createTime, updateTime, phone_verified_at, email_verified_at, "
+		"EXISTS(SELECT 1 FROM member_security_question WHERE member_id=member.id), "
+		"EXISTS(SELECT 1 FROM member_security_recovery WHERE member_id=member.id AND closed_at=0 AND expires_at>unixepoch()) "
 		"FROM member WHERE id = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_get, NULL);
 	

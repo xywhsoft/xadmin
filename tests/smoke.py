@@ -45,7 +45,7 @@ def verify_assets():
     print('PASS', len(entries), 'unchanged v1 UI/plugin assets')
 
 
-def fixture(port, protected=False, register_interval=0):
+def fixture(port, protected=False, register_interval=0, source_db=None):
     base = ROOT / 'tests/.runtime'
     base.mkdir(parents=True, exist_ok=True)
     target = Path(tempfile.mkdtemp(prefix='smoke-', dir=base))
@@ -77,7 +77,7 @@ def fixture(port, protected=False, register_interval=0):
     (target / 'db').mkdir()
     (target / 'temp').mkdir()
     (target / 'logs').mkdir()
-    with sqlite3.connect((ROOT / 'db/main.db').as_uri() + '?mode=ro', uri=True) as src:
+    with sqlite3.connect((source_db or ROOT / 'db/main.db').resolve().as_uri() + '?mode=ro', uri=True) as src:
         with sqlite3.connect(target / 'db/main.db') as dst:
             src.backup(dst)
             salt = 'migration-test-salt'

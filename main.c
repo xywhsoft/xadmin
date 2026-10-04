@@ -35,6 +35,7 @@ static void XA_SessionMaintenance(void);
 #include "src/identity/common.c"
 #include "src/identity/config.c"
 #include "src/storage/identity_auth.c"
+static bool XA_SecurityClose(int64 owner,const char* resolution,const char* admin,const char* reason);
 #include "src/identity/password.c"
 #include "src/identity/session.c"
 #include "modules/notify.h"
@@ -54,6 +55,7 @@ static void XA_SessionMaintenance(void);
 #include "modules/install.h"
 #include "src/identity/delivery.c"
 #include "src/identity/challenge.c"
+#include "src/identity/security_questions.c"
 #include "src/api/v1/challenge.c"
 #include "src/identity/oauth.c"
 #include "src/api/v1/oauth.c"
@@ -64,6 +66,7 @@ static bool G_SessionStarted, G_BusinessStarted; /* install.h 的向导流程与
 #include "route_http/member.h"
 #include "route_http/api.h"
 #include "src/api/v1/identity_admin.c"
+#include "src/api/v1/security_questions.c"
 #include "route_http/notify.h"
 #include "route_http/attachment.h"
 #include "route_http/attachment_api.h"
@@ -133,6 +136,9 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 	}
 	if (!XA_MigrateComponent("oauth",XA_OAuthSchema1) || !XA_Random(G_OAuthGeneration)) {
 		printf("[xadmin][error] OAuth storage initialization failed\n"); return false;
+	}
+	if (!XA_MigrateComponent("security",XA_SecuritySchema1)) {
+		printf("[xadmin][error] security question storage initialization failed\n"); return false;
 	}
 	G_SessionStarted = true;
 	if (!Session_Init()) { printf("[xadmin][error] business start: Session_Init failed\n"); return false; }

@@ -22,6 +22,7 @@
 <script type="text/html" id="Tool_Member_User">
 	<div class="layui-clear-space">
 		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
+        <a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="security">安全</a>
 		<a class="layui-btn layui-btn-xs layui-bg-cyan" lay-event="resetPwd">重置密码</a>
 		<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="balance">余额调整</a>
 		<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="delete">删除</a>
@@ -38,6 +39,9 @@
 		var $ = layui.$;
 		var memberGroupMap = {};
 
+        function securityBadge(verified, contact, success='已验证', absent='未绑定') {
+            return '<span class="layui-badge ' + (verified ? 'layui-bg-green' : 'layui-bg-gray') + '">' + (verified ? success : contact ? '未验证' : absent) + '</span>';
+        }
 		function getGroupName(groupId, groupName) {
 			if (groupName) {
 				return groupName;
@@ -93,8 +97,11 @@
 					{width:100, title: '权限级别', templet: '<span class="layui-badge layui-bg-orange">{{= d.authLevel }}</span>'},
 					{width:120, title: '余额(元)', templet: function(d){ return '<span class="layui-badge layui-bg-green">' + (d.balance / 100).toFixed(2) + '</span>'; }},
 					{width:100, title: '状态', templet: function(d){ return d.status == 1 ? '<span class="layui-badge layui-bg-green">正常</span>' : '<span class="layui-badge layui-bg-gray">禁用</span>'; }},
-					{field:'createTime', width:180, title: '注册时间'},
-					{width:260, title: '操作', templet: '#Tool_Member_User'},
+					{field:'phone_verified', width:110, title:'手机验证', templet: function(d){return securityBadge(d.phone_verified, d.phone);}},
+                    {field:'email_verified', width:110, title:'邮箱验证', templet: function(d){return securityBadge(d.email_verified, d.email);}},
+                    {field:'security_questions_configured', width:130, title:'安全问题', templet:function(d){return d.security_recovery_pending ? '<span class="layui-badge layui-bg-orange">待处理恢复</span>' : securityBadge(d.security_questions_configured, d.security_questions_configured ? 'set' : '', '已设置', '未设置');}},
+                    {field:'createTime', width:180, title: '注册时间'},
+					{width:320, title: '操作', templet: '#Tool_Member_User'},
 				]],
 				done: function(){},
 				error: function(res, msg){ console.log(res, msg); }
@@ -130,7 +137,10 @@
 		// 触发单元格工具事件
 		table.on('tool(Table_Member_User)', function(obj){
 			var data = obj.data;
-			if ( obj.event == 'edit' ) {
+			if (obj.event === 'security') {
+                layer.open({title:'用户安全与恢复',type:2,shadeClose:true,area:['min(850px, 94vw)','90vh'],content:'/admin/view/member/user/security?id='+data.id,
+                    end:function(){table.reloadData('Table_Member_User');}});
+            } else if ( obj.event == 'edit' ) {
 				layer.open({
 					title: '编辑用户',
 					type: 2,

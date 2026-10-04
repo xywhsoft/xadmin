@@ -136,7 +136,7 @@
     "source": "dev/v1/hosts/xadmin/data/page/member/user.html",
     "target": "page/member/user.html",
     "sha256": "daa590af12d61c21b403875c72b40834e3f349436395bf636dc61c2872b22890",
-    "target_sha256": "5611fc397647e2083fe71568b29fe75263b4e33249c5b5a0dee6834b9eb21f66"
+    "target_sha256": "294c81ff043781bf5a5611a475cf8090caca05b9d381e49f59569273d5aacfb4"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/model/add.html",
@@ -365,7 +365,7 @@
     "source": "dev/v1/hosts/xadmin/data/template/member/user_edit.html",
     "target": "template/member/user_edit.html",
     "sha256": "c7dea17fd5baff7c57f045c20639c0d09baead8f2b0b8be6157a73e91a6b62e7",
-    "target_sha256": "dc2db81f291355b40af526e4a58956001904099535b86a83eb2b3f39e42849b4"
+    "target_sha256": "74ee4842ac0e3fec7f9628424f73121e8bb2645fecae7ce29003c6288590104b"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/template/option/menu_edit.html",

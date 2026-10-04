@@ -3,6 +3,7 @@ static void XA_ProvidersAPI(XAdminRequest* req)
     xvalue* data=ValueObject();xvalue* providers=ValueArray();const char* names[]={"github","wechat"};int i;
     for(i=0;i<2;i++){XAProviderConfig* config=XA_Provider(names[i]);if(config->enabled){xvalue* item=ValueObject();ValueSetText(item,"id",names[i]);ValueSetText(item,"name",i?"微信":"GitHub");ValueArrayOwn(providers,item);}}
     ValueSetOwn(data,"providers",providers);ValueSetBool(data,"registration",G_Identity.registration);
+    ValueSetBool(data,"security_questions",G_Identity.security_questions);
     ValueSetBool(data,"phone_verification",XA_DeliveryAvailable("phone"));
     ValueSetBool(data,"email_verification",XA_DeliveryAvailable("email"));
     ValueSetText(data,"default_country_code",G_Identity.country);XA_Reply(req,200,"success",data,NULL);xrtValueRelease(data);

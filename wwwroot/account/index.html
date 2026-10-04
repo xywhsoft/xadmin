@@ -18,6 +18,7 @@
       <button data-tab="otp" hidden>验证码登录</button>
       <button data-tab="register" hidden>注册账户</button>
       <button data-tab="recover" hidden>找回密码</button>
+      <button data-tab="security-recover" hidden>安全问题恢复</button>
     </nav>
     <form id="login">
       <label>手机、邮箱或账号<input name="identifier" autocomplete="username" maxlength="254" required></label>
@@ -41,6 +42,12 @@
       <label>已验证的手机或邮箱<input name="target" autocomplete="username" maxlength="254" required></label>
       <button type="submit">发送找回验证码</button>
     </form>
+    <form id="security-recover" hidden>
+      <label>原账号、已验证手机或邮箱<input name="identifier" autocomplete="username" maxlength="254" required></label>
+      <div class="security-fields"></div>
+      <p class="hint">选择原先设置的三个问题并填写答案。资料核验通过后，管理员会进一步核实并处理；提交申请不会直接重置密码。请主动联系网站管理员。</p>
+      <button type="submit">提交恢复申请</button>
+    </form>
     <form id="auth-code" hidden>
       <label>验证码<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required></label>
       <label id="recovery-password" hidden>新密码<input name="newPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password"></label>
@@ -51,7 +58,7 @@
   <section id="member" hidden>
     <div class="grid">
       <article class="card">
-        <h2>个人资料</h2><p id="member-id" class="hint"></p>
+        <h2>个人资料</h2><p id="member-id" class="hint"></p><div id="security-summary" class="rows" aria-label="账户安全状态"></div>
         <form id="profile"><label>昵称<input name="nickname" maxlength="64" autocomplete="nickname"></label><label>头像地址<input name="avatar" maxlength="512" type="url"></label><button type="submit">保存资料</button></form>
       </article>
       <article class="card">
@@ -70,6 +77,12 @@
         <h2>确认当前身份</h2><p id="proof" class="hint"></p>
         <form id="reauth"><label>当前密码<input name="password" type="password" autocomplete="current-password" maxlength="128" required></label><button type="submit">确认身份</button></form>
         <div id="provider-reauth" class="actions"></div><p class="hint">第三方账户可使用已绑定的登录方式确认；也可退出后通过已验证联系方式重新登录。</p>
+      </article>
+      <article class="card" id="security-card">
+        <h2>安全问题</h2><p id="security-status" class="hint"></p>
+        <form id="security-questions"><div class="security-fields"></div><button type="submit">保存安全问题</button></form>
+        <button id="security-remove" type="button" class="secondary" hidden>移除安全问题</button>
+        <p class="hint">需先确认当前身份。填写三个不同答案，4–128 字节；不要使用生日、联系方式等公开资料。设置后不回显答案，其他设备将退出。安全问题仅用于管理员辅助恢复，不是登录方式。</p>
       </article>
       <article class="card"><h2>登录设备</h2><div id="session-list" class="rows"></div><button id="revoke-others" class="secondary">退出其他设备</button></article>
     </div>

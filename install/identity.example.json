@@ -21,5 +21,6 @@
     "client_secret": "",
     "callback": "https://www.example.com/api/v1/auth/oauth/wechat/callback",
     "mode": "website"
-  }
+  },
+  "security_questions": true
 }

@@ -91,6 +91,7 @@
       <div class="columns"><label>JWT issuer<input name="issuer" maxlength="256" required></label><label>JWT audience<input name="audience" maxlength="128" required></label></div>
       <label>默认国家区号<input name="default_country_code" placeholder="如 +86；留空则要求输入完整国际号码" maxlength="4"></label>
       <label><input name="registration" type="checkbox">允许本地账号注册</label>
+      <label><input name="security_questions" type="checkbox">启用安全问题辅助恢复（需要管理员独立核实）</label>
       <label><input name="oauth_create_member" type="checkbox">首次第三方登录允许创建会员</label>
       <label>允许使用 Bearer API 的跨域网站（每行一个完整 HTTPS origin）<textarea name="cors_origins" rows="3"></textarea></label>
       <p class="hint">最多 8 项，精确匹配。不会开放跨域 Cookie 登录。</p>
@@ -147,7 +148,7 @@
   async function load() {
     const data = await api('/admin/member/identity/config'); revision = data.revision; csrf = data.csrf_token;
     for (const name of ['issuer','audience','public_origin','default_country_code','sms_webhook_url']) field(name).value = data[name];
-    for (const name of ['registration','oauth_create_member']) field(name).checked = data[name];
+    for (const name of ['registration','oauth_create_member','security_questions']) field(name).checked = data[name];
     field('cors_origins').value = data.cors_origins.join('\n');
     for (const id of ['github','wechat']) {
       field(id + '_enabled').checked = data[id].enabled; field(id + '_id').value = data[id].client_id;
@@ -168,7 +169,7 @@
   form.addEventListener('submit', event => {event.preventDefault(); run(async () => {
     const config = {};
     for (const name of ['issuer','audience','public_origin','default_country_code','sms_webhook_url']) config[name] = field(name).value.trim();
-    for (const name of ['registration','oauth_create_member']) config[name] = field(name).checked;
+    for (const name of ['registration','oauth_create_member','security_questions']) config[name] = field(name).checked;
     config.cors_origins = field('cors_origins').value.split('\n').map(s => s.trim()).filter(Boolean);
     for (const id of ['github','wechat']) {
       config[id] = {enabled:field(id + '_enabled').checked,client_id:field(id + '_id').value.trim(),callback:field(id + '_callback').value};

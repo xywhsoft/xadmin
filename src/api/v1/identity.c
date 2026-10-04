@@ -55,13 +55,15 @@ static void XA_ProfileAPI(XAdminRequest* req,xvalue* session,xvalue* body)
 {
     int64 owner=ValueInt(session,"id");sqlite3_stmt* s;
     if(xsReqMethodID(req)==XHTTP_METHOD_GET){
-        s=XA_SQL("SELECT id,username,nickname,email,phone,avatar,phone_verified_at,email_verified_at,groupId,authLevel,balance,createTime FROM member WHERE id=? AND isDelete=0 AND status=1");
+        s=XA_SQL("SELECT id,username,nickname,email,phone,avatar,phone_verified_at,email_verified_at,groupId,authLevel,balance,createTime,EXISTS(SELECT 1 FROM member_security_question WHERE member_id=member.id) FROM member WHERE id=? AND isDelete=0 AND status=1");
         if(s)sqlite3_bind_int64(s,1,owner);
         xvalue* data=NULL;
         if(s&&sqlite3_step(s)==SQLITE_ROW){data=ValueObject();ValueSetInt(data,"id",sqlite3_column_int64(s,0));
             const char* fields[]={"username","nickname","email","phone","avatar"};int i;
             for(i=0;i<5;i++)ValueSetText(data,fields[i],(const char*)sqlite3_column_text(s,i+1));
             ValueSetBool(data,"phone_verified",sqlite3_column_int64(s,6)>0);ValueSetBool(data,"email_verified",sqlite3_column_int64(s,7)>0);
+            ValueSetInt(data,"phone_verified_at",sqlite3_column_int64(s,6));ValueSetInt(data,"email_verified_at",sqlite3_column_int64(s,7));
+            ValueSetBool(data,"security_questions_configured",sqlite3_column_int(s,12)>0);
             ValueSetInt(data,"groupId",sqlite3_column_int64(s,8));ValueSetInt(data,"authLevel",sqlite3_column_int64(s,9));
             ValueSetInt(data,"balance",sqlite3_column_int64(s,10));ValueSetInt(data,"createTime",sqlite3_column_int64(s,11));}
         sqlite3_finalize(s);XA_Reply(req,data?200:500,data?"success":"profile unavailable",data,NULL);xrtValueRelease(data);return;
@@ -141,7 +143,7 @@ static void XA_CredentialsAPI(XAdminRequest* req,xvalue* session,xvalue* body)
     XA_BindText(s,1,username);XA_BindText(s,2,record);
     if(s){sqlite3_bind_int64(s,3,xrtNow());sqlite3_bind_int64(s,4,account.id);}
     ok=XA_Done(s,true);int error=sqlite3_extended_errcode(G_DB);
-    if(ok)ok=XA_SessionRevokeAccount(account.id,ValueText(session,"sid"));
+    if(ok)ok=XA_SecurityClose(account.id,"credentials_changed",NULL,NULL)&&XA_SessionRevokeAccount(account.id,ValueText(session,"sid"));
     ok=XA_End(ok);xrtSecureZero(record,sizeof(record));xrtSecureZero(&account,sizeof(account));
     int status=ok?200:error==SQLITE_CONSTRAINT_UNIQUE?409:500;
     XA_Reply(req,status,ok?"account credentials updated":status==409?"account name is reserved":"identity service unavailable",NULL,NULL);

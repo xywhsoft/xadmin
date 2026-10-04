@@ -50,15 +50,20 @@
 			<label class="layui-form-label">邮箱</label>
 			<div class="layui-input-block">
 				<input type="email" readonly disabled value="{{$email}}" title="须由会员通过验证码流程绑定" autocomplete="off" class="layui-input">
+                <p class="layui-form-mid layui-word-aux">{{$emailVerification}}</p>
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">手机</label>
 			<div class="layui-input-block">
 				<input type="text" readonly disabled value="{{$phone}}" title="须由会员通过验证码流程绑定" autocomplete="off" class="layui-input">
+                <p class="layui-form-mid layui-word-aux">{{$phoneVerification}}</p>
 			</div>
 		</div>
 		<div class="layui-form-item">
+			<label class="layui-form-label">安全问题</label><div class="layui-input-block"><p class="layui-form-mid">{{$securityQuestions}}</p></div>
+        </div>
+        <div class="layui-form-item">
 			<label class="layui-form-label">状态</label>
 			<div class="layui-input-block">
 				<select name="status">

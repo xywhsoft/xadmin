@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer"><title>用户安全与恢复</title>
+  <link rel="stylesheet" href="/account/account.css">
+  <style>main{max-width:850px;padding:24px}h1{font-size:22px}.row{flex-wrap:wrap}input[type=checkbox]{display:inline-block;width:auto;margin-right:8px}.danger{color:#b53430}section{margin-bottom:20px}button{margin:4px 4px 4px 0}</style>
+</head>
+<body><main>
+  <header><h1 id="heading">用户安全与恢复</h1><button id="refresh" class="secondary" type="button">刷新</button></header>
+  <p id="flash" role="status" aria-live="polite" hidden></p>
+  <section class="card"><h2>安全状态</h2><div id="status" class="rows"></div>
+    <p class="hint">手机、邮箱的验证状态由验证码流程维护，管理员不能直接勾选为已验证。安全问题答案和哈希不会显示给管理员。</p>
+    <form id="clear"><label>清除原因<input name="reason" maxlength="256" required placeholder="说明核实情况及清除原因"></label><button id="clear-button" type="submit" class="secondary danger">清除安全问题并退出所有设备</button></form>
+  </section>
+  <section class="card"><h2>最近的恢复申请</h2><div id="requests" class="rows"></div>
+    <p class="hint">只有三道答案全部匹配才记录申请。安全问题不构成独立身份证明；管理员必须另行核实申请人身份。申请有效期 24 小时，更改密码或安全问题后失效。</p>
+    <form id="review" hidden>
+      <label>申请<select name="request_id" required></select></label>
+      <label>处理方式<select name="action"><option value="reject_recovery">拒绝申请</option><option value="reset_password">核实后重置密码</option></select></label>
+      <label id="password-label" hidden>新密码<input name="newPassword" type="password" autocomplete="new-password" minlength="8" maxlength="128"></label>
+      <label id="confirmed-label" hidden><input name="independently_verified" type="checkbox">我已通过安全问题以外的途径核实申请人身份</label>
+      <label>核实依据与处理原因<textarea name="reason" rows="3" maxlength="256" required placeholder="填写独立核实的依据，不要记录密码或密保答案"></textarea></label>
+      <button type="submit">确认处理</button>
+    </form>
+  </section>
+</main>
+<script>
+'use strict';
+(() => {
+  const $ = id => document.getElementById(id), member = Number(new URLSearchParams(location.search).get('id'));
+  let csrf = '', busy = false;
+  const errors={
+    'CSRF verification failed':'页面凭据已变化，请刷新后重试。',
+    'member not found':'用户不存在。',
+    'security questions unavailable':'安全服务暂时不可用。',
+    'member, action and a review reason are required':'请填写有效的处理原因（至少 4 字节）。',
+    'independent identity verification and a new password are required':'请完成独立核实确认，并输入 8–128 字节的新密码。',
+    'disabled member cannot be recovered':'不能恢复已禁用的用户。',
+    'account changed; retry':'账号已变化，请刷新后重试。',
+    'administrator session expired':'后台会话已失效，请重新登录。',
+    'request expired, changed or update failed':'申请已过期、已处理或发生变更，或更新未成功。请刷新检查。'
+  };
+  function flash(text, error=false){$('flash').hidden=false;$('flash').textContent=text;$('flash').classList.toggle('error',error);}
+  const time = value => new Date(value*1000).toLocaleString();
+  const verifiedTime = value => new Date(value/1000).toLocaleString();
+  async function api(method='GET',body){
+    const response=await fetch('/admin/member/user/security?id='+member,{method,credentials:'same-origin',
+      headers:{Accept:'application/json',...(body?{'Content-Type':'application/json','X-CSRF-Token':csrf}:{})},
+      ...(body?{body:JSON.stringify(body)}:{})});
+    const result=await response.json();if(!response.ok||result.code!==0)throw new Error(errors[result.msg]||result.msg||'请求失败');return result.data;
+  }
+  function row(title,description){
+    const node=document.createElement('div');node.className='row';
+    const text=document.createElement('div'),heading=document.createElement('strong'),detail=document.createElement('p');
+    heading.textContent=title;detail.className='hint';detail.textContent=description;text.append(heading,detail);node.append(text);return node;
+  }
+  async function refresh(){
+    if(!Number.isSafeInteger(member)||member<=0)throw new Error('用户 ID 无效');
+    const data=await api();csrf=data.csrf_token;$('heading').textContent='用户安全 · '+(data.username||'#'+member);
+    $('status').replaceChildren();
+    for(const channel of ['phone','email'])$('status').append(row(channel==='phone'?'手机':'邮箱',
+      data[channel] ? data[channel]+' · '+(data[channel+'_verified']?'已验证（'+verifiedTime(data[channel+'_verified_at'])+'）':'未验证') : '未绑定'));
+    $('status').append(row('安全问题',data.security_questions_configured?'已设置 · '+time(data.security_questions_updated_at):'未设置'));
+    data.questions.forEach((question,i)=>$('status').append(row('问题 '+(i+1),question)));
+    $('clear').hidden=!data.security_questions_configured;
+    $('requests').replaceChildren();$('review').elements.request_id.replaceChildren();
+    const resolutions={password_reset:'已重置密码',rejected:'已拒绝',questions_changed:'密保已变更',admin_cleared:'管理员已清除',credentials_changed:'凭据已变更',account_changed:'账号状态或权限已变更',superseded:'被新申请替代'};
+    for(const item of data.requests){
+      const active=!item.closed_at&&item.expires_at>Date.now()/1000;
+      const status=active?'待处理':item.closed_at?(resolutions[item.resolution]||'已关闭'):'已过期';
+      $('requests').append(row(time(item.created_at)+' · '+status,(item.reason||'')+(item.admin_user?' · 处理人：'+item.admin_user:'')));
+      if(active){const option=document.createElement('option');option.value=item.id;option.textContent=time(item.created_at);$('review').elements.request_id.append(option);}
+    }
+    if(!data.requests.length)$('requests').append(row('暂无申请','用户可从账户页面提交安全问题恢复申请。'));
+    $('review').hidden=!$('review').elements.request_id.options.length;
+  }
+  function run(action){
+    if(busy)return;busy=true;document.querySelectorAll('button').forEach(node=>node.disabled=true);
+    Promise.resolve().then(action).catch(error=>flash(error.message,true)).finally(()=>{busy=false;document.querySelectorAll('button').forEach(node=>node.disabled=false);});
+  }
+  $('refresh').addEventListener('click',()=>run(refresh));
+  $('clear').addEventListener('submit',event=>{event.preventDefault();const reason=new FormData(event.target).get('reason');run(async()=>{
+    if(!confirm('清除安全问题会关闭恢复申请，并退出该用户所有设备。继续吗？'))return;
+    await api('POST',{member_id:member,action:'clear_questions',reason});$('clear').reset();await refresh();flash('安全问题已清除，所有设备已退出。');
+  });});
+  $('review').elements.action.addEventListener('change',()=>{
+    const reset=$('review').elements.action.value==='reset_password';
+    $('password-label').hidden=$('confirmed-label').hidden=!reset;
+    $('review').elements.newPassword.required=$('review').elements.independently_verified.required=reset;
+  });
+  $('review').addEventListener('submit',event=>{event.preventDefault();const fields=Object.fromEntries(new FormData(event.target));run(async()=>{
+    const reset=fields.action==='reset_password';
+    if(reset&&!confirm('已完成独立身份核实？重置后将退出该用户全部设备。'))return;
+    await api('POST',{member_id:member,action:fields.action,request_id:fields.request_id,reason:fields.reason,
+      ...(reset?{newPassword:fields.newPassword,independently_verified:fields.independently_verified==='on'}:{})});
+    $('review').elements.newPassword.value='';$('review').elements.independently_verified.checked=false;
+    await refresh();flash(reset?'密码已重置，用户需要重新登录。':'申请已拒绝。');
+  });});
+  run(refresh);
+})();
+</script></body></html>

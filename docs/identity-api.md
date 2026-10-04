@@ -4,6 +4,8 @@
 
 用户页面为 `/account/index.html`。后台“前台用户”工具栏新增“账户与登录设置”，也可通过 `/admin/view/member/identity` 打开。未完整配置的第三方登录及验证码入口隐藏。原生 HTML/CSS/JS，无需 Node/npm 或前端编译。
 
+用户资料与后台用户列表提供只读 `phone_verified`、`email_verified`、相应 `*_verified_at` 和 `security_questions_configured`。未绑定、已填写但未验证、已验证分开显示；验证状态始终以验证码流程为准，不能通过普通资料或后台用户编辑设置。后台列表的 `security_recovery_pending` 表示有未过期的密保恢复申请，每行“安全”打开详情。
+
 ## 启用和配置
 
 使用仓库内更新后的 `xs.exe` 和 `xs.json` 启动；Linux 需相应扩展的 xs。运行时来源见 `tools/xs-runtime.lock.json`，SDK 来源见 xserver 的 `lib/xrt_sources.lock.json`。必需扩展为 sqlite、xjwt、xoauth2、xsmtp、md4c。
@@ -42,7 +44,7 @@ GitHub 注册自己的 OAuth App，callback 固定 `public_origin + /api/v1/auth
 
 正文 `application/json` 对象，最大 8192 字节、深度 4，拒绝重复键/NUL/越界字符串。成功 `{code:0,msg,data}`；错误使用实际 HTTP 状态及 `{code:状态,msg,data:null}`。400 参数，401 未认证，403 禁止/近期证明不足，404 不存在，409 唯一性/版本冲突，429 限流，500 本地故障，502 送达/第三方故障，503 未配置。
 
-身份响应禁止缓存。余额、通知、附件等既有业务继续原契约和权限。会员资料 `createTime` 沿用 Unix 微秒；新会话/授权 `*_at` 为 Unix 秒，`expires_in` 为秒。
+身份响应禁止缓存。余额、通知、附件等既有业务继续原契约和权限。会员资料 `createTime`、`phone_verified_at`、`email_verified_at` 沿用 Unix 微秒；新会话/授权/密保 `*_at` 为 Unix 秒，`expires_in` 为秒。
 
 ### 密码、资料与会话
 
@@ -146,3 +148,42 @@ Linux 对各测试传 `--exe /path/to/xs`。测试各自使用 `tests/.runtime` 
 部署前整体备份数据库、私有配置和匹配源码。首次维护窗口需整体回退时先停服务，恢复该窗口主库及旧代码；不要拿旧备份覆盖已产生新业务数据的线上库，也不要用旧会员客户端写入已升级密码。阶段备份用于诊断/恢复，不是自动线上回退。
 
 当前 Win/Linux 隔离功能验收通过。**真实 GitHub/微信授权和真实 SMTP/短信未验证**，需要网站自己的应用注册与送达凭据后验证授权/取消/换绑/恢复。未配置时保持相关入口关闭，不影响本地账号密码及既有后台业务。
+
+
+## 安全问题与管理员辅助恢复
+
+`security_questions` 为站点级布尔配置，默认 `true`，可在“账户与登录设置”关闭；保存后重载生效。关闭不删除现有密保，用户仍可查看和移除，管理员仍可处理此前有效的申请。
+
+安全问题不是登录凭据，不授予近期身份证明，不能单独重置密码。它只帮助管理员筛选恢复申请；重置之前必须通过其他途径独立核实申请人身份。[OWASP 说明了安全问题的局限](https://cheatsheetseries.owasp.org/cheatsheets/Choosing_and_Using_Security_Questions_Cheat_Sheet.html)。没有经过核实的申请应拒绝，而不是仅凭答案正确放行。
+
+| API | 行为 |
+| --- | --- |
+| `GET /api/v1/auth/security-questions` | 公共问题目录 `{id,text}[]`，不泄露指定账号的问题 |
+| `GET /api/v1/profile/security-questions` | 当前会员的 `configured`、`questions`（ID 数组）、`updated_at`、`recovery_mode:"administrator_review"` |
+| `PUT /api/v1/profile/security-questions` | `question1/answer1` 至 `question3/answer3`，需要近期身份证明及会员 CSRF |
+| `DELETE /api/v1/profile/security-questions` | 空对象 `{}`，需要近期证明；删除密保，关闭恢复申请并撤销其他设备 |
+| `POST /api/v1/auth/security-questions/recover` | `identifier` 与上述三组问题答案；符合语法的请求统一返回 202，无令牌、无 Cookie、无答案对错提示 |
+| `GET /admin/member/user/security?id=会员ID` | 验证状态、问题文本（无答案或哈希）、最近 20 条恢复申请及后台 CSRF |
+| `POST /admin/member/user/security` | 下述管理员操作，沿用后台权限与同源 CSRF |
+
+问题只能选固定目录中的三个不同 ID，答案经去除首尾 ASCII 空白和 ASCII 大小写折叠后须为不同的 4–128 UTF-8 字节字符串；控制字符、NUL 无效，非 ASCII 内容不自动折叠。恢复时按问题 ID 匹配，不要求保持设置顺序。各答案分别使用 PBKDF2-SHA256 600000 次、独立随机盐；设置后不回显，不让管理员读取。建议使用不公开、不与其他网站重复的答案，不能把安全问题当作多因素认证。
+
+设置或移除密保会撤销其他设备；管理员清除密保会退出所有设备。更新密码/账号凭据或密保会使未处理的恢复申请失效。匿名恢复按 IP 每小时 20 次、标识每小时 5 次限流，不提供按账号查询结果的接口；只有三个答案均匹配且账号有效才登记申请。申请有效期 24 小时，重复成功提交关闭旧申请，最多保留 10000 条记录，新申请时清理过期超过 7 天的记录。用户需主动联系站点管理员，本功能不自动发送短信/邮件。
+
+管理员操作正文包含整数 `member_id`、`action` 和 4–256 字节 `reason`：
+
+- `clear_questions`：清除密保、关闭申请、撤销会员全部会话。
+- `reject_recovery`：还需 `request_id`，拒绝有效申请。
+- `reset_password`：还需 `request_id`、8–128 字节 `newPassword`、严格布尔 `independently_verified:true`；管理员确认独立核实后重置，不允许恢复禁用/删除账号。
+
+申请消费、密码写入、会话撤销和处理记录在同一事务中，失败全部回滚。已处理、过期或版本变更的申请返回 409，不可重放。`member_security_review` 记录处理人、会员、申请、动作、原因和时间，不存答案或密码；既有路由日志屏蔽敏感正文。该记录用于说明管理员做了什么，不替代站点的人工核实流程。
+
+新增 `security` 迁移组件在首次启动前生成 `db/identity-before-security-v1.db`。回退旧代码之前应停止服务并恢复该备份；不要在运行中的数据库上手动删除安全表。功能回归使用隔离库（Windows 和 Linux 均验证通过）：
+
+```powershell
+python tests/identity_security_e2e.py --port 19261
+```
+
+此回归覆盖状态字段、输入限制、近期证明、CSRF/RBAC、答案非明文、乱序问题匹配、匿名响应与限流、事务故障回滚、申请过期/失效/重放、会话和 JWT 撤销、站点关闭及迁移重启。只运行功能测试，不运行压力或高负载测试。
+
+Windows 正在打开主库时，WSL 不应直接对其使用 SQLite backup；先由 Windows 的 SQLite 生成一致性副本，再向本回归传入 `--source-db /mnt/d/.../副本.db`。测试副本与服务数据分开，不能拿原始文件复制替代活动 WAL 数据库的一致性备份。

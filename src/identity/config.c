@@ -7,7 +7,7 @@ typedef struct XAProviderConfig {
 } XAProviderConfig;
 typedef struct XAIdentityConfig {
     char issuer[257], audience[129], origin[513], country[5];
-    bool registration, oauth_create, secure_cookie;
+    bool registration, oauth_create, secure_cookie, security_questions;
     char sms_url[1025], sms_token[513];
     XAProviderConfig github, wechat;
     char cors[8][513];
@@ -66,13 +66,13 @@ static bool XA_ConfigOrigin(const char* origin)
 static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
 {
     const char* const names[] = {"issuer", "audience", "public_origin", "default_country_code",
-        "registration", "oauth_create_member", "sms_webhook_url", "sms_webhook_token",
+        "registration", "oauth_create_member", "security_questions", "sms_webhook_url", "sms_webhook_token",
         "github", "wechat", "cors_origins"};
     memset(out, 0, sizeof(*out));
     strcpy(out->issuer, "xadmin:member"); strcpy(out->audience, "member");
-    out->registration = out->oauth_create = true;
+    out->registration = out->oauth_create = out->security_questions = true;
     if (!v) { strcpy(out->github.mode, "website"); strcpy(out->wechat.mode, "website"); return true; }
-    if (xrtValueType(v) != XVALUE_OBJECT || !XA_ConfigFields(v, names, 11) ||
+    if (xrtValueType(v) != XVALUE_OBJECT || !XA_ConfigFields(v, names, sizeof(names)/sizeof(names[0])) ||
         !XA_ConfigString(v, "issuer", out->issuer, sizeof(out->issuer)) ||
         !XA_ConfigString(v, "audience", out->audience, sizeof(out->audience)) ||
         !XA_ConfigString(v, "public_origin", out->origin, sizeof(out->origin)) ||
@@ -81,6 +81,7 @@ static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
         !XA_ConfigString(v, "sms_webhook_token", out->sms_token, sizeof(out->sms_token)) ||
         !XA_ConfigBool(v, "registration", &out->registration) ||
         !XA_ConfigBool(v, "oauth_create_member", &out->oauth_create) ||
+        !XA_ConfigBool(v, "security_questions", &out->security_questions) ||
         !XA_ConfigProvider(ValueGet(v, "github"), &out->github) ||
         !XA_ConfigProvider(ValueGet(v, "wechat"), &out->wechat)) return false;
     if (!out->issuer[0] || !out->audience[0] || (out->origin[0] && !XA_ConfigOrigin(out->origin))) return false;
@@ -134,7 +135,7 @@ static xvalue* XA_ConfigValue(const XAIdentityConfig* c, bool redacted)
     xvalue* v = ValueObject(); size_t i; const char* ids[] = {"github", "wechat"};
     if (!v || !ValueSetText(v, "issuer", c->issuer) || !ValueSetText(v, "audience", c->audience) ||
         !ValueSetText(v, "public_origin", c->origin) || !ValueSetText(v, "default_country_code", c->country) ||
-        !ValueSetBool(v, "registration", c->registration) || !ValueSetBool(v, "oauth_create_member", c->oauth_create) ||
+        !ValueSetBool(v, "security_questions", c->security_questions) || !ValueSetBool(v, "registration", c->registration) || !ValueSetBool(v, "oauth_create_member", c->oauth_create) ||
         !ValueSetText(v, "sms_webhook_url", c->sms_url)) goto failed;
     if (redacted) { if (!ValueSetBool(v, "sms_token_configured", c->sms_token[0] != 0)) goto failed; }
     else if (!ValueSetText(v, "sms_webhook_token", c->sms_token)) goto failed;

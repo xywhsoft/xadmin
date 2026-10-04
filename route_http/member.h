@@ -53,6 +53,9 @@ void Request_View_Member_User_Edit(XS_ServerObject objServer, XS_HostObject objH
 			ValueSetText(tblInfo, "email", (str)sqlite3_column_text(stmt_member_get, 6));
 			ValueSetText(tblInfo, "phone", (str)sqlite3_column_text(stmt_member_get, 7));
 			ValueSetInt(tblInfo, "status", sqlite3_column_int64(stmt_member_get, 9));
+			ValueSetText(tblInfo,"phoneVerification",sqlite3_column_int64(stmt_member_get,12)>0?"已验证":sqlite3_column_bytes(stmt_member_get,7)>0?"未验证":"未绑定");
+			ValueSetText(tblInfo,"emailVerification",sqlite3_column_int64(stmt_member_get,13)>0?"已验证":sqlite3_column_bytes(stmt_member_get,6)>0?"未验证":"未绑定");
+			ValueSetText(tblInfo,"securityQuestions",sqlite3_column_int(stmt_member_get,14)>0?"已设置":"未设置");
 		}
 		sqlite3_reset(stmt_member_get);
 		if ( !bRow ) {
@@ -140,6 +143,14 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 				ValueSetInt(tblRow, "balance", sqlite3_column_int64(stmt_member_sel, 4));
 				ValueSetText(tblRow, "nickname", (str)sqlite3_column_text(stmt_member_sel, 5));
 				ValueSetInt(tblRow, "status", sqlite3_column_int64(stmt_member_sel, 9));
+				ValueSetText(tblRow,"phone",(str)sqlite3_column_text(stmt_member_sel,7));
+				ValueSetText(tblRow,"email",(str)sqlite3_column_text(stmt_member_sel,6));
+				ValueSetBool(tblRow,"phone_verified",sqlite3_column_int64(stmt_member_sel,12)>0);
+				ValueSetBool(tblRow,"email_verified",sqlite3_column_int64(stmt_member_sel,13)>0);
+				ValueSetInt(tblRow,"phone_verified_at",sqlite3_column_int64(stmt_member_sel,12));
+				ValueSetInt(tblRow,"email_verified_at",sqlite3_column_int64(stmt_member_sel,13));
+				ValueSetBool(tblRow,"security_questions_configured",sqlite3_column_int(stmt_member_sel,14)>0);
+				ValueSetBool(tblRow,"security_recovery_pending",sqlite3_column_int(stmt_member_sel,15)>0);
 				xtime iTime = sqlite3_column_int64(stmt_member_sel, 10);
 				ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 				ValueArrayOwn(data, tblRow);
@@ -160,6 +171,14 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			ValueSetInt(tblRow, "balance", sqlite3_column_int64(stmt_member_all, 4));
 			ValueSetText(tblRow, "nickname", (str)sqlite3_column_text(stmt_member_all, 5));
 			ValueSetInt(tblRow, "status", sqlite3_column_int64(stmt_member_all, 9));
+			ValueSetText(tblRow,"phone",(str)sqlite3_column_text(stmt_member_all,7));
+			ValueSetText(tblRow,"email",(str)sqlite3_column_text(stmt_member_all,6));
+			ValueSetBool(tblRow,"phone_verified",sqlite3_column_int64(stmt_member_all,12)>0);
+			ValueSetBool(tblRow,"email_verified",sqlite3_column_int64(stmt_member_all,13)>0);
+			ValueSetInt(tblRow,"phone_verified_at",sqlite3_column_int64(stmt_member_all,12));
+			ValueSetInt(tblRow,"email_verified_at",sqlite3_column_int64(stmt_member_all,13));
+			ValueSetBool(tblRow,"security_questions_configured",sqlite3_column_int(stmt_member_all,14)>0);
+			ValueSetBool(tblRow,"security_recovery_pending",sqlite3_column_int(stmt_member_all,15)>0);
 			xtime iTime = sqlite3_column_int64(stmt_member_all, 10);
 			ValueSetOwnedText(tblRow, "createTime", TimeText(iTime, TIME_TEXT_DATETIME));
 			ValueArrayOwn(data, tblRow);
@@ -187,7 +206,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		str password = ValueText(tblForm, "password");
 		xstrview account = {0}; char accountKey[65];
 		if (!xrtValueGetString(ValueGet(tblForm,"username"), &account) || !XA_AccountKey(account.Data, account.Size, accountKey)) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"账号格式无效，须含字母，3至64个ASCII字母、数字、点、下划线或连字符\"}",0); xrtValueRelease(tblForm); return; }
-		if (ValueHas(tblForm,"email") || ValueHas(tblForm,"phone") || ValueHas(tblForm,"email_verified_at") || ValueHas(tblForm,"phone_verified_at")) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"联系方式只能通过验证码绑定流程修改\"}",0); xrtValueRelease(tblForm); return; }
+		if (ValueHas(tblForm,"email") || ValueHas(tblForm,"phone") || ValueHas(tblForm,"email_verified_at") || ValueHas(tblForm,"phone_verified_at") || ValueHas(tblForm,"phone_verified") || ValueHas(tblForm,"email_verified") || ValueHas(tblForm,"security_questions_configured")) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"联系方式只能通过验证码绑定流程修改\"}",0); xrtValueRelease(tblForm); return; }
 		str nickname = ValueText(tblForm, "nickname");
 		int64 groupId = ValueInt(tblForm, "groupId");
 		int64 authLevel = ValueInt(tblForm, "authLevel");
@@ -239,7 +258,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		int64 groupId = ValueInt(tblForm, "groupId");
 		int64 authLevel = ValueInt(tblForm, "authLevel");
 		str nickname = ValueText(tblForm, "nickname");
-		if (ValueHas(tblForm,"email") || ValueHas(tblForm,"phone") || ValueHas(tblForm,"email_verified_at") || ValueHas(tblForm,"phone_verified_at")) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"联系方式只能通过验证码绑定流程修改\"}",0); xrtValueRelease(tblForm); return; }
+		if (ValueHas(tblForm,"email") || ValueHas(tblForm,"phone") || ValueHas(tblForm,"email_verified_at") || ValueHas(tblForm,"phone_verified_at") || ValueHas(tblForm,"phone_verified") || ValueHas(tblForm,"email_verified") || ValueHas(tblForm,"security_questions_configured")) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"联系方式只能通过验证码绑定流程修改\"}",0); xrtValueRelease(tblForm); return; }
 		str avatar = ValueText(tblForm, "avatar");
 		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
 		if ( nickname && strlen(nickname) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"昵称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
@@ -266,7 +285,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		bool revoke=status==0||oldGroupId!=groupId||oldAuthLevel!=authLevel;
 		bool begun=DB_BeginWrite();bool written=begun&&DB_Write(stmt_member_put,true);
 		if(!begun)DB_ResetWrite(stmt_member_put);
-		if(written&&revoke)written=XA_SessionRevokeAccount(id,NULL);
+		if(written&&revoke)written=XA_SecurityClose(id,"account_changed",NULL,NULL)&&XA_SessionRevokeAccount(id,NULL);
 		if(begun)written=DB_EndWrite(written);
 		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
@@ -286,7 +305,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			sqlite3_bind_int64(stmt_member_del, 2, id);
 			bool begun=DB_BeginWrite();bool written=begun&&DB_Write(stmt_member_del,true);
 			if(!begun)DB_ResetWrite(stmt_member_del);
-			if(written)written=XA_SessionRevokeAccount(id,NULL);
+			if(written)written=XA_SecurityClose(id,"credentials_changed",NULL,NULL)&&XA_SessionRevokeAccount(id,NULL);
 			if(begun)written=DB_EndWrite(written);
 			if (ReplyIfWriteFailed(objResp, written)) return;
 			Session_RevokeAccount(false, id);
@@ -324,7 +343,7 @@ void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost,
 		sqlite3_bind_int64(stmt_member_pwd, 4, id);
 		bool begun=DB_BeginWrite();bool written=begun&&DB_Write(stmt_member_pwd,true);
 		if(!begun)DB_ResetWrite(stmt_member_pwd);
-		if(written)written=XA_SessionRevokeAccount(id,NULL);
+		if(written)written=XA_SecurityClose(id,"credentials_changed",NULL,NULL)&&XA_SessionRevokeAccount(id,NULL);
 		if(begun)written=DB_EndWrite(written);
 		xrtFree(sSalt); xrtFree(sPwdHash); xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;

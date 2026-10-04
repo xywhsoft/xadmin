@@ -9,7 +9,13 @@
     'cannot remove the last login method': '请先添加另一种登录方式，再进行解绑。',
     'account name is reserved': '这个账号名已被使用，请更换。',
     'CSRF verification failed': '页面凭据已变化，请刷新后重试。',
-    'unauthorized': '会话已失效，请重新登录。'
+    'unauthorized': '会话已失效，请重新登录。',
+    'security questions are disabled': '网站已关闭安全问题功能。',
+    'security questions unavailable': '安全问题服务暂时不可用，请稍后重试。',
+    'security question changes are too frequent': '安全问题修改过于频繁，请稍后重试。',
+    'account or session changed; retry': '账号或会话已变化，请刷新后重试。',
+    'choose three different questions and distinct 4-128 byte answers': '请选择三个不同的问题，填写三个不同的答案（各 4–128 字节）。',
+    'recovery requests are too frequent': '恢复申请过于频繁，请稍后重试。'
   };
   function flash(text, error = false) {
     $('flash').textContent = text; $('flash').classList.toggle('error', error); $('flash').hidden = false;
@@ -62,7 +68,7 @@
     node.append(description); if (control) node.append(control); return node;
   }
   function tab(id) {
-    for (const name of ['login', 'register', 'otp', 'recover']) $(name).hidden = name !== id;
+    for (const name of ['login', 'register', 'otp', 'recover', 'security-recover']) $(name).hidden = name !== id;
     document.querySelectorAll('[data-tab]').forEach(node => node.setAttribute('aria-pressed', String(node.dataset.tab === id)));
     authChallenge = null; $('auth-code').reset(); $('auth-code').hidden = true;
   }
@@ -82,10 +88,11 @@
     catch (error) {
       if (error.status !== 401) throw error;
       $('member').hidden = $('logout').hidden = true; $('auth').hidden = false;
+      $('security-questions').reset();
       $('heading').textContent = '登录网站账户'; return;
     }
-    const [profile, identities, sessions] = await Promise.all([
-      api('/api/v1/profile'), api('/api/v1/profile/identities'), api('/api/v1/sessions')]);
+    const [profile, identities, sessions, security] = await Promise.all([
+      api('/api/v1/profile'), api('/api/v1/profile/identities'), api('/api/v1/sessions'), api('/api/v1/profile/security-questions')]);
     $('auth').hidden = true; $('member').hidden = $('logout').hidden = false;
     $('heading').textContent = profile.nickname || profile.username || '我的账户';
     $('member-id').textContent = `用户 ${profile.id} · 账号：${profile.username || '尚未设置'}`;
@@ -93,6 +100,14 @@
     $('profile').elements.avatar.value = profile.avatar || '';
     $('credentials').elements.username.value = profile.username || '';
     $('proof').textContent = session.reauth_until > Date.now() / 1000 ? `身份已确认，有效至 ${time(session.reauth_until)}` : '敏感变更前需要重新确认身份。';
+    $('security-summary').replaceChildren(
+      row('手机验证', profile.phone_verified ? '已验证' : profile.phone ? '未验证' : '未绑定'),
+      row('邮箱验证', profile.email_verified ? '已验证' : profile.email ? '未验证' : '未绑定'),
+      row('安全问题', profile.security_questions_configured ? '已设置 · 辅助恢复' : '未设置'));
+    $('security-status').textContent = security.configured ? `已设置，最近更新 ${time(security.updated_at)}。修改时请重新填写全部答案。` : '尚未设置。';
+    $('security-remove').hidden = !security.configured;
+    $('security-questions').hidden = !providers.security_questions;
+    for (let i = 1; i <= 3; i++) $('security-questions').elements['question'+i].value = security.questions[i-1] || '';
     $('contact-list').replaceChildren();
     for (const channel of ['phone', 'email']) {
       const name = channel === 'phone' ? '手机' : '邮箱', verified = profile[channel + '_verified'];
@@ -154,10 +169,38 @@
     await api('/api/v1/profile/contacts/confirm', 'POST', {...data, challenge_id: contactChallenge});
     contactChallenge = null; $('contact-code').hidden = true; $('contact-code').reset(); await refresh(); flash('联系方式已验证并绑定，其他设备已退出。');
   });
+  form('security-questions', async data => {
+    for (let i = 1; i <= 3; i++) data['question'+i] = Number(data['question'+i]);
+    await api('/api/v1/profile/security-questions', 'PUT', data);
+    $('security-questions').reset(); await refresh(); flash('安全问题已保存，其他设备已退出。');
+  });
+  form('security-recover', async data => {
+    for (let i = 1; i <= 3; i++) data['question'+i] = Number(data['question'+i]);
+    await api('/api/v1/auth/security-questions/recover', 'POST', data);
+    $('security-recover').reset(); flash('申请已提交。如果资料核验通过，管理员将进一步核实。请主动联系网站管理员。');
+  });
+  $('security-remove').addEventListener('click', () => run($('security-remove'), async () => {
+    if (!confirm('移除后不能再通过安全问题申请恢复，其他设备也将退出。继续吗？')) return;
+    await api('/api/v1/profile/security-questions', 'DELETE', {}); await refresh(); flash('安全问题已移除。');
+  }));
   $('logout').addEventListener('click', () => run($('logout'), async () => {await api('/api/v1/logout', 'POST'); await refresh(); flash('已退出登录。');}));
   $('revoke-others').addEventListener('click', () => run($('revoke-others'), async () => {await api('/api/v1/sessions', 'DELETE', {others: true}); await refresh(); flash('其他设备已退出。');}));
   async function init() {
+    const catalog = await api('/api/v1/auth/security-questions');
+    document.querySelectorAll('.security-fields').forEach(container => {
+      for (let i = 1; i <= 3; i++) {
+        const label = document.createElement('label'), select = document.createElement('select');
+        label.append(`问题 ${i}`); select.name = 'question'+i; select.required = true;
+        const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = '选择问题'; select.append(placeholder);
+        for (const item of catalog) {const option = document.createElement('option'); option.value = item.id; option.textContent = item.text; select.append(option);}
+        label.append(select); container.append(label);
+        const answer = document.createElement('label'), input = document.createElement('input');
+        answer.append(`答案 ${i}`); input.name = 'answer'+i; input.type = 'password'; input.autocomplete = 'off'; input.maxLength = 128; input.required = true;
+        answer.append(input); container.append(answer);
+      }
+    });
     providers = await api('/api/v1/auth/providers');
+    document.querySelector('[data-tab="security-recover"]').hidden = !providers.security_questions;
     document.querySelector('[data-tab="register"]').hidden = !providers.registration;
     const verifiedLogin = providers.phone_verification || providers.email_verification;
     for (const id of ['otp', 'recover']) document.querySelector(`[data-tab="${id}"]`).hidden = !verifiedLogin;

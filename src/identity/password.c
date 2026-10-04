@@ -53,6 +53,8 @@ static bool XA_VerifyPassword(const XAAccount* account,const char* password)
 }
 static bool XA_SetPassword(int64 id,const char* record)
 {
+    if(!XA_Begin())return false;
     sqlite3_stmt* s=XA_SQL("UPDATE member SET salt='',pwd=?,updateTime=? WHERE id=? AND isDelete=0");
-    XA_BindText(s,1,record);if(s){sqlite3_bind_int64(s,2,xrtNow());sqlite3_bind_int64(s,3,id);}return XA_Done(s,true);
+    XA_BindText(s,1,record);if(s){sqlite3_bind_int64(s,2,xrtNow());sqlite3_bind_int64(s,3,id);}
+    return XA_End(XA_Done(s,true)&&XA_SecurityClose(id,"credentials_changed",NULL,NULL));
 }
