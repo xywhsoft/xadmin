@@ -136,7 +136,7 @@
     "source": "dev/v1/hosts/xadmin/data/page/member/user.html",
     "target": "page/member/user.html",
     "sha256": "daa590af12d61c21b403875c72b40834e3f349436395bf636dc61c2872b22890",
-    "target_sha256": "e6878632e994e4b7ea62fec277552500e672593d3bf1bd72a5046217f3cca22a"
+    "target_sha256": "5611fc397647e2083fe71568b29fe75263b4e33249c5b5a0dee6834b9eb21f66"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/model/add.html",

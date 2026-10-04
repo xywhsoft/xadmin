@@ -145,6 +145,7 @@ static void Session_Tick(void* unused)
 	(void)unused;
 	xrtMutexLock(G_RequestLock);
 	Session_Prune(G_AdminSessions); Session_Prune(G_MemberSessions);
+	XA_SessionMaintenance();
 	CacheRetireSweep();
 	G_SessionTimer = xsTimerAfter(G_SessionOwner, 300000, Session_Tick, NULL);
 	xrtMutexUnlock(G_RequestLock);

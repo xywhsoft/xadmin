@@ -13,6 +13,7 @@
 		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Member_User_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
 	</div>
 	<div class="layui-inline" style="float: right;">
+		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Member_Identity_Settings">账户与登录设置</button>
 		<button class="layui-btn layui-btn-sm" lay-event="Member_User_Add"><i class="layui-icon layui-icon-addition"></i> 添加用户</button>
 	</div>
 </script>
@@ -103,6 +104,9 @@
 		// 工具栏事件
 		table.on('toolbar(Table_Member_User)', function(obj){
 			switch ( obj.event ) {
+				case 'Member_Identity_Settings':
+					layer.open({title:'网站账户与登录',type:2,shadeClose:true,area:['min(1000px, 94vw)','90vh'],content:'/admin/view/member/identity'});
+					break;
 				case 'Member_User_Search':
 					table.reloadData('Table_Member_User', {
 						where: { search: "%" + document.getElementById('Search_Member_User').value + "%" },

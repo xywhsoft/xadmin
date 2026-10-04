@@ -13,6 +13,7 @@
 #include "modules/value_util.h"
 #include "modules/util.h"
 #include "modules/multipart.h" /* http.h 的 multipart ABI 包装依赖，须在前 */
+static xstrview XA_CORSOrigin(XS_HttpReq* raw);
 #include "modules/http_io.h"
 #include "modules/http.h"
 #include "modules/define.h"
@@ -25,6 +26,7 @@
 #include "modules/page.h"
 #include "modules/template.h"
 static bool XA_SessionRevokeAccount(int64 account,const char* keep_sid);
+static void XA_SessionMaintenance(void);
 #include "modules/session.h"
 #include "modules/guard.h"
 #include "modules/auth.h"
@@ -61,6 +63,7 @@ static bool G_SessionStarted, G_BusinessStarted; /* install.h 的向导流程与
 #include "route_http/auth.h"
 #include "route_http/member.h"
 #include "route_http/api.h"
+#include "src/api/v1/identity_admin.c"
 #include "route_http/notify.h"
 #include "route_http/attachment.h"
 #include "route_http/attachment_api.h"

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<title>网站账户与登录 - xAdmin</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+.identity-settings {
+  max-width:1000px;
+  padding:24px;
+  color:#334155;
+  font:14px/1.6 system-ui,sans-serif;
+}
+.identity-settings h2 {
+  font-size:22px;
+  margin:0 0 8px;
+}
+.identity-settings h3 {
+  font-size:16px;
+  margin:0 0 12px;
+}
+.identity-settings fieldset {
+  border:1px solid #e2e8f0;
+  border-radius:8px;
+  padding:20px;
+  margin:18px 0;
+}
+.identity-settings label {
+  display:block;
+  margin:12px 0;
+}
+.identity-settings input:not([type=checkbox]),.identity-settings select,.identity-settings textarea {
+  display:block;
+  box-sizing:border-box;
+  width:100%;
+  padding:9px 12px;
+  border:1px solid #cbd5e1;
+  border-radius:5px;
+  font:inherit;
+  margin-top:4px;
+}
+.identity-settings input[type=checkbox] {
+  margin-right:6px;
+}
+.identity-settings button {
+  padding:9px 16px;
+  background:#2563eb;
+  color:white;
+  border:0;
+  border-radius:5px;
+  cursor:pointer;
+  margin:4px 8px 4px 0;
+}
+.identity-settings button:disabled {
+  opacity:.5;
+}
+.identity-settings .hint {
+  color:#64748b;
+  font-size:13px;
+}
+.identity-settings .columns {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+}
+.identity-settings #identity-status {
+  padding:12px;
+  background:#eff6ff;
+  border-radius:5px;
+}
+.identity-settings .danger {
+  background:#b91c1c;
+}
+@media(max-width:650px) {
+  .identity-settings {
+    padding:16px;
+  }
+  .identity-settings .columns {
+    grid-template-columns:1fr;
+  }
+}
+</style>
+</head>
+<body>
+<div class="identity-settings">
+  <h2>网站账户与登录</h2><p class="hint">独立于后台管理员账户。应用凭据保存在 db/identity.json，不会返回到浏览器。</p>
+  <p id="identity-status" role="status">加载配置…</p>
+  <form id="identity-config">
+    <fieldset><legend>基础设置</legend>
+      <label>网站公开地址（协议 + 域名，无尾部斜杠）<input name="public_origin" placeholder="https://www.example.com" maxlength="512"></label>
+      <div class="columns"><label>JWT issuer<input name="issuer" maxlength="256" required></label><label>JWT audience<input name="audience" maxlength="128" required></label></div>
+      <label>默认国家区号<input name="default_country_code" placeholder="如 +86；留空则要求输入完整国际号码" maxlength="4"></label>
+      <label><input name="registration" type="checkbox">允许本地账号注册</label>
+      <label><input name="oauth_create_member" type="checkbox">首次第三方登录允许创建会员</label>
+      <label>允许使用 Bearer API 的跨域网站（每行一个完整 HTTPS origin）<textarea name="cors_origins" rows="3"></textarea></label>
+      <p class="hint">最多 8 项，精确匹配。不会开放跨域 Cookie 登录。</p>
+    </fieldset>
+    <div class="columns">
+      <fieldset><legend>GitHub</legend>
+        <label><input name="github_enabled" type="checkbox">启用 GitHub 登录</label>
+        <label>Client ID<input name="github_id" maxlength="256"></label>
+        <label>Client secret<input name="github_secret" type="password" autocomplete="new-password" maxlength="512" placeholder="留空保留已有密钥"></label>
+        <label><input name="github_clear" type="checkbox">清除已存储的 secret（须先停用）</label>
+        <label>OAuth 回调地址<input name="github_callback" readonly></label>
+      </fieldset>
+      <fieldset><legend>微信</legend>
+        <label><input name="wechat_enabled" type="checkbox">启用微信登录</label>
+        <label>AppID<input name="wechat_id" maxlength="256"></label>
+        <label>AppSecret<input name="wechat_secret" type="password" autocomplete="new-password" maxlength="512" placeholder="留空保留已有密钥"></label>
+        <label><input name="wechat_clear" type="checkbox">清除已存储的 secret（须先停用）</label>
+        <label>授权模式<select name="wechat_mode"><option value="website">网站应用扫码登录</option><option value="web">微信内网页授权</option></select></label>
+        <label>OAuth 回调地址<input name="wechat_callback" readonly></label>
+        <p class="hint">请注册对应模式的微信应用，不按手机类型自动切换。UnionID 仅保存，不自动合并账号。</p>
+      </fieldset>
+    </div>
+    <fieldset><legend>验证码送达</legend>
+      <label>短信 HTTPS webhook<input name="sms_webhook_url" type="url" maxlength="1024" placeholder="https://sms.example.com/send"></label>
+      <label>Webhook Bearer token<input name="sms_webhook_token" type="password" autocomplete="new-password" maxlength="512" placeholder="留空保留已有 token"></label>
+      <label><input name="sms_clear" type="checkbox">清除已存储的 webhook token</label>
+      <p class="hint">邮件使用已有的 SMTP 设置，要求 TLS 或 STARTTLS 和系统证书校验。短信 webhook 协议见身份服务文档。</p>
+    </fieldset>
+    <button type="submit" id="identity-save" disabled>保存配置</button><button type="button" id="identity-reload" disabled>重载应用使配置生效</button>
+    <a href="/account/index.html" target="_blank" rel="noreferrer">打开用户账户页面</a>
+    <p class="hint">重载会清除后台登录及未完成的 OAuth 授权；已签发的会员会话保留。更改 issuer / audience 后旧 JWT 需要重新签发。</p>
+  </form>
+  <fieldset><legend>JWT 签名密钥</legend><p class="hint">正常轮换保留旧 Token 验证。发现密钥泄露时，使用立即撤销模式使全部会员会话和未完成的验证码失效。密钥只保存在数据库中。</p>
+    <button id="identity-rotate" disabled>正常轮换</button><button id="identity-invalidate" class="danger" disabled>轮换并撤销全部会员会话</button>
+  </fieldset>
+</div>
+<script>
+(() => {
+  const form = document.getElementById('identity-config'), status = document.getElementById('identity-status');
+  const field = name => form.elements.namedItem(name);
+  let revision = '', csrf = '', busy = false;
+  const controls = ['identity-save','identity-reload','identity-rotate','identity-invalidate'].map(id => document.getElementById(id));
+  function message(text) { status.textContent = text; }
+  async function api(path, method = 'GET', data) {
+    const response = await fetch(path, {method, credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRF-Token':csrf},
+      ...(data === undefined ? {} : {body:JSON.stringify(data)})});
+    const result = await response.json();
+    if (!response.ok || result.code !== 0) throw new Error(result.msg || '请求失败');
+    return result.data;
+  }
+  function callbacks() {
+    for (const id of ['github','wechat']) field(id + '_callback').value = field('public_origin').value.trim() + '/api/v1/auth/oauth/' + id + '/callback';
+  }
+  async function load() {
+    const data = await api('/admin/member/identity/config'); revision = data.revision; csrf = data.csrf_token;
+    for (const name of ['issuer','audience','public_origin','default_country_code','sms_webhook_url']) field(name).value = data[name];
+    for (const name of ['registration','oauth_create_member']) field(name).checked = data[name];
+    field('cors_origins').value = data.cors_origins.join('\n');
+    for (const id of ['github','wechat']) {
+      field(id + '_enabled').checked = data[id].enabled; field(id + '_id').value = data[id].client_id;
+      field(id + '_secret').value = ''; field(id + '_clear').checked = false;
+      field(id + '_secret').placeholder = data[id].secret_configured ? '已配置；留空保留已有密钥' : '尚未配置';
+    }
+    field('wechat_mode').value = data.wechat.mode;
+    field('sms_webhook_token').value = ''; field('sms_clear').checked = false;
+    field('sms_webhook_token').placeholder = data.sms_token_configured ? '已配置；留空保留已有 token' : '尚未配置';
+    callbacks(); message(data.reload_required ? '配置已保存，等待重载应用生效。' : '已加载当前配置。');
+  }
+  async function run(action) {
+    if (busy) return; busy = true; controls.forEach(node => node.disabled = true);
+    try {await action();} catch (error) {message(error.message);}
+    finally {busy = false; controls.forEach(node => node.disabled = !csrf);}
+  }
+  field('public_origin').addEventListener('input', callbacks);
+  form.addEventListener('submit', event => {event.preventDefault(); run(async () => {
+    const config = {};
+    for (const name of ['issuer','audience','public_origin','default_country_code','sms_webhook_url']) config[name] = field(name).value.trim();
+    for (const name of ['registration','oauth_create_member']) config[name] = field(name).checked;
+    config.cors_origins = field('cors_origins').value.split('\n').map(s => s.trim()).filter(Boolean);
+    for (const id of ['github','wechat']) {
+      config[id] = {enabled:field(id + '_enabled').checked,client_id:field(id + '_id').value.trim(),callback:field(id + '_callback').value};
+      if (field(id + '_clear').checked) config[id].client_secret = '';
+      else if (field(id + '_secret').value) config[id].client_secret = field(id + '_secret').value;
+    }
+    config.wechat.mode = field('wechat_mode').value;
+    if (field('sms_clear').checked) config.sms_webhook_token = '';
+    else if (field('sms_webhook_token').value) config.sms_webhook_token = field('sms_webhook_token').value;
+    await api('/admin/member/identity/config','PUT',{revision,config}); await load();
+  });});
+  document.getElementById('identity-reload').addEventListener('click', () => run(async () => {
+    if (!confirm('重载会清除后台会话和未完成的授权，需要重新登录后台。继续吗？')) return;
+    const response = await fetch('/admin/tool/reload/host',{method:'POST',credentials:'same-origin'});
+    const result = await response.json(); if (!response.ok || !result.result) throw new Error(result.message || '重载失败');
+    csrf = ''; message('重载已提交，请重新登录后台。');
+  }));
+  for (const [id,invalidate] of [['identity-rotate',false],['identity-invalidate',true]])
+    document.getElementById(id).addEventListener('click', () => run(async () => {
+      if (!confirm(invalidate ? '立即撤销全部会员会话和验证码，继续吗？' : '生成新的 JWT 签名密钥，继续吗？')) return;
+      await api('/admin/member/identity/keys/rotate','POST',{invalidate_existing:invalidate}); message('签名密钥已轮换。');
+    }));
+  run(load);
+})();
+</script>
+</body>
+</html>

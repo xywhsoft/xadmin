@@ -284,7 +284,10 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			xtime now = xrtNow();
 			sqlite3_bind_int64(stmt_member_del, 1, now);
 			sqlite3_bind_int64(stmt_member_del, 2, id);
-			bool written = DB_Write(stmt_member_del, true);
+			bool begun=DB_BeginWrite();bool written=begun&&DB_Write(stmt_member_del,true);
+			if(!begun)DB_ResetWrite(stmt_member_del);
+			if(written)written=XA_SessionRevokeAccount(id,NULL);
+			if(begun)written=DB_EndWrite(written);
 			if (ReplyIfWriteFailed(objResp, written)) return;
 			Session_RevokeAccount(false, id);
 			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"前台用户删除成功！\"}", 0);
@@ -304,10 +307,10 @@ void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost,
 		int64 id = ValueInt(tblForm, "id");
 		str username = ValueText(tblForm, "username");
 		str password = ValueText(tblForm, "password");
-		if ( !username || strlen(username) == 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名不能为空！\"}", 0); xrtValueRelease(tblForm); return; }
+		/* External-only members may not have an account name yet. Reset by id. */
 		if ( !password || strlen(password) == 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码不能为空！\"}", 0); xrtValueRelease(tblForm); return; }
 		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
-		if ( strlen(username) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
+		if ( username && strlen(username) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( strlen(password) > 128 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码最多128个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if (!XA_PasswordPolicy(password)) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码须为8至128字节\"}",0);xrtValueRelease(tblForm);return; }
 		char record[257]={0};xrtMutexUnlock(G_RequestLock);bool hashed=XA_PasswordHash(password,record);xrtMutexLock(G_RequestLock);
@@ -878,6 +881,5 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		else { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的权限分组ID\"}", 0); }
 	} else LoadPage(objResp, 404, HTTP_CT_HTML, "status/404.html");
 }
-
 
 

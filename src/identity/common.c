@@ -62,10 +62,30 @@ static bool XA_CopyColumn(sqlite3_stmt* s,int column,char* out,size_t cap)
 }
 static bool XA_Reply(XAdminRequest* req,int status,const char* message,xvalue* data,const char* extra)
 {
+    /* Provider redirects navigate a browser here, rather than using fetch.
+     * Keep the error status and a fixed return link; never echo query values.
+     * Non-browser clients retain the standard JSON error contract. */
+    const char* tail=req->path?strrchr(req->path,'/'):NULL;
+    if(status>=400&&tail&&!strcmp(tail,"/callback")&&!strncmp(req->path,"/api/v1/auth/oauth/",19)){
+        size_t i;bool html=false;
+        for(i=0;i<req->raw->head->FieldCount;i++){
+            const xhttpfield* field=&req->raw->head->Fields[i];
+            if(xrtStrCaseEqual(field->Name,XRT_STR_LITERAL("Accept"))){
+                size_t j;for(j=0;j+9<=field->Value.Size;j++)
+                    if(!memcmp(field->Value.Data+j,"text/html",9))html=true;
+            }
+        }
+        if(html)return xsHttpReplyAuto(req,status,
+            "Content-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nReferrer-Policy: no-referrer\r\n",
+            "<!doctype html><html lang=zh-CN><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'>"
+            "<title>第三方登录未完成</title><body style='font:16px/1.7 system-ui;padding:32px;max-width:560px;margin:auto'>"
+            "<h1 style='font-size:24px'>第三方登录未完成</h1><p>授权未能完成，可能已取消、过期或存在账号绑定冲突。请返回账户页面重新发起授权；已禁用的账号请联系网站管理员。</p>"
+            "<a href='/account/index.html'>返回账户页面</a></body></html>",0)>=0;
+    }
     xvalue* result=ValueObject();char* body;size_t size=0;bool ok;
     if(!result)return false;
     ok=ValueSetInt(result,"code",status<400?0:status)&&ValueSetText(result,"msg",message?message:"");
-    if(data)ok=ok&&ValueSetRef(result,"data",data);
+    if(status<400&&data)ok=ok&&ValueSetRef(result,"data",data);
     else ok=ok&&ValueSetOwn(result,"data",xrtValueNull());
     body=ok?xrtJsonStringify(result,false,&size):NULL;
     if(body){char* headers=xrtFormat("%sCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n%s",HTTP_CT_JSON,extra?extra:"");

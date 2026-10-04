@@ -138,7 +138,13 @@ static void XA_ChallengeConfirm(XAdminRequest* req,xvalue* body,xvalue* session,
 }
 static bool XA_HasOtherLogin(int64 member,const char* channel,int64 external_id)
 {
-    sqlite3_stmt* s=XA_SQL("SELECT (username IS NOT NULL AND username<>'' AND pwd IS NOT NULL AND pwd<>'') OR (phone_verified_at>0 AND ?<>'phone') OR (email_verified_at>0 AND ?<>'email') OR EXISTS(SELECT 1 FROM member_external_identity WHERE member_id=member.id AND id<>?) FROM member WHERE id=? AND isDelete=0 AND status=1");
-    XA_BindText(s,1,channel?channel:"");XA_BindText(s,2,channel?channel:"");if(s){sqlite3_bind_int64(s,3,external_id);sqlite3_bind_int64(s,4,member);}
+    /* Disabled providers and OTP-only contacts without delivery do not count as
+     * usable alternatives. Passwords may still authenticate verified contacts. */
+    sqlite3_stmt* s=XA_SQL("SELECT (username IS NOT NULL AND username<>'' AND pwd IS NOT NULL AND pwd<>'') OR (phone_verified_at>0 AND ?<>'phone' AND(COALESCE(pwd,'')<>'' OR ?)) OR (email_verified_at>0 AND ?<>'email' AND(COALESCE(pwd,'')<>'' OR ?)) OR EXISTS(SELECT 1 FROM member_external_identity WHERE member_id=member.id AND id<>? AND((provider='github' AND ? AND app_namespace=?) OR(provider='wechat' AND ? AND app_namespace=?))) FROM member WHERE id=? AND isDelete=0 AND status=1");
+    XA_BindText(s,1,channel?channel:"");XA_BindText(s,3,channel?channel:"");
+    if(s){sqlite3_bind_int(s,2,XA_DeliveryAvailable("phone"));sqlite3_bind_int(s,4,XA_DeliveryAvailable("email"));
+        sqlite3_bind_int64(s,5,external_id);sqlite3_bind_int(s,6,G_Identity.github.enabled);
+        sqlite3_bind_int(s,8,G_Identity.wechat.enabled);sqlite3_bind_int64(s,10,member);}
+    XA_BindText(s,7,G_Identity.github.id);XA_BindText(s,9,G_Identity.wechat.id);
     bool ok=s&&sqlite3_step(s)==SQLITE_ROW&&sqlite3_column_int(s,0)!=0;sqlite3_finalize(s);return ok;
 }

@@ -33,7 +33,7 @@ static void XAdmin_Dispatch(XAdminRequest* req, const RouteInfo* route, bool ali
 			                                : MemberAuth_DBGroupGetAccess(role, route->AuthID, NULL);
 			if (!ok) {
 				if (route->bAdmin) LoadPage(req, 403, HTTP_CT_HTML, "status/403.html");
-				else xsHttpReplyAuto(req, 403, HTTP_CT_JSON, "{\"code\":403,\"msg\":\"forbidden\"}", 0);
+				else XA_Reply(req,403,"forbidden",NULL,NULL);
 				goto done;
 			}
 		} else {
@@ -42,7 +42,7 @@ static void XAdmin_Dispatch(XAdminRequest* req, const RouteInfo* route, bool ali
 				xsHttpReplyAuto(req, 302, headers, "", 0);
 				xrtFree(headers);
 			}
-			else xsHttpReplyAuto(req, 401, HTTP_CT_JSON, "{\"code\":401,\"msg\":\"unauthorized\"}", 0);
+			else XA_Reply(req,401,"unauthorized",NULL,NULL);
 			goto done;
 		}
 		if (route->bActive) {
@@ -78,6 +78,26 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 		xrtMutexUnlock(G_RequestLock);
 		xrtFree(req.body); xrtFree(target);
 		return XS_OK;
+	}
+	if(!strncmp(req.path,"/api/v1/",8)&&xsReqMethodID(&req)==XHTTP_METHOD_OPTIONS){
+		bool bad=false;const xhttpfield* method=XA_Header(&req,"Access-Control-Request-Method",&bad);
+		const xhttpfield* headers=XA_Header(&req,"Access-Control-Request-Headers",&bad);
+		bool allowed=!bad&&XA_CORSOrigin(raw).Size&&method&&
+		    (xrtStrEqual(method->Value,XRT_STR_LITERAL("GET"))||xrtStrEqual(method->Value,XRT_STR_LITERAL("POST"))||
+		     xrtStrEqual(method->Value,XRT_STR_LITERAL("PUT"))||xrtStrEqual(method->Value,XRT_STR_LITERAL("DELETE")));
+		if(headers){
+			const char* p=headers->Value.Data;const char* end=p+headers->Value.Size;
+			while(p<end){const char* comma=memchr(p,',',(size_t)(end-p));const char* tail=comma?comma:end;
+				while(p<tail&&(*p==' '||*p=='\t'))p++;while(tail>p&&(tail[-1]==' '||tail[-1]=='\t'))tail--;
+				xstrview name=xrtStrViewN(p,(size_t)(tail-p));
+				if(!xrtStrCaseEqual(name,XRT_STR_LITERAL("Authorization"))&&!xrtStrCaseEqual(name,XRT_STR_LITERAL("Content-Type"))&&
+				   !xrtStrCaseEqual(name,XRT_STR_LITERAL("X-CSRF-Token")))allowed=false;
+				p=comma?comma+1:end;
+			}
+		}
+		if(allowed)xsHttpReplyAuto(&req,204,"Access-Control-Allow-Methods: GET, POST, PUT, DELETE\r\nAccess-Control-Allow-Headers: Authorization, Content-Type, X-CSRF-Token\r\nAccess-Control-Max-Age: 300\r\n","",0);
+		else XA_Reply(&req,403,"CORS preflight rejected",NULL,NULL);
+		xrtMutexUnlock(G_RequestLock);xrtFree(req.body);xrtFree(target);return XS_OK;
 	}
 	alias = Option_AdminEntryIsMatch(req.path);
 	lookup = alias ? "/admin/login" : req.path;

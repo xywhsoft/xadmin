@@ -41,9 +41,9 @@ static bool ReplyRawHeaders(
 	size_t iExtraCount
 )
 {
-	char arrHead[1024];
+	char arrHead[4096];
 	char arrLength[32];
-	xhttpfield arrField[12];
+	xhttpfield arrField[14];
 	size_t iFieldCount = 0;
 	size_t iHeadSize = 0;
 	size_t i;
@@ -66,6 +66,13 @@ static bool ReplyRawHeaders(
 	}
 	for ( i = 0; i < iExtraCount; i++ ) {
 		arrField[iFieldCount++] = arrExtra[i];
+	}
+	xstrview origin = XA_CORSOrigin(pReq);
+	if (origin.Size) {
+		arrField[iFieldCount].Name = XRT_STR_LITERAL("Access-Control-Allow-Origin");
+		arrField[iFieldCount++].Value = origin;
+		arrField[iFieldCount].Name = XRT_STR_LITERAL("Vary");
+		arrField[iFieldCount++].Value = XRT_STR_LITERAL("Origin");
 	}
 
 	tReason = xrtHttpStatusText(iStatus);

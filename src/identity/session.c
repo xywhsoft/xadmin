@@ -33,7 +33,13 @@ static xvalue* XA_SessionRead(const char* sid,const char* cookie)
             if(!ok){xrtValueRelease(session);session=NULL;}
         }
     }
-    sqlite3_finalize(s);return session;
+    sqlite3_finalize(s);
+    if(session){
+        s=XA_SQL("UPDATE member_session SET last_used=? WHERE sid=? AND last_used<?");
+        if(s){sqlite3_bind_int64(s,1,XA_Now());sqlite3_bind_int64(s,3,XA_Now()-60);}
+        XA_BindText(s,2,session_id);XA_Done(s,false);
+    }
+    return session;
 }
 static char* XA_AccessToken(const char* sid,int64 owner)
 {
@@ -74,8 +80,12 @@ static xvalue* XA_RequestSession(XAdminRequest* req,bool* invalid)
     const xhttpfield* auth=XA_Header(req,"Authorization",invalid);
     if(*invalid)return NULL;
     if(auth){
-        if(auth->Value.Size<8||auth->Value.Size>4103||memcmp(auth->Value.Data,"Bearer ",7)||memchr(auth->Value.Data,0,auth->Value.Size)){*invalid=true;return NULL;}
-        char* token=xrtStrDupN(auth->Value.Data+7,auth->Value.Size-7);
+        if(auth->Value.Size<8||auth->Value.Size>4160||
+           !xrtStrCaseEqual(xrtStrViewN(auth->Value.Data,6),XRT_STR_LITERAL("Bearer"))||
+           auth->Value.Data[6]!=' '||memchr(auth->Value.Data,0,auth->Value.Size)){*invalid=true;return NULL;}
+        size_t prefix=7;while(prefix<auth->Value.Size&&auth->Value.Data[prefix]==' ')prefix++;
+        if(prefix==auth->Value.Size||auth->Value.Size-prefix>4096){*invalid=true;return NULL;}
+        char* token=xrtStrDupN(auth->Value.Data+prefix,auth->Value.Size-prefix);
         xvalue* s=token?XA_AccessVerify(token):NULL;xrtFree(token);if(!s)*invalid=true;return s;
     }
     char cookie[66]={0};int n=XA_Cookie(req,"MSID",cookie,sizeof(cookie));
@@ -89,7 +99,7 @@ static bool XA_RequestCSRF(XAdminRequest* req,xvalue* session)
     const xhttpfield* f=XA_Header(req,"X-CSRF-Token",&bad);char value[65],hash[65];
     if(bad||!f||f->Value.Size!=64)return false;memcpy(value,f->Value.Data,64);value[64]=0;
     const char* expected=ValueText(session,"csrf_hash");
-    return XA_OriginAllowed(req)&&XA_IsHex(value,64)&&XA_Hash(value,hash)&&expected&&strlen(expected)==64&&xrtConstTimeEqual(hash,expected,64);
+    return XA_SameOrigin(req)&&XA_IsHex(value,64)&&XA_Hash(value,hash)&&expected&&strlen(expected)==64&&xrtConstTimeEqual(hash,expected,64);
 }
 typedef struct XATokenSet {
     char sid[65],cookie[65],refresh[65],csrf[65];char* access;int64 owner;
@@ -147,4 +157,17 @@ static bool XA_SessionRefresh(const char* refresh,XATokenSet* t,int* status)
     if(s)sqlite3_bind_int64(s,1,XA_Now());XA_BindText(s,2,hash);ok=XA_Done(s,true);
     if(ok){s=XA_SQL("INSERT INTO member_refresh(hash,sid)VALUES(?,?)");XA_BindText(s,1,newhash);XA_BindText(s,2,sid);ok=XA_Done(s,true);}
     if(!XA_End(ok)){*status=500;return false;}return true;
+}
+
+/* Refresh replay evidence is kept for the entire live session, then seven
+ * further days. Never prune used refresh tokens from an active family. */
+static void XA_SessionMaintenance(void)
+{
+    if(!G_DB||!XA_Begin())return;
+    int64 cutoff=XA_Now()-604800;
+    sqlite3_stmt* s=XA_SQL("DELETE FROM member_refresh WHERE sid IN(SELECT sid FROM member_session WHERE expires_at<? OR(revoked_at>0 AND revoked_at<?))");
+    if(s){sqlite3_bind_int64(s,1,cutoff);sqlite3_bind_int64(s,2,cutoff);}bool ok=XA_Done(s,false);
+    if(ok){s=XA_SQL("DELETE FROM member_session WHERE expires_at<? OR(revoked_at>0 AND revoked_at<?)");
+        if(s){sqlite3_bind_int64(s,1,cutoff);sqlite3_bind_int64(s,2,cutoff);}ok=XA_Done(s,false);}
+    if(!XA_End(ok))printf("[xadmin][identity] session cleanup deferred\n");
 }

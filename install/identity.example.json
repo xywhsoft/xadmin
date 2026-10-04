@@ -1,0 +1,25 @@
+{
+  "issuer": "https://www.example.com",
+  "audience": "member",
+  "public_origin": "https://www.example.com",
+  "default_country_code": "",
+  "registration": true,
+  "oauth_create_member": true,
+  "cors_origins": [],
+  "sms_webhook_url": "",
+  "sms_webhook_token": "",
+  "github": {
+    "enabled": false,
+    "client_id": "",
+    "client_secret": "",
+    "callback": "https://www.example.com/api/v1/auth/oauth/github/callback",
+    "mode": "website"
+  },
+  "wechat": {
+    "enabled": false,
+    "client_id": "",
+    "client_secret": "",
+    "callback": "https://www.example.com/api/v1/auth/oauth/wechat/callback",
+    "mode": "website"
+  }
+}

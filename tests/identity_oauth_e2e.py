@@ -53,6 +53,9 @@ def run(args):
     try:
         ready();providers,_=call('GET','/api/v1/auth/providers');assert [p['id']for p in providers['providers']]==['github','wechat']
         assert 'secret'not in json.dumps(providers)
+        error_status,error_headers,error_body=request(args.port,'GET','/api/v1/auth/oauth/github/callback?state=invalid&code=untrusted',extra_headers={'Accept':'text/html'})
+        assert error_status==401 and error_headers['Content-Type'].startswith('text/html')
+        assert b'/account/index.html' in error_body and b'untrusted' not in error_body
         call('POST','/api/v1/register',{'username':'local_member','password':PASSWORD},status=201)
         sql("UPDATE member SET email='same@example.com' WHERE username='local_member'")
         state,browser=start('github')

@@ -1,5 +1,6 @@
 /* Thin HTTP boundary: services own credentials, persistence and authentication.
  * Response shape is code/msg/data; errors use their real HTTP status. */
+static bool XA_SessionStillValid(xvalue* session,bool recent);
 static void XA_LoginAPI(XAdminRequest* req,xvalue* body)
 {
     const char* identifier=XA_Text(body,"identifier",254);const char* password=XA_Text(body,"password",128);
@@ -88,7 +89,8 @@ static void XA_PasswordAPI(XAdminRequest* req,xvalue* session,xvalue* body,bool 
         Guard_Failed(G_GuardMember,req->remote);XA_Reply(req,401,"password is incorrect",NULL,NULL);return;}
     if(!reauth){xrtMutexUnlock(G_RequestLock);bool ok=XA_PasswordHash(password,record);xrtMutexLock(G_RequestLock);
         if(!ok||!XA_PasswordCurrent(&account)){xrtSecureZero(record,sizeof(record));XA_Reply(req,409,"account changed; retry",NULL,NULL);return;}}
-    if(!XA_Begin()){XA_Reply(req,500,"identity service unavailable",NULL,NULL);return;}
+    if(!XA_SessionStillValid(session,false)){xrtSecureZero(record,sizeof(record));XA_Reply(req,401,"session revoked",NULL,NULL);return;}
+    if(!XA_Begin()){xrtSecureZero(record,sizeof(record));XA_Reply(req,500,"identity service unavailable",NULL,NULL);return;}
     bool ok=true;const char* sid=ValueText(session,"sid");sqlite3_stmt* s;
     if(!reauth)ok=XA_SetPassword(account.id,record)&&XA_SessionRevokeAccount(account.id,sid);
     if(ok){s=XA_SQL("UPDATE member_session SET reauth_until=? WHERE sid=? AND revoked_at=0 AND expires_at>?");
@@ -116,15 +118,66 @@ static void XA_SessionsAPI(XAdminRequest* req,xvalue* session,xvalue* body)
         if(s){sqlite3_bind_int64(s,1,XA_Now());sqlite3_bind_int64(s,3,owner);}XA_BindText(s,2,sid);ok=XA_Done(s,true);}
     XA_Reply(req,ok?200:404,ok?"sessions revoked":"session not found",NULL,NULL);
 }
-static bool XA_IdentityExtraPath(const char* path)
+/* Recheck after unlocked KDF work: another device may have revoked the session. */
+static bool XA_SessionStillValid(xvalue* session,bool recent)
 {
-    return !strcmp(path,"/api/v1/token/refresh")||!strcmp(path,"/api/v1/sessions")||!strcmp(path,"/api/v1/profile/reauth");
+    xvalue* current=XA_SessionRead(ValueText(session,"sid"),NULL);
+    bool ok=current&&ValueInt(current,"id")==ValueInt(session,"id")&&(!recent||XA_Recent(current));
+    xrtValueRelease(current);return ok;
+}
+static void XA_CredentialsAPI(XAdminRequest* req,xvalue* session,xvalue* body)
+{
+    const char* username=XA_Text(body,"username",64);const char* password=XA_Text(body,"password",128);
+    char key[65],record[257]={0};XAAccount account;
+    if(!username||!XA_AccountKey(username,strlen(username),key)||!XA_PasswordPolicy(password)){
+        XA_Reply(req,400,"a valid account name and 8-128 byte password are required",NULL,NULL);return;}
+    if(!XA_Recent(session)){XA_Reply(req,403,"confirm your identity again",NULL,NULL);return;}
+    if(!XA_AccountByID(ValueInt(session,"id"),&account)){XA_Reply(req,401,"unauthorized",NULL,NULL);return;}
+    xrtMutexUnlock(G_RequestLock);bool ok=XA_PasswordHash(password,record);xrtMutexLock(G_RequestLock);
+    if(!ok||!XA_PasswordCurrent(&account)||!XA_SessionStillValid(session,true)){
+        xrtSecureZero(record,sizeof(record));XA_Reply(req,409,"account or session changed; retry",NULL,NULL);return;}
+    if(!XA_Begin()){xrtSecureZero(record,sizeof(record));XA_Reply(req,500,"identity service unavailable",NULL,NULL);return;}
+    sqlite3_stmt* s=XA_SQL("UPDATE member SET username=?,salt='',pwd=?,updateTime=? WHERE id=? AND status=1 AND isDelete=0");
+    XA_BindText(s,1,username);XA_BindText(s,2,record);
+    if(s){sqlite3_bind_int64(s,3,xrtNow());sqlite3_bind_int64(s,4,account.id);}
+    ok=XA_Done(s,true);int error=sqlite3_extended_errcode(G_DB);
+    if(ok)ok=XA_SessionRevokeAccount(account.id,ValueText(session,"sid"));
+    ok=XA_End(ok);xrtSecureZero(record,sizeof(record));xrtSecureZero(&account,sizeof(account));
+    int status=ok?200:error==SQLITE_CONSTRAINT_UNIQUE?409:500;
+    XA_Reply(req,status,ok?"account credentials updated":status==409?"account name is reserved":"identity service unavailable",NULL,NULL);
+}
+static void XA_CurrentSessionAPI(XAdminRequest* req,xvalue* session)
+{
+    if(!XA_OriginAllowed(req)){XA_Reply(req,403,"origin is not allowed",NULL,NULL);return;}
+    char csrf[65]={0},hash[65];char* headers=NULL;
+    bool cookie=!strcmp(ValueText(session,"source"),"cookie");
+    if(cookie){
+        if(!XA_SameOrigin(req)){XA_Reply(req,403,"cookie sessions require the site origin",NULL,NULL);return;}
+        int n=XA_Cookie(req,"MCSRF",csrf,sizeof(csrf));
+        bool valid=n==64&&XA_IsHex(csrf,64)&&XA_Hash(csrf,hash)&&xrtConstTimeEqual(hash,ValueText(session,"csrf_hash"),64);
+        if(!valid){
+            sqlite3_stmt* s=NULL;bool ok=XA_Random(csrf)&&XA_Hash(csrf,hash);
+            if(ok){s=XA_SQL("UPDATE member_session SET csrf_hash=? WHERE sid=? AND revoked_at=0 AND expires_at>?");
+                XA_BindText(s,1,hash);XA_BindText(s,2,ValueText(session,"sid"));if(s)sqlite3_bind_int64(s,3,XA_Now());ok=XA_Done(s,true);}
+            if(!ok){XA_Reply(req,500,"session unavailable",NULL,NULL);return;}
+            headers=XA_CookieHeader(req,ValueText(session,"msid"),false,csrf);
+            if(!headers){XA_Reply(req,500,"session unavailable",NULL,NULL);return;}
+        }
+    }
+    char* access=XA_AccessToken(ValueText(session,"sid"),ValueInt(session,"id"));
+    xvalue* data=ValueObject();
+    ValueSetInt(data,"id",ValueInt(session,"id"));ValueSetText(data,"session_id",ValueText(session,"sid"));
+    ValueSetInt(data,"reauth_until",ValueInt(session,"reauth_until"));
+    ValueSetText(data,"access_token",access);ValueSetText(data,"token_type","Bearer");ValueSetInt(data,"expires_in",900);
+    if(cookie)ValueSetText(data,"csrf_token",csrf);
+    XA_Reply(req,access?200:500,access?"success":"session unavailable",access?data:NULL,headers);
+    if(access)xrtSecureZero(access,strlen(access));xrtFree(access);xrtFree(headers);xrtValueRelease(data);
 }
 static void XA_IdentityHandler(XS_ServerObject server,XS_HostObject host,XAdminRequest* req,XAdminRequest* resp,xvalue* session)
 {
     (void)server;(void)host;(void)resp;
     const char* path=req->path;int method=xsReqMethodID(req);bool public_route=!strcmp(path,"/api/v1/login")||!strcmp(path,"/api/v1/register")||!strcmp(path,"/api/v1/token/refresh");
-    bool get_allowed=!strcmp(path,"/api/v1/profile")||!strcmp(path,"/api/v1/sessions");
+    bool get_allowed=!strcmp(path,"/api/v1/profile")||!strcmp(path,"/api/v1/sessions")||!strcmp(path,"/api/v1/session");
     bool method_ok=method==XHTTP_METHOD_POST||((method==XHTTP_METHOD_GET)&&get_allowed)||
         (method==XHTTP_METHOD_PUT&&!strcmp(path,"/api/v1/profile"))||
         (method==XHTTP_METHOD_DELETE&&!strcmp(path,"/api/v1/sessions"));
@@ -140,6 +193,8 @@ static void XA_IdentityHandler(XS_ServerObject server,XS_HostObject host,XAdminR
     else if(!strcmp(path,"/api/v1/profile"))XA_ProfileAPI(req,session,body);
     else if(!strcmp(path,"/api/v1/profile/password"))XA_PasswordAPI(req,session,body,false);
     else if(!strcmp(path,"/api/v1/profile/reauth"))XA_PasswordAPI(req,session,body,true);
+    else if(!strcmp(path,"/api/v1/profile/credentials"))XA_CredentialsAPI(req,session,body);
+    else if(!strcmp(path,"/api/v1/session"))XA_CurrentSessionAPI(req,session);
     else if(!strcmp(path,"/api/v1/sessions"))XA_SessionsAPI(req,session,body);
     else if(!strcmp(path,"/api/v1/logout")){
         bool ok=XA_SessionRevoke(ValueText(session,"sid"));char* header=XA_CookieHeader(req,"",true,"");
@@ -153,7 +208,7 @@ static void XA_IdentityHandler(XS_ServerObject server,XS_HostObject host,XAdminR
 }
 static void XA_IdentityRegisterRoutes(void)
 {
-    const char* paths[]={"/api/v1/token/refresh","/api/v1/sessions","/api/v1/profile/reauth"};size_t i;
+    const char* paths[]={"/api/v1/token/refresh","/api/v1/sessions","/api/v1/profile/reauth","/api/v1/session","/api/v1/profile/credentials"};size_t i;
     for(i=0;i<sizeof(paths)/sizeof(paths[0]);i++){
         RouteInfo* route=AddStaticRouteHTTP(paths[i],XHTTP_METHOD_ANY,XA_IdentityHandler,true);
         if(route){route->bAdmin=false;route->bAuth=false;}

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """安装向导 e2e：全新部署（无 db、无 lock）→ 向导接管 → POST 建库建超管 → 登录成功。
 负例：非法用户名/非十六进制哈希拒绝；存量部署（db 在、lock 缺）不进向导。"""
-import sys, time, subprocess, json, hashlib, sqlite3, shutil
+import sys, time, subprocess, json, hashlib, sqlite3, shutil, os, argparse
 sys.path.insert(0, str(__import__('pathlib').Path(__file__).parent))
 from pathlib import Path
 import importlib.util
@@ -10,6 +10,11 @@ smoke = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(smoke)
 
 ROOT = smoke.ROOT
+parser = argparse.ArgumentParser()
+parser.add_argument('--exe', type=Path, default=ROOT / ('xs.exe' if os.name == 'nt' else 'xs'))
+parser.add_argument('--port', type=int, default=18240)
+args = parser.parse_args()
+original_db = hashlib.sha256((ROOT / 'db/main.db').read_bytes()).digest()
 ok = fail = 0
 def check(name, cond, detail=''):
     global ok, fail
@@ -17,9 +22,10 @@ def check(name, cond, detail=''):
     else: fail += 1; print('FAIL', name, '|', detail)
 
 def boot(port, target):
-    return subprocess.Popen([str(ROOT / 'xs.exe'), str(target / 'xs.json')], cwd=ROOT,
-                            stdout=open(target / 'server.log', 'ab'), stderr=subprocess.STDOUT,
-                            creationflags=subprocess.CREATE_NO_WINDOW)
+    with (target / 'server.log').open('ab') as output:
+        return subprocess.Popen([str(args.exe.resolve()), str(target / 'xs.json')], cwd=ROOT,
+                                stdout=output, stderr=subprocess.STDOUT,
+                                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
 
 def wait_up(proc, port, target):
     for _ in range(80):
@@ -37,7 +43,7 @@ ADMIN = 'installer1'
 PWD = 'Install#2026'
 
 # ---------- 夹具一：全新部署 ----------
-PORT = 18240
+PORT = args.port
 target = smoke.fixture(PORT)
 import gc, os
 gc.collect()
@@ -76,6 +82,17 @@ try:
     with sqlite3.connect(target / 'db/main.db') as db:
         row = db.execute('SELECT role, authLevel, isDelete FROM user WHERE user=?', (ADMIN,)).fetchone()
     check('admin row role=1 authLevel=999', row == (1, 999, 0), str(row))
+    # New installations exercise the same identity migrations and account API,
+    # rather than relying only on a migrated copy of the developer database.
+    st, _, body = smoke.request(PORT, 'POST', '/api/v1/register', {'username':'fresh_member','password':PWD})
+    check('fresh member registers with raw password', st == 201 and json.loads(body)['code'] == 0, body[:150])
+    st, hd, body = smoke.request(PORT, 'POST', '/api/v1/login', {'identifier':'fresh_member','password':PWD})
+    check('fresh member login issues JWT and cookie', st == 200 and 'access_token' in json.loads(body).get('data',{}), body[:150])
+    member_cookie=hd.get('Set-Cookie','').split(';')[0]
+    st, _, body = smoke.request(PORT, 'GET', '/api/v1/profile', cookie=member_cookie)
+    check('fresh member can read own profile', st == 200 and json.loads(body).get('data',{}).get('username') == 'fresh_member', body[:150])
+    st, _, body = smoke.request(PORT, 'GET', '/api/v1/auth/providers')
+    check('unconfigured third parties remain disabled', st == 200 and json.loads(body)['data']['providers'] == [], body[:150])
 finally:
     proc.terminate()
     try: proc.wait(5)
@@ -83,7 +100,7 @@ finally:
     time.sleep(0.5)
 
 # ---------- 夹具二：存量部署（db 在、lock 缺）不进向导 ----------
-PORT = 18241
+PORT = args.port + 1
 target = smoke.fixture(PORT)   # db 在、无 lock
 proc = boot(PORT, target)
 try:
@@ -99,6 +116,7 @@ finally:
     except Exception: proc.kill()
     time.sleep(0.3)
 
+check('real database unchanged', hashlib.sha256((ROOT / 'db/main.db').read_bytes()).digest() == original_db)
 print('=' * 60)
 print('RESULT: %d pass / %d fail' % (ok, fail))
 sys.exit(1 if fail else 0)

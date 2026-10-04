@@ -42,7 +42,7 @@ static bool XA_PasswordCheck(const XAAccount* account,const char* password)
 static bool XA_PasswordCurrent(const XAAccount* snapshot)
 {
     XAAccount current;return XA_AccountByID(snapshot->id,&current)&&current.status==1&&
-        !strcmp(snapshot->password,current.password)&&!strcmp(snapshot->salt,current.salt);
+        !strcmp(snapshot->username,current.username)&&!strcmp(snapshot->password,current.password)&&!strcmp(snapshot->salt,current.salt);
 }
 static bool XA_VerifyPassword(const XAAccount* account,const char* password)
 {

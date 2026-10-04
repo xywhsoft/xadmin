@@ -14,7 +14,7 @@
 
 默认仅监听 `127.0.0.1:9081`。`xs.exe` 来自同级 `xserver/release`，使用其内置 C SDK/TCC 环境，不加载 v1 的 `tcc` 或旧版 xs。
 
-主库是 `db/main.db`，已有账号和密码格式不变。若原来的 `options/global.json` 中配置了 `cp_url`，登录仍走该受保护入口，直接访问 `/admin/login` 返回 404 是原有行为；未设置时才使用 `/admin/login`。本次没有重置真实账号、密码或入口配置。
+主库是 `db/main.db`，后台管理员协议保持原样；会员身份服务使用新的原始密码协议，详见下文。若原来的 `options/global.json` 中配置了 `cp_url`，登录仍走该受保护入口，直接访问 `/admin/login` 返回 404 是原有行为；未设置时才使用 `/admin/login`。本次没有重置真实账号、密码或入口配置。
 
 首次从已归档的 v1 导入资产可运行 `python tools/migrate_v1.py`。它使用 SQLite 备份接口，跳过根目录已有文件，不覆盖后续开发成果；不是双向同步工具，也不是线上切换工具。
 
@@ -42,16 +42,22 @@ HTTP 请求 → 静态/动态路由 → 方法槽 → 会话与权限 → 原业
 
 旧路由使用 `XHTTP_METHOD_ANY`，保留回调内原来的方法分支和响应契约。新路由可单独注册 GET、POST 或 CRUD；同一 URI/方法重复注册会警告并覆盖该槽，空槽返回 405 和 Allow。动态参数由 `xsReqRouteValue()` 返回借用视图。
 
+## 会员身份服务
+
+账号、已验证手机、已验证邮箱均可登录，支持 GitHub / 微信授权、JWT、持久会话、验证码换绑和找回。用户页面 `/account/index.html`；后台前台用户工具栏提供账户与登录设置。配置私有保存于 `db/identity.json`，第三方与送达服务默认未启用。
+
+部署、API、客户端更新、迁移和功能验证见 [身份服务文档](docs/identity-api.md)，实施记录见 [实施方案](docs/账号与身份服务实施方案.md)。尚未验证真实第三方应用及短信/邮件，需网站配置自己的凭据。
+
 ## 验证
 
 需要 Python 3，只有标准库依赖：
 
 ```powershell
-python tests/smoke.py
-python tests/smoke.py --protected-entry
+python tests/smoke.py --functional-only
+python tests/smoke.py --functional-only --protected-entry
 ```
 
-测试默认监听 `127.0.0.1:19081`，使用 `tests/.runtime/` 下的独立数据库副本和临时账号，不写入根目录主库。也会校验 832 个 v1 页面、模板、静态资源及插件资产的 SHA-256。测试专用 URI 只存在于 `tests/host.c`，正式入口不包含它们。
+测试默认监听 `127.0.0.1:19081`，使用 `tests/.runtime/` 下的独立数据库副本和临时账号，不写入根目录主库。也会校验 757 项 v1 页面、模板、静态资源及插件资产的 SHA-256。测试专用 URI 只存在于 `tests/host.c`，正式入口不包含它们。
 
 `tests/write_regression.py` 随上述测试自动执行，覆盖管理端写入失败、零影响行、失败后重试、删除账号撤销所有会话，以及权限关联迁移和余额流水的事务回滚；故障注入仅作用于测试库。
 

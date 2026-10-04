@@ -25,13 +25,20 @@ static bool XA_DeliveryPrepare(const XAIdentityMessage* message,XADeliveryJob* j
     char* outputs[]={job->smtp_host,job->smtp_user,job->smtp_password,job->smtp_sender};
     size_t caps[]={sizeof(job->smtp_host),sizeof(job->smtp_user),sizeof(job->smtp_password),sizeof(job->smtp_sender)};int i;
     for(i=0;i<4;i++){if(strlen(values[i])>=caps[i]||strpbrk(values[i],"\r\n"))return false;strcpy(outputs[i],values[i]);}
-    return job->smtp_host[0]&&job->smtp_sender[0]&&job->smtp_port>0&&job->smtp_port<=65535;
+    return job->smtp_host[0]&&job->smtp_sender[0]&&job->smtp_port>0&&job->smtp_port<=65535&&
+        (!job->smtp_auth||(job->smtp_user[0]&&job->smtp_password[0]));
 #else
     return false;
 #endif
 }
-/* No application lock or live option-cache views are used by these transports.
- * SMTP always verifies the system trust chain and does not downgrade to cleartext. */
+/* Called under the request lock, like Prepare. This probe never sends a message. */
+static bool XA_DeliveryAvailable(const char* channel)
+{
+    XAIdentityMessage message={0};XADeliveryJob job;message.channel=channel;
+    bool available=XA_DeliveryPrepare(&message,&job);xrtSecureZero(&job,sizeof(job));return available;
+}
+/* Transports use owned option snapshots outside the application lock. SMTP
+ * verifies the system trust chain and never downgrades to cleartext. */
 static XAIdentityDeliveryResult XA_Deliver(XADeliveryJob* job)
 {
     const XAIdentityMessage* m=&job->message;
