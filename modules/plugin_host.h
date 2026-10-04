@@ -42,7 +42,7 @@ static bool PluginHost_Reload(const char* sXid);
 #define PLUGIN_PATH_MAX   420
 #define PLUGIN_ROUTES_MAX 256 /* 生成插件（cms.article）注册 220+ 路由 */
 #define PLUGIN_DYN_MAX    16
-#define PLUGIN_HOST_VERSION "4.2.0" /* additive SDK APIs; ABI layout stays v4 */
+#define PLUGIN_HOST_VERSION "4.3.0" /* additive SDK APIs; ABI layout stays v4 */
 #define PLUGIN_EVT_MAX    128
 #define PLUGIN_HOOK_MAX   128
 #define PLUGIN_SVC_MAX    32
@@ -68,6 +68,7 @@ typedef struct PluginInstance {
 	int activeLeases; /* 未归还的服务租借数：>0 时代际停用不得销毁代码镜像 */
 	int activeIo; /* unlocked outbound calls; disable/reload must reject while nonzero */
 	bool started;
+	bool stopping; /* unlocked channel join: reject concurrent restart/unload */
 	str routePaths[PLUGIN_ROUTES_MAX]; /* RouteInfo.Path 指针的所有权在实例 */
 	size_t routeCount;
 	str dynPatterns[PLUGIN_DYN_MAX];   /* 本插件注册的动态路由 pattern（所有权在实例） */
@@ -205,6 +206,7 @@ static bool XAdmin_CheckAdminCSRF(XS_RequestObject req, xvalue* session)
 }
 
 #include "../src/net/plugin_async.c"
+#include "../src/net/plugin_channel.c"
 
 static bool Plugin_XidValid(const char* sXid)
 {
@@ -837,6 +839,7 @@ int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl
 	route->AuthID = (uint32)decl->auth_id;
 	route->AuthLevel = (uint32)decl->auth_level;
 	RouteSetMethods(route, XHTTP_METHOD_ANY, (XAdminRouteProc)decl->proc);
+	route->PluginOwner = inst;
 	inst->routePaths[inst->routeCount++] = (str)route->Path;
 	Plugin_LedgerAdd(inst, "route", decl->path, decl->path, "auto_unload");
 	/* 需鉴权但未声明专属权限的路由（生成插件核心 CRUD 等）：与应用侧自动收录
@@ -947,6 +950,7 @@ int XAdmin_RegisterDynamicRoute(XAdminPluginHandle plugin_handle, const XAdminDy
 	route->bActive = decl->keep_active ? true : false;
 	methods = decl->method ? (xhttpmethod)decl->method : XHTTP_METHOD_ANY;
 	RouteSetMethods(route, methods, (XAdminRouteProc)decl->proc);
+	route->PluginOwner = inst;
 	/* 运行时注册须立即重编译 pattern 树；失败回滚本次添加 */
 	if (!RouteHTTP_RecompileDynamic()) {
 		if (!existed) Plugin_DynamicRouteRemove(decl->pattern);
@@ -1813,6 +1817,9 @@ static bool Plugin_Compile(PluginInstance* inst, char* sError, size_t iErrorSize
 			{"XAdmin_DeferRoute", (const void*)XAdmin_DeferRoute},
 			{"XAdmin_ReplyBinary", (const void*)XAdmin_ReplyBinary},
 			{"XAdmin_MemberContactStatus", (const void*)XAdmin_MemberContactStatus},
+			{"XAdmin_ChannelAccept", (const void*)XAdmin_ChannelAccept},
+			{"XAdmin_ChannelSend", (const void*)XAdmin_ChannelSend},
+			{"XAdmin_ChannelClose", (const void*)XAdmin_ChannelClose},
 			{"XAdmin_AdminCSRFToken", (const void*)XAdmin_AdminCSRFToken},
 			{"XAdmin_CheckAdminCSRF", (const void*)XAdmin_CheckAdminCSRF},
 			{"XAdmin_MultipartBoundary", (const void*)XAdmin_MultipartBoundary},
@@ -1913,6 +1920,7 @@ static bool Plugin_Start(PluginInstance* inst, char* sError, size_t iErrorSize)
 	int gen = 1;
 
 	if (inst->started) return true;
+	if (inst->stopping) return false;
 	/* 确保数据与私有库目录存在（v1 插件在 OnStart/OnInstall 中直接写文件/开库）。 */
 	xrtDirCreateAll(inst->dataPath);
 	{
@@ -2049,6 +2057,8 @@ static void Plugin_Stop(PluginInstance* inst)
 	desc = inst->desc;
 	/* GR2：回调期间先关门——Register* 被 started 门控拒绝，Unregister* 不受影响。 */
 	inst->started = false;
+	inst->stopping = true;
+	PluginChannel_Stop(inst); /* joins without G_RequestLock; code/state still live */
 	if (desc && desc->OnStop) desc->OnStop(inst);
 	Plugin_CleanupResources(inst);
 	if (desc && desc->OnUnload) desc->OnUnload(inst);
@@ -2098,6 +2108,7 @@ static void Plugin_Stop(PluginInstance* inst)
 	inst->genRowId = 0;
 	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET status='disabled', active_generation=0, update_time=%lld WHERE xid='%s';", xrtNow(), inst->xid));
 	printf("[plugin] stopped %s\n", inst->xid);
+	inst->stopping = false;
 }
 
 /* ==================== 管理操作（供路由与插件 API） ==================== */
@@ -2107,6 +2118,8 @@ static bool PluginHost_SetEnabled(const char* sXid, bool bEnable)
 	PluginInstance* inst = Plugin_Find(sXid);
 	char sError[2096] = {0};
 	if (!inst) return false;
+	if (inst->stopping) return false;
+	if (G_PluginChannelCallbacks || G_PluginChannelsStopping) return false;
 	if (!bEnable && inst->activeIo) return false;
 	if (G_PluginRegIdx >= 0) return false; /* GR3：插件启动期间禁止换代操作（防重入） */
 	if (bEnable) {
@@ -2128,6 +2141,8 @@ static bool PluginHost_Reload(const char* sXid)
 {
 	PluginInstance* inst = Plugin_Find(sXid);
 	if (!inst) return false;
+	if (inst->stopping) return false;
+	if (G_PluginChannelCallbacks || G_PluginChannelsStopping) return false;
 	if (inst->activeIo) return false;
 	if (G_PluginRegIdx >= 0) return false; /* GR3：同上 */
 	if (inst->started) Plugin_Stop(inst);
@@ -2412,6 +2427,7 @@ static void PluginHost_Unit(void)
 	size_t i;
 	printf("        PluginHost_Unit \n");
 	PluginAsync_Unit(); /* callbacks finish before plugin state/code and DB teardown */
+	PluginChannel_Unit(); /* channels join before plugin state and code are released */
 	for (i = 0; i < G_PluginCount; i++)
 		Plugin_Stop(&G_Plugins[i]);
 	for (i = 0; i < G_PluginCount; i++) {

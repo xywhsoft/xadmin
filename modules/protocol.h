@@ -5,6 +5,10 @@
 static void XAdmin_Dispatch(XAdminRequest* req, const RouteInfo* route, bool alias)
 {
 	char id[128] = {0}; xvalue* session; XAdminRouteProc proc = NULL; int i;
+	PluginInstance* owner = route->PluginOwner;
+	if (owner && (!owner->started || owner->stopping || G_PluginChannelsStopping)) {
+		XA_Reply(req,503,"plugin is stopping",NULL,NULL); return;
+	}
 	xsReqCookieValue(req, route->bAdmin ? "XSID" : "MSID", id, sizeof(id));
 	if (route->bAdmin) session=Session_Acquire(true,id);
 	else {

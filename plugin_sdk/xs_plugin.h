@@ -42,6 +42,20 @@ typedef void* XS_ResponseObject;
 
 typedef void* XAdminPluginHandle;
 typedef void* XAdminServiceLease;
+/* Host-managed WebSocket handle. Zero is invalid; handles are never recycled. */
+typedef uintptr_t XAdminChannel;
+typedef struct XAdminChannelConfig {
+	uint32_t size;
+	const char* protocol;
+	size_t message_limit; /* 1..256 KiB; complete text/binary message */
+	size_t queue_limit; /* 1..4 MiB; queued outbound payload bytes */
+	bool allow_cross_origin; /* only with plugin-verified single-use handshake proof */
+	void* data;
+	void (*on_open)(XAdminChannel channel, void* data);
+	void (*on_message)(XAdminChannel channel, bool binary, const void* bytes,
+		size_t size, void* data);
+	void (*on_close)(XAdminChannel channel, uint16_t code, void* data);
+} XAdminChannelConfig;
 typedef uintptr_t XAdminRouteToken;
 typedef uintptr_t XAdminMenuToken;
 typedef uintptr_t XAdminAuthGroupToken;
@@ -264,6 +278,23 @@ int XAdmin_ReplyBinary(XS_RequestObject req, uint16 status,
     unsigned timeout_ms);
 /* Bit 1: verified phone; bit 2: verified email; -1: account unavailable. */
 int XAdmin_MemberContactStatus(xvalue* session);
+/* Host 4.3: route/callback-only, serialized by the host application lock.
+ * Accept retains the connection and binds a verified member session; it
+ * rejects query strings, request bodies and invalid WebSocket upgrades.
+ * Return 0 accepted, -1 rejected/unavailable. Return immediately after accept.
+ * Callbacks borrow message data only for the duration of the call. They must
+ * not perform unbounded work. Send copies payload to a bounded queue and never
+ * waits for network I/O; -2 means backpressure, -1 means closed/invalid.
+ * Close is idempotent. Shutdown/reload joins channels before OnStop/OnUnload;
+ * on_close runs exactly once, including failure before on_open. No callback
+ * can outlive plugin code. Authentication is rechecked before delivery and
+ * periodically; explicit session revocation requests closure immediately. */
+int XAdmin_ChannelAccept(XAdminPluginHandle plugin, XS_RequestObject req,
+	xvalue* session, const XAdminChannelConfig* config, XAdminChannel* channel);
+int XAdmin_ChannelSend(XAdminPluginHandle plugin, XAdminChannel channel,
+	bool binary, const void* bytes, size_t size);
+int XAdmin_ChannelClose(XAdminPluginHandle plugin, XAdminChannel channel,
+	uint16_t code);
 /* Admin session-scoped token; borrowed until session destruction. Mutations
  * must check both the token and same-origin request. */
 const char* XAdmin_AdminCSRFToken(xvalue* session);

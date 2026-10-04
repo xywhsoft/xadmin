@@ -4,12 +4,14 @@
 static bool XA_SessionRevoke(const char* sid)
 {
     sqlite3_stmt* s=XA_SQL("UPDATE member_session SET revoked_at=? WHERE sid=? AND revoked_at=0");
-    if(s)sqlite3_bind_int64(s,1,XA_Now());XA_BindText(s,2,sid);return XA_Done(s,false);
+    if(s)sqlite3_bind_int64(s,1,XA_Now());XA_BindText(s,2,sid);
+    bool ok=XA_Done(s,false);if(ok)PluginChannel_Revoke(sid,0,NULL);return ok;
 }
 static bool XA_SessionRevokeAccount(int64 account,const char* keep_sid)
 {
     sqlite3_stmt* s=XA_SQL("UPDATE member_session SET revoked_at=? WHERE member_id=? AND revoked_at=0 AND sid<>?");
-    if(s){sqlite3_bind_int64(s,1,XA_Now());sqlite3_bind_int64(s,2,account);}XA_BindText(s,3,keep_sid?keep_sid:"");return XA_Done(s,false);
+    if(s){sqlite3_bind_int64(s,1,XA_Now());sqlite3_bind_int64(s,2,account);}XA_BindText(s,3,keep_sid?keep_sid:"");
+    bool ok=XA_Done(s,false);if(ok)PluginChannel_Revoke(NULL,account,keep_sid);return ok;
 }
 /* Renew only an authenticated, still-live session. An expired or revoked
  * session is never resurrected; the optional absolute cap always wins. */
