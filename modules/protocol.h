@@ -104,7 +104,7 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 	found = RouteHTTP_Match(lookup, &req);
 	if (found) {
 		route = *found; XAdmin_Dispatch(&req, &route, alias);
-		if (!req.replied) xsHttpReplyAuto(&req, 500, HTTP_CT_TEXT, "handler did not produce a response", 0);
+		if (!req.replied && !req.deferred) xsHttpReplyAuto(&req, 500, HTTP_CT_TEXT, "handler did not produce a response", 0);
 	}
 	xrtMutexUnlock(G_RequestLock);
 	if (!found) {
@@ -116,5 +116,5 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 		return handled ? XS_OK : XS_FALLBACK;
 	}
 	xrtFree(req.body); xrtFree(target);
-	return XS_OK;
+	return req.deferred ? XS_TAKEOVER : XS_OK;
 }

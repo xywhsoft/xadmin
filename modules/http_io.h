@@ -43,7 +43,7 @@ static bool ReplyRawHeaders(
 {
 	char arrHead[4096];
 	char arrLength[32];
-	xhttpfield arrField[14];
+	xhttpfield arrField[15];
 	size_t iFieldCount = 0;
 	size_t iHeadSize = 0;
 	size_t i;
@@ -66,6 +66,10 @@ static bool ReplyRawHeaders(
 	}
 	for ( i = 0; i < iExtraCount; i++ ) {
 		arrField[iFieldCount++] = arrExtra[i];
+	}
+	if (pReq->head->Flags & XHTTP1_CONNECTION_CLOSE) {
+		arrField[iFieldCount].Name = XRT_STR_LITERAL("Connection");
+		arrField[iFieldCount++].Value = XRT_STR_LITERAL("close");
 	}
 	xstrview origin = XA_CORSOrigin(pReq);
 	if (origin.Size) {

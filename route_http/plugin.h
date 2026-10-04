@@ -149,7 +149,9 @@ void Request_Plugin_Disable(XS_ServerObject objServer, XS_HostObject objHost, XS
 	}
 	{ /* 禁用失败（插件不存在/启动窗口）时消息须与结果一致 */
 		bool bOk = PluginHost_SetEnabled(sName, false);
-		PluginRoute_SendResult(objResp, bOk, bOk ? "插件已禁用" : "插件禁用失败");
+		PluginInstance* inst = Plugin_Find(sName);
+		PluginRoute_SendResult(objResp, bOk, bOk ? "插件已禁用" :
+			inst && inst->activeIo ? "插件仍有请求执行中，请稍后重试" : "插件禁用失败");
 	}
 }
 
@@ -172,7 +174,12 @@ void Request_Plugin_Reload(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		PluginRoute_SendResult(objResp, false, "缺少插件 xid");
 		return;
 	}
-	PluginRoute_SendResult(objResp, PluginHost_Reload(sName), "插件已重载");
+	{
+		bool ok = PluginHost_Reload(sName);
+		PluginInstance* inst = Plugin_Find(sName);
+		PluginRoute_SendResult(objResp, ok, ok ? "插件已重载" :
+			inst && inst->activeIo ? "插件仍有请求执行中，请稍后重试" : "插件重载失败（详见服务端日志）");
+	}
 }
 
 void Request_Plugin_Settings(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)

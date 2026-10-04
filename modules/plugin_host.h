@@ -203,6 +203,8 @@ static bool XAdmin_CheckAdminCSRF(XS_RequestObject req, xvalue* session)
         XA_IsHex(token, 64) && xrtConstTimeEqual(field->Value.Data, token, 64);
 }
 
+#include "../src/net/plugin_async.c"
+
 static bool Plugin_XidValid(const char* sXid)
 {
 	size_t i, len;
@@ -1807,6 +1809,7 @@ static bool Plugin_Compile(PluginInstance* inst, char* sError, size_t iErrorSize
 			{"XAdmin_ReqBody", (const void*)XAdmin_ReqBody},
 			{"XAdmin_ReqBodyLen", (const void*)XAdmin_ReqBodyLen},
 			{"XAdmin_HttpPostJson", (const void*)XAdmin_HttpPostJson},
+			{"XAdmin_DeferRoute", (const void*)XAdmin_DeferRoute},
 			{"XAdmin_MemberContactStatus", (const void*)XAdmin_MemberContactStatus},
 			{"XAdmin_AdminCSRFToken", (const void*)XAdmin_AdminCSRFToken},
 			{"XAdmin_CheckAdminCSRF", (const void*)XAdmin_CheckAdminCSRF},
@@ -1997,7 +2000,10 @@ static bool Plugin_Start(PluginInstance* inst, char* sError, size_t iErrorSize)
 			Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET installed=1 WHERE xid='%s';", inst->xid));
 		}
 	}
-	if (inst->desc->OnConfigChanged) inst->desc->OnConfigChanged(handle, inst->config);
+	if (inst->desc->OnConfigChanged && inst->desc->OnConfigChanged(handle, inst->config) != 0) {
+		snprintf(sError, iErrorSize, "OnConfigChanged rejected initial configuration");
+		goto rollback;
+	}
 	if (inst->desc->OnStart && inst->desc->OnStart(handle) != 0) {
 		snprintf(sError, iErrorSize, "OnStart failed");
 		goto rollback;
@@ -2403,6 +2409,7 @@ static void PluginHost_Unit(void)
 {
 	size_t i;
 	printf("        PluginHost_Unit \n");
+	PluginAsync_Unit(); /* callbacks finish before plugin state/code and DB teardown */
 	for (i = 0; i < G_PluginCount; i++)
 		Plugin_Stop(&G_Plugins[i]);
 	for (i = 0; i < G_PluginCount; i++) {

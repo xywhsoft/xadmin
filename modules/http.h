@@ -16,6 +16,7 @@ typedef struct XAdminRequest {
 	xstrview param_name[8], param_value[8];
 	size_t param_count;
 	bool replied;
+	bool deferred; /* owned async route; protocol returns XS_TAKEOVER */
 } XAdminRequest;
 typedef XAdminRequest* XS_RequestObject;
 typedef XAdminRequest* XS_ResponseObject;

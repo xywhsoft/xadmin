@@ -231,6 +231,8 @@ typedef struct XAdminMultipartPart {
 	const char* data;         /* Part 正文 */
 	size_t      size;
 } XAdminMultipartPart;
+typedef void (*XAdminAsyncRouteProc)(XS_ServerObject, XS_HostObject,
+    XS_RequestObject, XS_ResponseObject, xvalue* session);
 #ifndef XS_PLUGIN_HOST_SIDE
 bool XAdmin_MultipartBoundary(const char* sContentType, char* sOut, size_t iCap);
 bool XAdmin_MultipartNext(const char* sBody, size_t iBodySize, const char* sBoundary,
@@ -245,6 +247,14 @@ bool XAdmin_MultipartNext(const char* sBody, size_t iBodySize, const char* sBoun
 int XAdmin_HttpPostJson(XAdminPluginHandle handle, XS_RequestObject req,
     const char* url, const char* bearer, const char* json, unsigned timeout_ms,
     size_t max_response, int* status, char** response);
+/* Copy request/session, pin plugin, and run a route callback on a bounded
+ * independent thread. Callback starts under the application lock; HTTPS calls
+ * release it. One response, then connection closes. Not a background job API.
+ * Only SDK request helpers are valid (no borrowed raw HTTP body reader).
+ * The callback must have bounded work; host shutdown joins all callbacks.
+ * Call once and return from the original route. 0 accepted, -1 unavailable. */
+int XAdmin_DeferRoute(XAdminPluginHandle handle, XS_RequestObject req,
+    xvalue* session, XAdminAsyncRouteProc proc);
 /* Bit 1: verified phone; bit 2: verified email; -1: account unavailable. */
 int XAdmin_MemberContactStatus(xvalue* session);
 /* Admin session-scoped token; borrowed until session destruction. Mutations
