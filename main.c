@@ -67,6 +67,7 @@ static bool XA_SecurityClose(int64 owner,const char* resolution,const char* admi
 #include "src/api/v1/oauth.c"
 #include "src/identity/application.c"
 #include "src/api/v1/application.c"
+#include "src/site/assetlinks.c"
 static bool G_SessionStarted, G_BusinessStarted; /* install.h 的向导流程与本段启动链共用 */
 #include "route_http/index.h"
 #include "route_http/login.h"

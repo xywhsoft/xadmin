@@ -5,6 +5,7 @@ static void RouteHTTP_Init(void)
 {
     RouteInfo* brand;
     G_StaticRouteTableHTTP = xrtMapCreate(sizeof(RouteInfo));
+    XA_AssetLinksRegister();
 	AddStaticRouteHTTP("/", XHTTP_METHOD_ANY, Request_Site_Home, false);
 	AddStaticRouteHTTP("/admin", XHTTP_METHOD_ANY, Request_Index, false);
 	AddStaticRouteHTTP("/admin/login", XHTTP_METHOD_ANY, Request_Login, true);

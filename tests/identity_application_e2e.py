@@ -29,6 +29,10 @@ def run(args):
         {'client_id': 'example-mobile', 'name': 'Example Mobile', 'redirect_uris': [
             'https://example.test/app/callback']}]}
     (target / 'db/identity.json').write_text(json.dumps(identity))
+    public = target / 'wwwroot/.well-known/assetlinks.json'
+    public.parent.mkdir(parents=True, exist_ok=True)
+    public.write_text('[]')
+    (target / 'wwwroot/.private').write_text('must not be public')
     log = target / 'application-server.log'
     process = None
 
@@ -90,6 +94,14 @@ def run(args):
 
     try:
         process = launch(); ready()
+        actual, headers, body = request(args.port, 'GET', '/.well-known/assetlinks.json')
+        assert actual == 200 and json.loads(body) == [] and headers['Content-Type'].startswith('application/json')
+        assert request(args.port, 'HEAD', '/.well-known/assetlinks.json')[0] == 200
+        assert request(args.port, 'POST', '/.well-known/assetlinks.json')[0] == 405
+        assert request(args.port, 'GET', '/.private')[0] == 403
+        public.write_text('{}'); assert request(args.port, 'GET', '/.well-known/assetlinks.json')[0] == 404
+        public.write_text('[' + ' '*65536 + ']'); assert request(args.port, 'GET', '/.well-known/assetlinks.json')[0] == 404
+        public.write_text('[]')
         call('POST', '/api/v1/register', {'username': 'application_member', 'password': PASSWORD}, status=201)
         tokens, headers = call('POST', '/api/v1/login', {'identifier': 'application_member', 'password': PASSWORD})
         browser = headers['Set-Cookie'].split(';')[0]
