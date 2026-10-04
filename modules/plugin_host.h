@@ -197,6 +197,7 @@ static const char* XAdmin_AdminCSRFToken(xvalue* session)
 }
 static bool XAdmin_CheckAdminCSRF(XS_RequestObject req, xvalue* session)
 {
+    if (!req || !req->raw || !req->raw->head || !session) return false;
     bool bad = false; const xhttpfield* field = XA_Header(req, "X-CSRF-Token", &bad);
     const char* token = ValueText(session, "_pluginCSRF");
     return req && XA_SameOrigin(req) && !bad && field && field->Value.Size == 64 &&
