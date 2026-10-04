@@ -235,6 +235,22 @@ typedef struct XAdminMultipartPart {
 bool XAdmin_MultipartBoundary(const char* sContentType, char* sOut, size_t iCap);
 bool XAdmin_MultipartNext(const char* sBody, size_t iBodySize, const char* sBoundary,
 	size_t iBoundaryLen, size_t* pOffset, XAdminMultipartPart* pOut);
+
+/* Host 4.1 additions; ABI structure layouts remain v4. Route callbacks only.
+ * HTTP temporarily releases the application lock. Copy live configuration
+ * before calling; do not keep SQLite statements/transactions open. The host
+ * rejects unloading this plugin until I/O completes. Response is xrtFree-owned.
+ * Verified HTTPS only; one JSON POST, no redirects/retries, <=1 MiB response.
+ * Return 0 on HTTP response, -1 on invalid/local/transport failure, -2 timeout. */
+int XAdmin_HttpPostJson(XAdminPluginHandle handle, XS_RequestObject req,
+    const char* url, const char* bearer, const char* json, unsigned timeout_ms,
+    size_t max_response, int* status, char** response);
+/* Bit 1: verified phone; bit 2: verified email; -1: account unavailable. */
+int XAdmin_MemberContactStatus(xvalue* session);
+/* Admin session-scoped token; borrowed until session destruction. Mutations
+ * must check both the token and same-origin request. */
+const char* XAdmin_AdminCSRFToken(xvalue* session);
+bool XAdmin_CheckAdminCSRF(XS_RequestObject req, xvalue* session);
 #endif
 
 int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl* decl, XAdminRouteToken* token);

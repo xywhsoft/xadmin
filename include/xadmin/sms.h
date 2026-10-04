@@ -40,12 +40,8 @@ typedef struct XASmsReceipt {
  * their output. Never put credentials or verification codes into diagnostics.
  * Parse receives only a bounded JSON object from a 2xx response. Invalid
  * responses remain UNKNOWN without invoking the parser. */
-typedef struct XASmsHttpRequest {
-    char url[2049], content_type[81];
-    char names[XA_SMS_MAX_HEADERS][65], values[XA_SMS_MAX_HEADERS][1025];
-    size_t header_count;
-    char* body;
-} XASmsHttpRequest;
+#include "http_client.h"
+typedef XAHttpRequest XASmsHttpRequest;
 typedef struct XASmsProvider {
     unsigned abi;
     const char* id;

@@ -42,7 +42,7 @@ static bool PluginHost_Reload(const char* sXid);
 #define PLUGIN_PATH_MAX   420
 #define PLUGIN_ROUTES_MAX 256 /* 生成插件（cms.article）注册 220+ 路由 */
 #define PLUGIN_DYN_MAX    16
-#define PLUGIN_HOST_VERSION "4.0.0" /* manifest 宿主版本区间比较基准（v1 PS_MANIFEST_HOST_VERSION） */
+#define PLUGIN_HOST_VERSION "4.1.0" /* additive SDK APIs; ABI layout stays v4 */
 #define PLUGIN_EVT_MAX    128
 #define PLUGIN_HOOK_MAX   128
 #define PLUGIN_SVC_MAX    32
@@ -66,6 +66,7 @@ typedef struct PluginInstance {
 	sqlite3_int64 genRowId;
 	int generation;
 	int activeLeases; /* 未归还的服务租借数：>0 时代际停用不得销毁代码镜像 */
+	int activeIo; /* unlocked outbound calls; disable/reload must reject while nonzero */
 	bool started;
 	str routePaths[PLUGIN_ROUTES_MAX]; /* RouteInfo.Path 指针的所有权在实例 */
 	size_t routeCount;
@@ -131,6 +132,75 @@ static PluginInstance* Plugin_Find(const char* sXid)
 	for (i = 0; i < G_PluginCount; i++)
 		if (!strcmp(G_Plugins[i].xid, sXid)) return &G_Plugins[i];
 	return NULL;
+}
+
+/* Only application composition (e.g. tests) may inject a transport. No HTTP
+ * route can set an upstream URL, private CA or callback. */
+typedef bool (*XAPluginHttpTransport)(void* engine, const XAHttpRequest* request,
+    unsigned timeout_ms, size_t max_body, int* status, char** response);
+static XAPluginHttpTransport G_PluginHttpTransport;
+static int XAdmin_HttpPostJson(XAdminPluginHandle handle, XS_RequestObject req,
+    const char* url, const char* bearer, const char* json, unsigned timeout_ms,
+    size_t max_response, int* status, char** response)
+{
+    PluginInstance* inst = NULL; size_t i;
+    if (!status || !response) return -1;
+    *status = 0; *response = NULL;
+    for (i = 0; i < G_PluginCount; i++) if (handle == &G_Plugins[i]) inst = &G_Plugins[i];
+    if (!inst || !inst->started || G_PluginRegIdx >= 0 || !req || !req->raw ||
+        timeout_ms < 100 || timeout_ms > 60000 || !max_response || max_response > 1048576 ||
+        !bearer || !*bearer || strlen(bearer) > 1000) return -1;
+    XAHttpRequest request = {0}; char authorization[1025];
+    snprintf(authorization, sizeof(authorization), "Bearer %s", bearer);
+    bool ok = XA_HttpsHttpBody(&request, url, "application/json", json) &&
+        XA_HttpsHttpHeader(&request, "Authorization", authorization);
+    xrtSecureZero(authorization, sizeof(authorization));
+    if (!ok) { XA_HttpsHttpUnit(&request); return -1; }
+    void* engine = req->raw->server->Engine;
+    XAPluginHttpTransport transport = G_PluginHttpTransport;
+    xdeadline deadline = xrtDeadlineAfter((uint64)timeout_ms * 1000);
+    inst->activeIo++;
+    xrtMutexUnlock(G_RequestLock);
+    ok = transport ? transport(engine, &request, timeout_ms, max_response, status, response) :
+        XA_HttpsHttp(engine, NULL, &request, timeout_ms, max_response, status, response);
+    xrtMutexLock(G_RequestLock);
+    inst->activeIo--;
+    XA_HttpsHttpUnit(&request);
+    if (!ok || !*response || strlen(*response) > max_response) {
+        if (*response) xrtSecureZero(*response, strlen(*response));
+        xrtFree(*response); *response = NULL; *status = 0;
+        return !xrtDeadlineRemaining(deadline) ? -2 : -1;
+    }
+    return 0;
+}
+static int XAdmin_MemberContactStatus(xvalue* session)
+{
+    sqlite3_stmt* stmt = NULL; int result = -1;
+    if (!session || ValueInt(session, "id") <= 0) return -1;
+    if (sqlite3_prepare_v2(G_DB, "SELECT phone_verified_at,email_verified_at FROM member WHERE id=? AND status=1 AND isDelete=0", -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_int64(stmt, 1, ValueInt(session, "id"));
+        if (sqlite3_step(stmt) == SQLITE_ROW) result =
+            (sqlite3_column_int64(stmt, 0) > 0 ? 1 : 0) | (sqlite3_column_int64(stmt, 1) > 0 ? 2 : 0);
+    }
+    sqlite3_finalize(stmt); return result;
+}
+static const char* XAdmin_AdminCSRFToken(xvalue* session)
+{
+    if (!session || ValueInt(session, "id") <= 0) return NULL;
+    const char* token = ValueText(session, "_pluginCSRF");
+    if (!XA_IsHex(token, 64)) {
+        char value[65];
+        if (!XA_Random(value) || !ValueSetText(session, "_pluginCSRF", value)) return NULL;
+        token = ValueText(session, "_pluginCSRF");
+    }
+    return token;
+}
+static bool XAdmin_CheckAdminCSRF(XS_RequestObject req, xvalue* session)
+{
+    bool bad = false; const xhttpfield* field = XA_Header(req, "X-CSRF-Token", &bad);
+    const char* token = ValueText(session, "_pluginCSRF");
+    return req && XA_SameOrigin(req) && !bad && field && field->Value.Size == 64 &&
+        XA_IsHex(token, 64) && xrtConstTimeEqual(field->Value.Data, token, 64);
 }
 
 static bool Plugin_XidValid(const char* sXid)
@@ -1736,6 +1806,10 @@ static bool Plugin_Compile(PluginInstance* inst, char* sError, size_t iErrorSize
 			{"XAdmin_PluginReqHeader", (const void*)XAdmin_PluginReqHeader},
 			{"XAdmin_ReqBody", (const void*)XAdmin_ReqBody},
 			{"XAdmin_ReqBodyLen", (const void*)XAdmin_ReqBodyLen},
+			{"XAdmin_HttpPostJson", (const void*)XAdmin_HttpPostJson},
+			{"XAdmin_MemberContactStatus", (const void*)XAdmin_MemberContactStatus},
+			{"XAdmin_AdminCSRFToken", (const void*)XAdmin_AdminCSRFToken},
+			{"XAdmin_CheckAdminCSRF", (const void*)XAdmin_CheckAdminCSRF},
 			{"XAdmin_MultipartBoundary", (const void*)XAdmin_MultipartBoundary},
 			{"XAdmin_MultipartNext", (const void*)XAdmin_MultipartNext},
 			{"XAdmin_RegisterRoute", (const void*)XAdmin_RegisterRoute},
@@ -2025,6 +2099,7 @@ static bool PluginHost_SetEnabled(const char* sXid, bool bEnable)
 	PluginInstance* inst = Plugin_Find(sXid);
 	char sError[2096] = {0};
 	if (!inst) return false;
+	if (!bEnable && inst->activeIo) return false;
 	if (G_PluginRegIdx >= 0) return false; /* GR3：插件启动期间禁止换代操作（防重入） */
 	if (bEnable) {
 		if (inst->started) return true;
@@ -2045,6 +2120,7 @@ static bool PluginHost_Reload(const char* sXid)
 {
 	PluginInstance* inst = Plugin_Find(sXid);
 	if (!inst) return false;
+	if (inst->activeIo) return false;
 	if (G_PluginRegIdx >= 0) return false; /* GR3：同上 */
 	if (inst->started) Plugin_Stop(inst);
 	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET enabled=1 WHERE xid='%s';", sXid));

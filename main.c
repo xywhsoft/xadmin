@@ -36,6 +36,7 @@ static void XA_SessionMaintenance(void);
 #include "src/sms/registry.c"
 #include "src/identity/config.c"
 #include "src/sms/config.c"
+#include "src/net/https.c"
 #include "src/sms/http.c"
 #include "src/sms/service.c"
 #include "src/sms/providers.c"
