@@ -6,3 +6,6 @@ __pycache__/
 /tests/.runtime/
 /db/identity.json
 /db/identity-before-*.db
+/plugin_data/web-search/credentials.json
+/plugin_data/web-search/.xrt-write-*.tmp
+/db/plugin/web-search/

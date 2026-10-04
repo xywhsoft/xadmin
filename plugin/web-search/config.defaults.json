@@ -1,0 +1,12 @@
+{
+  "default_provider": "bocha",
+  "verification": "phone",
+  "minute_limit": 5,
+  "daily_limit": 100,
+  "global_daily_limit": 10000,
+  "max_results": 10,
+  "timeout_ms": 20000,
+  "max_concurrent": 4,
+  "bocha_enabled": true,
+  "zai_enabled": true
+}
