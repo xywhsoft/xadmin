@@ -42,7 +42,7 @@ static bool PluginHost_Reload(const char* sXid);
 #define PLUGIN_PATH_MAX   420
 #define PLUGIN_ROUTES_MAX 256 /* 生成插件（cms.article）注册 220+ 路由 */
 #define PLUGIN_DYN_MAX    16
-#define PLUGIN_HOST_VERSION "4.1.0" /* additive SDK APIs; ABI layout stays v4 */
+#define PLUGIN_HOST_VERSION "4.2.0" /* additive SDK APIs; ABI layout stays v4 */
 #define PLUGIN_EVT_MAX    128
 #define PLUGIN_HOOK_MAX   128
 #define PLUGIN_SVC_MAX    32
@@ -1811,6 +1811,7 @@ static bool Plugin_Compile(PluginInstance* inst, char* sError, size_t iErrorSize
 			{"XAdmin_ReqBodyLen", (const void*)XAdmin_ReqBodyLen},
 			{"XAdmin_HttpPostJson", (const void*)XAdmin_HttpPostJson},
 			{"XAdmin_DeferRoute", (const void*)XAdmin_DeferRoute},
+			{"XAdmin_ReplyBinary", (const void*)XAdmin_ReplyBinary},
 			{"XAdmin_MemberContactStatus", (const void*)XAdmin_MemberContactStatus},
 			{"XAdmin_AdminCSRFToken", (const void*)XAdmin_AdminCSRFToken},
 			{"XAdmin_CheckAdminCSRF", (const void*)XAdmin_CheckAdminCSRF},

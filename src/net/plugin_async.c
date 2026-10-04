@@ -32,6 +32,10 @@ static void PluginAsync_Free(PluginAsyncJob* job)
     }
     xrtFree((void*)job->head.Method.Data); xrtFree((void*)job->head.Target.Data);
     xrtFree(job->req.path); xrtFree(job->req.query);
+    for (i = 0; i < job->req.param_count; ++i) {
+        xrtFree((void*)job->req.param_name[i].Data);
+        xrtFree((void*)job->req.param_value[i].Data);
+    }
     if (job->req.body) xrtSecureZero(job->req.body,job->req.body_size);
     xrtFree(job->req.body); xrtValueRelease(job->session);
     if (job->raw.tcp) xrtNetStreamDestroy(job->raw.tcp);
@@ -59,7 +63,7 @@ static int XAdmin_DeferRoute(XAdminPluginHandle handle, XS_RequestObject req,
     for (i = 0; i < G_PluginCount; i++) if (handle == &G_Plugins[i]) plugin = &G_Plugins[i];
     if (!plugin || !plugin->started || G_PluginRegIdx >= 0 || !req || !req->raw ||
         !req->raw->head || req->raw->head->FieldCount > 64 || req->body_size > 1048576 ||
-        req->param_count || req->deferred || req->replied || !proc) return -1;
+        req->param_count > 8 || req->deferred || req->replied || !proc) return -1;
     for (i = 0; i < PLUGIN_ASYNC_MAX; i++) {
         if (G_PluginThreads[i] && xrtThreadState(G_PluginThreads[i]) == XTHREAD_FINISHED) {
             xrtThreadWait(G_PluginThreads[i]); xrtThreadDestroy(G_PluginThreads[i]); G_PluginThreads[i] = NULL;
@@ -69,6 +73,7 @@ static int XAdmin_DeferRoute(XAdminPluginHandle handle, XS_RequestObject req,
     if (slot < 0) return -1;
     PluginAsyncJob* job = xrtCalloc(1,sizeof(*job)); if (!job) return -1;
     job->plugin = plugin; job->proc = proc;
+    job->req.deferred = true; /* owned callback, eligible for bounded streaming */
     job->head = *req->raw->head; job->head.Fields = job->fields; job->head.FieldCapacity = 64;
     job->head.Flags |= XHTTP1_CONNECTION_CLOSE;
     job->head.Method = job->head.Target = job->head.Reason = (xstrview){0};
@@ -93,6 +98,11 @@ static int XAdmin_DeferRoute(XAdminPluginHandle handle, XS_RequestObject req,
         ok = PluginAsync_CopyView(req->raw->head->Fields[i].Name,&job->fields[i].Name) &&
             PluginAsync_CopyView(req->raw->head->Fields[i].Value,&job->fields[i].Value);
     }
+    for (i = 0; ok && i < req->param_count; ++i) {
+        job->req.param_count = i+1;
+        ok = PluginAsync_CopyView(req->param_name[i],&job->req.param_name[i]) &&
+            PluginAsync_CopyView(req->param_value[i],&job->req.param_value[i]);
+    }
     if (!ok) { PluginAsync_Free(job); return -1; }
     plugin->activeIo++;
     G_PluginThreads[slot] = xrtThreadCreate(PluginAsync_Run,job,0);
@@ -107,4 +117,65 @@ static void PluginAsync_Unit(void)
     for (i = 0; i < PLUGIN_ASYNC_MAX; i++) if (G_PluginThreads[i]) {
         xrtThreadWait(G_PluginThreads[i]); xrtThreadDestroy(G_PluginThreads[i]); G_PluginThreads[i] = NULL;
     }
+}
+
+static bool PluginAsync_Future(xfuture* future, xdeadline deadline)
+{
+    bool ok = future && xrtFutureWaitUntil(future,deadline) == XWAIT_OK &&
+        xrtFutureState(future) == XFUTURE_RESOLVED;
+    if (!ok && future) xrtFutureCancel(future);
+    xrtFutureDestroy(future); return ok;
+}
+/* Only a deferred route owns a connection away from its network worker.
+ * The plugin remains pinned by PluginAsync_Run until this call returns.
+ * Body and headers are borrowed; the caller keeps them alive during the call. */
+static int XAdmin_ReplyBinary(XS_RequestObject req, uint16 status,
+    const xhttpfield* fields, size_t count, const void* body, size_t size,
+    unsigned timeout_ms)
+{
+    char head[4096], length[32]; xhttpfield all[14]; size_t head_size, i;
+    if (!req || !req->deferred || req->replied || !req->raw || !req->raw->head ||
+        count > 12 || (count && !fields) || (size && !body) || size > 32u*1024u*1024u ||
+        timeout_ms < 100 || timeout_ms > 120000) return -1;
+    for (i = 0; i < count; ++i) {
+        if (xrtStrCaseEqual(fields[i].Name,XRT_STR_LITERAL("Content-Length")) ||
+            xrtStrCaseEqual(fields[i].Name,XRT_STR_LITERAL("Transfer-Encoding")) ||
+            xrtStrCaseEqual(fields[i].Name,XRT_STR_LITERAL("Connection"))) return -1;
+        all[i] = fields[i];
+    }
+    snprintf(length,sizeof(length),"%llu",(unsigned long long)size);
+    all[count++] = (xhttpfield){XRT_STR_LITERAL("Content-Length"),xrtStrView(length)};
+    all[count++] = (xhttpfield){XRT_STR_LITERAL("Connection"),XRT_STR_LITERAL("close")};
+    if (!xrtHttp1ResponseWrite(XHTTP_VERSION_1_1,status,xrtHttpStatusText(status),
+            all,count,head,sizeof(head),&head_size)) return -1;
+    xdeadline deadline = xrtDeadlineAfter((uint64)timeout_ms*1000);
+    req->replied = true; bool ok = true; size_t offset = 0;
+    const char* bytes = head; size_t total = head_size; int pass;
+    xrtMutexUnlock(G_RequestLock);
+    for (pass = 0; ok && pass < 2; ++pass) {
+        while (ok && offset < total) {
+            size_t chunk = total-offset; if (chunk > 16384) chunk = 16384;
+            if (xrtDeadlineExpired(deadline)) { ok = false; break; }
+            if (req->raw->tls) {
+                ok = PluginAsync_Future(xrtTlsStreamSendAsync(req->raw->tls,bytes+offset,chunk),deadline) &&
+                    PluginAsync_Future(xrtTlsStreamWaitAsync(req->raw->tls,XTLS_STREAM_WAIT_DRAIN),deadline);
+            } else {
+                size_t limit = xrtNetStreamWriteLimit(req->raw->tcp);
+                if (!limit) { ok = false; break; }
+                if (chunk > limit) chunk = limit;
+                xnetresult sent = xrtNetStreamSend(req->raw->tcp,bytes+offset,chunk);
+                ok = (sent == XNET_RESULT_OK || sent == XNET_RESULT_AGAIN) &&
+                    xrtNetStreamWait(req->raw->tcp,XNET_STREAM_WAIT_DRAIN,deadline,NULL);
+                if (ok && sent == XNET_RESULT_AGAIN) continue;
+            }
+            offset += chunk;
+        }
+        bytes = body; offset = 0;
+        total = req->raw->head->MethodCode == XHTTP_METHOD_HEAD ? 0 : size;
+    }
+    if (!ok) {
+        if (req->raw->tls) xrtTlsStreamAbort(req->raw->tls);
+        else xrtNetStreamAbort(req->raw->tcp);
+    }
+    xrtMutexLock(G_RequestLock); return ok ? 0 : -1;
 }

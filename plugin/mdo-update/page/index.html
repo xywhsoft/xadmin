@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>墨斗更新</title>
+<style>
+:root{color-scheme:light dark;--bg:#f5f6f8;--panel:#fff;--line:#e2e5ea;--text:#253044;--muted:#707b8e;--accent:#3468df}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.6 system-ui,sans-serif}
+main{max-width:1040px;margin:32px auto;padding:0 24px}header{margin-bottom:26px}h1{font-size:25px;margin:0 0 8px}
+.hint{color:var(--muted);margin:0}.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px;min-width:0}
+h2{font-size:19px;margin:0 0 4px}.badge{display:inline-block;border-radius:20px;background:var(--bg);padding:2px 10px;font-size:12px;margin:12px 0}
+dl{margin:4px 0 22px}dt{font-size:12px;color:var(--muted);margin-top:10px}dd{margin:0;overflow-wrap:anywhere}
+.hash{font:12px/1.6 ui-monospace,monospace}.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:110px;border:1px dashed var(--line);border-radius:10px;background:var(--bg);cursor:pointer;text-align:center;padding:16px}
+.drop:hover,.drop:focus-visible,.drop[data-drag=true]{border-color:var(--accent);outline:none}
+.file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}label.notes{display:block;margin:18px 0 6px;color:var(--muted);font-size:12px}
+textarea{display:block;width:100%;resize:vertical;min-height:68px;border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--panel);color:inherit;font:inherit}
+button{font:inherit;border:1px solid var(--line);border-radius:8px;padding:9px 18px;cursor:pointer;background:var(--panel);color:inherit}
+.submit{background:var(--accent);color:white;border-color:var(--accent)}button:disabled{opacity:.45;cursor:default}
+.actions{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap}.result{min-height:24px;margin:12px 0 0;white-space:pre-wrap;font-size:13px;overflow-wrap:anywhere}
+.result[data-error=true],#notice[data-error=true]{color:#ce4242}progress{width:100%;height:7px;margin-top:14px;accent-color:var(--accent)}
+#notice{margin-top:18px;white-space:pre-wrap}a{color:var(--accent)}.footnote{margin-top:24px;color:var(--muted);font-size:13px}
+@media(prefers-color-scheme:dark){:root{--bg:#18191b;--panel:#222427;--line:#393c41;--text:#e6e8ec;--muted:#a1a7b1;--accent:#7197f3}}
+@media(max-width:650px){main{margin:20px auto;padding:0 16px}.cards{grid-template-columns:1fr}.card{padding:20px}button{min-height:42px}}
+</style>
+</head>
+<body><main>
+<header><h1>墨斗更新</h1><p class="hint">上传完整安装包，自动计算 SHA-256。上传成功后立即提供给墨斗客户端。</p></header>
+<div class="cards" id="cards"></div>
+<p id="notice" role="status" aria-live="polite"></p>
+<p class="footnote">EXE 和 APK 分别维护。Android 安装包请保持原签名；同一天发布多个版本时，也建议递增 versionCode。</p>
+</main>
+<template id="card">
+<section class="card"><h2></h2><p class="hint platform"></p><span class="badge">尚未上传</span>
+<dl><dt>当前文件</dt><dd class="filename">—</dd><dt>大小 · 上传时间</dt><dd class="details">—</dd><dt>SHA-256</dt><dd class="hash">—</dd></dl>
+<form><button class="drop" type="button"><strong class="selected">选择文件或拖入此处</strong><span class="hint file-hint"></span></button>
+<input class="file" type="file"><label class="notes">更新说明（可选）</label><textarea rows="2" placeholder="例如：优化项目创建体验"></textarea>
+<progress value="0" max="100" hidden aria-label="上传进度"></progress>
+<div class="actions"><button class="submit" type="submit" disabled>上传并更新</button><button class="cancel" type="button" hidden>取消</button><a class="download" hidden>下载当前包</a></div>
+<p class="result" role="status" aria-live="polite"></p></form></section>
+</template>
+<script>
+"use strict";
+const definitions=[
+ {id:"windows-x86_64",title:"Windows",hint:"x86_64 · 单文件 EXE",extension:".exe"},
+ {id:"android-arm64-v8a",title:"Android",hint:"ARM64 · 单体 APK",extension:".apk"}
+];
+let csrf="",limit=32*1024*1024,invalid=false;
+const cards=new Map(),notice=document.querySelector("#notice");
+function message(node,text,error=false){node.textContent=text;node.dataset.error=String(error);}
+function bytes(n){return (n/1024/1024).toFixed(2)+" MiB";}
+function renderCurrent(card,data){
+ card.querySelector(".badge").textContent=data?"当前包已发布":"尚未上传";
+ card.querySelector(".filename").textContent=data?.filename||"—";
+ card.querySelector(".details").textContent=data?bytes(data.size)+" · "+new Date(data.updated_at*1000).toLocaleString():"—";
+ card.querySelector(".hash").textContent=data?.sha256||"—";
+ const link=card.querySelector(".download");link.hidden=!data;
+ if(data){link.href=data.url;link.download=data.platform==="windows-x86_64"?"mdo.exe":"mdo-arm64-v8a.apk";}else link.removeAttribute("href");
+}
+async function refresh(){
+ try{
+  const r=await fetch("/admin/api/mdo-update",{credentials:"same-origin",cache:"no-store"});
+  const j=await r.json();if(!r.ok||j.code!==0)throw Error(j.message||"读取包信息失败");
+  csrf=j.data.csrf_token;limit=j.data.max_size;invalid=j.data.metadata_invalid;
+  for(const def of definitions){const state=cards.get(def.id);renderCurrent(state.card,j.data[def.id]);state.sync();}
+  message(notice,invalid?"包信息文件损坏，上传已停用。请检查插件私有目录中的 current.json。":"",invalid);
+ }catch(e){message(notice,e.message,true);}
+}
+for(const def of definitions){
+ const card=document.querySelector("#card").content.firstElementChild.cloneNode(true);
+ const form=card.querySelector("form"),input=card.querySelector(".file"),drop=card.querySelector(".drop"),result=card.querySelector(".result");
+ const submit=card.querySelector(".submit"),cancel=card.querySelector(".cancel"),progress=card.querySelector("progress"),notes=card.querySelector("textarea");
+ card.querySelector("h2").textContent=def.title;card.querySelector(".platform").textContent=def.hint;
+ card.querySelector(".file-hint").textContent=def.extension+" · 最大 32 MiB";
+ input.accept=def.extension;input.id="file-"+def.id;input.setAttribute("aria-label",def.title+" 安装包");
+ notes.id="notes-"+def.id;card.querySelector("label.notes").htmlFor=notes.id;
+ let file=null,xhr=null;
+ function sync(){submit.disabled=Boolean(xhr)||!file||!csrf||invalid;drop.disabled=Boolean(xhr);input.disabled=Boolean(xhr);notes.disabled=Boolean(xhr);cancel.hidden=!xhr;}
+ function choose(files){
+  if(xhr)return;
+  if(files.length!==1){message(result,"每次请选择一个安装包。",true);return;}
+  const candidate=files[0];
+  if(!candidate.name.toLowerCase().endsWith(def.extension)||!candidate.size||candidate.size>limit){
+   message(result,"请选择不超过 "+bytes(limit)+" 的 "+def.extension+" 安装包。",true);return;
+  }
+  file=candidate;card.querySelector(".selected").textContent=file.name+" · "+bytes(file.size);message(result,"");sync();
+ }
+ drop.addEventListener("click",()=>input.click());input.addEventListener("change",()=>choose([...input.files]));
+ for(const event of ["dragover","dragenter"])drop.addEventListener(event,e=>{e.preventDefault();drop.dataset.drag="true";});
+ drop.addEventListener("dragleave",()=>drop.dataset.drag="false");
+ drop.addEventListener("drop",e=>{e.preventDefault();drop.dataset.drag="false";choose([...e.dataTransfer.files]);});
+ form.addEventListener("submit",e=>{
+  e.preventDefault();if(xhr||submit.disabled)return;
+  if(new TextEncoder().encode(notes.value).length>1024){message(result,"更新说明最多 1024 字节。",true);return;}
+  const payload=new FormData();payload.append("platform",def.id);payload.append("file",file);payload.append("notes",notes.value);
+  const request=xhr=new XMLHttpRequest();request.open("POST","/admin/api/mdo-update/upload");
+  request.setRequestHeader("X-CSRF-Token",csrf);request.timeout=120000;
+  progress.value=0;progress.hidden=false;message(result,"正在上传…");sync();
+  request.upload.onprogress=e=>{if(e.lengthComputable){progress.value=e.loaded/e.total*100;if(e.loaded===e.total)message(result,"正在计算 hash 并保存…");}};
+  request.onload=()=>{
+   try{
+    const j=JSON.parse(request.responseText);
+    if(request.status!==200)throw Error(j.message||"上传失败，原包保持不变。");
+    renderCurrent(card,j);file=null;input.value="";notes.value="";card.querySelector(".selected").textContent="选择文件或拖入此处";
+    message(result,"上传成功，当前包已更新。");
+   }catch(e){message(result,e.message,true);}
+  };
+  request.onerror=()=>message(result,"网络中断，请刷新包信息后重试。服务器已完成的上传可能仍然生效。",true);
+  request.ontimeout=()=>message(result,"上传超时，请刷新包信息确认结果。",true);
+  request.onabort=()=>message(result,"已停止上传。若服务器已收到完整文件，请刷新确认当前包。");
+  request.onloadend=()=>{xhr=null;progress.hidden=true;sync();void refresh();};
+  request.send(payload);
+ });
+ cancel.addEventListener("click",()=>xhr?.abort());
+ cards.set(def.id,{card,sync});document.querySelector("#cards").append(card);
+}
+void refresh();
+</script>
+</body></html>
