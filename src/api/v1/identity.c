@@ -162,9 +162,11 @@ static void XA_CurrentSessionAPI(XAdminRequest* req,xvalue* session)
             if(ok){s=XA_SQL("UPDATE member_session SET csrf_hash=? WHERE sid=? AND revoked_at=0 AND expires_at>?");
                 XA_BindText(s,1,hash);XA_BindText(s,2,ValueText(session,"sid"));if(s)sqlite3_bind_int64(s,3,XA_Now());ok=XA_Done(s,true);}
             if(!ok){XA_Reply(req,500,"session unavailable",NULL,NULL);return;}
-            headers=XA_CookieHeader(req,ValueText(session,"msid"),false,csrf);
-            if(!headers){XA_Reply(req,500,"session unavailable",NULL,NULL);return;}
         }
+        /* Keep the browser cookie aligned with its sliding server session,
+         * without rotating a valid CSRF token shared by other tabs. */
+        headers=XA_CookieHeader(req,ValueText(session,"msid"),false,csrf);
+        if(!headers){XA_Reply(req,500,"session unavailable",NULL,NULL);return;}
     }
     char* access=XA_AccessToken(ValueText(session,"sid"),ValueInt(session,"id"));
     xvalue* data=ValueObject();

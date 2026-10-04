@@ -11,6 +11,14 @@ static bool XA_SessionRevokeAccount(int64 account,const char* keep_sid)
     sqlite3_stmt* s=XA_SQL("UPDATE member_session SET revoked_at=? WHERE member_id=? AND revoked_at=0 AND sid<>?");
     if(s){sqlite3_bind_int64(s,1,XA_Now());sqlite3_bind_int64(s,2,account);}XA_BindText(s,3,keep_sid?keep_sid:"");return XA_Done(s,false);
 }
+/* Renew only an authenticated, still-live session. An expired or revoked
+ * session is never resurrected; the optional absolute cap always wins. */
+static int64 XA_SessionDeadline(int64 created, int64 now)
+{
+    int64 deadline = now + G_Identity.session_idle_days * 86400;
+    int64 maximum = created + G_Identity.session_max_days * 86400;
+    return G_Identity.session_max_days && maximum < deadline ? maximum : deadline;
+}
 static xvalue* XA_SessionRead(const char* sid,const char* cookie)
 {
     sqlite3_stmt* s;char hash[65];xvalue* session=NULL;XAAccount a;char session_id[65],csrf[65];int64 expiry,reauth,created;
@@ -23,7 +31,7 @@ static xvalue* XA_SessionRead(const char* sid,const char* cookie)
         int64 owner=sqlite3_column_int64(s,1);expiry=sqlite3_column_int64(s,3);reauth=sqlite3_column_int64(s,4);created=sqlite3_column_int64(s,5);
         sqlite3_finalize(s);s=NULL;
         int64 group_level=-1;
-        if(XA_AccountByID(owner,&a)&&a.status==1&&MemberAuth_DBGroupGetAccess(a.group,0,&group_level)){
+        if(XA_SessionDeadline(created,XA_Now())>XA_Now()&&XA_AccountByID(owner,&a)&&a.status==1&&MemberAuth_DBGroupGetAccess(a.group,0,&group_level)){
             session=ValueObject();bool ok=session&&ValueSetText(session,"sid",session_id)&&ValueSetInt(session,"id",a.id)&&
                 ValueSetInt(session,"groupId",a.group)&&ValueSetInt(session,"authLevel",a.level>group_level?a.level:group_level)&&
                 ValueSetInt(session,"balance",a.balance)&&ValueSetText(session,"username",a.username)&&ValueSetText(session,"nickname",a.nickname)&&
@@ -35,9 +43,13 @@ static xvalue* XA_SessionRead(const char* sid,const char* cookie)
     }
     sqlite3_finalize(s);
     if(session){
-        s=XA_SQL("UPDATE member_session SET last_used=? WHERE sid=? AND last_used<?");
-        if(s){sqlite3_bind_int64(s,1,XA_Now());sqlite3_bind_int64(s,3,XA_Now()-60);}
-        XA_BindText(s,2,session_id);XA_Done(s,false);
+        int64 now=XA_Now(), deadline=XA_SessionDeadline(created,now);
+        s=XA_SQL("UPDATE member_session SET last_used=?,expires_at=? WHERE sid=? AND revoked_at=0 AND expires_at>? AND (last_used<? OR expires_at<? OR expires_at>?)");
+        if(s){sqlite3_bind_int64(s,1,now);sqlite3_bind_int64(s,2,deadline);sqlite3_bind_int64(s,4,now);
+            sqlite3_bind_int64(s,5,now-60);sqlite3_bind_int64(s,6,deadline-60);sqlite3_bind_int64(s,7,deadline);}
+        XA_BindText(s,3,session_id);
+        if(!XA_Done(s,false)){xrtValueRelease(session);session=NULL;}
+        else if(sqlite3_changes(G_DB)>0)ValueSetInt(session,"_expireTime",deadline*1000000);
     }
     return session;
 }
@@ -118,7 +130,7 @@ static bool XA_SessionIssue(XAdminRequest* req,int64 owner,XATokenSet* t)
     int64 now=XA_Now();
     s=XA_SQL("INSERT INTO member_session(sid,member_id,cookie_hash,csrf_hash,created_at,last_used,expires_at,reauth_until,ip,user_agent) VALUES(?,?,?,?,?,?,?,?,?,?)");
     XA_BindText(s,1,t->sid);if(s)sqlite3_bind_int64(s,2,owner);XA_BindText(s,3,cookie_hash);XA_BindText(s,4,csrf_hash);
-    if(s){sqlite3_bind_int64(s,5,now);sqlite3_bind_int64(s,6,now);sqlite3_bind_int64(s,7,now+2592000);sqlite3_bind_int64(s,8,now+300);}
+    if(s){sqlite3_bind_int64(s,5,now);sqlite3_bind_int64(s,6,now);sqlite3_bind_int64(s,7,XA_SessionDeadline(now,now));sqlite3_bind_int64(s,8,now+300);}
     XA_BindText(s,9,req->remote);XA_BindText(s,10,agent);bool ok=XA_Done(s,true);
     if(ok){s=XA_SQL("INSERT INTO member_refresh(hash,sid)VALUES(?,?)");XA_BindText(s,1,refresh_hash);XA_BindText(s,2,t->sid);ok=XA_Done(s,true);}
     if(ok){ /* Bounded live sessions; expired/revoked rows remain manageable. */
@@ -139,7 +151,8 @@ static char* XA_CookieHeader(XAdminRequest* req,const char* cookie,bool clear,co
 {
     const char* secure=(G_Identity.secure_cookie||req->raw->tls)?"; Secure":"";
     return xrtFormat("Set-Cookie: MSID=%s; Path=/; HttpOnly; SameSite=Lax; Max-Age=%d%s\r\nSet-Cookie: MCSRF=%s; Path=/; SameSite=Lax; Max-Age=%d%s\r\n",
-        cookie?cookie:"",clear?0:2592000,secure,csrf?csrf:"",clear?0:2592000,secure);
+        cookie?cookie:"",clear?0:(int)(G_Identity.session_idle_days*86400),secure,
+        csrf?csrf:"",clear?0:(int)(G_Identity.session_idle_days*86400),secure);
 }
 static bool XA_SessionRefresh(const char* refresh,XATokenSet* t,int* status)
 {

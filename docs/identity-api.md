@@ -61,11 +61,11 @@ GitHub 注册自己的 OAuth App，callback 固定 `public_origin + /api/v1/auth
 | `POST /api/v1/logout` | 无需正文；撤销当前会话并清 Cookie |
 | `GET /api/v1/sessions` | 自己最多 5 个活跃会话，`id,current,created_at,last_used,expires_at,ip,user_agent` |
 | `DELETE /api/v1/sessions` | `{session_id}` 或 `{others:true}` |
-| `POST /api/v1/token/refresh` | `{refresh_token}`；新 access/refresh，不延长会话绝对期限 |
+| `POST /api/v1/token/refresh` | `{refresh_token}`；新 access/refresh，有效会话按闲置期限自动续期，总期限上限仍生效 |
 
 Token 集：`id,access_token,refresh_token,token_type:"Bearer",expires_in:900,csrf_token`。JWT 固定 HS256，校验 issuer/audience/member realm/subject/sid/jti/iat/exp/kid；每次请求仍检查数据库撤销及最新会员/用户组状态。无效或重复 Authorization 不回退到 Cookie。
 
-会话绝对 30 天，每账号最多 5 个活跃会话。refresh 随机生成、摘要落库、单次轮换；旧 refresh 重放撤销整个会话族。客户端必须协调串行刷新。退出、禁用/删除、密码重置、设备撤销跨进程重启/重载保持失效。
+会话默认闲置 30 天，认证成功的访问会自动延长到访问时间后 30 天，每分钟最多写入一次。有效刷新也续期；过期、撤销和无效凭据不能续期或恢复会话。`db/identity.json` 的 `session_idle_days` 可设为 1–3650 天；`session_max_days` 为 0–3650 天，默认 0（活跃时不设总期限），非零时以登录创建时间计算绝对上限。后台「账户与登录设置」可修改，两项为所有会员客户端通用配置，保存后重载生效。已有未过期会话在下次有效访问时应用新策略，已过期会话仍需重新登录。refresh 随机生成、摘要落库、单次轮换；旧 refresh 重放撤销整个会话族。客户端必须协调串行刷新。退出、禁用/删除、密码重置、设备撤销跨进程重启/重载保持失效。
 
 浏览器使用 HttpOnly `MSID` 和可读 `MCSRF`，均 SameSite=Lax，写请求每次读取当前 MCSRF 作为 `X-CSRF-Token`，不把 Token 存 localStorage。`GET /session` 在 MCSRF 丢失时补发/更新，匹配时不轮换，可多标签共享。原生客户端使用 Bearer，无 Cookie CSRF。Cookie 写只允许本站 origin；Bearer CORS 采用 `cors_origins` 精确列表、最多 8 项，不允许 `*`，不开放 credentialed CORS。
 

@@ -16,6 +16,7 @@ typedef struct XAApplicationConfig {
 typedef struct XAIdentityConfig {
     char issuer[257], audience[129], origin[513], country[5];
     bool registration, oauth_create, secure_cookie, security_questions;
+    int64 session_idle_days, session_max_days;
     char sms_url[1025], sms_token[513];
     XASmsConfig sms;
     XAProviderConfig github, wechat;
@@ -73,16 +74,22 @@ static bool XA_ConfigOrigin(const char* origin)
         strncmp(origin, "http://localhost:", 17)) return false;
     return strlen(origin) > prefix && !strpbrk(origin + prefix, "/@?#\\ \r\n\t");
 }
+static bool XA_ConfigDays(const xvalue* v, const char* name, int64* out, int64 minimum)
+{
+    return !ValueHas(v, name) || (xrtValueGetInt(ValueGet(v, name), out) &&
+        *out >= minimum && *out <= 3650);
+}
 #include "application_config.c"
 /* Pure decoding: rejected edits never modify a live script generation. */
 static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
 {
     const char* const names[] = {"issuer", "audience", "public_origin", "default_country_code",
         "registration", "oauth_create_member", "security_questions", "sms_webhook_url", "sms_webhook_token",
-        "github", "wechat", "cors_origins", "sms", "applications"};
+        "github", "wechat", "cors_origins", "sms", "applications", "session_idle_days", "session_max_days"};
     memset(out, 0, sizeof(*out));
     strcpy(out->issuer, "xadmin:member"); strcpy(out->audience, "member");
     out->registration = out->oauth_create = out->security_questions = true;
+    out->session_idle_days = 30; /* Sliding lifetime; zero maximum permits active renewal. */
     if (!v) { strcpy(out->github.mode, "website"); strcpy(out->wechat.mode, "website"); return true; }
     if (xrtValueType(v) != XVALUE_OBJECT || !XA_ConfigFields(v, names, sizeof(names)/sizeof(names[0])) ||
         !XA_ConfigString(v, "issuer", out->issuer, sizeof(out->issuer)) ||
@@ -95,6 +102,8 @@ static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
         !XA_ConfigBool(v, "registration", &out->registration) ||
         !XA_ConfigBool(v, "oauth_create_member", &out->oauth_create) ||
         !XA_ConfigBool(v, "security_questions", &out->security_questions) ||
+        !XA_ConfigDays(v, "session_idle_days", &out->session_idle_days, 1) ||
+        !XA_ConfigDays(v, "session_max_days", &out->session_max_days, 0) ||
         !XA_ConfigProvider(ValueGet(v, "github"), &out->github) ||
         !XA_ConfigProvider(ValueGet(v, "wechat"), &out->wechat) ||
         !XA_ApplicationsDecode(ValueGet(v, "applications"), out)) return false;
@@ -149,6 +158,7 @@ static xvalue* XA_ConfigValue(const XAIdentityConfig* c, bool redacted)
     xvalue* v = ValueObject(); size_t i; const char* ids[] = {"github", "wechat"};
     if (!v || !ValueSetText(v, "issuer", c->issuer) || !ValueSetText(v, "audience", c->audience) ||
         !ValueSetText(v, "public_origin", c->origin) || !ValueSetText(v, "default_country_code", c->country) ||
+        !ValueSetInt(v, "session_idle_days", c->session_idle_days) || !ValueSetInt(v, "session_max_days", c->session_max_days) ||
         !ValueSetBool(v, "security_questions", c->security_questions) || !ValueSetBool(v, "registration", c->registration) || !ValueSetBool(v, "oauth_create_member", c->oauth_create) ||
         !ValueSetText(v, "sms_webhook_url", c->sms_url) ||
         !ValueSetOwn(v, "sms", XA_SmsConfigValue(&c->sms, redacted))) goto failed;

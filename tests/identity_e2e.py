@@ -17,6 +17,9 @@ def b64(data):
 def run(args):
     original = hashlib.sha256((ROOT / 'db/main.db').read_bytes()).digest()
     target = fixture(args.port)
+    config=json.loads((target/'xs.json').read_text())
+    config['services'][0]['host_default']['devfile']=str(ROOT/'main.c')
+    (target/'xs.json').write_text(json.dumps(config))
     (target/'db/identity.json').write_text(json.dumps({
         'public_origin': f'http://127.0.0.1:{args.port}', 'default_country_code': '+86'}))
     db_path = target/'db/main.db'
@@ -95,6 +98,23 @@ def run(args):
         call('GET','/api/v1/profile',headers={'Authorization':'Bearer '+rotated['access_token']},status=401)
         call('GET','/api/v1/profile',cookie=cookie,status=401)
         print('PASS refresh rotation and replay revokes the entire session family')
+        active,_=call('POST','/api/v1/login',{'identifier':'legacy_identity','password':PASSWORD})
+        active_claims=json.loads(base64.urlsafe_b64decode(active['access_token'].split('.')[1]+'=='))
+        active_sid=active_claims['sid'];now=int(time.time())
+        sql('UPDATE member_session SET created_at=?,last_used=?,expires_at=? WHERE sid=?',
+            (now-45*86400,now-120,now+600,active_sid))
+        call('GET','/api/v1/profile',headers={'Authorization':'Bearer '+active['access_token']})
+        expiry,last_used=sql('SELECT expires_at,last_used FROM member_session WHERE sid=?',(active_sid,))[0]
+        assert abs(expiry-(now+30*86400))<10 and last_used>=now
+        # The same minute does not write the session again, and bad JWTs cannot renew it.
+        call('GET','/api/v1/profile',headers={'Authorization':'Bearer '+active['access_token']})
+        assert sql('SELECT expires_at,last_used FROM member_session WHERE sid=?',(active_sid,))[0]==(expiry,last_used)
+        active,_=call('POST','/api/v1/token/refresh',{'refresh_token':active['refresh_token']})
+        sql('UPDATE member_session SET expires_at=? WHERE sid=?',(now-1,active_sid))
+        call('GET','/api/v1/profile',headers={'Authorization':'Bearer '+active['access_token']},status=401)
+        call('POST','/api/v1/token/refresh',{'refresh_token':active['refresh_token']},status=401)
+        assert sql('SELECT expires_at FROM member_session WHERE sid=?',(active_sid,))==[(now-1,)]
+        print('PASS active sliding renewal beyond 30 days, bounded writes, and expired sessions cannot revive')
         data,headers=call('POST','/api/v1/login',{'identifier':'legacy_identity','password':PASSWORD})
         cookie=headers['Set-Cookie'].split(';')[0];bearer={'Authorization':'Bearer '+data['access_token']}
         call('GET','/api/v1/sessions',cookie=cookie)
@@ -110,6 +130,24 @@ def run(args):
             time.sleep(.2)
         call('GET','/api/v1/profile',headers=bearer)
         call('GET','/api/v1/profile',cookie=cookie)
+        # An optional absolute cap applies after restart without reviving expired sessions.
+        policy=json.loads((target/'db/identity.json').read_text());policy['session_max_days']=1
+        (target/'db/identity.json').write_text(json.dumps(policy))
+        cap_claims=json.loads(base64.urlsafe_b64decode(data['access_token'].split('.')[1]+'=='))
+        sql('UPDATE member_session SET created_at=? WHERE sid=?',(int(time.time())-2*86400,cap_claims['sid']))
+        process.terminate();process.wait(timeout=10)
+        with log.open('ab') as out:
+            process=subprocess.Popen([str(args.exe.resolve()),str(target/'xs.json')],cwd=ROOT,
+                stdout=out,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
+        for _ in range(80):
+            try:
+                if request(args.port,'GET','/admin/login')[0]==200: break
+            except OSError: pass
+            time.sleep(.2)
+        call('GET','/api/v1/profile',headers=bearer,status=401)
+        call('POST','/api/v1/token/refresh',{'refresh_token':data['refresh_token']},status=401)
+        sql('UPDATE member_session SET created_at=? WHERE sid=?',(int(time.time()),cap_claims['sid']))
+        print('PASS configurable absolute lifetime still requires reauthentication')
         call('POST','/api/v1/logout',{},cookie)
         call('GET','/api/v1/profile',headers=bearer,status=401)
         call('POST','/api/v1/token/refresh',{'refresh_token':data['refresh_token']},status=401)

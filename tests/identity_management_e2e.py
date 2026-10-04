@@ -123,16 +123,20 @@ def run(args):
         assert 'client_secret' not in settings['github'] and 'client_secret' not in settings['wechat']
         assert 'token' not in settings['sms']['options']
         assert settings['sms_token_configured'] and 'sms_webhook_token' not in settings
+        assert settings['session_idle_days'] == 30 and settings['session_max_days'] == 0
         call('PUT', '/admin/member/identity/config', {'revision': settings['revision'], 'config': {'registration': False}}, admin, status=403)
         csrf = {'X-CSRF-Token': settings['csrf_token'], 'Origin': origin}
         before = (target / 'db/identity.json').read_bytes()
         for patch in ({'registration': 'false'}, {'public_origin': 'https://example.com/path'}, {'cors_origins': ['*']},
-                      {'github': {'enabled': True}}, {'unexpected': True}):
+                      {'github': {'enabled': True}}, {'unexpected': True}, {'session_idle_days': 0},
+                      {'session_idle_days': 1.5}, {'session_max_days': -1}, {'session_max_days': 3651}):
             call('PUT', '/admin/member/identity/config', {'revision': settings['revision'], 'config': patch}, admin, status=400, headers=csrf)
             assert (target / 'db/identity.json').read_bytes() == before
-        call('PUT', '/admin/member/identity/config', {'revision': settings['revision'], 'config': {'registration': False}}, admin, headers=csrf)
+        call('PUT', '/admin/member/identity/config', {'revision': settings['revision'], 'config': {
+            'registration': False, 'session_idle_days': 7, 'session_max_days': 90}}, admin, headers=csrf)
         stored = json.loads((target / 'db/identity.json').read_text(encoding='utf-8-sig'))
         assert stored['sms_webhook_token'] == 'test-write-only-secret'
+        assert stored['session_idle_days'] == 7 and stored['session_max_days'] == 90
         call('PUT', '/admin/member/identity/config', {'revision': settings['revision'], 'config': {'registration': True}}, admin, status=409, headers=csrf)
         # Immutable generation: saved edits remain pending until application reload.
         assert call('GET', '/api/v1/auth/providers')[0]['registration']
