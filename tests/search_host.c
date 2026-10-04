@@ -18,14 +18,15 @@ static bool Search_TestTransport(void* engine, const XAHttpRequest* request,
     xvalue* body = xrtJsonParse(xrtStrView(request->body));
     bool bocha = !strcmp(request->url,"https://api.bocha.cn/v1/web-search");
     bool zai = !strcmp(request->url,"https://api.z.ai/api/paas/v4/web_search");
+    bool glm = !strcmp(request->url,"https://open.bigmodel.cn/api/paas/v4/web_search");
     const char* query = ValueText(body,bocha?"query":"search_query");
-    bool contract = query && (bocha || zai) && max_body == 524288 &&
+    bool contract = query && (bocha || zai || glm) && max_body == 524288 &&
         request->header_count == 1 && !strcmp(request->names[0],"Authorization") &&
         !strcmp(request->values[0],bocha?"Bearer test-bocha-secret":"Bearer test-zai-secret") &&
         !strcmp(request->content_type,"application/json") && ValueInt(body,"count") > 0;
     bool summary;
     if (bocha) contract = contract && ValueText(body,"freshness") && xrtValueGetBool(ValueGet(body,"summary"),&summary);
-    if (zai) contract = contract && !strcmp(ValueText(body,"search_engine"),"search-prime") &&
+    if (zai || glm) contract = contract && !strcmp(ValueText(body,"search_engine"),glm?"search_pro":"search-prime") &&
         XA_IsHex(ValueText(body,"request_id"),32) && !ValueHas(body,"user_id") && !ValueHas(body,"search_recency_filter");
     if (!contract) { xrtValueRelease(body); return false; }
     char* native_path = xrtPathJoin(AppPath,"temp/search-native-url");

@@ -13,7 +13,7 @@ static XAdminHostContext* G_Host;
 static sqlite3* G_DB;
 static char* G_CredentialPath;
 typedef struct SearchConfig {
-    char provider[16], verification[16];
+    char provider[16], verification[16], zai_region[16];
     int minute_limit, daily_limit, global_daily_limit, max_results, timeout_ms, max_concurrent;
     bool bocha_enabled, zai_enabled;
 } SearchConfig;
@@ -106,7 +106,7 @@ static int Search_Start(XAdminPluginHandle handle)
     menu.key = "web-search.settings"; menu.title = "联网搜索";
     menu.icon = "layui-icon layui-icon-search"; menu.type = 1;
     menu.open_type = "_iframe"; menu.href = "/admin/web-search";
-    menu.sort = 990010; menu.visible = true; menu.remark = "博查 / z.ai 搜索代理";
+    menu.sort = 990010; menu.visible = true; menu.remark = "博查 / 智谱 GLM / z.ai 搜索代理";
     return XAdmin_RegisterMenu(handle, &menu, NULL, NULL);
 }
 static int Search_Health(XAdminPluginHandle handle, XAdminHealthReport* report)
@@ -121,7 +121,7 @@ static int Search_Health(XAdminPluginHandle handle, XAdminHealthReport* report)
     return 0;
 }
 static XAdminPluginDescriptor G_Descriptor = {
-    XADMIN_ABI_VERSION, sizeof(XAdminPluginDescriptor), "web-search", "1.0.0", "联网搜索代理",
+    XADMIN_ABI_VERSION, sizeof(XAdminPluginDescriptor), "web-search", "1.1.0", "联网搜索代理",
     Search_Load, NULL, Search_Start, Search_ConfigChanged, Search_Health, Search_Stop, NULL
 };
 XADMIN_DECLARE_PLUGIN(G_Descriptor)

@@ -1,5 +1,6 @@
 {
   "default_provider": "bocha",
+  "zai_region": "global",
   "verification": "phone",
   "minute_limit": 5,
   "daily_limit": 100,

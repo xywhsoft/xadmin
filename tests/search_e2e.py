@@ -134,7 +134,23 @@ def run(args):
         set_policy({'zai_enabled':False})
         call('POST','/api/v1/search',{'query':'x','provider':'zai'},headers=bearer,status=503)
         set_policy({'zai_enabled':True})
-        print('PASS both official provider request contracts, result normalization, validation and redacted failures')
+        set_policy({'zai_region':'cn','default_provider':'zai'})
+        providers,_ = call('GET','/api/v1/search/providers',headers=bearer)
+        assert providers['default_provider'] == 'zai'
+        assert providers['providers'][1]['title'] == '智谱 GLM（国内）'
+        data,_ = call('POST','/api/v1/search',{'query':'国内智谱','count':1},headers=bearer)
+        assert data['provider'] == 'zai' and data['count'] == 1
+        assert data['results'][0]['title'] == '测试标题'
+        call('POST','/api/v1/search',{'query':'x','provider':'zai','freshness':'oneWeek'},headers=bearer,status=400)
+        invalid = dict(policy,zai_region='https://evil.example')
+        actual,_,raw = request(args.port,'POST','/admin/plugin/settings',{'name':'web-search','config':invalid},admin)
+        assert actual == 200 and not json.loads(raw)['result'], raw
+        # Old files lacking the region field continue to use the international API.
+        policy.pop('zai_region')
+        set_policy({'default_provider':'bocha'})
+        data,_ = call('POST','/api/v1/search',{'query':'legacy region','provider':'zai','count':1},headers=bearer)
+        assert data['count'] == 1
+        print('PASS Bocha, z.ai and domestic GLM contracts, default selection, region validation and redacted failures')
 
         # One blocked request checks lock release and unload exclusion; not a load test.
         with ThreadPoolExecutor(max_workers=1) as executor:

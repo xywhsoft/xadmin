@@ -6,7 +6,7 @@
 
 1. 使用本开发线的 xs 启动 xadmin，在后台「插件管理」启用 **联网搜索代理**。
 2. 在后台菜单「联网搜索」设置两家的 API Key，或在启动 xs 的进程环境中设置 `BOCHA_API_KEY`、`ZAI_API_KEY`。环境变量优先，不会被后台文件配置覆盖；环境变量变更需要重新启动服务进程。
-3. 在「插件管理 → 配置」设置默认平台、验证要求、每分钟/每天额度和超时。没有有效密钥的平台返回 503，不会悄悄使用其他平台。
+3. 在「插件管理 → 配置」设置默认平台、验证要求、每分钟/每天额度和超时。`default_provider` 为 `bocha` 时优先使用博查，为 `zai` 时使用智谱。`zai_region` 为 `global` 时连接 z.ai 国际站，为 `cn` 时连接 GLM 国内站；使用对应区域的密钥。旧配置未包含该字段时保持国际站。没有有效密钥的平台返回 503，不会悄悄使用其他平台。
 
 默认策略：验证手机；博查为默认平台；每会员 5 次/分钟、100 次/天；全站 10,000 次/天；每次最多 10 条结果；总 I/O 超时 20 秒；全站最多 4 个上游请求，每会员最多 1 个。额度按 UTC 的自然分钟和自然日计算。
 
@@ -100,7 +100,9 @@
 
 - 博查：`POST https://api.bocha.cn/v1/web-search`，Bearer 鉴权，发送 query/freshness/summary/count，读取 `data.webPages.value`。参考 [官方 Web Search Skill 的 API 说明](https://github.com/Bocha-Labs/bocha-skills/blob/main/bocha-web-search/SKILL.md) 和 [官方 MCP 实现](https://github.com/Bocha-Labs/bocha-search-mcp)。
 - z.ai：`POST https://api.z.ai/api/paas/v4/web_search`，Bearer 鉴权，发送 `search_engine=search-prime`、search_query/count/request_id，读取 search_result。参考 [官方 Web Search API](https://docs.z.ai/api-reference/tools/web-search)。使用 z.ai 平台密钥；不承诺国内 BigModel 的密钥可以通用。
+- GLM 国内站：将 `zai_region` 设置为 `cn`，使用 `POST https://open.bigmodel.cn/api/paas/v4/web_search` 和 `search_engine=search_pro`。复用 `zai` 平台 ID、密钥字段和结果结构。参考 [智谱官方网络搜索 API](https://docs.bigmodel.cn/api-reference/工具-api/网络搜索)。两个区域使用固定地址白名单；不会根据密钥猜测区域或向另一区域重试。
 - z.ai 文档对 search-prime 与某些筛选参数的支持描述不一致，本插件明确拒绝 z.ai 的非 noLimit freshness，避免静默忽略。结果数由本插件再次截断保证，未提供未经验证的站点/日期筛选能力。
+- GLM 当前也只开放 `noLimit`，保留统一请求边界；默认选择和区域切换均有隔离契约测试。
 - 上游响应最多 512 KiB，线缆数据另外限制为正文上限加 32 KiB，定长/chunked/关闭分帧均检查边界。HTTPS 使用系统 CA、验证域名，不跳过证书验证，不跟随重定向，不转发客户端 headers，不发送手机、邮箱或查询者账户资料。
 - 配额在插件私有 SQLite 中用事务一次性预留会员分钟、会员日和全站日三种预算；失败回滚，成功落盘，插件/进程重启不重置。只保存聚合计数；不记录搜索关键词、网页内容、Bearer/JWT 或 API Key。过期窗口定期清理。
 - 这是单个 xadmin 进程的插件，预算落在该实例的数据库。并发槽位在进程内；多实例部署需要先设计共享预算存储和全局并发协调，不能把多份私有数据库视为同一额度。

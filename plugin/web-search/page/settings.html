@@ -4,20 +4,20 @@
 <title>联网搜索</title>
 <style>
 body{font:15px/1.6 system-ui,sans-serif;margin:0;background:#f6f7f9;color:#243044}main{max-width:760px;margin:28px auto;padding:0 20px}section{background:white;border:1px solid #e4e7ed;border-radius:10px;padding:22px;margin:18px 0}h1{font-size:24px}h2{font-size:18px;margin-top:0}label{display:block;margin:16px 0 6px}input[type=password]{box-sizing:border-box;width:100%;padding:10px;border:1px solid #ccd2db;border-radius:6px}button{padding:9px 18px;border:0;border-radius:6px;background:#2865d8;color:white;cursor:pointer}button:disabled{opacity:.5;cursor:wait}.hint{font-size:13px;color:#65738a}.status{font-weight:600}.clear{font-size:13px;display:flex;gap:8px;align-items:center}#notice{white-space:pre-wrap;margin-top:12px}pre{overflow:auto;background:#f3f5f8;padding:12px;border-radius:6px;font-size:13px}.error{color:#b92335}
-</style></head><body><main><h1>联网搜索</h1><p>已登录会员通过统一 API 调用博查和 z.ai。密钥由服务端保管。</p>
+</style></head><body><main><h1>联网搜索</h1><p>已登录会员通过统一 API 调用博查和智谱 GLM / z.ai。密钥由服务端保管。</p>
 <section><h2>平台密钥</h2><p class="hint">环境变量 BOCHA_API_KEY / ZAI_API_KEY 优先。留空保留原密钥，勾选删除后清除文件中保存的密钥。</p>
 <form id="keys" autocomplete="off">
 <label for="bocha">博查 <span id="bocha-status" class="status"></span></label><input id="bocha" type="password" maxlength="1000" autocomplete="new-password" placeholder="输入新的博查 API Key">
 <label class="clear"><input id="bocha-clear" type="checkbox">删除已保存的博查密钥</label>
-<label for="zai">z.ai <span id="zai-status" class="status"></span></label><input id="zai" type="password" maxlength="1000" autocomplete="new-password" placeholder="输入新的 z.ai API Key">
-<label class="clear"><input id="zai-clear" type="checkbox">删除已保存的 z.ai 密钥</label>
+<label for="zai">智谱 GLM / z.ai <span id="zai-status" class="status"></span></label><input id="zai" type="password" maxlength="1000" autocomplete="new-password" placeholder="输入所选区域的 API Key">
+<label class="clear"><input id="zai-clear" type="checkbox">删除已保存的智谱密钥</label>
 <button id="save" type="submit" disabled>保存密钥</button><div id="notice" role="status" aria-live="polite"></div></form></section>
-<section><h2>访问规则与额度</h2><p>在后台「插件管理 → 联网搜索代理 → 配置」设置默认平台、验证要求和额度。默认要求已验证手机，每会员 5 次/分钟、100 次/天，全站 10,000 次/天。</p><p class="hint">额度按实际转发尝试计数，上游失败也计入；不会自动重试或切换付费平台。每日额度在 UTC 零点重置。</p></section>
+<section><h2>访问规则与额度</h2><p>在后台「插件管理 → 联网搜索代理 → 配置」设置默认平台、验证要求和额度。default_provider 为 bocha 时使用博查，为 zai 时使用智谱；zai_region 为 cn 时连接 GLM 国内站，为 global 时连接 z.ai 国际站。密钥必须属于所选区域。</p><p>默认要求已验证手机，每会员 5 次/分钟、100 次/天，全站 10,000 次/天。</p><p class="hint">额度按实际转发尝试计数，上游失败也计入；不会自动重试或切换付费平台。每日额度在 UTC 零点重置。</p></section>
 <section><h2>客户端接口</h2><p>支持会员 Bearer JWT，也支持同站 Cookie（POST 需 X-CSRF-Token）。</p><pre>POST /api/v1/search
 Authorization: Bearer &lt;会员 access_token&gt;
 Content-Type: application/json
 
-{"provider":"bocha","query":"联网搜索关键词","count":5}</pre><p class="hint">GET /api/v1/search/providers 查看平台状态；GET /api/v1/search/usage 查看个人额度。z.ai 使用 search-prime，当前不提供日期筛选；博查支持 freshness。</p></section>
+{"provider":"bocha","query":"联网搜索关键词","count":5}</pre><p class="hint">省略 provider 使用后台默认平台，传 zai 使用所选区域的智谱服务。GET /api/v1/search/providers 查看平台状态；GET /api/v1/search/usage 查看个人额度。GLM 使用 search_pro，z.ai 使用 search-prime，当前均不提供日期筛选；博查支持 freshness。</p></section>
 </main><script>
 'use strict';let csrf='';const notice=document.getElementById('notice'),save=document.getElementById('save');
 function message(text,error=false){notice.textContent=text;notice.classList.toggle('error',error)}

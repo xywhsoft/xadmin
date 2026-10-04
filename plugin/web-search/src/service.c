@@ -34,7 +34,7 @@ static void Search_RequestWork(XS_ServerObject server, XS_HostObject host, XS_Re
     SearchConfig config = G_Config; SearchQuery query;
     xvalue* body = Search_Body(req,8192);
     const char* id = ValueHas(body,"provider") ? Search_Text(body,"provider",15) : config.provider;
-    const SearchProvider* provider = Search_Provider(id);
+    const SearchProvider* provider = Search_Provider(id,&config);
     bool valid = Search_Query(body,&query,&config);
     xrtValueRelease(body);
     if (!valid || !provider) { Search_Reply(resp,400,"Invalid search request",NULL); return; }
@@ -84,7 +84,7 @@ static void Search_Providers(XS_ServerObject server, XS_HostObject host, XS_Requ
     (void)server; (void)host; if (!Search_Member(req,resp,session,XHTTP_METHOD_GET)) return;
     xvalue* providers = ValueArray(); size_t i;
     for (i = 0; i < 2; i++) {
-        const SearchProvider* provider = &G_Providers[i]; char key[1001];
+        const SearchProvider* provider = Search_Provider(G_Providers[i].id,&G_Config); char key[1001];
         xvalue* row = ValueObject(); ValueSetText(row,"id",provider->id); ValueSetText(row,"title",provider->title);
         ValueSetBool(row,"available",Search_Enabled(provider,&G_Config) && Search_Key(provider->id,key));
         xrtSecureZero(key,sizeof(key)); ValueSetBool(row,"freshness_filter",provider->freshness);

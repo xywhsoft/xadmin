@@ -25,13 +25,25 @@ static xvalue* Search_ZaiBuild(const SearchQuery* query, const char* request_id)
     ValueSetInt(value,"count",query->count); ValueSetText(value,"request_id",request_id); return value;
 }
 static xvalue* Search_ZaiParse(const xvalue* value) { return ValueGet(value,"search_result"); }
+static xvalue* Search_GlmBuild(const SearchQuery* query, const char* request_id)
+{
+    xvalue* value = Search_ZaiBuild(query,request_id);
+    if (value) ValueSetText(value,"search_engine","search_pro");
+    return value;
+}
 static const SearchProvider G_Providers[] = {
     {"bocha","博查","https://api.bocha.cn/v1/web-search",true,Search_BochaBuild,Search_BochaParse},
     {"zai","z.ai","https://api.z.ai/api/paas/v4/web_search",false,Search_ZaiBuild,Search_ZaiParse}
 };
-static const SearchProvider* Search_Provider(const char* id)
+/* Region is an administrator-controlled allowlist, not a client-supplied URL.
+ * The stable zai provider ID covers either regional account, never a fallback. */
+static const SearchProvider G_GlmProvider = {
+    "zai","智谱 GLM（国内）","https://open.bigmodel.cn/api/paas/v4/web_search",false,Search_GlmBuild,Search_ZaiParse
+};
+static const SearchProvider* Search_Provider(const char* id, const SearchConfig* config)
 {
-    size_t i; for (i = 0; i < 2; i++) if (id && !strcmp(id,G_Providers[i].id)) return &G_Providers[i];
+    size_t i; for (i = 0; i < 2; i++) if (id && !strcmp(id,G_Providers[i].id))
+        return i == 1 && !strcmp(config->zai_region,"cn") ? &G_GlmProvider : &G_Providers[i];
     return NULL;
 }
 static bool Search_Enabled(const SearchProvider* provider, const SearchConfig* config)

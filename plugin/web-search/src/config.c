@@ -10,10 +10,14 @@ static int Search_ConfigChanged(XAdminPluginHandle handle, xvalue* value)
 {
     (void)handle; SearchConfig config = {0};
     const char* fields[] = {"default_provider", "verification", "minute_limit", "daily_limit",
-        "global_daily_limit", "max_results", "timeout_ms", "max_concurrent", "bocha_enabled", "zai_enabled"};
+        "global_daily_limit", "max_results", "timeout_ms", "max_concurrent", "bocha_enabled", "zai_enabled", "zai_region"};
     const char* provider = Search_Text(value, "default_provider", 15);
     const char* verification = Search_Text(value, "verification", 15);
-    if (!Search_Fields(value, fields, 10) || !provider || (strcmp(provider,"bocha") && strcmp(provider,"zai")) ||
+    /* Existing policy files remain international unless explicitly switched.
+     * Never infer the destination from a secret or forward a key to both APIs. */
+    const char* region = ValueHas(value,"zai_region") ? Search_Text(value,"zai_region",15) : "global";
+    if (!Search_Fields(value, fields, 11) || !region || (strcmp(region,"global") && strcmp(region,"cn")) ||
+        !provider || (strcmp(provider,"bocha") && strcmp(provider,"zai")) ||
         !verification || (strcmp(verification,"phone") && strcmp(verification,"any") && strcmp(verification,"none")) ||
         !Search_Int(value,"minute_limit",1,60,&config.minute_limit) ||
         !Search_Int(value,"daily_limit",1,10000,&config.daily_limit) ||
@@ -23,7 +27,7 @@ static int Search_ConfigChanged(XAdminPluginHandle handle, xvalue* value)
         !Search_Int(value,"max_concurrent",1,16,&config.max_concurrent) ||
         !xrtValueGetBool(ValueGet(value,"bocha_enabled"),&config.bocha_enabled) ||
         !xrtValueGetBool(ValueGet(value,"zai_enabled"),&config.zai_enabled)) return -1;
-    strcpy(config.provider,provider); strcpy(config.verification,verification);
+    strcpy(config.provider,provider); strcpy(config.verification,verification); strcpy(config.zai_region,region);
     G_Config = config; return 0;
 }
 static bool Search_ValidKey(const char* text)
