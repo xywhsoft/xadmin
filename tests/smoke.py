@@ -715,7 +715,7 @@ def register_rate_check(port, executable=None):
     log = open(target / 'server.log', 'ab')
     process = subprocess.Popen([str(executable or DEFAULT_EXECUTABLE), str(target / 'xs.json')], cwd=ROOT,
                                stdout=log, stderr=subprocess.STDOUT,
-                               creationflags=subprocess.CREATE_NO_WINDOW)
+                               creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     try:
         for _ in range(60):
             if process.poll() is not None:
