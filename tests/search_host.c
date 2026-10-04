@@ -34,7 +34,7 @@ static bool Search_TestTransport(void* engine, const XAHttpRequest* request,
     if (native_url) {
         XAHttpRequest native = *request;
         snprintf(native.url,sizeof(native.url),"%s/%s",native_url,bocha?"bocha":"zai");
-        char* ca_path = xrtPathJoin(AppPath,"ca.pem");
+        char* ca_path = xrtPathJoin(AppPath,"temp/search-native-ca.pem");
         char* ca = xrtFileReadAllLimit(ca_path,8192,NULL); xrtFree(ca_path);
         bool result = XA_HttpsHttp(engine,!strcmp(query,"native-untrusted")?NULL:ca,&native,timeout_ms,max_body,status,response);
         xrtFree(ca); xrtFree(native_url); xrtValueRelease(body); return result;

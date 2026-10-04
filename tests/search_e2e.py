@@ -7,20 +7,33 @@ import http.client
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 import sqlite3
+import socket
+import ssl
 import subprocess
 import time
 from concurrent.futures import ThreadPoolExecutor
-from smoke import ROOT, USER, PASSWORD, client_hash, fixture, request
+from smoke import ROOT, USER, PASSWORD, client_hash, fixture, request as fixture_request
 from sms_unit import native_fixture
 
 
 def run(args):
     target = fixture(args.port, source_db=args.source_db)
-    origin = f'http://127.0.0.1:{args.port}'
+    origin = f'{"https" if args.tls else "http"}://127.0.0.1:{args.port}'
     config = json.loads((target / 'xs.json').read_text())
     config['services'][0]['host_default']['devfile'] = str(ROOT / 'tests/search_host.c')
+    tls_context = None
+    if args.tls:
+        # Reuse the local certificate fixture; no external CA or service.
+        certificate_server = native_fixture(target)
+        certificate_server.shutdown(); certificate_server.server_close()
+        service = config['services'][0]
+        with socket.socket() as listener:
+            listener.bind(('127.0.0.1', 0)); plain_port = listener.getsockname()[1]
+        service.update(tls=True, port_tls=args.port, port=plain_port)
+        service['host_default'].update(tls_cert=str(target/'leaf.pem'), tls_key=str(target/'leaf.key'))
+        tls_context = ssl.create_default_context(cafile=target/'ca.pem')
     (target / 'xs.json').write_text(json.dumps(config))
-    (target / 'db/identity.json').write_text(json.dumps({'public_origin': origin}))
+    (target / 'db/identity.json').write_text(json.dumps({'public_origin': origin, 'cors_origins':['https://client.example.com']}))
     policy = json.loads((ROOT / 'plugin/web-search/config.defaults.json').read_text())
     policy.update(minute_limit=60, daily_limit=200, global_daily_limit=1000)
     (target / 'options/plugin').mkdir(exist_ok=True)
@@ -39,11 +52,15 @@ def run(args):
     tls_server = None
     success = False
 
+    def request(*positional, **keywords):
+        return fixture_request(*positional, **keywords, tls_context=tls_context)
+
     def ready():
         for _ in range(100):
             if process.poll() is not None: raise RuntimeError('xs exited')
             try:
                 if request(args.port, 'GET', '/admin/login')[0] == 200: return
+            except ssl.SSLError: raise
             except OSError: pass
             time.sleep(.2)
         raise RuntimeError('readiness timeout')
@@ -111,8 +128,12 @@ def run(args):
         print('PASS plugin lifecycle, member/contact/admin authorization, CSRF and write-only credentials')
 
         for provider in ('bocha','zai'):
-            data,_ = call('POST','/api/v1/search',{'query':'关键词','provider':provider,'count':1},headers=bearer)
+            data,response = call('POST','/api/v1/search',{'query':'关键词','provider':provider,'count':1},
+                                 headers=dict(bearer,Origin='https://client.example.com'))
             assert data['provider'] == provider and data['count'] == 1 and data['truncated']
+            assert response['Access-Control-Allow-Origin'] == 'https://client.example.com' and response['Vary'] == 'Origin'
+            assert response['Content-Type'] == 'application/json; charset=utf-8' and response['Cache-Control'] == 'no-store'
+            assert int(response['Content-Length']) > 0 and response['Connection'] == 'close'
             assert data['results'][0] == {'title':'测试标题','url':'https://example.com/1','snippet':'完整摘要','site':'Example','published_at':'2026-10-04'}
             data,_ = call('POST','/api/v1/search',{'query':'empty','provider':provider},headers=bearer)
             assert data['results'] == []
@@ -226,7 +247,9 @@ def run(args):
         print('PASS process restart quota, re-enable and environment credential precedence')
 
         # Real HTTPS through async route + provider adapters, using a local CA.
-        tls_server = native_fixture(target)
+        upstream = target / 'upstream-https'; upstream.mkdir()
+        tls_server = native_fixture(upstream)
+        (target / 'temp/search-native-ca.pem').write_bytes((upstream / 'ca.pem').read_bytes())
         native_captures = []
         class Handler(BaseHTTPRequestHandler):
             protocol_version = 'HTTP/1.1'
@@ -257,7 +280,8 @@ def run(args):
         # Peer disconnect keeps the plugin pinned until the owned callback ends.
         for name in ('search-entered','search-release'):
             (target / 'temp' / name).unlink(missing_ok=True)
-        connection = http.client.HTTPConnection('127.0.0.1',args.port,timeout=5)
+        connection = (http.client.HTTPSConnection('127.0.0.1',args.port,timeout=5,context=tls_context)
+                      if tls_context else http.client.HTTPConnection('127.0.0.1',args.port,timeout=5))
         connection.request('POST','/api/v1/search',body=json.dumps({'query':'slow'}),headers=dict(bearer,**{'Content-Type':'application/json'}))
         for _ in range(100):
             if (target / 'temp/search-entered').exists(): break
@@ -285,7 +309,12 @@ def run(args):
             _,_,raw = request(args.port,'POST','/__test/search-state')
             assert json.loads(raw)['reload_id']
             for _ in range(100):
-                _,_,raw = request(args.port,'GET','/__test/search-state')
+                try:
+                    _,_,raw = request(args.port,'GET','/__test/search-state')
+                except (ConnectionResetError, http.client.RemoteDisconnected, ssl.SSLEOFError):
+                    # A TLS accept racing publication of the new generation
+                    # is rejected. Retry only this read-only readiness probe.
+                    time.sleep(.05); continue
                 if json.loads(raw)['marker'] != old_marker: break
                 time.sleep(.05)
             else: raise AssertionError('new host generation not published')
@@ -312,4 +341,5 @@ if __name__ == '__main__':
     parser.add_argument('--exe',type=Path,default=ROOT / ('xs.exe' if os.name=='nt' else 'xs'))
     parser.add_argument('--port',type=int,default=19295)
     parser.add_argument('--source-db',type=Path)
+    parser.add_argument('--tls',action='store_true',help='Test incoming HTTPS as well as HTTPS provider forwarding')
     run(parser.parse_args())

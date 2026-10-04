@@ -113,8 +113,9 @@ def fixture(port, protected=False, register_interval=0, source_db=None):
 
 CSRF = {}
 
-def request(port, method, path, data=None, cookie=None, extra_headers=None):
-    conn = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
+def request(port, method, path, data=None, cookie=None, extra_headers=None, *, tls_context=None):
+    conn = (http.client.HTTPSConnection('127.0.0.1', port, timeout=5, context=tls_context)
+            if tls_context else http.client.HTTPConnection('127.0.0.1', port, timeout=5))
     headers = {}
     if data is not None:
         data = json.dumps(data).encode() if not isinstance(data, bytes) else data

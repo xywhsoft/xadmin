@@ -21,6 +21,12 @@ typedef struct XAdminRequest {
 typedef XAdminRequest* XS_RequestObject;
 typedef XAdminRequest* XS_ResponseObject;
 
+/* Deferred callbacks own a connection on a separate thread. Wait for accepted
+ * writes to drain before their owner closes it; a reactor-only send is unsafe. */
+static int XAdmin_ReplyBinary(XS_RequestObject req, uint16 status,
+	const xhttpfield* fields, size_t count, const void* body, size_t size,
+	unsigned timeout_ms);
+
 #define XHTTP_METHOD_GET XHTTP_METHOD_GET
 #define XHTTP_METHOD_POST XHTTP_METHOD_POST
 #define XHTTP_METHOD_PUT XHTTP_METHOD_PUT
@@ -102,11 +108,11 @@ static int xsReqCookieValue(XS_RequestObject req, const char* name, char* out, s
  */
 static int xsHttpReplyAuto(XS_ResponseObject req, int code, const char* headers, const void* body, size_t size)
 {
-	xhttpfield fields[10]; size_t count = 0;
+	xhttpfield fields[13]; size_t count = 0;
 	char* copy = xrtStrDup(headers ? headers : "");
 	char* line = copy; const char* content_type = NULL;
 	bool ok;
-	if (req->replied || !copy) { xrtFree(copy); return -1; }
+	if (!req || req->replied || !copy) { xrtFree(copy); return -1; }
 	if (!size && body) size = strlen((const char*)body);
 	while (line && *line) {
 		char* end = strstr(line, "\r\n");
@@ -117,15 +123,30 @@ static int xsHttpReplyAuto(XS_ResponseObject req, int code, const char* headers,
 			char* value = colon + 1; *colon = 0;
 			while (*value == ' ' || *value == '\t') value++;
 			if (xrtStrCaseEqual(xrtStrView(line), XRT_STR_LITERAL("Content-Type"))) content_type = value;
-			else if (!xrtStrCaseEqual(xrtStrView(line), XRT_STR_LITERAL("Content-Length"))) {
+			else if (!xrtStrCaseEqual(xrtStrView(line), XRT_STR_LITERAL("Content-Length")) &&
+				!(req->deferred && (xrtStrCaseEqual(xrtStrView(line), XRT_STR_LITERAL("Connection")) ||
+				 xrtStrCaseEqual(xrtStrView(line), XRT_STR_LITERAL("Transfer-Encoding"))))) {
 				if (count == 10) { xrtFree(copy); return -1; }
 				fields[count++] = (xhttpfield){xrtStrView(line), xrtStrView(value)};
 			}
 		}
 		line = end ? end + 2 : NULL;
 	}
-	ok = ReplyRawHeaders(req->raw, (uint16)code, content_type, body, size, fields, count);
-	req->replied = true;
+	if (req->deferred) {
+		if (content_type) fields[count++] = (xhttpfield){XRT_STR_LITERAL("Content-Type"),xrtStrView(content_type)};
+		xstrview origin = XA_CORSOrigin(req->raw);
+		if (origin.Size) {
+			fields[count++] = (xhttpfield){XRT_STR_LITERAL("Access-Control-Allow-Origin"),origin};
+			fields[count++] = (xhttpfield){XRT_STR_LITERAL("Vary"),XRT_STR_LITERAL("Origin")};
+		}
+		/* The bounded sender releases G_RequestLock while waiting. It owns
+		 * framing and marks replied before writing, so a partial failure can
+		 * never fall through to a second response on the same connection. */
+		ok = XAdmin_ReplyBinary(req,(uint16)code,fields,count,body,size,30000) == 0;
+	} else {
+		ok = ReplyRawHeaders(req->raw, (uint16)code, content_type, body, size, fields, count);
+		req->replied = true;
+	}
 	xrtFree(copy);
 	return ok ? 0 : -1;
 }

@@ -133,9 +133,11 @@ static int XAdmin_ReplyBinary(XS_RequestObject req, uint16 status,
     const xhttpfield* fields, size_t count, const void* body, size_t size,
     unsigned timeout_ms)
 {
-    char head[4096], length[32]; xhttpfield all[14]; size_t head_size, i;
+    /* Ten convenience headers plus Content-Type and two CORS headers fit,
+     * followed by the two framing headers generated here. */
+    char head[4096], length[32]; xhttpfield all[15]; size_t head_size, i;
     if (!req || !req->deferred || req->replied || !req->raw || !req->raw->head ||
-        count > 12 || (count && !fields) || (size && !body) || size > 32u*1024u*1024u ||
+        count > 13 || (count && !fields) || (size && !body) || size > 32u*1024u*1024u ||
         timeout_ms < 100 || timeout_ms > 120000) return -1;
     for (i = 0; i < count; ++i) {
         if (xrtStrCaseEqual(fields[i].Name,XRT_STR_LITERAL("Content-Length")) ||

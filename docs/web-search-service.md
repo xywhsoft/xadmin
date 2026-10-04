@@ -115,17 +115,22 @@
 
 回调先持有 xadmin 请求锁；`XAdmin_HttpPostJson` 用拥有的请求数据释放锁执行 I/O，完成后重新获得锁。不得跨调用保存活跃 SQLite statement/事务或配置借用指针。插件的活跃异步/I/O 计数在这些窗口阻止停用、重载和卸载；界面提示稍后重试。服务本身可安全发布新一代，旧请求完成后再销毁旧代。
 
+异步回调仍使用标准 `xsHttpReplyAuto` / `HttpReplyFormat`：宿主自动选择有截止时间的发送路径，在释放请求锁期间等待 TLS/TCP 写入排空，再关闭连接。便利接口保留 Content-Type、附加响应头及 CORS，使用宿主生成的 Content-Length 和 Connection，不允许插件改变异步响应分帧。默认发送截止时间为 30 秒、正文上限 32 MiB；部分发送失败后中止连接，不再发送第二个错误响应。需要调整截止时间的插件可使用 `XAdmin_ReplyBinary`。
+
 同步调用 HTTPS 的普通网络回调仍可能阻塞 xs 监听线程；搜索使用异步路由专门解决这点。其他插件需要阻塞 I/O 时也应使用异步路由。API 不允许无限工作或脱离宿主生命周期的后台任务。
 
 ## 验证
 
 ```text
 python tests/search_e2e.py
+python tests/search_e2e.py --tls
 python tests/sms_unit.py
 python tests/smoke.py --functional-only
 ```
 
 搜索测试使用真实 xs/TCC 及隔离数据库，受控传输核对两个平台的请求契约，再用本地临时 CA 的 HTTPS 服务验证真实 TLS 转发、120 KiB 上游正文、UTF-8 截断和不可信证书拒绝。也验证 JWT/Cookie/CSRF、后台权限、手机/邮箱策略、分钟/日/全站预算、进程重启、密钥修复与环境优先级、慢请求时其他接口可用、客户端断开、插件重载及整个宿主换代。测试不会连接付费搜索平台，不修改根目录用户数据，不做压力或高负载测试。
+
+`--tls` 将入口请求也切换为真实 HTTPS，包括异步响应、CORS/缓存/分帧响应头和热重载期间已接管请求的完成。入口与上游使用独立临时 CA，避免上游测试改写入口证书。2026-10-05：服务器 GCC 动态版 xs 在 Linux 上通过此完整回归，Windows HTTP 回归通过。
 
 2026-10-04：Windows 和 Linux 搜索端到端及原生 HTTPS 测试通过；共享传输的短信 192 项断言和 HTTPS 回归通过；Windows xadmin 功能 smoke 通过。实际厂商服务尚无可用凭据，**未完成真实博查/z.ai 的在线搜索或余额计费验证**。
 
