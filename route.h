@@ -131,6 +131,7 @@ static void RouteHTTP_Init(void)
 	XA_IdentityRegisterRoutes();
 	XA_ChallengeRegisterRoutes();
 	XA_OAuthRegisterRoutes();
+	XA_ApplicationRegisterRoutes();
 	XA_AdminIdentityRegisterRoutes();
 	XA_SecurityRegisterRoutes();
 	AddStaticRouteHTTP("/api/v1/login", XHTTP_METHOD_ANY, API_Login, true);

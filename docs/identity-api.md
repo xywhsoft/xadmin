@@ -103,6 +103,41 @@ provider 为 github/wechat。独立 xoauth2client、最多 128 个待完成尝�
 
 ## 后台管理接口
 
+### 通用原生应用登录交接
+
+`applications` 是私有身份配置中的公开客户端登记，后台「网站账户与登录」可编辑。
+不内建任何特定网站或应用，未登记的客户端不能发起交接。最多 8 项、每项 4 个回调：
+
+```json
+{"applications":[{"client_id":"example-desktop","name":"Example App","redirect_uris":["http://127.0.0.1:{port}/api/v1/account/callback"]},{"client_id":"example-mobile","name":"Example Mobile","redirect_uris":["https://example.test/app/callback"]}]}
+```
+
+HTTPS 回调精确匹配。仅显式登记的 `http://127.0.0.1:{port}/...` 和
+`http://[::1]:{port}/...` 模板允许动态端口（1–65535）；不接受 localhost、任意主机、
+userinfo、查询串、fragment 或通配路径。原生客户端无内嵌 client_secret。
+
+- `GET /api/v1/auth/authorize`：`response_type=code`、`client_id`、`redirect_uri`、
+  随机 `state`（32–128 个 unreserved ASCII 字符）、`code_challenge`（43 个 base64url 字符）、
+  `code_challenge_method=S256`。严格解码并拒绝重复参数。成功设置 HttpOnly XAPP 浏览器绑定，
+  303 到固定 `/account/index.html?application=<request_id>`；无效回调绝不重定向。
+- `GET /api/v1/auth/authorize?request_id=...`：绑定浏览器读取客户端名称、剩余期限和登录状态。
+- `POST /api/v1/auth/authorize`：JSON `{request_id,approve}`。批准必须是当前会员和有效 CSRF；
+  网站显示当前账号并明确确认，取消也需浏览器绑定和同源。返回已登记的 `redirect_uri`，
+  只携带一次性 `code,state`，或 `error=access_denied,state`。
+- `POST /api/v1/auth/token`：JSON `{grant_type:"authorization_code",client_id,redirect_uri,code,code_verifier}`，
+  返回现有会员 Token 集，不返回网站 Cookie。本接口是 xadmin v1 JSON 契约的登录交接接口，
+  不宣称实现完整 OAuth 授权服务器/OIDC。
+
+请求有效 10 分钟，批准后的授权码有效 60 秒。SQLite 只保存授权码摘要，兑换与新会话创建
+原子提交。PKCE、应用和回调绑定，授权码不可重放；来源会员会话撤销也使未兑换授权失效。
+新应用会话独立于浏览器会话，且不会凭旧浏览器 Cookie 提升近期身份证明。
+已批准授权可以跨宿主重启兑换；配置删除客户端/回调即停止其未完成交接。
+网站只在 sessionStorage 暂存公开 request_id，以衔接现有 GitHub/微信回调，不存令牌。
+容量上限全站 128、每 IP 8 个有效未消费请求；过期记录在新请求时清理。
+
+新增 application 迁移组件，首次保存 `db/identity-before-application-v1.db`。功能回归：
+`python tests/identity_application_e2e.py`，仅使用隔离库和本地服务。
+
 沿用管理员 Cookie/URI/RBAC，不接受会员 Bearer。
 
 | 方法与路径 | 行为 |

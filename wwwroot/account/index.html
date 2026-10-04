@@ -12,6 +12,16 @@
 <main>
   <header><div><p class="eyebrow">ACCOUNT</p><h1 id="heading">登录网站账户</h1></div><button id="logout" class="secondary" hidden>退出登录</button></header>
   <p id="flash" role="status" aria-live="polite" hidden></p>
+  <section id="application-login" class="card" hidden aria-labelledby="application-title">
+    <h2 id="application-title">连接应用</h2>
+    <p id="application-description"></p>
+    <p id="application-member" class="hint"></p>
+    <div class="actions">
+      <button id="application-approve" type="button" hidden>继续使用此账号</button>
+      <button id="application-switch" type="button" class="secondary" hidden>切换账号</button>
+      <button id="application-cancel" type="button" class="secondary">取消连接</button>
+    </div>
+  </section>
   <section id="auth" class="card" hidden>
     <nav class="tabs" aria-label="登录方式">
       <button data-tab="login" aria-pressed="true">密码登录</button>

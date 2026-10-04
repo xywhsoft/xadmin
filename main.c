@@ -65,6 +65,8 @@ static bool XA_SecurityClose(int64 owner,const char* resolution,const char* admi
 #include "src/api/v1/challenge.c"
 #include "src/identity/oauth.c"
 #include "src/api/v1/oauth.c"
+#include "src/identity/application.c"
+#include "src/api/v1/application.c"
 static bool G_SessionStarted, G_BusinessStarted; /* install.h 的向导流程与本段启动链共用 */
 #include "route_http/index.h"
 #include "route_http/login.h"
@@ -145,6 +147,9 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 	}
 	if (!XA_MigrateComponent("security",XA_SecuritySchema1)) {
 		printf("[xadmin][error] security question storage initialization failed\n"); return false;
+	}
+	if (!XA_MigrateComponent("application", XA_ApplicationSchema1)) {
+		printf("[xadmin][error] application authorization storage initialization failed\n"); return false;
 	}
 	G_SessionStarted = true;
 	if (!Session_Init()) { printf("[xadmin][error] business start: Session_Init failed\n"); return false; }

@@ -2,6 +2,49 @@
 (() => {
   const $ = id => document.getElementById(id);
   let providers = {providers: []}, authChallenge = null, contactChallenge = null;
+  // Only a public request ID survives a third-party redirect. Passwords and
+  // member tokens never enter browser storage or native callback URLs.
+  let applicationRequest = new URL(location.href).searchParams.get('application');
+  try {
+    if (applicationRequest && /^[0-9a-f]{64}$/.test(applicationRequest))
+      sessionStorage.setItem('account.application', applicationRequest);
+    else applicationRequest = sessionStorage.getItem('account.application');
+  } catch { /* Storage may be disabled; password login still works. */ }
+  if (!/^[0-9a-f]{64}$/.test(applicationRequest || '')) applicationRequest = null;
+  function clearApplication() {
+    applicationRequest = null;
+    try { sessionStorage.removeItem('account.application'); } catch {}
+    history.replaceState(null, '', location.pathname);
+  }
+  async function refreshApplication(profile) {
+    if (!applicationRequest) { $('application-login').hidden = true; return; }
+    let context;
+    try { context = await api('/api/v1/auth/authorize?request_id=' + applicationRequest); }
+    catch (error) {
+      if (error.status === 410) { clearApplication(); $('application-login').hidden = true; flash('应用登录已过期，请回到应用重新发起登录。', true); return; }
+      throw error;
+    }
+    $('application-login').hidden = false;
+    $('application-title').textContent = '登录并连接 ' + context.name;
+    $('application-description').textContent = '连接后，应用可以使用此网站账号的在线服务。';
+    $('application-member').textContent = profile
+      ? '当前账号：' + (profile.nickname || profile.username || '用户 ' + profile.id)
+      : '请先使用下方的登录方式登录，或注册网站账号。';
+    $('application-approve').hidden = $('application-switch').hidden = !profile;
+  }
+  async function decideApplication(approve) {
+    if (!applicationRequest) return;
+    const result = await api('/api/v1/auth/authorize', 'POST', {request_id: applicationRequest, approve});
+    const callback = new URL(result.redirect_uri);
+    if (callback.protocol !== 'https:' && !(callback.protocol === 'http:' &&
+        ['127.0.0.1', '[::1]'].includes(callback.hostname))) throw new Error('应用回调地址无效。');
+    clearApplication(); location.assign(callback.href);
+  }
+  $('application-approve').addEventListener('click', () => run($('application-login'), () => decideApplication(true)));
+  $('application-cancel').addEventListener('click', () => run($('application-login'), () => decideApplication(false)));
+  $('application-switch').addEventListener('click', () => run($('application-login'), async () => {
+    await api('/api/v1/logout', 'POST'); await refresh(); $('login').elements.identifier.focus();
+  }));
   const messages = {
     'identifier or password is incorrect': '登录标识或密码不正确。',
     'identifier or password is invalid': '请输入有效的账号、手机或邮箱。',
@@ -89,12 +132,13 @@
       if (error.status !== 401) throw error;
       $('member').hidden = $('logout').hidden = true; $('auth').hidden = false;
       $('security-questions').reset();
-      $('heading').textContent = '登录网站账户'; return;
+      $('heading').textContent = '登录网站账户'; await refreshApplication(null); return;
     }
     const [profile, identities, sessions, security] = await Promise.all([
       api('/api/v1/profile'), api('/api/v1/profile/identities'), api('/api/v1/sessions'), api('/api/v1/profile/security-questions')]);
     $('auth').hidden = true; $('member').hidden = $('logout').hidden = false;
     $('heading').textContent = profile.nickname || profile.username || '我的账户';
+    await refreshApplication(profile);
     $('member-id').textContent = `用户 ${profile.id} · 账号：${profile.username || '尚未设置'}`;
     $('profile').elements.nickname.value = profile.nickname || '';
     $('profile').elements.avatar.value = profile.avatar || '';

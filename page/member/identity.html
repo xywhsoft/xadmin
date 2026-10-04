@@ -94,6 +94,8 @@
       <label><input name="security_questions" type="checkbox">启用安全问题辅助恢复（需要管理员独立核实）</label>
       <label><input name="oauth_create_member" type="checkbox">首次第三方登录允许创建会员</label>
       <label>允许使用 Bearer API 的跨域网站（每行一个完整 HTTPS origin）<textarea name="cors_origins" rows="3"></textarea></label>
+      <label>应用登录客户端（JSON 数组）<textarea name="applications" rows="8" spellcheck="false"></textarea></label>
+      <p class="hint">每项填写 client_id、name、redirect_uris。原生应用没有客户端密钥，必须使用 S256 PKCE。桌面回调可登记 http://127.0.0.1:{port}/回调路径，移动端登记经过域名验证的完整 HTTPS 链接。最多 8 个客户端、每个 4 个回调；配置保存后需重载。</p>
       <p class="hint">最多 8 项，精确匹配。不会开放跨域 Cookie 登录。</p>
     </fieldset>
     <div class="columns">
@@ -184,6 +186,7 @@
     for (const name of ['issuer','audience','public_origin','default_country_code','sms_webhook_url']) field(name).value = data[name];
     for (const name of ['registration','oauth_create_member','security_questions']) field(name).checked = data[name];
     field('cors_origins').value = data.cors_origins.join('\n');
+    field('applications').value = JSON.stringify(data.applications || [], null, 2);
     for (const id of ['github','wechat']) {
       field(id + '_enabled').checked = data[id].enabled; field(id + '_id').value = data[id].client_id;
       field(id + '_secret').value = ''; field(id + '_clear').checked = false;
@@ -216,6 +219,9 @@
     for (const name of ['issuer','audience','public_origin','default_country_code','sms_webhook_url']) config[name] = field(name).value.trim();
     for (const name of ['registration','oauth_create_member','security_questions']) config[name] = field(name).checked;
     config.cors_origins = field('cors_origins').value.split('\n').map(s => s.trim()).filter(Boolean);
+    try { config.applications = JSON.parse(field('applications').value); }
+    catch { throw new Error('应用登录客户端不是有效的 JSON。'); }
+    if (!Array.isArray(config.applications)) throw new Error('应用登录客户端必须是数组。');
     for (const id of ['github','wechat']) {
       config[id] = {enabled:field(id + '_enabled').checked,client_id:field(id + '_id').value.trim(),callback:field(id + '_callback').value};
       if (field(id + '_clear').checked) config[id].client_secret = '';

@@ -5,6 +5,14 @@ typedef struct XAProviderConfig {
     bool enabled;
     char id[257], secret[513], callback[513], mode[32];
 } XAProviderConfig;
+
+/* Public native clients have no secret. Only their registered callbacks may
+ * receive a short-lived code; PKCE proves who can redeem that code. */
+typedef struct XAApplicationConfig {
+    char id[65], name[129];
+    char redirects[4][513];
+    size_t redirect_count;
+} XAApplicationConfig;
 typedef struct XAIdentityConfig {
     char issuer[257], audience[129], origin[513], country[5];
     bool registration, oauth_create, secure_cookie, security_questions;
@@ -13,6 +21,8 @@ typedef struct XAIdentityConfig {
     XAProviderConfig github, wechat;
     char cors[8][513];
     size_t cors_count;
+    XAApplicationConfig applications[8];
+    size_t application_count;
 } XAIdentityConfig;
 static XAIdentityConfig G_Identity;
 
@@ -63,12 +73,13 @@ static bool XA_ConfigOrigin(const char* origin)
         strncmp(origin, "http://localhost:", 17)) return false;
     return strlen(origin) > prefix && !strpbrk(origin + prefix, "/@?#\\ \r\n\t");
 }
+#include "application_config.c"
 /* Pure decoding: rejected edits never modify a live script generation. */
 static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
 {
     const char* const names[] = {"issuer", "audience", "public_origin", "default_country_code",
         "registration", "oauth_create_member", "security_questions", "sms_webhook_url", "sms_webhook_token",
-        "github", "wechat", "cors_origins", "sms"};
+        "github", "wechat", "cors_origins", "sms", "applications"};
     memset(out, 0, sizeof(*out));
     strcpy(out->issuer, "xadmin:member"); strcpy(out->audience, "member");
     out->registration = out->oauth_create = out->security_questions = true;
@@ -85,7 +96,8 @@ static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
         !XA_ConfigBool(v, "oauth_create_member", &out->oauth_create) ||
         !XA_ConfigBool(v, "security_questions", &out->security_questions) ||
         !XA_ConfigProvider(ValueGet(v, "github"), &out->github) ||
-        !XA_ConfigProvider(ValueGet(v, "wechat"), &out->wechat)) return false;
+        !XA_ConfigProvider(ValueGet(v, "wechat"), &out->wechat) ||
+        !XA_ApplicationsDecode(ValueGet(v, "applications"), out)) return false;
     if (!out->issuer[0] || !out->audience[0] || (out->origin[0] && !XA_ConfigOrigin(out->origin))) return false;
     out->secure_cookie = !strncmp(out->origin, "https://", 8);
     if (out->country[0]) {
@@ -160,6 +172,7 @@ static xvalue* XA_ConfigValue(const XAIdentityConfig* c, bool redacted)
         if (!origin || !ValueArrayOwn(cors, origin)) { xrtValueRelease(cors); goto failed; }
     }
     if (!ValueSetOwn(v, "cors_origins", cors)) goto failed;
+    if (!ValueSetOwn(v, "applications", XA_ApplicationsValue(c))) goto failed;
     return v;
 failed:
     xrtValueRelease(v); return NULL;
