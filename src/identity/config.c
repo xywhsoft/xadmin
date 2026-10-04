@@ -52,6 +52,11 @@ static bool XA_ConfigInit(void)
     if(ValueHas(config,"oauth_create_member"))G_Identity.oauth_create=ValueBool(config,"oauth_create_member");
     G_Identity.secure_cookie=!strncmp(G_Identity.origin,"https://",8);
     if(!G_Identity.issuer[0]||!G_Identity.audience[0])ok=false;
+    if(G_Identity.country[0]){
+        size_t n=strlen(G_Identity.country),i;
+        if(n<2||n>4||G_Identity.country[0]!='+'||G_Identity.country[1]<'1'||G_Identity.country[1]>'9')ok=false;
+        for(i=1;i<n;i++)if(G_Identity.country[i]<'0'||G_Identity.country[i]>'9')ok=false;
+    }
     if(G_Identity.sms_url[0]&&(strncmp(G_Identity.sms_url,"https://",8)||strpbrk(G_Identity.sms_url,"\r\n")))ok=false;
     if(strpbrk(G_Identity.sms_token,"\r\n"))ok=false;
     /* Only a scheme+authority, never a request-controlled forwarded header. */

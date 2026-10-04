@@ -121,8 +121,9 @@ def request(port, method, path, data=None, cookie=None, extra_headers=None):
         headers['Content-Type'] = 'application/json'
     if cookie:
         headers['Cookie'] = cookie
-        if cookie in CSRF and method not in ('GET','HEAD'):
-            headers['X-CSRF-Token'] = CSRF[cookie]
+        for part in cookie.split(';'):
+            if part.strip() in CSRF and method not in ('GET','HEAD'):
+                headers['X-CSRF-Token'] = CSRF[part.strip()]
     if extra_headers:
         headers.update(extra_headers)
     try:
@@ -130,9 +131,15 @@ def request(port, method, path, data=None, cookie=None, extra_headers=None):
         resp = conn.getresponse()
         body = resp.read()
         response_headers = dict(resp.getheaders())
+        msid = csrf = None
         for key, value in resp.getheaders():
             if key.lower() == 'set-cookie' and value.startswith('MSID='):
                 response_headers['Set-Cookie'] = value
+                msid = value.split(';')[0]
+            if key.lower() == 'set-cookie' and value.startswith('MCSRF='):
+                csrf = value.split(';')[0].split('=',1)[1]
+        if msid and csrf:
+            CSRF[msid] = csrf
         if path == '/api/v1/login' and resp.status == 200:
             result = json.loads(body)
             if result.get('code') == 0 and 'Set-Cookie' in response_headers:
