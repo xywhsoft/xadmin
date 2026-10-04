@@ -29,7 +29,6 @@ static int64 Util_ParseI64(const char* text)
 	if (text) (void)xrtIntParse(xrtStrView(text), 10, XNUMBER_PARSE_SPACE, &value);
 	return value;
 }
-/* 扩展名不含前导点；无扩展名返回空串。 */
 
 /* M6：轻量每 IP 固定窗口限流（业务区单线程执行，无并发竞争）。
  * 超限返回 false；窗口=60s。槽位有限，未命中按最旧窗口复用。 */
@@ -61,6 +60,7 @@ static bool Util_RateAllow(const char* ip, int maxPerMinute)
 	return maxPerMinute >= 1;
 }
 
+/* 扩展名不含前导点；无扩展名返回空串。 */
 static char* Util_ExtNoDot(const char* path)
 {
 	char* ext = xrtPathExt(path);
@@ -84,4 +84,20 @@ static void DirScan(const char* path, bool recursive, DirVisitProc proc, void* c
 		if (stop) break;
 	}
 	xrtDirClose(dir);
+}
+
+/* L9：LIKE 模式通配符转义（\ % _ → \\ \% \_），
+ * 配合 SQL 的 ESCAPE '\\' 子句。防止用户搜索串注入 %/_ 造成全表扫。
+ * 失败（容量不足）返回 false。 */
+static bool Util_LikeEscape(const char* in, char* out, size_t cap)
+{
+	size_t w = 0;
+	if (!in || !out || cap < 3) return false;
+	for (; *in; in++) {
+		if (w + 2 >= cap) { out[0] = 0; return false; }
+		if (*in == '\\' || *in == '%' || *in == '_') out[w++] = '\\';
+		out[w++] = *in;
+	}
+	out[w] = 0;
+	return true;
 }
