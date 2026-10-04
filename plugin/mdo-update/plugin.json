@@ -4,7 +4,7 @@
   "name": "mdo-update",
   "title": "墨斗更新",
   "description": "上传墨斗 EXE/APK，自动生成 SHA-256 并提供更新与下载接口",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "author": "xAdmin",
   "kind": "singleton",
   "sort": 45,

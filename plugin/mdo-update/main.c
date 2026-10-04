@@ -454,7 +454,7 @@ static int Health(XAdminPluginHandle handle, XAdminHealthReport* report)
     return 0;
 }
 static XAdminPluginDescriptor Descriptor = {
-    XADMIN_ABI_VERSION,sizeof(XAdminPluginDescriptor),"mdo-update","1.0.0","墨斗更新",
+    XADMIN_ABI_VERSION,sizeof(XAdminPluginDescriptor),"mdo-update","1.1.0","墨斗更新",
     Load,NULL,Start,NULL,Health,Stop,NULL
 };
 XADMIN_DECLARE_PLUGIN(Descriptor)
