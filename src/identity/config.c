@@ -6,6 +6,7 @@ typedef struct XAProviderConfig {
 typedef struct XAIdentityConfig {
     char issuer[257],audience[129],origin[513],country[5];
     bool registration,oauth_create,secure_cookie;
+    char sms_url[1025],sms_token[513];
     XAProviderConfig github,wechat;
 } XAIdentityConfig;
 static XAIdentityConfig G_Identity;
@@ -43,12 +44,16 @@ static bool XA_ConfigInit(void)
        XA_ConfigString(config,"audience",G_Identity.audience,sizeof(G_Identity.audience))&&
        XA_ConfigString(config,"public_origin",G_Identity.origin,sizeof(G_Identity.origin))&&
        XA_ConfigString(config,"default_country_code",G_Identity.country,sizeof(G_Identity.country))&&
+       XA_ConfigString(config,"sms_webhook_url",G_Identity.sms_url,sizeof(G_Identity.sms_url))&&
+       XA_ConfigString(config,"sms_webhook_token",G_Identity.sms_token,sizeof(G_Identity.sms_token))&&
        XA_ConfigProvider(ValueGet(config,"github"),&G_Identity.github)&&
        XA_ConfigProvider(ValueGet(config,"wechat"),&G_Identity.wechat);
     if(ValueHas(config,"registration"))G_Identity.registration=ValueBool(config,"registration");
     if(ValueHas(config,"oauth_create_member"))G_Identity.oauth_create=ValueBool(config,"oauth_create_member");
     G_Identity.secure_cookie=!strncmp(G_Identity.origin,"https://",8);
     if(!G_Identity.issuer[0]||!G_Identity.audience[0])ok=false;
+    if(G_Identity.sms_url[0]&&(strncmp(G_Identity.sms_url,"https://",8)||strpbrk(G_Identity.sms_url,"\r\n")))ok=false;
+    if(strpbrk(G_Identity.sms_token,"\r\n"))ok=false;
     /* Only a scheme+authority, never a request-controlled forwarded header. */
     if(G_Identity.origin[0]){
         size_t prefix=G_Identity.secure_cookie?8:7;

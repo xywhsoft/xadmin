@@ -50,6 +50,9 @@ static bool XA_SessionRevokeAccount(int64 account,const char* keep_sid);
 #include "modules/content.h"
 #include "modules/content_generator.h"
 #include "modules/install.h"
+#include "src/identity/delivery.c"
+#include "src/identity/challenge.c"
+#include "src/api/v1/challenge.c"
 static bool G_SessionStarted, G_BusinessStarted; /* install.h 的向导流程与本段启动链共用 */
 #include "route_http/index.h"
 #include "route_http/login.h"
@@ -119,6 +122,9 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 	if (!DB_EnsurePluginResourceIndex()) { printf("[xadmin][error] business start: plugin resource index failed\n"); return false; }
 	if (!XA_ConfigInit() || !XA_MigrateComponent("auth",XA_AuthSchema1) || !XA_KeyInit()) {
 		printf("[xadmin][error] identity configuration or auth storage initialization failed\n"); return false;
+	}
+	if (!XA_MigrateComponent("challenge",XA_ChallengeSchema1)) {
+		printf("[xadmin][error] identity challenge storage initialization failed\n"); return false;
 	}
 	G_SessionStarted = true;
 	if (!Session_Init()) { printf("[xadmin][error] business start: Session_Init failed\n"); return false; }
