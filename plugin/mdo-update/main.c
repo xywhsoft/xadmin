@@ -12,6 +12,7 @@
 typedef struct UpdatePackage {
     char Hash[65], Previous[65], Name[256], Notes[1025];
     uint64 Size, UpdatedAt;
+    bool Required;
 } UpdatePackage;
 static const char* const Platforms[] = {"windows-x86_64", "android-arm64-v8a"};
 static const char* const Extensions[] = {".exe", ".apk"};
@@ -53,6 +54,13 @@ static bool ReadUInt(xvalue* object, const char* key, uint64* out)
     if (xrtValueGetUInt(v,out)) return true;
     if (!xrtValueGetInt(v,&n) || n < 0) return false;
     *out = (uint64)n; return true;
+}
+/* Old publications are optional. A present field must be a JSON boolean. */
+static bool ReadRequired(xvalue* object, bool* out)
+{
+    xvalue* v = xrtValueObjectGet(object,XRT_STR_LITERAL("required"));
+    *out = false;
+    return !v || xrtValueGetBool(v,out);
 }
 static int Platform(const char* s)
 {
@@ -159,7 +167,8 @@ static xvalue* PackageData(int platform, const UpdatePackage* package, bool priv
     ok = PutText(v,"platform",Platforms[platform]) && PutText(v,"sha256",package->Hash) &&
         PutUInt(v,"size",package->Size) && PutText(v,"url",url) &&
         PutText(v,"filename",package->Name) && PutText(v,"notes",package->Notes) &&
-        PutUInt(v,"updated_at",package->UpdatedAt);
+        PutUInt(v,"updated_at",package->UpdatedAt) &&
+        xrtValueObjectSetNew(v,XRT_STR_LITERAL("required"),xrtValueBool(package->Required));
     if (ok && private_data) ok = PutText(v,"previous",package->Previous);
     if (!ok) { xrtValueRelease(v); return NULL; }
     return v;
@@ -202,7 +211,7 @@ static bool LoadMetadata(void)
             ReadText(item,"filename",v->Name,sizeof(v->Name)) &&
             ReadText(item,"notes",v->Notes,sizeof(v->Notes)) &&
             ReadUInt(item,"size",&v->Size) && v->Size && v->Size <= UPDATE_MAX_BYTES &&
-            ReadUInt(item,"updated_at",&v->UpdatedAt);
+            ReadUInt(item,"updated_at",&v->UpdatedAt) && ReadRequired(item,&v->Required);
     }
     if (ok && known != xrtValueCount(root)) ok = false;
     xrtValueRelease(root);
@@ -261,7 +270,7 @@ static void Upload(XS_ServerObject s, XS_HostObject h, XS_RequestObject req,
     char boundary[74], platform[32] = ""; XAdminMultipartPart part;
     const char* body = XAdmin_ReqBody(req); const char* payload = NULL;
     size_t n = XAdmin_ReqBodyLen(req), offset = 0, payload_size = 0;
-    bool seen_platform = false, seen_notes = false, ok = true;
+    bool seen_platform = false, seen_notes = false, seen_required = false, ok = true;
     UpdatePackage next = {0}, values[2]; int index; char* path = NULL; char disk_hash[65]; uint64 disk_size;
     (void)s; (void)h;
     if (xsReqMethodID(req) != XHTTP_METHOD_POST) { Error(resp,405,"Method not allowed"); return; }
@@ -276,6 +285,11 @@ static void Upload(XS_ServerObject s, XS_HostObject h, XS_RequestObject req,
             seen_platform = true; ok = CopyText(platform,sizeof(platform),part.data,part.size);
         } else if (PartName(&part,"notes") && !seen_notes && !part.filename) {
             seen_notes = true; ok = CopyText(next.Notes,sizeof(next.Notes),part.data,part.size);
+        } else if (PartName(&part,"required") && !seen_required && !part.filename) {
+            seen_required = true;
+            ok = (part.size == 4 && !memcmp(part.data,"true",4)) ||
+                (part.size == 5 && !memcmp(part.data,"false",5));
+            next.Required = part.size == 4;
         } else if (PartName(&part,"file") && !payload && part.filename && part.filenameLen) {
             payload = part.data; payload_size = part.size;
             /* Display only the basename; paths never determine storage names. */
@@ -305,6 +319,8 @@ static void Upload(XS_ServerObject s, XS_HostObject h, XS_RequestObject req,
     xrtFree(destination); xrtFree(path);
     if (!ok) { Error(resp,503,"Unable to publish package object"); return; }
     if (!strcmp(next.Hash,Packages[index].Hash)) {
+        /* Retrying identical bytes is idempotent. Policy changes use the
+         * explicit compare-and-set endpoint, never a repeated upload. */
         Reply(resp,200,PackageData(index,&Packages[index],false)); return;
     }
     next.UpdatedAt = (uint64)time(NULL);
@@ -319,6 +335,35 @@ static void Upload(XS_ServerObject s, XS_HostObject h, XS_RequestObject req,
         xrtFree(obsolete);
     }
     memcpy(Packages,values,sizeof(values));
+    Reply(resp,200,PackageData(index,&Packages[index],false));
+}
+static void Policy(XS_ServerObject s, XS_HostObject h, XS_RequestObject req,
+    XS_ResponseObject resp, xvalue* session)
+{
+    (void)s; (void)h;
+    if (xsReqMethodID(req) != XHTTP_METHOD_POST) { Error(resp,405,"Method not allowed"); return; }
+    if (!XAdmin_CheckAdminCSRF(req,session)) { Error(resp,403,"CSRF verification failed"); return; }
+    if (MetadataInvalid) { Error(resp,409,"Repair invalid current.json first"); return; }
+    size_t n = XAdmin_ReqBodyLen(req); const char* body = XAdmin_ReqBody(req);
+    if (!body || !n || n > 1024) { Error(resp,400,"Invalid policy body"); return; }
+    xjsonreadconfig limits; xrtJsonReadConfigInit(&limits);
+    limits.MaxInputBytes = 1024; limits.MaxDepth = 2; limits.MaxValues = 8;
+    xvalue* root = xrtJsonRead(xrtStrViewN(body,n),&limits);
+    char platform[32], hash[65]; bool required = false;
+    bool ok = root && xrtValueType(root) == XVALUE_OBJECT && xrtValueCount(root) == 3 &&
+        ReadText(root,"platform",platform,sizeof(platform)) &&
+        ReadText(root,"sha256",hash,sizeof(hash)) && HashValid(hash) &&
+        xrtValueGetBool(xrtValueObjectGet(root,XRT_STR_LITERAL("required")),&required);
+    xrtValueRelease(root);
+    int index = ok ? Platform(platform) : -1;
+    if (index < 0) { Error(resp,422,"Expected platform, sha256 and boolean required"); return; }
+    if (strcmp(hash,Packages[index].Hash)) { Error(resp,409,"Current package changed; refresh before saving"); return; }
+    if (Packages[index].Required != required) {
+        UpdatePackage values[2]; memcpy(values,Packages,sizeof(values));
+        values[index].Required = required; values[index].UpdatedAt = (uint64)time(NULL);
+        if (!SaveMetadata(values)) { Error(resp,503,"Unable to save update policy"); return; }
+        memcpy(Packages,values,sizeof(values));
+    }
     Reply(resp,200,PackageData(index,&Packages[index],false));
 }
 static void DownloadSend(XS_ServerObject s, XS_HostObject h, XS_RequestObject req,
@@ -386,6 +431,7 @@ static int Start(XAdminPluginHandle handle)
         {"/admin/mdo-update",Admin,true,true,auth_id,0},
         {"/admin/api/mdo-update",Inventory,true,true,auth_id,0},
         {"/admin/api/mdo-update/upload",Upload,true,true,auth_id,0},
+        {"/admin/api/mdo-update/policy",Policy,true,true,auth_id,0},
         {"/update/version",Current,false,false,0,0}
     };
     for (i = 0; i < sizeof(routes)/sizeof(routes[0]); ++i)

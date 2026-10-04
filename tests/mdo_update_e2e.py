@@ -10,12 +10,15 @@ from pathlib import Path
 import smoke
 
 
-def multipart(platform, payload, filename, notes=""):
+def multipart(platform, payload, filename, notes="", required=None):
     boundary = "mdo-update-test-boundary"
     fields = []
     for name, value in (("platform", platform), ("notes", notes)):
         fields.append(("--" + boundary + '\r\nContent-Disposition: form-data; name="' +
                        name + '"\r\n\r\n' + value + "\r\n").encode())
+    if required is not None:
+        fields.append(("--" + boundary + '\r\nContent-Disposition: form-data; name="required"\r\n\r\n' +
+                       str(required).lower() + "\r\n").encode())
     fields.append(("--" + boundary + '\r\nContent-Disposition: form-data; name="file"; filename="' +
                    filename + '"\r\nContent-Type: application/octet-stream\r\n\r\n').encode())
     return b"".join(fields) + payload + ("\r\n--" + boundary + "--\r\n").encode(), {
@@ -72,7 +75,8 @@ def run(exe, apk):
         denied = smoke.USER + "_denied"
         _, hd, _ = request("POST", "/admin/login", {
             "username": denied, "password": smoke.client_hash(denied, smoke.PASSWORD)})
-        check(request("GET", "/admin/api/mdo-update", cookie=hd["Set-Cookie"].split(";")[0])[0] == 403,
+        denied_cookie = hd["Set-Cookie"].split(";")[0]
+        check(request("GET", "/admin/api/mdo-update", cookie=denied_cookie)[0] == 403,
               "admin without upload permission is denied")
         for platform, source in (("windows-x86_64", exe), ("android-arm64-v8a", apk)):
             content = source.read_bytes()
@@ -104,18 +108,45 @@ def run(exe, apk):
                   platform + " truncated multipart rejected")
             check(before == (target / "plugin_data/mdo-update/current.json").read_bytes(),
                   platform + " failed upload preserves publication")
+            check(info["required"] is False, platform + " legacy upload defaults to optional")
+            policy = {"platform": platform, "sha256": info["sha256"], "required": True}
+            endpoint = "/admin/api/mdo-update/policy"
+            check(request("POST", endpoint, policy, cookie)[0] == 403, "policy requires CSRF")
+            check(request("POST", endpoint, policy, denied_cookie, {"X-CSRF-Token": csrf})[0] == 403,
+                  "policy requires admin permission")
+            auth = {"X-CSRF-Token": csrf}
+            check(request("POST", endpoint, {**policy, "required": "true"}, cookie, auth)[0] == 422,
+                  "policy requires boolean")
+            check(request("POST", endpoint, {**policy, "sha256": "0"*64}, cookie, auth)[0] == 409,
+                  "policy compare and set rejects stale package")
+            st, _, result = request("POST", endpoint, policy, cookie, auth)
+            check(st == 200 and json.loads(result)["required"] is True, platform + " enable mandatory policy")
+            check(request("GET", info["url"])[2] == content, "policy does not change package bytes")
+            check(json.loads(request("GET", "/update/version?platform=" + platform)[2])["required"],
+                  platform + " public mandatory flag")
+            check(request("POST", endpoint, {**policy, "required": False}, cookie, auth)[0] == 200,
+                  platform + " revoke mandatory policy without upload")
         check(not (target / "plugin_data/mdo-update/packages/upload.part").exists(), "staging file removed")
         check(request("GET", "/update/version?platform=linux")[0] == 400, "unsupported platform")
+        policy = {"platform": "windows-x86_64", "sha256": hashlib.sha256(exe.read_bytes()).hexdigest(), "required": True}
+        auth = {"X-CSRF-Token": csrf}
+        check(request("POST", "/admin/api/mdo-update/policy", policy, cookie, auth)[0] == 200,
+              "mandatory publication before reload")
         st, _, body = request("POST", "/admin/plugin/reload", {"name": "mdo-update"}, cookie)
         check(st == 200 and json.loads(body)["result"], "plugin reload")
-        check(request("GET", "/update/version")[0] == 200, "metadata survives reload")
+        check(json.loads(request("GET", "/update/version")[2])["required"] is True,
+              "mandatory policy survives reload")
         # Atomic metadata failure must not advance the public pointer.
         saved = target / "plugin_data/mdo-update/current.json"
         saved.rename(saved.with_suffix(".test-backup"))
         saved.mkdir()
+        check(request("POST", "/admin/api/mdo-update/policy", {**policy, "required": False}, cookie, auth)[0] == 503,
+              "policy atomic commit failure is reported")
+        check(json.loads(request("GET", "/update/version")[2])["required"] is True,
+              "failed policy commit preserves mandatory state")
         altered = bytearray(exe.read_bytes())
         altered[2] ^= 1  # DOS padding; still a structurally valid packed PE.
-        form, headers = multipart("windows-x86_64", bytes(altered), "mdo.exe")
+        form, headers = multipart("windows-x86_64", bytes(altered), "mdo.exe", required=True)
         headers["X-CSRF-Token"] = csrf
         st, _, _ = request("POST", "/admin/api/mdo-update/upload", form, cookie, headers)
         check(st == 503, "metadata commit failure is reported")
@@ -128,6 +159,7 @@ def run(exe, apk):
         st, _, body = request("POST", "/admin/api/mdo-update/upload", form, cookie, headers)
         check(st == 200, "publish second Windows package")
         second = json.loads(body)
+        check(second["required"] is True, "upload can publish mandatory policy")
         check(request("GET", old["url"])[2] == exe.read_bytes(), "previous package remains available")
         altered[3] ^= 1
         form, headers = multipart("windows-x86_64", bytes(altered), "mdo.exe")
