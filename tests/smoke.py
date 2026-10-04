@@ -20,6 +20,7 @@ from datetime import datetime
 from write_regression import checks as write_checks
 
 ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_EXECUTABLE = ROOT / ('xs.exe' if os.name == 'nt' else 'xs')
 USER = 'migration_smoke'
 PASSWORD = 'Temporary-test-only-9081'
 
@@ -63,6 +64,10 @@ def fixture(port, protected=False, register_interval=0):
         for option in group.get('options', []):
             if option.get('name') == 'cp_url':
                 option['value'] = '/smoke-private-entry' if protected else ''
+            if option.get('name') == 'mail_enabled':
+                # A backup may contain real queued messages. Fixtures never
+                # inherit permission to deliver those messages externally.
+                option['value'] = False
     if register_interval is not None:
         options.setdefault('classList', []).append(
             {'title': 'soak', 'options': [
@@ -92,6 +97,7 @@ def fixture(port, protected=False, register_interval=0):
     # 全部 smoke 轮次（间歇挂死，storm 门禁单测无法覆盖完整序列）。
     with sqlite3.connect(target / 'db/main.db') as db:
         db.execute('UPDATE plugin_runtime SET enabled=0')
+        db.execute('UPDATE sched_task SET enabled=0')
         db.commit()
 
     config = json.loads((ROOT / 'xs.json').read_text(encoding='utf-8'))
@@ -121,7 +127,7 @@ def request(port, method, path, data=None, cookie=None):
         conn.close()
 
 
-def checks(port, target, protected=False):
+def checks(port, target, protected=False, functional_only=False):
     login_path = '/smoke-private-entry' if protected else '/admin/login'
     status, headers, body = request(port, 'GET', login_path)
     assert status == 200 and b'<html' in body.lower(), (status, body[:200])
@@ -436,9 +442,13 @@ def checks(port, target, protected=False):
     def parallel_read(i):
         status, _, body = request(port, 'GET', '/admin/auth/user?page=1&limit=10', cookie=cookie)
         assert status == 200 and json.loads(body)['data']
-    with ThreadPoolExecutor(max_workers=8) as pool:
-        list(pool.map(parallel_read, range(40)))
-    print('PASS concurrent reads with shared legacy SQL statements')
+    if functional_only:
+        parallel_read(0)
+        print('PASS shared SQL read (parallel check skipped)')
+    else:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(parallel_read, range(40)))
+        print('PASS concurrent reads with shared legacy SQL statements')
     write_checks(port, target, cookie, login_path, request, client_hash, PASSWORD)
     assert request(port, 'GET', '/admin/logout', cookie=cookie)[0] == 404  # R1: POST-only
     status, headers, body = request(port, 'POST', '/admin/logout', cookie=cookie)
@@ -528,11 +538,12 @@ def checks(port, target, protected=False):
     status, _, body = request(port, 'GET', '/admin/logs?limit=99999&page=1', cookie=cookie)
     assert status == 200 and len(json.loads(body)['data']) <= 100
     # F6: permission rebuild is O(routes+ΣauthList); a write stays fast with 20k roles.
-    with sqlite3.connect(target / 'db/main.db') as db:
-        db.execute("WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x<20000) "
-                   'INSERT INTO role(name,desc,authList,authLevel,createTime,updateTime,isDelete) '
-                   "SELECT 'perf_seed_'||x,'','[]',0,?,?,0 FROM c", (legacy_now(), legacy_now()))
-        db.commit()
+    if not functional_only:
+        with sqlite3.connect(target / 'db/main.db') as db:
+            db.execute("WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM c WHERE x<20000) "
+                       'INSERT INTO role(name,desc,authList,authLevel,createTime,updateTime,isDelete) '
+                       "SELECT 'perf_seed_'||x,'','[]',0,?,?,0 FROM c", (legacy_now(), legacy_now()))
+            db.commit()
     status, _, body = request(port, 'POST', '/admin/auth/role', {
         'name': 'perf_gate', 'desc': '', 'authList': '[]', 'authLevel': 0}, cookie=cookie)
     gate_id = json.loads(body)['data']['id']
@@ -540,9 +551,14 @@ def checks(port, target, protected=False):
     status, _, body = request(port, 'PUT', '/admin/auth/role', {
         'id': gate_id, 'name': 'perf_gate2', 'desc': '', 'authList': '[1]', 'authLevel': 0}, cookie=cookie)
     elapsed = _time.perf_counter() - t0
-    assert json.loads(body)['result'] and elapsed < 0.5, (elapsed, body[:120])
+    assert json.loads(body)['result'], body[:120]
+    if not functional_only:
+        assert elapsed < 0.5, (elapsed, body[:120])
     request(port, 'DELETE', '/admin/auth/role?id=' + str(gate_id), cookie=cookie)
-    print('PASS attack fixes F1/F2/F3/F6/F7/F9 (%.0fms at 20k roles)' % (elapsed * 1000))
+    if functional_only:
+        print('PASS F1/F2/F3/F6/F7/F9 functional regressions (bulk/timing check skipped)')
+    else:
+        print('PASS attack fixes F1/F2/F3/F6/F7/F9 (%.0fms at 20k roles)' % (elapsed * 1000))
     # === plugin host: scan / lifecycle / full-ABI conformance (hello-sdk) ===
     status, _, body = request(port, 'GET', '/admin/plugin/list', cookie=cookie)
     result = json.loads(body)
@@ -693,11 +709,11 @@ def checks(port, target, protected=False):
 
 
 
-def register_rate_check(port):
+def register_rate_check(port, executable=None):
     """R2: 默认配置（60s/IP）下第二次注册被拒；主夹具把间隔设 0 绕过。"""
     target = fixture(port, register_interval=None)
     log = open(target / 'server.log', 'ab')
-    process = subprocess.Popen([str(ROOT / 'xs.exe'), str(target / 'xs.json')], cwd=ROOT,
+    process = subprocess.Popen([str(executable or DEFAULT_EXECUTABLE), str(target / 'xs.json')], cwd=ROOT,
                                stdout=log, stderr=subprocess.STDOUT,
                                creationflags=subprocess.CREATE_NO_WINDOW)
     try:
@@ -732,6 +748,10 @@ def main():
     parser.add_argument('--port', type=int, default=19081)
     parser.add_argument('--keep-running', action='store_true')
     parser.add_argument('--protected-entry', action='store_true')
+    parser.add_argument('--exe', type=Path, default=DEFAULT_EXECUTABLE,
+                        help='validate a candidate xs without replacing the workspace executable')
+    parser.add_argument('--functional-only', action='store_true',
+                        help='skip parallel requests and bulk/timing checks; retain functional regressions')
     args = parser.parse_args()
     verify_assets()
     db_hash = hashlib.sha256((ROOT / 'db/main.db').read_bytes()).digest()
@@ -740,7 +760,7 @@ def main():
     target = fixture(args.port, args.protected_entry)
     log = target / 'server.log'
     with log.open('wb') as output:
-        process = subprocess.Popen([str(ROOT / 'xs.exe'), str(target / 'xs.json')], cwd=ROOT,
+        process = subprocess.Popen([str(args.exe.resolve()), str(target / 'xs.json')], cwd=ROOT,
                                    stdout=output, stderr=subprocess.STDOUT,
                                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
     passed = False
@@ -760,9 +780,9 @@ def main():
             time.sleep(0.2)
         else:
             raise RuntimeError('xs did not become ready')
-        checks(args.port, target, args.protected_entry)
+        checks(args.port, target, args.protected_entry, args.functional_only)
         rate_port = args.port + 1
-        register_rate_check(rate_port)
+        register_rate_check(rate_port, args.exe.resolve())
         assert hashlib.sha256((ROOT / 'db/main.db').read_bytes()).digest() == db_hash
         print('PASS migrated root database unchanged by tests')
         passed = True

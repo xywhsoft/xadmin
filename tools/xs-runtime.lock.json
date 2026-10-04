@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "artifact": "xs.exe",
+  "platform": "windows-x64",
+  "sha256": "1052b854205cfd7e9690194ad6d1dd95dbf718713ad80770e27034604babed5b",
+  "xserver_commit": "48fc5fdb57797977dfdbb3c36f2ef81e9c0b9bf5",
+  "xserver_working_tree": true,
+  "xrt_source_lock_sha256": "fa084f156e7ef71a042075b170d999810273ad57a8420a586b1a6f2cf6bbd813",
+  "version_banner": "[xs] XServer 1.0.0 (commit 48fc5fd-dirty, 2026-10-04, windows)\n[xs] extensions (15): sqlite, xtp, xllm, xllm-session, xwork, xmail, xsmtp, xpop3, ximap, md4c, xacme, qrcodegen, xjwt, xoauth2, webview"
+}
