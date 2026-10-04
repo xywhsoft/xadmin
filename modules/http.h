@@ -17,6 +17,7 @@ typedef struct XAdminRequest {
 	size_t param_count;
 	bool replied;
 	bool deferred; /* owned async route; protocol returns XS_TAKEOVER */
+	char* header_copy[64]; /* legacy C-string SDK views, owned for this request */
 } XAdminRequest;
 typedef XAdminRequest* XS_RequestObject;
 typedef XAdminRequest* XS_ResponseObject;
@@ -174,16 +175,42 @@ static bool ReplyIfWriteFailed(XS_ResponseObject resp, bool written)
 
 const char* XAdmin_PluginReqHeader(XS_RequestObject objReq, const char* sName)
 {
-	/* 从 raw HTTP 头中按名取值（借用视图，仅当前请求内有效）。 */
-	size_t i;
+	/* HTTP names are case-insensitive, and xrt fields are length-bearing views,
+	 * not C strings. Keep a request-owned, NUL-terminated copy for legacy ABI. */
+	size_t i, index = 64; const xhttpfield* found = NULL;
 	XAdminRequest* req = (XAdminRequest*)objReq;
-	if (!req || !req->raw || !req->raw->head || !sName) return NULL;
+	if (!req || !req->raw || !req->raw->head || !sName || !sName[0]) return NULL;
 	for (i = 0; i < req->raw->head->FieldCount; i++) {
 		const xhttpfield* f = &req->raw->head->Fields[i];
-		if (f->Name.Size == strlen(sName) && !memcmp(f->Name.Data, sName, f->Name.Size))
-			return (const char*)f->Value.Data;
+		if (xrtStrCaseEqual(f->Name,xrtStrView(sName))) {
+			if (found) return NULL;
+			found = f; index = i;
+		}
 	}
-	return NULL;
+	if (!found || index >= 64 || found->Value.Size > 32768 ||
+		memchr(found->Value.Data,0,found->Value.Size)) return NULL;
+	if (!req->header_copy[index]) req->header_copy[index] = xrtStrDupN(found->Value.Data,found->Value.Size);
+	return req->header_copy[index];
+}
+/* New bounded helper avoids borrowing a cache pointer. >=0 bytes copied,
+ * -1 absent, -2 invalid/duplicate/insufficient capacity; output cleared. */
+static int XAdmin_ReqHeaderCopy(XS_RequestObject req,const char* name,char* out,size_t capacity)
+{
+	const xhttpfield* found = NULL; size_t i;
+	if (out && capacity) out[0] = 0;
+	if (!req || !req->raw || !req->raw->head || !name || !name[0] || !out || !capacity) return -2;
+	for (i=0;i<req->raw->head->FieldCount;i++) if (xrtStrCaseEqual(req->raw->head->Fields[i].Name,xrtStrView(name))) {
+		if (found) return -2; found = &req->raw->head->Fields[i];
+	}
+	if (!found) return -1;
+	if (found->Value.Size >= capacity || found->Value.Size > 32768 || memchr(found->Value.Data,0,found->Value.Size)) return -2;
+	memcpy(out,found->Value.Data,found->Value.Size);out[found->Value.Size]=0;return (int)found->Value.Size;
+}
+static void XAdmin_RequestHeadersRelease(XAdminRequest* req)
+{
+	size_t i;for(i=0;i<64;i++)if(req->header_copy[i]) {
+		xrtSecureZero(req->header_copy[i],strlen(req->header_copy[i]));xrtFree(req->header_copy[i]);req->header_copy[i]=NULL;
+	}
 }
 
 const char* XAdmin_ReqBody(XS_RequestObject objReq)

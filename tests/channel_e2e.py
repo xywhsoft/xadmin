@@ -118,6 +118,16 @@ def run(args):
         assert value['result'], value
         admin = response['Set-Cookie'].split(';')[0]
         manage('enable')
+        headers, _ = call('GET','/api/v1/channel-test/headers',headers={'x-test-one':'first','X-Test-Two':'second'})
+        assert headers == {'first':'first','second':'second','copied':5,'copy':'first','small':-2}, headers
+        import http.client
+        conn = (http.client.HTTPSConnection('127.0.0.1',args.port,context=tls_context,timeout=5)
+                if tls_context else http.client.HTTPConnection('127.0.0.1',args.port,timeout=5))
+        conn.putrequest('GET','/api/v1/channel-test/headers')
+        conn.putheader('X-Test-One','first');conn.putheader('x-test-one','duplicate');conn.endheaders()
+        headers = json.loads(conn.getresponse().read());conn.close()
+        assert headers['first'] == '' and headers['copied'] == -2 and headers['copy'] == '', headers
+        print('PASS case-insensitive, terminated request-owned header views, duplicate rejection and bounded copies')
         call('POST', '/api/v1/register', {'username': 'channel_member', 'password': PASSWORD}, expect=201)
         value, response = call('POST', '/api/v1/login', {'identifier': 'channel_member', 'password': PASSWORD})
         bearer = {'Authorization': 'Bearer ' + value['data']['access_token'], 'Origin': origin}

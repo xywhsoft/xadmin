@@ -1811,6 +1811,7 @@ static bool Plugin_Compile(PluginInstance* inst, char* sError, size_t iErrorSize
 			{"xsReqMethodID", (const void*)XAdmin_PluginMethodID},
 			{"xsReqQueryValue", (const void*)xsReqQueryValue},
 			{"XAdmin_PluginReqHeader", (const void*)XAdmin_PluginReqHeader},
+			{"XAdmin_ReqHeaderCopy", (const void*)XAdmin_ReqHeaderCopy},
 			{"XAdmin_ReqBody", (const void*)XAdmin_ReqBody},
 			{"XAdmin_ReqBodyLen", (const void*)XAdmin_ReqBodyLen},
 			{"XAdmin_HttpPostJson", (const void*)XAdmin_HttpPostJson},

@@ -1,5 +1,6 @@
 /* Real SDK consumer; this plugin is copied only into disposable test sites. */
 #include <xs_plugin.h>
+#include <value_util.h>
 #include <string.h>
 static XAdminPluginHandle Handle;
 static unsigned Opens,Closes,Messages;
@@ -39,12 +40,26 @@ static void Stats(XS_ServerObject server,XS_HostObject host,XS_RequestObject req
     (void)server;(void)host;(void)req;(void)session;
     xsHttpReplyFormat(resp,200,"Content-Type: application/json\r\n","{\"opens\":%u,\"closes\":%u,\"messages\":%u,\"backpressure\":%u}",Opens,Closes,Messages,Backpressure);
 }
+static void Headers(XS_ServerObject server,XS_HostObject host,XS_RequestObject req,XS_ResponseObject resp,xvalue* session)
+{
+    (void)server;(void)host;(void)session;char copy[128],small[2];
+    const char* first=XAdmin_PluginReqHeader(req,"x-test-one");
+    const char* second=XAdmin_PluginReqHeader(req,"X-TEST-TWO");
+    xvalue* result=ValueObject();
+    ValueSetText(result,"first",first);ValueSetText(result,"second",second);
+    ValueSetInt(result,"copied",XAdmin_ReqHeaderCopy(req,"X-Test-One",copy,sizeof(copy)));
+    ValueSetText(result,"copy",copy);ValueSetInt(result,"small",XAdmin_ReqHeaderCopy(req,"x-test-one",small,sizeof(small)));
+    size_t size=0;char* json=xrtJsonStringify(result,false,&size);
+    xsHttpReplyAuto(resp,200,"Content-Type: application/json\r\n",json,size);xrtFree(json);xrtValueRelease(result);
+}
 static int Start(XAdminPluginHandle handle)
 {
     Handle=handle;XAdminRouteToken token;
     XAdminRouteDecl connect={"/api/v1/channel-test",Connect,false,false,0,0};
     XAdminRouteDecl stats={"/api/v1/channel-test/stats",Stats,false,false,0,0};
-    return XAdmin_RegisterRoute(handle,&connect,&token)||XAdmin_RegisterRoute(handle,&stats,&token)?-1:0;
+    XAdminRouteDecl headers={"/api/v1/channel-test/headers",Headers,false,false,0,0};
+    return XAdmin_RegisterRoute(handle,&connect,&token)||XAdmin_RegisterRoute(handle,&stats,&token)||
+        XAdmin_RegisterRoute(handle,&headers,&token)?-1:0;
 }
 static const XAdminPluginDescriptor Descriptor={XADMIN_ABI_VERSION,sizeof(XAdminPluginDescriptor),
     "channel-sdk","1.0.0","Managed channel test",Load,NULL,Start,NULL,NULL,NULL,NULL};

@@ -230,6 +230,9 @@ int xsHttpReplyFormat(XS_ResponseObject objResp, int iCode, const char* sHeaders
 int xsReqMethodID(XS_RequestObject objReq);
 int xsReqQueryValue(XS_RequestObject objReq, const char* sName, char* sOut, size_t iCapacity);
 const char* XAdmin_PluginReqHeader(XS_RequestObject objReq, const char* sName);
+/* >=0 bytes copied, -1 absent, -2 duplicate/invalid/too long. Names ignore case.
+ * On failure output is cleared. No raw field view or unterminated string. */
+int XAdmin_ReqHeaderCopy(XS_RequestObject req,const char* name,char* out,size_t capacity);
 const char* XAdmin_ReqBody(XS_RequestObject objReq);
 size_t XAdmin_ReqBodyLen(XS_RequestObject objReq);
 #endif

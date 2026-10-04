@@ -26,6 +26,7 @@ static bool PluginAsync_CopyView(xstrview source, xstrview* out)
 static void PluginAsync_Free(PluginAsyncJob* job)
 {
     size_t i;
+    XAdmin_RequestHeadersRelease(&job->req);
     for (i = 0; i < job->head.FieldCount; i++) {
         if (job->fields[i].Value.Data) xrtSecureZero((void*)job->fields[i].Value.Data,job->fields[i].Value.Size);
         xrtFree((void*)job->fields[i].Name.Data); xrtFree((void*)job->fields[i].Value.Data);
