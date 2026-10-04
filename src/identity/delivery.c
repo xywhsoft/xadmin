@@ -7,6 +7,9 @@ static bool XA_SetIdentityDelivery(XAIdentityDeliveryProc proc,void* context)
 }
 typedef struct XADeliveryJob {
     XAIdentityMessage message;
+    XASmsConfig sms;
+    bool registered_sms;
+    char sms_url[1025],sms_token[513];
     char smtp_host[257],smtp_user[257],smtp_password[513],smtp_sender[255];
     int smtp_port;bool starttls,smtp_auth;
 } XADeliveryJob;
@@ -14,7 +17,16 @@ static bool XA_DeliveryPrepare(const XAIdentityMessage* message,XADeliveryJob* j
 {
     memset(job,0,sizeof(*job));job->message=*message;
     if(G_IdentityDelivery)return true;
-    if(!strcmp(message->channel,"phone"))return G_Identity.sms_url[0]&&G_Identity.sms_token[0];
+    if(!strcmp(message->channel,"phone")){
+        xvalue* value=XA_SmsConfigValue(&G_Identity.sms,false);
+        bool configured=ValueBool(value,"enabled");xrtValueRelease(value);
+        if(configured){
+            job->sms=G_Identity.sms;job->registered_sms=true;
+            return XA_SmsAvailable(&job->sms,message->security_notice?"contact_changed":"verification");
+        }
+        strcpy(job->sms_url,G_Identity.sms_url);strcpy(job->sms_token,G_Identity.sms_token);
+        return job->sms_url[0]&&job->sms_token[0];
+    }
 #if XADMIN_WITH_SMTP
     if(!Mail_Enabled())return false;
     const char* secure=Mail_GetText("smtp_secure","ssl");
@@ -45,11 +57,24 @@ static XAIdentityDeliveryResult XA_Deliver(XADeliveryJob* job)
     if(G_IdentityDelivery)return G_IdentityDelivery(m,G_IdentityDeliveryContext);
     if(!m->borrowed_engine)return XA_DELIVERY_FAILED;
     if(!strcmp(m->channel,"phone")){
+        if(job->registered_sms){
+            xvalue* params=ValueObject();char seconds[16],minutes[16];
+            snprintf(seconds,sizeof(seconds),"%u",m->expires_in);snprintf(minutes,sizeof(minutes),"%u",(m->expires_in+59)/60);
+            bool ok=params!=NULL;
+            if(!m->security_notice)ok=ok&&ValueSetText(params,"code",m->code)&&ValueSetText(params,"purpose",m->purpose)&&
+                ValueSetText(params,"expires_in",seconds)&&ValueSetText(params,"minutes",minutes);
+            XASmsMessage message={m->security_notice?XA_SMS_NOTIFICATION:XA_SMS_VERIFICATION,m->target,
+                m->security_notice?"contact_changed":"verification",params,m->challenge_id};
+            XASmsContext context={m->borrowed_engine,G_SmsTransport,G_SmsTransportContext,NULL};XASmsReceipt receipt;
+            XASmsStatus status=ok?XA_SmsSend(&job->sms,&context,&message,&receipt):XA_SMS_FAILED;
+            xrtValueRelease(params);
+            return status==XA_SMS_ACCEPTED?XA_DELIVERY_SENT:status==XA_SMS_UNKNOWN?XA_DELIVERY_UNKNOWN:XA_DELIVERY_FAILED;
+        }
         xoauth2httpxrt* http=xoauth2HttpXrtCreate(m->borrowed_engine,NULL,15000000);
         if(!http)return XA_DELIVERY_FAILED;
         char* target=xoauth2UrlEncode(m->target);char* form=target?xrtFormat("challenge_id=%s&phone=%s&code=%s&purpose=%s&expires_in=%u&type=%s",m->challenge_id,target,m->code,m->purpose,m->expires_in,m->security_notice?"security_notice":"verification"):NULL;
-        char* auth=xrtFormat("Bearer %s",G_Identity.sms_token);char* response=NULL;int status=0;
-        bool transported=form&&auth&&xoauth2HttpXrt("POST",G_Identity.sms_url,form,auth,&response,&status,http);
+        char* auth=xrtFormat("Bearer %s",job->sms_token);char* response=NULL;int status=0;
+        bool transported=form&&auth&&xoauth2HttpXrt("POST",job->sms_url,form,auth,&response,&status,http);
         xvalue* value=transported&&status>=200&&status<300&&response?xrtJsonParse(xrtStrView(response)):NULL;
         XAIdentityDeliveryResult result=value&&ValueBool(value,"sent")?XA_DELIVERY_SENT:
             (status>=400&&status<500?XA_DELIVERY_FAILED:XA_DELIVERY_UNKNOWN);

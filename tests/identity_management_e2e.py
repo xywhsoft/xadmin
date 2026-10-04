@@ -119,7 +119,9 @@ def run(args):
 
         admin = admin_login()
         settings, _ = call('GET', '/admin/member/identity/config', cookie=admin)
-        assert 'secret' not in json.dumps(settings).replace('secret_configured', '')
+        assert 'test-write-only-secret' not in json.dumps(settings)
+        assert 'client_secret' not in settings['github'] and 'client_secret' not in settings['wechat']
+        assert 'token' not in settings['sms']['options']
         assert settings['sms_token_configured'] and 'sms_webhook_token' not in settings
         call('PUT', '/admin/member/identity/config', {'revision': settings['revision'], 'config': {'registration': False}}, admin, status=403)
         csrf = {'X-CSRF-Token': settings['csrf_token'], 'Origin': origin}

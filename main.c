@@ -33,7 +33,12 @@ static void XA_SessionMaintenance(void);
 #include "modules/member.h"
 #include "modules/member_auth.h"
 #include "src/identity/common.c"
+#include "src/sms/registry.c"
 #include "src/identity/config.c"
+#include "src/sms/config.c"
+#include "src/sms/http.c"
+#include "src/sms/service.c"
+#include "src/sms/providers.c"
 #include "src/storage/identity_auth.c"
 static bool XA_SecurityClose(int64 owner,const char* resolution,const char* admin,const char* reason);
 #include "src/identity/password.c"
@@ -170,6 +175,8 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 void ServiceInit(XS_HostInfo* host)
 {
 	char* path;
+	if (!XA_SmsRegisterBuiltins()) { printf("[xadmin][error] SMS provider registration failed\n"); return; }
+	G_SmsFrozen = true;
 	G_RequestLock = xrtMutexCreate();
 	AppPath = xrtPathParent(host->Path);
 	DBPath = xrtPathJoin(AppPath, "db");

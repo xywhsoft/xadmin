@@ -114,11 +114,19 @@
         <p class="hint">请注册对应模式的微信应用，不按手机类型自动切换。UnionID 仅保存，不自动合并账号。</p>
       </fieldset>
     </div>
-    <fieldset><legend>验证码送达</legend>
+    <fieldset><legend>短信服务</legend>
+      <label><input name="sms_enabled" type="checkbox">启用注册式短信服务</label>
+      <label>短信平台<select name="sms_provider"></select></label>
+      <div id="sms-options"></div>
+      <label>短信模板映射（JSON）<textarea name="sms_templates" rows="12" spellcheck="false"></textarea></label>
+      <p class="hint">verification 为验证码模板，参数可用 code、minutes、expires_in、purpose；contact_changed 为换绑通知模板。通知模板可自行添加，type 为 notification。parameters 的顺序必须与平台模板一致；填写平台已审核的模板 ID。</p>
+      <p class="hint">密钥留空保留，勾选清除才会删除。切换平台不会沿用上一平台的凭据。请求超时不会自动换平台重发。</p>
+    </fieldset>
+    <fieldset><legend>原有 Webhook / 邮件送达</legend>
       <label>短信 HTTPS webhook<input name="sms_webhook_url" type="url" maxlength="1024" placeholder="https://sms.example.com/send"></label>
       <label>Webhook Bearer token<input name="sms_webhook_token" type="password" autocomplete="new-password" maxlength="512" placeholder="留空保留已有 token"></label>
       <label><input name="sms_clear" type="checkbox">清除已存储的 webhook token</label>
-      <p class="hint">邮件使用已有的 SMTP 设置，要求 TLS 或 STARTTLS 和系统证书校验。短信 webhook 协议见身份服务文档。</p>
+      <p class="hint">注册式短信服务启用后优先使用它；未启用时继续使用这里的原有 Webhook。邮件使用已有 SMTP 设置，要求 TLS 或 STARTTLS 和系统证书校验。</p>
     </fieldset>
     <button type="submit" id="identity-save" disabled>保存配置</button><button type="button" id="identity-reload" disabled>重载应用使配置生效</button>
     <a href="/account/index.html" target="_blank" rel="noreferrer">打开用户账户页面</a>
@@ -133,6 +141,26 @@
   const form = document.getElementById('identity-config'), status = document.getElementById('identity-status');
   const field = name => form.elements.namedItem(name);
   let revision = '', csrf = '', busy = false;
+  let smsProviders = [], smsSaved = null;
+  function renderSmsOptions() {
+    const provider = smsProviders.find(item => item.id === field('sms_provider').value);
+    const root = document.getElementById('sms-options'); root.replaceChildren();
+    if (!provider) return;
+    const same = smsSaved && smsSaved.provider === provider.id;
+    for (const item of provider.fields) {
+      const label = document.createElement('label'); label.textContent = item.label + (item.required ? ' *' : '');
+      const input = document.createElement('input'); input.name = 'sms_option_' + item.name;
+      input.type = item.secret ? 'password' : 'text'; input.maxLength = 1024; input.autocomplete = item.secret ? 'new-password' : 'off';
+      input.value = item.secret ? '' : same ? (smsSaved.options[item.name] || item.default_value || '') : (item.default_value || '');
+      if (item.secret) input.placeholder = same && smsSaved.secrets_configured[item.name] ? '已配置；留空保留' : '尚未配置';
+      label.append(input); root.append(label);
+      if (item.secret) {
+        const clear = document.createElement('label'), check = document.createElement('input');
+        check.type = 'checkbox'; check.name = 'sms_clear_' + item.name;
+        clear.append(check, document.createTextNode(' 清除 ' + item.label)); root.append(clear);
+      }
+    }
+  }
   const controls = ['identity-save','identity-reload','identity-rotate','identity-invalidate'].map(id => document.getElementById(id));
   function message(text) { status.textContent = text; }
   async function api(path, method = 'GET', data) {
@@ -147,6 +175,12 @@
   }
   async function load() {
     const data = await api('/admin/member/identity/config'); revision = data.revision; csrf = data.csrf_token;
+    smsProviders = data.sms_providers; smsSaved = data.sms;
+    field('sms_provider').replaceChildren(...smsProviders.map(item => {const option=document.createElement('option');option.value=item.id;option.textContent=item.label;return option;}));
+    field('sms_provider').value = smsSaved.provider; field('sms_enabled').checked = smsSaved.enabled;
+    field('sms_templates').value = JSON.stringify(Object.keys(smsSaved.templates).length ? smsSaved.templates : {
+      verification:{type:'verification',id:'',parameters:['code','minutes']}
+    },null,2); renderSmsOptions();
     for (const name of ['issuer','audience','public_origin','default_country_code','sms_webhook_url']) field(name).value = data[name];
     for (const name of ['registration','oauth_create_member','security_questions']) field(name).checked = data[name];
     field('cors_origins').value = data.cors_origins.join('\n');
@@ -166,8 +200,19 @@
     finally {busy = false; controls.forEach(node => node.disabled = !csrf);}
   }
   field('public_origin').addEventListener('input', callbacks);
+  field('sms_provider').addEventListener('change', renderSmsOptions);
   form.addEventListener('submit', event => {event.preventDefault(); run(async () => {
     const config = {};
+    const provider = smsProviders.find(item => item.id === field('sms_provider').value);
+    let templates; try {templates=JSON.parse(field('sms_templates').value);} catch {throw new Error('短信模板映射不是有效的 JSON。');}
+    config.sms = {enabled:field('sms_enabled').checked,provider:provider.id,options:{},templates};
+    for (const item of provider.fields) {
+      const input=field('sms_option_'+item.name);
+      if (item.secret) {
+        if(field('sms_clear_'+item.name).checked)config.sms.options[item.name]='';
+        else if(input.value)config.sms.options[item.name]=input.value;
+      } else config.sms.options[item.name]=input.value.trim();
+    }
     for (const name of ['issuer','audience','public_origin','default_country_code','sms_webhook_url']) config[name] = field(name).value.trim();
     for (const name of ['registration','oauth_create_member','security_questions']) config[name] = field(name).checked;
     config.cors_origins = field('cors_origins').value.split('\n').map(s => s.trim()).filter(Boolean);

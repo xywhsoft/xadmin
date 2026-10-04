@@ -16,6 +16,14 @@ from smoke import ROOT, USER, PASSWORD, fixture, request, client_hash
 def run(args):
     target = fixture(args.port, source_db=args.source_db)
     database = target / 'db/main.db'
+    # Exercise the first migration even when the source deployment has already
+    # migrated. Reset only this disposable fixture; never touch the source DB.
+    with sqlite3.connect(database) as db:
+        for table in ('member_security_review', 'member_security_recovery', 'member_security_question'):
+            db.execute(f'DROP TABLE IF EXISTS {table}')
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='xadmin_migration'").fetchone():
+            db.execute("DELETE FROM xadmin_migration WHERE component='security'")
+        db.commit()
     origin = f'http://127.0.0.1:{args.port}'
     (target / 'db/identity.json').write_text(json.dumps({'public_origin': origin}))
     log = target / 'server.log'

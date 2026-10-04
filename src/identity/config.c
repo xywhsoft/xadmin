@@ -9,6 +9,7 @@ typedef struct XAIdentityConfig {
     char issuer[257], audience[129], origin[513], country[5];
     bool registration, oauth_create, secure_cookie, security_questions;
     char sms_url[1025], sms_token[513];
+    XASmsConfig sms;
     XAProviderConfig github, wechat;
     char cors[8][513];
     size_t cors_count;
@@ -67,7 +68,7 @@ static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
 {
     const char* const names[] = {"issuer", "audience", "public_origin", "default_country_code",
         "registration", "oauth_create_member", "security_questions", "sms_webhook_url", "sms_webhook_token",
-        "github", "wechat", "cors_origins"};
+        "github", "wechat", "cors_origins", "sms"};
     memset(out, 0, sizeof(*out));
     strcpy(out->issuer, "xadmin:member"); strcpy(out->audience, "member");
     out->registration = out->oauth_create = out->security_questions = true;
@@ -79,6 +80,7 @@ static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
         !XA_ConfigString(v, "default_country_code", out->country, sizeof(out->country)) ||
         !XA_ConfigString(v, "sms_webhook_url", out->sms_url, sizeof(out->sms_url)) ||
         !XA_ConfigString(v, "sms_webhook_token", out->sms_token, sizeof(out->sms_token)) ||
+        !XA_SmsConfigDecode(ValueGet(v, "sms"), &out->sms) ||
         !XA_ConfigBool(v, "registration", &out->registration) ||
         !XA_ConfigBool(v, "oauth_create_member", &out->oauth_create) ||
         !XA_ConfigBool(v, "security_questions", &out->security_questions) ||
@@ -122,8 +124,8 @@ static bool XA_ConfigLoad(XAIdentityConfig* out)
     if (xrtFileExists(path)) {
         size_t n = 0; char* bytes = xrtFileReadAll(path, &n);
         xjsonreadconfig limits; xrtJsonReadConfigInit(&limits);
-        limits.MaxInputBytes = 16384; limits.MaxDepth = 4; limits.MaxValues = 128;
-        if (bytes && n <= 16384) v = xrtJsonRead(xrtStrViewN(bytes, n), &limits);
+        limits.MaxInputBytes = 32768; limits.MaxDepth = 6; limits.MaxValues = 512;
+        if (bytes && n <= 32768) v = xrtJsonRead(xrtStrViewN(bytes, n), &limits);
         if (bytes) xrtSecureZero(bytes, n); xrtFree(bytes);
         if (xrtValueType(v) != XVALUE_OBJECT) { xrtFree(path); xrtValueRelease(v); return false; }
     }
@@ -136,7 +138,8 @@ static xvalue* XA_ConfigValue(const XAIdentityConfig* c, bool redacted)
     if (!v || !ValueSetText(v, "issuer", c->issuer) || !ValueSetText(v, "audience", c->audience) ||
         !ValueSetText(v, "public_origin", c->origin) || !ValueSetText(v, "default_country_code", c->country) ||
         !ValueSetBool(v, "security_questions", c->security_questions) || !ValueSetBool(v, "registration", c->registration) || !ValueSetBool(v, "oauth_create_member", c->oauth_create) ||
-        !ValueSetText(v, "sms_webhook_url", c->sms_url)) goto failed;
+        !ValueSetText(v, "sms_webhook_url", c->sms_url) ||
+        !ValueSetOwn(v, "sms", XA_SmsConfigValue(&c->sms, redacted))) goto failed;
     if (redacted) { if (!ValueSetBool(v, "sms_token_configured", c->sms_token[0] != 0)) goto failed; }
     else if (!ValueSetText(v, "sms_webhook_token", c->sms_token)) goto failed;
     const XAProviderConfig* providers[] = {&c->github, &c->wechat};

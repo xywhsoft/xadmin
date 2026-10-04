@@ -24,7 +24,9 @@ static bool XA_ConfigMerge(xvalue* current,xvalue* patch)
         while((value=xrtValueIterNext(&it,&key))){
             if(key.Type!=XVALUE_KEY_STRING){ok=false;break;}
             bool provider=xrtStrEqual(key.String,XRT_STR_LITERAL("github"))||xrtStrEqual(key.String,XRT_STR_LITERAL("wechat"));
-            if(provider){
+            if(xrtStrEqual(key.String,XRT_STR_LITERAL("sms"))){
+                if(!XA_SmsConfigMerge(ValueGet(current,"sms"),value)){ok=false;break;}
+            }else if(provider){
                 xvalue* target=xrtValueObjectGet(current,key.String);xvalueiter nested={0};xvaluekey name;xvalue* field;
                 if(xrtValueType(value)!=XVALUE_OBJECT||!target){ok=false;break;}
                 if(xrtValueIterBegin(value,&nested)){
@@ -57,14 +59,14 @@ static void XA_AdminIdentity(XS_ServerObject server,XS_HostObject host,XAdminReq
                 xrtSecureZero(&staged,sizeof(staged));XA_Reply(req,500,"configuration unavailable",NULL,NULL);return;}
         }
         xvalue* data=XA_ConfigValue(&staged,true);char live[65];
-        bool ok=data&&ValueSetText(data,"revision",revision)&&ValueSetText(data,"csrf_token",ValueText(session,"_identityCSRF"))&&
+        bool ok=data&&ValueSetOwn(data,"sms_providers",XA_SmsCatalog())&&ValueSetText(data,"revision",revision)&&ValueSetText(data,"csrf_token",ValueText(session,"_identityCSRF"))&&
             ValueSetBool(data,"reload_required",!XA_ConfigRevision(&G_Identity,live)||strcmp(live,revision)!=0);
         XA_Reply(req,ok?200:500,ok?"success":"configuration unavailable",ok?data:NULL,NULL);
         xrtValueRelease(data);xrtSecureZero(&staged,sizeof(staged));return;
     }
     if(method!=(rotation?XHTTP_METHOD_POST:XHTTP_METHOD_PUT)){XA_Reply(req,405,"method not allowed",NULL,NULL);return;}
     if(!XA_AdminIdentityCSRF(req,session)){XA_Reply(req,403,"CSRF verification failed",NULL,NULL);return;}
-    xvalue* body=XA_Body(req);
+    xvalue* body=XA_BodyLimits(req,32768,6,512);
     if(!body){XA_Reply(req,400,"a bounded JSON object is required",NULL,NULL);return;}
     if(rotation){
         bool invalidate=false;const char* const fields[]={"invalidate_existing"};
@@ -93,7 +95,7 @@ static void XA_AdminIdentity(XS_ServerObject server,XS_HostObject host,XAdminReq
                     status=400;message="invalid identity configuration";
                 }else {
                     char* path=xrtPathJoin(DBPath,"identity.json");size_t n=0;char* bytes=xrtJsonStringify(full,true,&n);
-                    bool ok=path&&bytes&&n<=16384&&xrtFileWriteAtomic(path,(xbytesview){(cbytes)bytes,n});
+                    bool ok=path&&bytes&&n<=32768&&xrtFileWriteAtomic(path,(xbytesview){(cbytes)bytes,n});
                     if(bytes)xrtSecureZero(bytes,n);xrtFree(bytes);xrtFree(path);
                     status=ok?200:500;message=ok?"saved; reload the application to apply":"configuration write failed";
                 }

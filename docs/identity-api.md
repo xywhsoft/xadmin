@@ -115,7 +115,7 @@ provider 为 github/wechat。独立 xoauth2client、最多 128 个待完成尝�
 
 ## 送达适配
 
-默认短信 HTTPS webhook，Bearer，`application/x-www-form-urlencoded`：
+支持注册式短信平台、统一验证码/通知模板和后台平台配置，见 [短信服务接口](sms-service.md)。未启用注册式服务时，继续使用原短信 HTTPS webhook，Bearer，`application/x-www-form-urlencoded`：
 
 ```text
 challenge_id=<随机ID>&phone=<E.164>&code=<六位码>&purpose=bind|login|recover&expires_in=300&type=verification

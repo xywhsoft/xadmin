@@ -127,14 +127,15 @@ static int XA_Cookie(XAdminRequest* req,const char* name,char* out,size_t capaci
     }
     return result;
 }
-static xvalue* XA_Body(XAdminRequest* req)
+static xvalue* XA_BodyLimits(XAdminRequest* req,size_t max_bytes,size_t max_depth,size_t max_values)
 {
     bool bad=false;const xhttpfield* ct=XA_Header(req,"Content-Type",&bad);xvalue* body;
     xjsonreadconfig config;
     if(bad||!ct||ct->Value.Size<16||memcmp(ct->Value.Data,"application/json",16)||
-       (ct->Value.Size>16&&ct->Value.Data[16]!=';')||!req->body||req->body_size>8192)return NULL;
-    xrtJsonReadConfigInit(&config);config.MaxInputBytes=8192;config.MaxDepth=4;
-    config.MaxValues=64;config.MaxStringBytes=4096;config.MaxContainerItems=32;
+       (ct->Value.Size>16&&ct->Value.Data[16]!=';')||!req->body||req->body_size>max_bytes)return NULL;
+    xrtJsonReadConfigInit(&config);config.MaxInputBytes=max_bytes;config.MaxDepth=max_depth;
+    config.MaxValues=max_values;config.MaxStringBytes=8192;config.MaxContainerItems=32;
     body=xrtJsonRead(xrtStrViewN(req->body,req->body_size),&config);
     if(xrtValueType(body)!=XVALUE_OBJECT){xrtValueRelease(body);return NULL;}return body;
 }
+static xvalue* XA_Body(XAdminRequest* req) { return XA_BodyLimits(req,8192,4,64); }

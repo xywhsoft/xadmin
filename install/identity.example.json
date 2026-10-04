@@ -8,6 +8,15 @@
   "cors_origins": [],
   "sms_webhook_url": "",
   "sms_webhook_token": "",
+  "sms": {
+    "enabled": false,
+    "provider": "webhook",
+    "options": {"url": "", "token": ""},
+    "templates": {
+      "verification": {"type": "verification", "parameters": ["code", "minutes"]},
+      "contact_changed": {"type": "notification", "parameters": []}
+    }
+  },
   "github": {
     "enabled": false,
     "client_id": "",

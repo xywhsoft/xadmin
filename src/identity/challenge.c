@@ -61,7 +61,7 @@ static void XA_ChallengeStart(XAdminRequest* req,xvalue* body,xvalue* session,bo
     c.expires=XA_Now()+300;
     XAIdentityMessage message={c.id,channel,c.target,purpose,code,300,req->raw->server->Engine};
     if(!ok||!XA_ChallengeMac(&c,code,mac)){xrtSecureZero(code,sizeof(code));XA_Reply(req,500,"verification unavailable",NULL,NULL);return;}
-    if(!XA_DeliveryPrepare(&message,&job)){xrtSecureZero(code,sizeof(code));XA_Reply(req,503,"verification delivery is not configured",NULL,NULL);return;}
+    if(!XA_DeliveryPrepare(&message,&job)){xrtSecureZero(code,sizeof(code));xrtSecureZero(&job,sizeof(job));XA_Reply(req,503,"verification delivery is not configured",NULL,NULL);return;}
     s=XA_SQL("DELETE FROM identity_challenge WHERE expires_at<?");if(s)sqlite3_bind_int64(s,1,XA_Now()-86400);ok=XA_Done(s,false);
     s=XA_SQL("SELECT count(*) FROM identity_challenge");int count=s&&sqlite3_step(s)==SQLITE_ROW?sqlite3_column_int(s,0):-1;sqlite3_finalize(s);
     if(!ok||count<0||count>=10000){xrtSecureZero(code,sizeof(code));xrtSecureZero(&job,sizeof(job));XA_Reply(req,count>=10000?429:500,"verification capacity unavailable",NULL,NULL);return;}
@@ -130,8 +130,9 @@ static void XA_ChallengeConfirm(XAdminRequest* req,xvalue* body,xvalue* session,
         XAIdentityMessage message={c.id,c.channel,previous,"contact_changed","",0,req->raw->server->Engine,true};XADeliveryJob job;
         if(XA_DeliveryPrepare(&message,&job)){
             xrtMutexUnlock(G_RequestLock);XAIdentityDeliveryResult notified=XA_Deliver(&job);xrtMutexLock(G_RequestLock);
-            xrtSecureZero(&job,sizeof(job));if(notified!=XA_DELIVERY_SENT)printf("[xadmin][identity] previous-contact notification not confirmed (member id=%lld)\n",(long long)c.member);
+            if(notified!=XA_DELIVERY_SENT)printf("[xadmin][identity] previous-contact notification not confirmed (member id=%lld)\n",(long long)c.member);
         }
+        xrtSecureZero(&job,sizeof(job));
     }
     XA_Reply(req,status,ok?(binding?"contact verified":recover?"password reset":"signed in"):status==409?"contact already belongs to another account":"verification unavailable",data,headers);
     xrtValueRelease(data);xrtFree(headers);XA_TokensUnit(&tokens);
