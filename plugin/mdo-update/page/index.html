@@ -109,7 +109,8 @@ for(const def of definitions){
     const j=JSON.parse(request.responseText);
     if(request.status!==200)throw Error(j.message||"上传失败，原包保持不变。");
     renderCurrent(card,j);file=null;input.value="";notes.value="";card.querySelector(".selected").textContent="选择文件或拖入此处";
-    message(result,"上传成功，当前包已更新。");
+    message(result,required.checked!==!!j.required?"文件与当前包相同，现有策略保留。请用“当前包强制更新”修改策略。":
+      "上传成功 · "+(j.required?"强制更新":"非强制更新"));
    }catch(e){message(result,e.message,true);}
   };
   request.onerror=()=>message(result,"网络中断，请刷新包信息后重试。服务器已完成的上传可能仍然生效。",true);
