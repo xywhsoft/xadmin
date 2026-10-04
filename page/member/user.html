@@ -30,13 +30,6 @@
 <!-- 页面逻辑处理 -->
 <script>
 	// SHA-256 哈希函数（使用 Web Crypto API）
-	async function sha256(message) {
-		const msgBuffer = new TextEncoder().encode(message);
-		const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-		const hashArray = Array.from(new Uint8Array(hashBuffer));
-		const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-		return hashHex;
-	}
 	
 	layui.use(['table'], function(){
 		var table = layui.table;
@@ -151,11 +144,11 @@
 						layer.msg('密码不能为空', {icon: 2});
 						return;
 					}
-					const pwdHash = await sha256(data.username + '_xywhsoft_' + newPassword);
+					const password = newPassword;
 					fetch('/admin/member/user/repwd', {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ id: data.id, username: data.username, password: pwdHash })
+						body: JSON.stringify({ id: data.id, username: data.username, password: password })
 					})
 					.then(response => response.json())
 					.then(result => {

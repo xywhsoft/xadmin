@@ -6,7 +6,18 @@ static void XAdmin_Dispatch(XAdminRequest* req, const RouteInfo* route, bool ali
 {
 	char id[128] = {0}; xvalue* session; XAdminRouteProc proc = NULL; int i;
 	xsReqCookieValue(req, route->bAdmin ? "XSID" : "MSID", id, sizeof(id));
-	session = Session_Acquire(route->bAdmin, id);
+	if (route->bAdmin) session=Session_Acquire(true,id);
+	else {
+		bool invalid=false;session=XA_RequestSession(req,&invalid);
+		/* Invalid explicit Bearer never falls back to cookies or anonymous login. */
+		bool duplicate=false;const xhttpfield* authorization=XA_Header(req,"Authorization",&duplicate);
+		if(invalid&&(authorization||duplicate)){XA_Reply(req,401,"invalid bearer token",NULL,NULL);goto done;}
+	}
+	if(!route->bAdmin&&xsReqMethodID(req)!=XHTTP_METHOD_GET&&xsReqMethodID(req)!=XHTTP_METHOD_HEAD&&
+	   xrtValueType(session)==XVALUE_OBJECT&&strcmp(req->path,"/api/v1/token/refresh")&&
+	   strcmp(req->path,"/api/v1/login")&&strcmp(req->path,"/api/v1/register")&&!XA_RequestCSRF(req,session)){
+		XA_Reply(req,403,"CSRF verification failed",NULL,NULL);goto done;
+	}
 	if (Option_AdminEntryEnabled() && route->bAdmin && xrtValueType(session) != XVALUE_OBJECT && !alias) {
 		LoadPage(req, 404, HTTP_CT_HTML, "status/404.html");
 		goto done;

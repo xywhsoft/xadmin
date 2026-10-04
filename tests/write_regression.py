@@ -28,7 +28,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     def api(method, path, data=None, auth=None, code=0):
         status, _, body = request(port, method, path, data, auth)
         result = json.loads(body)
-        assert status == 200 and result.get('code') == code, (path, status, result)
+        assert (200 <= status < 300 if code == 0 else status == code) and result.get('code') == code, (path, status, result)
         return result
 
     @contextmanager
@@ -48,7 +48,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     def login(username, member=False):
         path = '/api/v1/login' if member else login_path
         status, headers, body = request(port, 'POST', path, {
-            'username': username, 'password': client_hash(username, password)})
+            ('identifier' if member else 'username'): username, 'password': password if member else client_hash(username, password)})
         result = json.loads(body)
         assert status == 200 and (result.get('code') == 0 if member else result.get('result')), result
         return headers['Set-Cookie'].split(';')[0]
@@ -76,7 +76,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     for table, path, key, fields in families:
         payload = {'desc': '', 'authList': '[]', 'authLevel': 0, 'sort': 0, **fields}
         if 'username' in payload:
-            payload['password'] = client_hash(payload['username'], password)
+            payload['password'] = password if table == 'member' else client_hash(payload['username'], password)
         before = snapshot(table)
         for ignore in (False, True):
             with fail(table, 'INSERT', ignore=ignore):
@@ -127,7 +127,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     # request's retained session before the response has finished.
     username = 'write_self_delete'
     _, created = call('POST', '/admin/auth/user', {
-        'username': username, 'password': client_hash(username, password), 'role': 1})
+        'username': username, 'password': client_hash(username,password), 'role': 1})
     own_cookie = login(username)
     call('DELETE', '/admin/auth/user?id=' + str(created['data']['id']), auth=own_cookie)
     assert access(own_cookie) == revoked_status()
@@ -178,12 +178,12 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     # Member APIs keep their existing code/msg response contract, including
     # failure cases, and update the session only after a successful SQL write.
     username = 'write_api'
-    registration = {'username': username, 'password': client_hash(username, password)}
+    registration = {'username': username, 'password': password}
     before = snapshot('member')
     for ignore in (False, True):
         with fail('member', 'INSERT', ignore=ignore):
             result = api('POST', '/api/v1/register', registration, code=500)
-            assert 'data' not in result
+            assert result.get('data') is None
         assert snapshot('member') == before
     member_id = api('POST', '/api/v1/register', registration)['data']['id']
     member_cookie = login(username, member=True)
@@ -193,19 +193,19 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     assert snapshot('member') == before
     api('PUT', '/api/v1/profile', {'nickname': 'write_api_after'}, member_cookie)
     assert query('SELECT nickname FROM member WHERE id=?', (member_id,)) == [('write_api_after',)]
-    new_password = client_hash(username, password + '-changed')
+    new_password = password + '-changed'
     reset = {'oldPassword': registration['password'], 'newPassword': new_password}
     before = snapshot('member')
     with fail('member'):
         api('POST', '/api/v1/profile/password', reset, member_cookie, code=500)
     assert snapshot('member') == before
     api('POST', '/api/v1/profile/password', reset, member_cookie)
-    api('POST', '/api/v1/login', {'username': username, 'password': new_password})
+    api('POST', '/api/v1/login', {'identifier': username, 'password': new_password})
     print('PASS member API registration/profile/password failures and recovery')
 
     # A log insertion failure must roll back the preceding balance update.
     username = 'write_balance'
-    _, created = call('POST', '/admin/member/user', {'username': username, 'password': client_hash(username, password), 'groupId': 1})
+    _, created = call('POST', '/admin/member/user', {'username': username, 'password': password, 'groupId': 1})
     member_id = created['data']['id']
     payload = {'id': member_id, 'type': 0, 'amount': 100, 'remark': 'write regression'}
     before_member, before_logs = snapshot('member'), snapshot('memberBalanceLog')
@@ -218,7 +218,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     # F1: a failed disable must not revoke sessions; a successful one must.
     username = 'write_disable'
     _, created = call('POST', '/admin/member/user', {
-        'username': username, 'password': client_hash(username, password),
+        'username': username, 'password': password,
         'groupId': 1, 'status': 1})
     disable_id = created['data']['id']
     disable = {'id': disable_id, 'groupId': 1, 'authLevel': 0, 'nickname': 'n',
@@ -249,7 +249,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
         assert snapshot(table) == before, (path, 'oversize write accepted', list(tweak))
 
     admin_payload = lambda name: {'username': name, 'password': client_hash(name, password), 'role': 1}
-    member_payload = lambda name: {'username': name, 'password': client_hash(name, password), 'groupId': 1, 'status': 1}
+    member_payload = lambda name: {'username': name, 'password': password, 'groupId': 1, 'status': 1}
     oversize_rejected('/admin/auth/user', admin_payload('write_e1_user'), 'user', {'username': 'x' * 65})
     oversize_rejected('/admin/auth/user', admin_payload('write_e1_user'), 'user', {'password': 'x' * 129})
     oversize_rejected('/admin/auth/role', {'name': 'write_e1_role', 'desc': ''}, 'role', {'name': 'x' * 65})

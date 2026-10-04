@@ -63,15 +63,6 @@
 	</form>
 	<script src="/layui/layui.js"></script>
 	<script>
-	function sha256(message) {
-			return crypto.subtle.digest('SHA-256', new TextEncoder().encode(message))
-				.then(function(hashBuffer) {
-					return Array.from(new Uint8Array(hashBuffer)).map(function(b) {
-						return b.toString(16).padStart(2, '0');
-					}).join('');
-				});
-		}
-		
 		layui.use('form', function(){
 			var form = layui.form;
 			var layer = layui.layer;
@@ -84,10 +75,10 @@
 			
 			form.on('submit(submit)', function(data){
 				var field = data.field;
-				sha256(field.username + '_xywhsoft_' + field.password).then(function(pwdHash) {
+				Promise.resolve(field.password).then(function(password) {
 					var submitData = {
 						username: field.username,
-						password: pwdHash,
+						password: password,
 						nickname: field.nickname || '',
 						groupId: parseInt(field.groupId),
 						authLevel: parseInt(field.authLevel) || 0,

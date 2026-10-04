@@ -109,6 +109,7 @@ static void Session_Prune(xvalue* sessions)
 /* R3：改密/重置成功后撤销该账号的其他会话，保留当前请求持有的会话。 */
 static void Session_RevokeAccountExcept(bool admin, int64 account_id, xvalue* keep)
 {
+	if (!admin) XA_SessionRevokeAccount(account_id,keep?ValueText(keep,"sid"):NULL);
 	xvalue* sessions = admin ? G_AdminSessions : G_MemberSessions;
 	xvalueiter it = {0}; xvaluekey key; xvalue* session;
 	if (account_id <= 0) return;
@@ -126,6 +127,7 @@ static void Session_RevokeAccountExcept(bool admin, int64 account_id, xvalue* ke
  * 即使清理临时分配失败，Acquire 也会拒绝已标记会话。当前请求仍持有引用。 */
 static void Session_RevokeAccount(bool admin, int64 account_id)
 {
+	if (!admin) XA_SessionRevokeAccount(account_id,NULL);
 	xvalue* sessions = admin ? G_AdminSessions : G_MemberSessions;
 	xvalueiter it = {0}; xvaluekey key; xvalue* session;
 	if (account_id <= 0) return;

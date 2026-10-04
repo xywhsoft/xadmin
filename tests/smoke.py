@@ -111,7 +111,9 @@ def fixture(port, protected=False, register_interval=0):
     return target
 
 
-def request(port, method, path, data=None, cookie=None):
+CSRF = {}
+
+def request(port, method, path, data=None, cookie=None, extra_headers=None):
     conn = http.client.HTTPConnection('127.0.0.1', port, timeout=5)
     headers = {}
     if data is not None:
@@ -119,10 +121,23 @@ def request(port, method, path, data=None, cookie=None):
         headers['Content-Type'] = 'application/json'
     if cookie:
         headers['Cookie'] = cookie
+        if cookie in CSRF and method not in ('GET','HEAD'):
+            headers['X-CSRF-Token'] = CSRF[cookie]
+    if extra_headers:
+        headers.update(extra_headers)
     try:
         conn.request(method, path, data, headers)
         resp = conn.getresponse()
-        return resp.status, dict(resp.getheaders()), resp.read()
+        body = resp.read()
+        response_headers = dict(resp.getheaders())
+        for key, value in resp.getheaders():
+            if key.lower() == 'set-cookie' and value.startswith('MSID='):
+                response_headers['Set-Cookie'] = value
+        if path == '/api/v1/login' and resp.status == 200:
+            result = json.loads(body)
+            if result.get('code') == 0 and 'Set-Cookie' in response_headers:
+                CSRF[response_headers['Set-Cookie'].split(';')[0]] = result['data']['csrf_token']
+        return resp.status, response_headers, body
     finally:
         conn.close()
 
@@ -414,10 +429,10 @@ def checks(port, target, protected=False, functional_only=False):
     assert request(port, 'GET', '/api/v1/profile')[0] == 401
     assert request(port, 'GET', '/api/v1/profile', cookie=cookie)[0] == 401
     member = 'smoke_member'
-    payload = {'username': member, 'password': client_hash(member, PASSWORD), 'nickname': 'Smoke Member'}
+    payload = {'username': member, 'password': PASSWORD, 'nickname': 'Smoke Member'}
     status, _, body = request(port, 'POST', '/api/v1/register', payload)
-    assert status == 200 and json.loads(body)['code'] == 0, body
-    status, headers, body = request(port, 'POST', '/api/v1/login', payload)
+    assert status == 201 and json.loads(body)['code'] == 0, body
+    status, headers, body = request(port, 'POST', '/api/v1/login', {**payload, 'identifier': member})
     assert status == 200 and json.loads(body)['code'] == 0, body
     member_cookie = headers['Set-Cookie'].split(';')[0]
     assert member_cookie.startswith('MSID=')
@@ -433,10 +448,10 @@ def checks(port, target, protected=False, functional_only=False):
     print('PASS member registration/login/profile/balance/logout; cookie separation')
     for invalid in ('13800138000', 'name@example.com', 'a name', 'ab', 'a\u0000bc'):
         status, _, body = request(port, 'POST', '/api/v1/register', {
-            'username': invalid, 'password': client_hash(invalid, PASSWORD)})
+            'username': invalid, 'password': PASSWORD})
         assert status == 400 and json.loads(body)['code'] == 400, (invalid, status, body)
     status, _, body = request(port, 'POST', '/api/v1/register', {
-        'username': member.upper(), 'password': client_hash(member.upper(), PASSWORD)})
+        'username': member.upper(), 'password': PASSWORD})
     assert json.loads(body)['code'] == 409, (status, body)
     for field in ('phone', 'email', 'phone_verified_at', 'email_verified_at'):
         status, _, body = request(port, 'PUT', '/admin/member/user', {'id': 1, field: ''}, cookie=cookie)
@@ -509,10 +524,10 @@ def checks(port, target, protected=False, functional_only=False):
     import time as _time
     # F1+F3: banned member loses session; MSID carries SameSite; profile PUT cannot flip status.
     fixed_member = 'fix_member'
-    fixed_payload = {'username': fixed_member, 'password': client_hash(fixed_member, PASSWORD)}
+    fixed_payload = {'username': fixed_member, 'password': PASSWORD}
     status, _, body = request(port, 'POST', '/api/v1/register', fixed_payload)
     assert json.loads(body)['code'] == 0, body
-    status, headers, body = request(port, 'POST', '/api/v1/login', fixed_payload)
+    status, headers, body = request(port, 'POST', '/api/v1/login', {**fixed_payload, 'identifier': fixed_member})
     assert 'SameSite=Lax' in headers.get('Set-Cookie', ''), headers.get('Set-Cookie')
     fix_cookie = headers['Set-Cookie'].split(';')[0]
     with sqlite3.connect(target / 'db/main.db') as db:
@@ -521,13 +536,13 @@ def checks(port, target, protected=False, functional_only=False):
         'id': fix_id, 'groupId': 1, 'authLevel': 0, 'nickname': 'n', 'avatar': '', 'status': 0}, cookie=cookie)
     assert json.loads(body)['result'], body
     assert request(port, 'GET', '/api/v1/profile', cookie=fix_cookie)[0] == 401
-    status, _, body = request(port, 'POST', '/api/v1/login', fixed_payload)
+    status, _, body = request(port, 'POST', '/api/v1/login', {**fixed_payload, 'identifier': fixed_member})
     assert json.loads(body)['code'] != 0, body
     with sqlite3.connect(target / 'db/main.db') as db:
         assert db.execute('SELECT status FROM member WHERE id=?', (fix_id,)).fetchone()[0] == 0
     # F2: masked routes keep no body; unmasked routes keep byte-exact bodies.
     status, _, body = request(port, 'POST', '/admin/member/user', {
-        'username': 'fix_masked', 'password': client_hash('fix_masked', PASSWORD),
+        'username': 'fix_masked', 'password': PASSWORD,
         'groupId': 1}, cookie=cookie)
     assert json.loads(body)['result'], body
     with sqlite3.connect(target / 'db/main.db') as db:
@@ -658,12 +673,12 @@ def checks(port, target, protected=False, functional_only=False):
     print('PASS plugin host scan/enable/lifecycle/resources/reload/disable (hello-sdk)')
     # R1/R3/R4: logout method, repwd revocation, per-account session cap.
     r_member = 'r34_member'
-    r_payload = {'username': r_member, 'password': client_hash(r_member, PASSWORD)}
+    r_payload = {'username': r_member, 'password': PASSWORD}
     status, _, body = request(port, 'POST', '/api/v1/register', r_payload)
     assert json.loads(body)['code'] == 0, body
     cookies = []
     for _ in range(6):
-        status, headers, body = request(port, 'POST', '/api/v1/login', r_payload)
+        status, headers, body = request(port, 'POST', '/api/v1/login', {**r_payload, 'identifier': r_member})
         assert json.loads(body)['code'] == 0, body
         cookies.append(headers['Set-Cookie'].split(';')[0])
     # R4: cap 5 -> 第 1 个（最旧）被踢，第 6 个存活
@@ -676,28 +691,28 @@ def checks(port, target, protected=False, functional_only=False):
         'id': r_id, 'username': r_member, 'password': r_payload['password']}, cookie=cookie)
     assert json.loads(body)['result'], body
     assert request(port, 'GET', '/api/v1/profile', cookie=cookies[5])[0] == 401, 'repwd kept stale sessions'
-    status, headers, body = request(port, 'POST', '/api/v1/login', r_payload)
+    status, headers, body = request(port, 'POST', '/api/v1/login', {**r_payload, 'identifier': r_member})
     own = headers['Set-Cookie'].split(';')[0]
-    new_hash = client_hash(r_member, PASSWORD + '-x')
+    new_hash = PASSWORD + '-x'
     status, _, body = request(port, 'POST', '/api/v1/profile/password', {
         'oldPassword': r_payload['password'], 'newPassword': new_hash}, cookie=own)
     assert json.loads(body)['code'] == 0, body
     assert request(port, 'GET', '/api/v1/profile', cookie=own)[0] == 200, 'current session dropped'
     status, _, body = request(port, 'POST', '/api/v1/login', {
-        'username': r_member, 'password': new_hash})
+        'identifier': r_member, 'password': new_hash})
     assert json.loads(body)['code'] == 0, body
     print('PASS logout POST-only, repwd revocation and session cap (R1/R3/R4)')
     # F4+F5: realm-split guard; member lockout leaves admin login alone (run last).
     for i in range(6):
         request(port, 'POST', '/api/v1/login', {
-            'username': member, 'password': client_hash(member, 'w' + str(i))})
+            'identifier': member, 'password': 'wrong-password-' + str(i)})
     status, _, body = request(port, 'POST', login_path, {
         'username': USER, 'password': client_hash(USER, PASSWORD)})
     assert json.loads(body)['result'], body
     status, _, body = request(port, 'POST', '/api/v1/login', {
-        'username': member, 'password': client_hash(member, PASSWORD)})
+        'identifier': member, 'password': PASSWORD})
     result = json.loads(body)
-    assert result['code'] == 429 and '后再试' in result['msg'], result
+    assert status == 429 and result['code'] == 429 and result['msg'], result
     print('PASS guard realm split and readable lockout message (F4/F5)')
     status, headers, _ = request(port, 'POST', login_path, {'username': USER, 'password': client_hash(USER, PASSWORD)})
     cookie = headers['Set-Cookie'].split(';')[0]
@@ -741,11 +756,11 @@ def register_rate_check(port, executable=None):
                 pass
             time.sleep(0.3)
         user = 'rate_member'
-        payload = {'username': user, 'password': client_hash(user, PASSWORD)}
+        payload = {'username': user, 'password': PASSWORD}
         status, _, body = request(port, 'POST', '/api/v1/register', payload)
         assert json.loads(body)['code'] == 0, body
         status, _, body = request(port, 'POST', '/api/v1/register', {
-            'username': user + '2', 'password': client_hash(user + '2', PASSWORD)})
+            'username': user + '2', 'password': PASSWORD})
         result = json.loads(body)
         assert result['code'] == 429, result
         print('PASS register rate limit 1/min/IP (R2)')

@@ -24,11 +24,17 @@
 #include "src/storage/identity_migration.c"
 #include "modules/page.h"
 #include "modules/template.h"
+static bool XA_SessionRevokeAccount(int64 account,const char* keep_sid);
 #include "modules/session.h"
 #include "modules/guard.h"
 #include "modules/auth.h"
 #include "modules/member.h"
 #include "modules/member_auth.h"
+#include "src/identity/common.c"
+#include "src/identity/config.c"
+#include "src/storage/identity_auth.c"
+#include "src/identity/password.c"
+#include "src/identity/session.c"
 #include "modules/notify.h"
 #include "modules/attachment.h"
 #include "modules/sched.h"
@@ -79,6 +85,7 @@ static bool XAdmin_RequireExtensions(void)
 {
 	static const char* required[] = {
 		"sqlite",                    /* 主库 */
+		"xjwt", "xoauth2",           /* 通用会员身份服务 */
 #if XADMIN_WITH_SMTP
 		"xsmtp",                     /* 邮件发送/队列 */
 #endif
@@ -110,6 +117,9 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 	if (!DB_EnsureUrisMaskColumn()) { printf("[xadmin][error] business start: uris mask column failed\n"); return false; }
 	if (!DB_EnsureUrisEnhancedColumns()) { printf("[xadmin][error] business start: uris enhanced columns failed\n"); return false; }
 	if (!DB_EnsurePluginResourceIndex()) { printf("[xadmin][error] business start: plugin resource index failed\n"); return false; }
+	if (!XA_ConfigInit() || !XA_MigrateComponent("auth",XA_AuthSchema1) || !XA_KeyInit()) {
+		printf("[xadmin][error] identity configuration or auth storage initialization failed\n"); return false;
+	}
 	G_SessionStarted = true;
 	if (!Session_Init()) { printf("[xadmin][error] business start: Session_Init failed\n"); return false; }
 	Guard_Init(); RouteHTTP_Init();
@@ -175,6 +185,7 @@ void ServiceUnit(XS_HostInfo* host)
 		Form_Unit(); Option_Unit(); Logs_Unit(); Menu_Unit(); MemberAuth_Unit(); Member_Unit();
 		Auth_Unit();
 	}
+	xrtSecureZero(&G_Identity,sizeof(G_Identity));
 	Guard_Unit();
 	if (G_SessionStarted) Session_Unit();
 	G_Ready = false;

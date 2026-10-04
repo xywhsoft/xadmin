@@ -207,8 +207,11 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_reset(stmt_member_chk);
 		if ( iCount > 0 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名已存在！\"}", 0); xrtValueRelease(tblForm); return; }
 		
-		str sSalt = Util_Token();
-		str sPwdHash = ServerHashPassword(username, sSalt, password);
+		if (!XA_PasswordPolicy(password)) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码须为8至128字节\"}",0); xrtValueRelease(tblForm); return; }
+		char record[257]={0}; xrtMutexUnlock(G_RequestLock); bool hashed=XA_PasswordHash(password,record); xrtMutexLock(G_RequestLock);
+		if (!hashed) { xsHttpReplyAuto(objResp,500,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码服务不可用\"}",0); xrtValueRelease(tblForm); return; }
+		str sSalt=xrtStrDup(""); str sPwdHash=xrtStrDup(record); xrtSecureZero(record,sizeof(record));
+		if (!sSalt||!sPwdHash) { xrtFree(sSalt);xrtFree(sPwdHash);xrtValueRelease(tblForm); xsHttpReplyAuto(objResp,500,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码服务不可用\"}",0);return; }
 		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_member_add, 1, username, -1, NULL);
 		sqlite3_bind_text(stmt_member_add, 2, sSalt, -1, NULL);
@@ -260,7 +263,11 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int(stmt_member_put, 5, status);
 		sqlite3_bind_int64(stmt_member_put, 6, now);
 		sqlite3_bind_int64(stmt_member_put, 7, id);
-		bool written = DB_Write(stmt_member_put, true);
+		bool revoke=status==0||oldGroupId!=groupId||oldAuthLevel!=authLevel;
+		bool begun=DB_BeginWrite();bool written=begun&&DB_Write(stmt_member_put,true);
+		if(!begun)DB_ResetWrite(stmt_member_put);
+		if(written&&revoke)written=XA_SessionRevokeAccount(id,NULL);
+		if(begun)written=DB_EndWrite(written);
 		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		if ( status == 0 || oldGroupId != groupId || oldAuthLevel != authLevel ) {
@@ -302,25 +309,20 @@ void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost,
 		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
 		if ( strlen(username) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"用户名最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( strlen(password) > 128 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码最多128个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		str sSalt = Util_Token();
-		/* L5：哈希必须用库内真实用户名——表单 username 与库不符时会生成永远
-		 * 无法登录的口令（静默锁号）。column_text 是借用视图，必须在 reset
-		 * 前拷贝（reset 后使用=悬垂）。行不存在时以表单值走写失败路径。 */
-		char sHashUser[128];
-		snprintf(sHashUser, sizeof(sHashUser), "%s", username ? username : "");
-		sqlite3_bind_int64(stmt_member_get, 1, id);
-		if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
-			const unsigned char* sDbUser = sqlite3_column_text(stmt_member_get, 1);
-			if ( sDbUser && sDbUser[0] ) snprintf(sHashUser, sizeof(sHashUser), "%s", (const char*)sDbUser);
-		}
-		sqlite3_reset(stmt_member_get);
-		str sPwdHash = ServerHashPassword(sHashUser, sSalt, password);
+		if (!XA_PasswordPolicy(password)) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码须为8至128字节\"}",0);xrtValueRelease(tblForm);return; }
+		char record[257]={0};xrtMutexUnlock(G_RequestLock);bool hashed=XA_PasswordHash(password,record);xrtMutexLock(G_RequestLock);
+		if(!hashed){xsHttpReplyAuto(objResp,500,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码服务不可用\"}",0);xrtValueRelease(tblForm);return;}
+		str sSalt=xrtStrDup("");str sPwdHash=xrtStrDup(record);xrtSecureZero(record,sizeof(record));
+		if(!sSalt||!sPwdHash){xrtFree(sSalt);xrtFree(sPwdHash);xrtValueRelease(tblForm);xsHttpReplyAuto(objResp,500,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码服务不可用\"}",0);return;}
 		xtime now = xrtNow();
 		sqlite3_bind_text(stmt_member_pwd, 1, sSalt, -1, NULL);
 		sqlite3_bind_text(stmt_member_pwd, 2, sPwdHash, -1, NULL);
 		sqlite3_bind_int64(stmt_member_pwd, 3, now);
 		sqlite3_bind_int64(stmt_member_pwd, 4, id);
-		bool written = DB_Write(stmt_member_pwd, true);
+		bool begun=DB_BeginWrite();bool written=begun&&DB_Write(stmt_member_pwd,true);
+		if(!begun)DB_ResetWrite(stmt_member_pwd);
+		if(written)written=XA_SessionRevokeAccount(id,NULL);
+		if(begun)written=DB_EndWrite(written);
 		xrtFree(sSalt); xrtFree(sPwdHash); xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
 		/* R3：重置密码成功后撤销该账号全部会话（管理员代重置，无当前会话需保留）。 */

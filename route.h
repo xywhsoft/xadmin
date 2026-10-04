@@ -128,6 +128,7 @@ static void RouteHTTP_Init(void)
 	AddStaticRouteHTTP("/admin/view/member/auth", XHTTP_METHOD_ANY, Request_View_Member_Auth, false);
 	AddStaticRouteHTTP("/admin/view/member/auth/add", XHTTP_METHOD_ANY, Request_View_Member_Auth_Add, false);
 	AddStaticRouteHTTP("/admin/view/member/auth/edit", XHTTP_METHOD_ANY, Request_View_Member_Auth_Edit, false);
+	XA_IdentityRegisterRoutes();
 	AddStaticRouteHTTP("/api/v1/login", XHTTP_METHOD_ANY, API_Login, true);
 	AddStaticRouteHTTP("/api/v1/register", XHTTP_METHOD_ANY, API_Register, true);
 	AddStaticRouteHTTP("/api/v1/logout", XHTTP_METHOD_ANY, API_Logout, false);

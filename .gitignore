@@ -4,3 +4,5 @@
 *.db-shm
 __pycache__/
 /tests/.runtime/
+/db/identity.json
+/db/identity-before-*.db
