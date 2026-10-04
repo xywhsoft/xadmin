@@ -202,6 +202,9 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 	str sUsername = ValueText(tblForm, "username");
 	str sPassword = ValueText(tblForm, "password");
 	str sNickname = ValueText(tblForm, "nickname");
+	xstrview account = {0}; char accountKey[65];
+	if (!xrtValueGetString(ValueGet(tblForm,"username"), &account) || !XA_AccountKey(account.Data,account.Size,accountKey)) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"code\":400,\"msg\":\"账号格式无效\"}",0); xrtValueRelease(tblForm); return; }
+	if (ValueHas(tblForm,"phone") || ValueHas(tblForm,"email")) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"code\":400,\"msg\":\"联系方式须单独验证绑定\"}",0); xrtValueRelease(tblForm); return; }
 	
 	// step 2 : 验证必填字段
 	if ( !sUsername || (strlen(sUsername) < 3) ) {
@@ -209,8 +212,8 @@ void API_Register(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		xrtValueRelease(tblForm);
 		return;
 	}
-	if ( strlen(sUsername) > 32 ) {
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名最多32个字符\"}", 0);
+	if ( strlen(sUsername) > 64 ) {
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":400,\"msg\":\"用户名最多64个字符\"}", 0);
 		xrtValueRelease(tblForm);
 		return;
 	}
@@ -339,7 +342,7 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 		sqlite3_reset(stmt_member_get);
 		
 	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_PUT) ) {
-		// 更新当前用户信息（仅允许修改昵称、邮箱、电话、头像）
+		// 更新当前用户信息（仅允许修改昵称、头像）
 		// F1：专用语句不再触碰 groupId/authLevel/status——被禁用会员无法借改资料翻回 status=1
 		xvalue* tblForm = JsonParseN((str)xsReqBody(objReq), xsReqBodyLen(objReq));
 		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) {
@@ -351,16 +354,14 @@ void API_Profile(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 		int64 iMemberId = ValueInt(objSession, "id");
 
 		str sNickname = ValueText(tblForm, "nickname");
-		str sEmail = ValueText(tblForm, "email");
-		str sPhone = ValueText(tblForm, "phone");
+		if (ValueHas(tblForm,"phone") || ValueHas(tblForm,"email") || ValueHas(tblForm,"phone_verified_at") || ValueHas(tblForm,"email_verified_at")) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"code\":400,\"msg\":\"联系方式只能通过验证码绑定流程修改\"}",0); xrtValueRelease(tblForm); return; }
 		str sAvatar = ValueText(tblForm, "avatar");
 
-		sqlite3_bind_text(stmt_member_profile, 1, sNickname ? sNickname : (str)"", -1, NULL);
-		sqlite3_bind_text(stmt_member_profile, 2, sEmail ? sEmail : (str)"", -1, NULL);
-		sqlite3_bind_text(stmt_member_profile, 3, sPhone ? sPhone : (str)"", -1, NULL);
-		sqlite3_bind_text(stmt_member_profile, 4, sAvatar ? sAvatar : (str)"", -1, NULL);
-		sqlite3_bind_int64(stmt_member_profile, 5, xrtNow());
-		sqlite3_bind_int64(stmt_member_profile, 6, iMemberId);
+		if ((ValueHas(tblForm,"nickname") && (!sNickname || strlen(sNickname)>64)) || (ValueHas(tblForm,"avatar") && (!sAvatar || strlen(sAvatar)>512))) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"code\":400,\"msg\":\"资料字段格式无效\"}",0); xrtValueRelease(tblForm); return; }
+		sqlite3_bind_text(stmt_member_profile, 1, sNickname, -1, NULL);
+		sqlite3_bind_text(stmt_member_profile, 2, sAvatar, -1, NULL);
+		sqlite3_bind_int64(stmt_member_profile, 3, xrtNow());
+		sqlite3_bind_int64(stmt_member_profile, 4, iMemberId);
 
 		bool written = DB_Write(stmt_member_profile, true);
 

@@ -49,13 +49,13 @@
 		<div class="layui-form-item">
 			<label class="layui-form-label">邮箱</label>
 			<div class="layui-input-block">
-				<input type="email" name="email" value="{{$email}}" placeholder="请输入邮箱" autocomplete="off" class="layui-input">
+				<input type="email" readonly disabled value="{{$email}}" title="须由会员通过验证码流程绑定" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div class="layui-form-item">
 			<label class="layui-form-label">手机</label>
 			<div class="layui-input-block">
-				<input type="text" name="phone" value="{{$phone}}" placeholder="请输入手机号" autocomplete="off" class="layui-input">
+				<input type="text" readonly disabled value="{{$phone}}" title="须由会员通过验证码流程绑定" autocomplete="off" class="layui-input">
 			</div>
 		</div>
 		<div class="layui-form-item">
@@ -102,8 +102,6 @@
 					nickname: field.nickname || '',
 					groupId: parseInt(field.groupId),
 					authLevel: parseInt(field.authLevel) || 0,
-					email: field.email || '',
-					phone: field.phone || '',
 					status: parseInt(field.status)
 				};
 				

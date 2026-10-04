@@ -363,7 +363,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/template/member/user_edit.html",
     "target": "template/member/user_edit.html",
-    "sha256": "c7dea17fd5baff7c57f045c20639c0d09baead8f2b0b8be6157a73e91a6b62e7"
+    "sha256": "c7dea17fd5baff7c57f045c20639c0d09baead8f2b0b8be6157a73e91a6b62e7",
+    "target_sha256": "dc2db81f291355b40af526e4a58956001904099535b86a83eb2b3f39e42849b4"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/template/option/menu_edit.html",

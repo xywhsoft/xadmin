@@ -431,6 +431,21 @@ def checks(port, target, protected=False, functional_only=False):
     assert request(port, 'POST', '/api/v1/logout', cookie=member_cookie)[0] == 200
     assert request(port, 'GET', '/api/v1/profile', cookie=member_cookie)[0] == 401
     print('PASS member registration/login/profile/balance/logout; cookie separation')
+    for invalid in ('13800138000', 'name@example.com', 'a name', 'ab', 'a\u0000bc'):
+        status, _, body = request(port, 'POST', '/api/v1/register', {
+            'username': invalid, 'password': client_hash(invalid, PASSWORD)})
+        assert status == 400 and json.loads(body)['code'] == 400, (invalid, status, body)
+    status, _, body = request(port, 'POST', '/api/v1/register', {
+        'username': member.upper(), 'password': client_hash(member.upper(), PASSWORD)})
+    assert json.loads(body)['code'] == 409, (status, body)
+    for field in ('phone', 'email', 'phone_verified_at', 'email_verified_at'):
+        status, _, body = request(port, 'PUT', '/admin/member/user', {'id': 1, field: ''}, cookie=cookie)
+        assert status == 400 and json.loads(body)['result'] is False, (field, status, body)
+    with sqlite3.connect(target / 'db/main.db') as db:
+        assert db.execute('SELECT count(*) FROM xadmin_migration WHERE component=?', ('identity',)).fetchone() == (1,)
+    with sqlite3.connect(target / 'db/identity-before-v1.db') as db:
+        assert db.execute("SELECT count(*) FROM sqlite_master WHERE name='xadmin_migration'").fetchone() == (0,)
+    print('PASS account rules, case-insensitive uniqueness, dedicated-contact boundary and migration backup')
     status, _, body = request(port, 'POST', login_path, {'username': 'smoke_added', 'password': client_hash('smoke_added', PASSWORD)})
     assert status == 200 and not json.loads(body)['result']
     denied = USER + '_denied'
@@ -503,8 +518,7 @@ def checks(port, target, protected=False, functional_only=False):
     with sqlite3.connect(target / 'db/main.db') as db:
         fix_id = db.execute('SELECT id FROM member WHERE username=?', (fixed_member,)).fetchone()[0]
     status, _, body = request(port, 'PUT', '/admin/member/user', {
-        'id': fix_id, 'groupId': 1, 'authLevel': 0, 'nickname': 'n', 'email': '',
-        'phone': '', 'avatar': '', 'status': 0}, cookie=cookie)
+        'id': fix_id, 'groupId': 1, 'authLevel': 0, 'nickname': 'n', 'avatar': '', 'status': 0}, cookie=cookie)
     assert json.loads(body)['result'], body
     assert request(port, 'GET', '/api/v1/profile', cookie=fix_cookie)[0] == 401
     status, _, body = request(port, 'POST', '/api/v1/login', fixed_payload)

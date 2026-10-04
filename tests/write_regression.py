@@ -20,7 +20,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     def call(method, path, data=None, auth=cookie, success=True):
         status, headers, body = request(port, method, path, data, auth)
         result = json.loads(body)
-        assert status == 200 and result.get('result') is success, (method, path, status, result)
+        assert (status == 200 if success else status in (200,400)) and result.get('result') is success, (method, path, status, result)
         if not success:
             assert 'data' not in result, (path, 'failed write returned an ID', result)
         return headers, result
@@ -222,7 +222,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
         'groupId': 1, 'status': 1})
     disable_id = created['data']['id']
     disable = {'id': disable_id, 'groupId': 1, 'authLevel': 0, 'nickname': 'n',
-               'email': '', 'phone': '', 'avatar': '', 'status': 0}
+               'avatar': '', 'status': 0}
     session = login(username, member=True)
     with fail('member'):
         call('PUT', '/admin/member/user', disable, success=False)
@@ -268,6 +268,6 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
                                        'nickname': 'n', 'email': 'x' * 129, 'phone': '', 'avatar': '', 'status': 1}, success=False)
     assert snapshot('member') == before, 'oversize email accepted'
     call('PUT', '/admin/member/user', {'id': created['data']['id'], 'groupId': 1, 'authLevel': 0,
-                                       'nickname': 'n', 'email': '', 'phone': '', 'avatar': 'x' * 513, 'status': 1}, success=False)
+                                       'nickname': 'n', 'avatar': 'x' * 513, 'status': 1}, success=False)
     call('DELETE', '/admin/member/user?id=' + str(created['data']['id']))
     print('PASS E1 oversize field rejection on management writes')

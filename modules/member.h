@@ -47,7 +47,7 @@ void Member_Init()
 	
 	// member 表 - 修改前台用户记录
 	sqlite3_prepare_v3(db,
-		"UPDATE member SET groupId = ?, authLevel = ?, nickname = ?, email = ?, phone = ?, avatar = ?, status = ?, updateTime = ? WHERE id = ?",
+		"UPDATE member SET groupId = ?, authLevel = ?, nickname = ?, avatar = ?, status = ?, updateTime = ? WHERE id = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_put, NULL);
 	
 	// member 表 - 删除前台用户记录（软删除）
@@ -57,7 +57,7 @@ void Member_Init()
 	
 	// member 表 - 检查用户名是否已存在
 	sqlite3_prepare_v3(db,
-		"SELECT COUNT(*) FROM member WHERE username = ? AND isDelete = 0",
+		"SELECT COUNT(*) FROM member WHERE lower(username) = lower(?)",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_chk, NULL);
 	
 	// member 表 - 修改用户密码
@@ -72,7 +72,7 @@ void Member_Init()
 
 	// member - 会员自助资料更新（F1：仅资料字段，杜绝 profile 接口覆盖 status/权限）
 	sqlite3_prepare_v3(db,
-		"UPDATE member SET nickname = ?, email = ?, phone = ?, avatar = ?, updateTime = ? WHERE id = ?",
+		"UPDATE member SET nickname = COALESCE(?,nickname), avatar = COALESCE(?,avatar), updateTime = ? WHERE id = ? AND isDelete = 0",
 		-1, SQL_PREPARE_DEFAULT, &stmt_member_profile, NULL);
 	
 	// member 表 - 前台登录查询

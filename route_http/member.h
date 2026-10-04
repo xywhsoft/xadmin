@@ -185,6 +185,9 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		if ( xrtValueType(tblForm) != XVALUE_OBJECT ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无效的请求数据！\"}", 0); xrtValueRelease(tblForm); return; }
 		str username = ValueText(tblForm, "username");
 		str password = ValueText(tblForm, "password");
+		xstrview account = {0}; char accountKey[65];
+		if (!xrtValueGetString(ValueGet(tblForm,"username"), &account) || !XA_AccountKey(account.Data, account.Size, accountKey)) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"账号格式无效，须含字母，3至64个ASCII字母、数字、点、下划线或连字符\"}",0); xrtValueRelease(tblForm); return; }
+		if (ValueHas(tblForm,"email") || ValueHas(tblForm,"phone") || ValueHas(tblForm,"email_verified_at") || ValueHas(tblForm,"phone_verified_at")) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"联系方式只能通过验证码绑定流程修改\"}",0); xrtValueRelease(tblForm); return; }
 		str nickname = ValueText(tblForm, "nickname");
 		int64 groupId = ValueInt(tblForm, "groupId");
 		int64 authLevel = ValueInt(tblForm, "authLevel");
@@ -233,13 +236,10 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		int64 groupId = ValueInt(tblForm, "groupId");
 		int64 authLevel = ValueInt(tblForm, "authLevel");
 		str nickname = ValueText(tblForm, "nickname");
-		str email = ValueText(tblForm, "email");
-		str phone = ValueText(tblForm, "phone");
+		if (ValueHas(tblForm,"email") || ValueHas(tblForm,"phone") || ValueHas(tblForm,"email_verified_at") || ValueHas(tblForm,"phone_verified_at")) { xsHttpReplyAuto(objResp,400,HTTP_CT_JSON,"{\"result\":false,\"message\":\"联系方式只能通过验证码绑定流程修改\"}",0); xrtValueRelease(tblForm); return; }
 		str avatar = ValueText(tblForm, "avatar");
 		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
 		if ( nickname && strlen(nickname) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"昵称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		if ( email && strlen(email) > 128 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"邮箱最多128个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		if ( phone && strlen(phone) > 32 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"手机号最多32个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( avatar && strlen(avatar) > 512 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"头像地址最多512个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		int64 status = ValueInt(tblForm, "status");
 		if ( groupId < 1 ) groupId = 1;
@@ -256,12 +256,10 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		sqlite3_bind_int64(stmt_member_put, 1, groupId);
 		sqlite3_bind_int64(stmt_member_put, 2, authLevel);
 		sqlite3_bind_text(stmt_member_put, 3, nickname ? nickname : (str)"", -1, NULL);
-		sqlite3_bind_text(stmt_member_put, 4, email ? email : (str)"", -1, NULL);
-		sqlite3_bind_text(stmt_member_put, 5, phone ? phone : (str)"", -1, NULL);
-		sqlite3_bind_text(stmt_member_put, 6, avatar ? avatar : (str)"", -1, NULL);
-		sqlite3_bind_int(stmt_member_put, 7, status);
-		sqlite3_bind_int64(stmt_member_put, 8, now);
-		sqlite3_bind_int64(stmt_member_put, 9, id);
+		sqlite3_bind_text(stmt_member_put, 4, avatar ? avatar : (str)"", -1, NULL);
+		sqlite3_bind_int(stmt_member_put, 5, status);
+		sqlite3_bind_int64(stmt_member_put, 6, now);
+		sqlite3_bind_int64(stmt_member_put, 7, id);
 		bool written = DB_Write(stmt_member_put, true);
 		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;

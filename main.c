@@ -20,6 +20,8 @@
 #include "modules/state.h"
 #include "modules/resource.h"
 #include "modules/database.h"
+#include "src/identity/identifier.c"
+#include "src/storage/identity_migration.c"
 #include "modules/page.h"
 #include "modules/template.h"
 #include "modules/session.h"
@@ -99,6 +101,12 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 	if (!XAdmin_RequireExtensions()) return false;
 	if (!DB_Init()) { printf("[xadmin][error] business start: DB_Init failed\n"); return false; }
 	if (!DB_MigrateTimeUnits()) { printf("[xadmin][error] business start: DB_MigrateTimeUnits failed\n"); return false; }
+	{
+		char* backup = xrtPathJoin(DBPath, "identity-before-v1.db");
+		bool migrated = backup && XA_IdentityMigrate(G_DB, backup);
+		xrtFree(backup);
+		if (!migrated) { printf("[xadmin][error] business start: identity migration failed\n"); return false; }
+	}
 	if (!DB_EnsureUrisMaskColumn()) { printf("[xadmin][error] business start: uris mask column failed\n"); return false; }
 	if (!DB_EnsureUrisEnhancedColumns()) { printf("[xadmin][error] business start: uris enhanced columns failed\n"); return false; }
 	if (!DB_EnsurePluginResourceIndex()) { printf("[xadmin][error] business start: plugin resource index failed\n"); return false; }
