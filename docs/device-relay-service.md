@@ -50,3 +50,5 @@ python tests/device_relay_e2e.py --exe D:/GIT/x-admin/xs.exe --tls
 ```
 
 测试使用临时数据库和真实 TCC 插件，覆盖两个账号、登记证明、单次票据及到期、可信 peer 路由、独占控制/查看、二进制、撤销/重新开启、插件换代、错误帧隔离以及正文不落库/日志。墨斗原生客户端、前端切换和生产站点仍需后续阶段完成。
+
+2026-10-05 验证：Windows xs `48fc5fd-dirty` 的 TLS 测试通过；服务器 Ubuntu/glibc 2.35、GCC 动态链接 xs `fee65c24759a28d95bba0f1396bebc5748649d63` 的通道和设备中继 TLS 测试通过。隔离源码位于 `/home/xs/codex-build/device-relay-d4ad297`，监听测试端口 39181/39191；使用临时数据库，未部署生产站点或重启线上服务。构建/验证记录已经同步到本地文档，服务端 `/opt/www` 的已跟踪文件没有修改。
