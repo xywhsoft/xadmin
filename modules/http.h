@@ -17,6 +17,8 @@ typedef struct XAdminRequest {
 	size_t param_count;
 	bool replied;
 	bool deferred; /* owned async route; protocol returns XS_TAKEOVER */
+	bool streaming, stream_failed;
+	xdeadline stream_deadline;
 	char* header_copy[64]; /* legacy C-string SDK views, owned for this request */
 } XAdminRequest;
 typedef XAdminRequest* XS_RequestObject;
@@ -27,6 +29,7 @@ typedef XAdminRequest* XS_ResponseObject;
 static int XAdmin_ReplyBinary(XS_RequestObject req, uint16 status,
 	const xhttpfield* fields, size_t count, const void* body, size_t size,
 	unsigned timeout_ms);
+static int XAdmin_StreamFinish(XS_RequestObject req, bool success);
 
 #define XHTTP_METHOD_GET XHTTP_METHOD_GET
 #define XHTTP_METHOD_POST XHTTP_METHOD_POST

@@ -250,6 +250,25 @@ typedef struct XAdminMultipartPart {
 } XAdminMultipartPart;
 typedef void (*XAdminAsyncRouteProc)(XS_ServerObject, XS_HostObject,
     XS_RequestObject, XS_ResponseObject, xvalue* session);
+/* Host 4.4: bounded, native HTTP/1 streaming. Only deferred routes may use
+ * these APIs. Callbacks execute under the application lock; network waits do
+ * not. Header/data views are borrowed for one callback. Returning nonzero
+ * cancels the upstream. No redirect, retry or automatic decompression. */
+typedef struct XAdminHttpStreamConfig {
+    uint32_t size;
+    const char* url;
+    const xhttpfield* headers;
+    size_t header_count;
+    const void* body;
+    size_t body_size; /* <=1 MiB */
+    unsigned timeout_ms, first_byte_timeout_ms, idle_timeout_ms;
+    size_t max_response; /* <=32 MiB; decoded HTTP body, not SSE frames */
+    bool allow_http; /* explicit trusted server configuration only */
+    const char* ca_pem; /* optional private CA; never disables verification */
+    void* data;
+    int (*on_headers)(void* data, uint16_t status, const xhttpfield* fields, size_t count);
+    int (*on_data)(void* data, const void* bytes, size_t size);
+} XAdminHttpStreamConfig;
 #ifndef XS_PLUGIN_HOST_SIDE
 bool XAdmin_MultipartBoundary(const char* sContentType, char* sOut, size_t iCap);
 bool XAdmin_MultipartNext(const char* sBody, size_t iBodySize, const char* sBoundary,
@@ -279,6 +298,17 @@ int XAdmin_DeferRoute(XAdminPluginHandle handle, XS_RequestObject req,
 int XAdmin_ReplyBinary(XS_RequestObject req, uint16 status,
     const xhttpfield* fields, size_t count, const void* body, size_t size,
     unsigned timeout_ms);
+/* 0 complete; -1 transport/protocol; -2 deadline; -3 peer/callback cancelled.
+ * The request body/headers are copied before releasing the application lock. */
+int XAdmin_HttpStream(XAdminPluginHandle plugin, XS_RequestObject req,
+    const XAdminHttpStreamConfig* config, int* upstream_status);
+/* Chunked response; Begin claims the response even if the first write fails.
+ * Write drains a bounded chunk before returning. Finish(false) aborts rather
+ * than publishing a misleading successful end. All calls are lock-owned. */
+int XAdmin_StreamBegin(XS_RequestObject req, uint16 status,
+    const xhttpfield* fields, size_t count, unsigned timeout_ms);
+int XAdmin_StreamWrite(XS_RequestObject req, const void* bytes, size_t size);
+int XAdmin_StreamFinish(XS_RequestObject req, bool success);
 /* Bit 1: verified phone; bit 2: verified email; -1: account unavailable. */
 int XAdmin_MemberContactStatus(xvalue* session);
 /* Host 4.3: route/callback-only, serialized by the host application lock.

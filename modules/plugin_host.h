@@ -42,7 +42,7 @@ static bool PluginHost_Reload(const char* sXid);
 #define PLUGIN_PATH_MAX   420
 #define PLUGIN_ROUTES_MAX 256 /* 生成插件（cms.article）注册 220+ 路由 */
 #define PLUGIN_DYN_MAX    16
-#define PLUGIN_HOST_VERSION "4.3.0" /* additive SDK APIs; ABI layout stays v4 */
+#define PLUGIN_HOST_VERSION "4.4.0" /* additive SDK APIs; ABI layout stays v4 */
 #define PLUGIN_EVT_MAX    128
 #define PLUGIN_HOOK_MAX   128
 #define PLUGIN_SVC_MAX    32
@@ -206,6 +206,7 @@ static bool XAdmin_CheckAdminCSRF(XS_RequestObject req, xvalue* session)
 }
 
 #include "../src/net/plugin_async.c"
+#include "../src/net/plugin_stream.c"
 #include "../src/net/plugin_channel.c"
 
 static bool Plugin_XidValid(const char* sXid)
@@ -1817,6 +1818,10 @@ static bool Plugin_Compile(PluginInstance* inst, char* sError, size_t iErrorSize
 			{"XAdmin_HttpPostJson", (const void*)XAdmin_HttpPostJson},
 			{"XAdmin_DeferRoute", (const void*)XAdmin_DeferRoute},
 			{"XAdmin_ReplyBinary", (const void*)XAdmin_ReplyBinary},
+			{"XAdmin_HttpStream", (const void*)XAdmin_HttpStream},
+			{"XAdmin_StreamBegin", (const void*)XAdmin_StreamBegin},
+			{"XAdmin_StreamWrite", (const void*)XAdmin_StreamWrite},
+			{"XAdmin_StreamFinish", (const void*)XAdmin_StreamFinish},
 			{"XAdmin_MemberContactStatus", (const void*)XAdmin_MemberContactStatus},
 			{"XAdmin_ChannelAccept", (const void*)XAdmin_ChannelAccept},
 			{"XAdmin_ChannelSend", (const void*)XAdmin_ChannelSend},

@@ -49,6 +49,7 @@ static int32 PluginAsync_Run(void* data)
     PluginAsyncJob* job = data;
     xrtMutexLock(G_RequestLock);
     job->proc(job->raw.server,job->raw.host,&job->req,&job->req,job->session);
+    if (job->req.streaming) XAdmin_StreamFinish(&job->req,false);
     if (!job->req.replied) xsHttpReplyAuto(&job->req,500,HTTP_CT_JSON,"{\"code\":500,\"message\":\"Async route produced no response\"}",0);
     job->plugin->activeIo--;
     xrtMutexUnlock(G_RequestLock);
