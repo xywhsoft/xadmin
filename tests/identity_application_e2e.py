@@ -20,7 +20,9 @@ def run(args):
     database = target / 'db/main.db'
     origin = f'http://127.0.0.1:{args.port}'
     config = json.loads((target / 'xs.json').read_text())
-    config['services'][0]['host_default']['devfile'] = str(ROOT / 'main.c')
+    # smoke.fixture copies the entry point and its includes into AppRoot.
+    # Keep that scoped source; the runtime rejects source outside AppRoot.
+    config['services'][0]['host_default']['devfile'] = 'main.c'
     (target / 'xs.json').write_text(json.dumps(config))
     identity = {'public_origin': origin, 'applications': [
         {'client_id': 'example-desktop', 'name': 'Example App', 'redirect_uris': [
