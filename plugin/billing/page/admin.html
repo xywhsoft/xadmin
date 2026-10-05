@@ -16,5 +16,5 @@
 <section data-panel="requests" hidden><div class="forms">
 <form id="refund"><h2>退款</h2><label>请求编号<input name="request_id" maxlength="96" required></label><label>原因<input name="reason" maxlength="256" required></label><button>退回本次实扣金额</button></form>
 <form id="resolve"><h2>核实待结算请求</h2><label>请求编号<input name="request_id" maxlength="96" required></label><label>核实后的收费（元；0 释放预留）<input name="amount" inputmode="decimal" required></label><label>核实依据<input name="reason" maxlength="256" required></label><button>完成结算</button></form></div><div id="requests-table"></div></section>
-<section data-panel="subscriptions" hidden><h2>会员记录</h2><div id="subscriptions-table"></div></section>
+<section data-panel="subscriptions" hidden><h2>会员记录</h2><div id="subscriptions-table"></div><form id="cancel"><h3>终止指定会员期</h3><label>会员 ID<input name="member_id" type="number" min="1" required></label><label>会员记录编号<input name="subscription_id" type="number" min="1" required></label><button>终止此会员期</button><p class="hint">即刻停止该期权益和未来额度发放，保留已经获得的额度。未来续期记录需要逐条终止。</p></form></section>
 <script src="/plugin-static/billing/ui.js" defer></script></body></html>

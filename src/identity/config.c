@@ -138,10 +138,19 @@ static bool XA_ConfigDecode(xvalue* v, XAIdentityConfig* out)
     }
     return true;
 }
+/* A dedicated process may use a private configuration copy for local preview.
+ * Reads AND administrative writes target the same file; production is intact. */
+static char* XA_ConfigPath(void)
+{
+    const char* override=getenv("XADMIN_IDENTITY_CONFIG");
+    return override && *override?xrtStrDup(override):xrtPathJoin(DBPath,"identity.json");
+}
 static bool XA_ConfigLoad(XAIdentityConfig* out)
 {
-    char* path = xrtPathJoin(DBPath, "identity.json"); xvalue* v = NULL; bool ok;
+    char* path = XA_ConfigPath(); xvalue* v = NULL; bool ok;
     if (!path) return false;
+    const char* override=getenv("XADMIN_IDENTITY_CONFIG");
+    if(override && *override && !xrtFileExists(path)){xrtFree(path);return false;}
     if (xrtFileExists(path)) {
         size_t n = 0; char* bytes = xrtFileReadAll(path, &n);
         xjsonreadconfig limits; xrtJsonReadConfigInit(&limits);

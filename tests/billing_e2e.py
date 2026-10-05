@@ -105,6 +105,11 @@ def main():
         # Restart keeps the authority, balances, original imported cash and period idempotency.
         process.terminate();process.wait(timeout=10);process=launch();ready();admin=login()
         assert account()['cash_micros']==2230000 and account()['credit_micros']==500000
+        # Cancellation ends current rights without reclaiming earned credit.
+        current=sql(db,"SELECT id FROM subscription WHERE member_id=? AND starts_at<=? ORDER BY id DESC LIMIT 1",(owner,int(time.time())))[0][0]
+        state,_,_=call('GET','/admin/billing/state',cookie=admin);admin_headers={'X-CSRF-Token':state['csrf_token'],'Origin':origin}
+        mutate('/admin/billing/cancel',{'member_id':owner,'subscription_id':current});mutate('/admin/billing/cancel',{'member_id':owner,'subscription_id':current})
+        assert account()['discount_bps']==10000 and account()['credit_micros']==500000
         manage('disable','billing')
         call('GET','/api/v1/balance',headers=bearer,status=503)
         assert sql(target/'db/main.db','SELECT balance FROM member WHERE id=?',(owner,))[0][0]==123

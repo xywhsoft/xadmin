@@ -96,11 +96,11 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 				while(p<tail&&(*p==' '||*p=='\t'))p++;while(tail>p&&(tail[-1]==' '||tail[-1]=='\t'))tail--;
 				xstrview name=xrtStrViewN(p,(size_t)(tail-p));
 				if(!xrtStrCaseEqual(name,XRT_STR_LITERAL("Authorization"))&&!xrtStrCaseEqual(name,XRT_STR_LITERAL("Content-Type"))&&
-				   !xrtStrCaseEqual(name,XRT_STR_LITERAL("X-CSRF-Token")))allowed=false;
+				   !xrtStrCaseEqual(name,XRT_STR_LITERAL("X-CSRF-Token"))&&!xrtStrCaseEqual(name,XRT_STR_LITERAL("Idempotency-Key")))allowed=false;
 				p=comma?comma+1:end;
 			}
 		}
-		if(allowed)xsHttpReplyAuto(&req,204,"Access-Control-Allow-Methods: GET, POST, PUT, DELETE\r\nAccess-Control-Allow-Headers: Authorization, Content-Type, X-CSRF-Token\r\nAccess-Control-Max-Age: 300\r\n","",0);
+		if(allowed)xsHttpReplyAuto(&req,204,"Access-Control-Allow-Methods: GET, POST, PUT, DELETE\r\nAccess-Control-Allow-Headers: Authorization, Content-Type, X-CSRF-Token, Idempotency-Key\r\nAccess-Control-Max-Age: 300\r\n","",0);
 		else XA_Reply(&req,403,"CORS preflight rejected",NULL,NULL);
 		xrtMutexUnlock(G_RequestLock);XAdmin_RequestHeadersRelease(&req);xrtFree(req.body);xrtFree(target);return XS_OK;
 	}

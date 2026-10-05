@@ -8,6 +8,7 @@ static bool Billing_End(bool ok)
 }
 static bool Billing_Schema(void)
 {
+    if(!XP_SchemaSupported(G_DB,2))return false;
     return sqlite3_exec(G_DB,
         "PRAGMA foreign_keys=ON;PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;"
         "CREATE TABLE IF NOT EXISTS account(member_id INTEGER PRIMARY KEY,cash INTEGER NOT NULL DEFAULT 0 CHECK(cash BETWEEN 0 AND 1000000000000000),reserved INTEGER NOT NULL DEFAULT 0 CHECK(reserved BETWEEN 0 AND cash));"
@@ -22,7 +23,19 @@ static bool Billing_Schema(void)
         "CREATE TRIGGER IF NOT EXISTS ledger_no_delete BEFORE DELETE ON ledger BEGIN SELECT RAISE(ABORT,'immutable ledger'); END;"
         "CREATE TABLE IF NOT EXISTS plan(id TEXT PRIMARY KEY,title TEXT NOT NULL,duration_seconds INTEGER NOT NULL,period_seconds INTEGER NOT NULL,credit_amount INTEGER NOT NULL,discount_bps INTEGER NOT NULL CHECK(discount_bps BETWEEN 1 AND 10000),concurrency_limit INTEGER NOT NULL CHECK(concurrency_limit BETWEEN 1 AND 16),model_ids TEXT NOT NULL,enabled INTEGER NOT NULL CHECK(enabled IN(0,1)));"
         "CREATE TABLE IF NOT EXISTS subscription(id INTEGER PRIMARY KEY,member_id INTEGER NOT NULL REFERENCES account(member_id),plan_id TEXT NOT NULL,title TEXT NOT NULL,starts_at INTEGER NOT NULL,expires_at INTEGER NOT NULL,discount_bps INTEGER NOT NULL,concurrency_limit INTEGER NOT NULL,model_ids TEXT NOT NULL,operation_id TEXT NOT NULL UNIQUE,period_seconds INTEGER NOT NULL,credit_amount INTEGER NOT NULL,next_grant_at INTEGER NOT NULL,cancelled_at INTEGER,actor TEXT NOT NULL);"
-        "PRAGMA user_version=1;",NULL,NULL,NULL)==SQLITE_OK;
+        "CREATE TABLE IF NOT EXISTS receipt_change(sequence INTEGER PRIMARY KEY,service TEXT NOT NULL,request_id TEXT NOT NULL,member_id INTEGER NOT NULL,charged INTEGER NOT NULL,state TEXT NOT NULL);"
+        "CREATE INDEX IF NOT EXISTS receipt_change_service ON receipt_change(service,sequence);"
+        "CREATE INDEX IF NOT EXISTS receipt_change_request ON receipt_change(request_id);"
+        "CREATE TRIGGER IF NOT EXISTS receipt_change_no_update BEFORE UPDATE ON receipt_change BEGIN SELECT RAISE(ABORT,'immutable receipt change'); END;"
+        "CREATE TRIGGER IF NOT EXISTS receipt_change_no_delete BEFORE DELETE ON receipt_change BEGIN SELECT RAISE(ABORT,'immutable receipt change'); END;"
+        "INSERT INTO receipt_change(service,request_id,member_id,charged,state) SELECT service,request_id,member_id,charged,state FROM reservation r WHERE state IN('settled','released','refunded') AND NOT EXISTS(SELECT 1 FROM receipt_change c WHERE c.request_id=r.request_id);"
+        "PRAGMA user_version=2;",NULL,NULL,NULL)==SQLITE_OK;
+}
+/* Same transaction as the monetary transition. An in-memory event alone
+ * cannot repair consumers that were stopped during a refund or settlement. */
+static bool Billing_Changed(const char* id)
+{
+    sqlite3_stmt* s=XP_SQL(G_DB,"INSERT INTO receipt_change(service,request_id,member_id,charged,state) SELECT service,request_id,member_id,charged,state FROM reservation WHERE request_id=?");XP_Bind(s,1,id);return XP_Done(s) && sqlite3_changes(G_DB)==1;
 }
 static bool Billing_Ensure(int64_t owner)
 {
@@ -74,6 +87,9 @@ static bool Billing_Migrate(void)
     if(sqlite3_exec(G_Host->main_db,
         "CREATE TABLE IF NOT EXISTS xadmin_balance_provider(id INTEGER PRIMARY KEY CHECK(id=1),service_name TEXT NOT NULL);"
         "INSERT OR IGNORE INTO xadmin_balance_provider VALUES(1,'xadmin.billing');",NULL,NULL,NULL)!=SQLITE_OK)return false;
+    sqlite3_stmt* authority=XP_SQL(G_Host->main_db,"SELECT service_name FROM xadmin_balance_provider WHERE id=1");
+    bool owns=authority && sqlite3_step(authority)==SQLITE_ROW && !strcmp((const char*)sqlite3_column_text(authority,0),XADMIN_BILLING_SERVICE);
+    sqlite3_finalize(authority);if(!owns)return false;
     if(!Billing_Begin())return false;
     sqlite3_stmt* source=XP_SQL(G_Host->main_db,"SELECT id,balance FROM member WHERE isDelete=0");bool ok=source!=NULL;int rc=SQLITE_DONE;
     while(ok && (rc=sqlite3_step(source))==SQLITE_ROW){

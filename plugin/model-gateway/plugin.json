@@ -1,0 +1,11 @@
+{
+  "formatVersion":4,"xid":"model-gateway","name":"model-gateway","title":"模型网关",
+  "description":"原生模型协议转发、在线模型目录、流式计量和账户结算",
+  "version":"1.0.0","author":"xAdmin","kind":"singleton","sort":36,
+  "runtime":{"compiler":"tcc","language":"c"},"resources":{"page":"page","static":"static"},
+  "build":{"entry":"main.c","sources":["main.c"],"includeDirs":[],"libraryDirs":[],"libraries":[],"defines":["XADMIN_PLUGIN=1"]},
+  "compat":{"minHostVersion":"4.4.0","maxHostVersion":"5.0.0","abiVersion":4},
+  "capabilities":["route.public","route.admin","menu","auth","service"],
+  "dependencies":{"plugins":["billing"],"services":["xadmin.billing"],"features":[]},
+  "defaultConfig":"config.defaults.json","configSchema":"config.schema.json"
+}

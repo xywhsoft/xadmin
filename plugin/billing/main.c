@@ -22,7 +22,16 @@ static xvalue* Billing_Transactions(int64_t owner,int64_t offset,int limit)
     sqlite3_stmt* s=XP_SQL(G_DB,"SELECT id,kind,amount AS amount_micros,amount/10000 AS amount,source,request_id,reason AS remark,actor AS operator,created_at AS createTime FROM ledger WHERE member_id=? ORDER BY id DESC LIMIT ? OFFSET ?");
     if(s){sqlite3_bind_int64(s,1,owner);sqlite3_bind_int(s,2,limit);sqlite3_bind_int64(s,3,offset);}return XP_Rows(s);
 }
-static XBillingService G_Service={sizeof(XBillingService),1,Billing_ServiceAccount,Billing_Entitlement,Billing_Reserve,Billing_Finalize,Billing_Lookup,Billing_AdjustCash,Billing_Refund,Billing_Transactions};
+static int Billing_ServiceMaintain(void){return Billing_Maintain() && Billing_Periods()?0:XBILL_UNAVAILABLE;}
+static xvalue* Billing_Changes(const char* service,int64_t after,int limit)
+{
+    if(!XP_Id(service,64) || after<0 || limit<1 || limit>100)return NULL;
+    /* Cursor addresses immutable changes; return the latest financial truth so
+     * replaying an older settlement cannot undo a later refund. */
+    sqlite3_stmt* s=XP_SQL(G_DB,"SELECT c.sequence,c.request_id,r.member_id,r.charged,r.state FROM receipt_change c JOIN reservation r ON r.request_id=c.request_id WHERE c.service=? AND c.sequence>? ORDER BY c.sequence LIMIT ?");
+    XP_Bind(s,1,service);if(s){sqlite3_bind_int64(s,2,after);sqlite3_bind_int(s,3,limit);}return XP_Rows(s);
+}
+static XBillingService G_Service={sizeof(XBillingService),1,Billing_ServiceAccount,Billing_Entitlement,Billing_Reserve,Billing_Finalize,Billing_Lookup,Billing_AdjustCash,Billing_Refund,Billing_Transactions,Billing_ServiceMaintain,Billing_Changes};
 static int Billing_Start(XAdminPluginHandle handle)
 {
     G_Handle=handle;if(!G_Host || !G_Host->main_db || !G_Host->plugin_private_db_path)return -1;
@@ -47,6 +56,7 @@ static int Billing_Start(XAdminPluginHandle handle)
         {"/admin/billing/grant",Billing_AdminAPI,true,true,auth_id,0},
         {"/admin/billing/plan",Billing_AdminAPI,true,true,auth_id,0},
         {"/admin/billing/subscribe",Billing_AdminAPI,true,true,auth_id,0},
+        {"/admin/billing/cancel",Billing_AdminAPI,true,true,auth_id,0},
         {"/admin/billing/refund",Billing_AdminAPI,true,true,auth_id,0},
         {"/admin/billing/resolve",Billing_AdminAPI,true,true,auth_id,0}
     };

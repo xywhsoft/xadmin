@@ -127,6 +127,8 @@ static int XAdmin_HttpStream(XAdminPluginHandle handle,XS_RequestObject req,
     if(!valid)return -1;
     if(!secure && !strchr(url.authority,':'))url.port=80;
     xbuffer wire, incoming; xrtBufferInit(&wire); xrtBufferInit(&incoming);
+    char* ca_copy=NULL;
+    if(config.ca_pem){if(strlen(config.ca_pem)>131072)goto invalid;ca_copy=xrtStrDup(config.ca_pem);if(!ca_copy)goto invalid;config.ca_pem=ca_copy;}
     xhttpfield fields[22]; char length[32];
     snprintf(length,sizeof(length),"%llu",(unsigned long long)config.body_size);
     fields[0]=(xhttpfield){XRT_STR_LITERAL("Host"),xrtStrView(url.authority)};
@@ -177,6 +179,7 @@ static int XAdmin_HttpStream(XAdminPluginHandle handle,XS_RequestObject req,
     if(!PluginStream_Wait(req,future,first,config.first_byte_timeout_ms) || xrtFutureState(future)!=XFUTURE_RESOLVED)goto done;
     if(secure)tls=xrtTlsStreamRef(xrtFutureValue(future));else tcp=xrtNetStreamRef(xrtFutureValue(future));
     XA_HttpsFutureDone(future);future=NULL; if(!tls&&!tcp)goto done;
+    if(config.on_send){xrtMutexLock(G_RequestLock);config.on_send(config.data);xrtMutexUnlock(G_RequestLock);}
     for(i=0;i<wire.Size;){
         size_t n=wire.Size-i;if(n>16384)n=16384;
         if(tls){future=xrtTlsStreamSendAsync(tls,(cbytes)wire.Data+i,n);
@@ -237,7 +240,7 @@ done:
     if(resolver)xrtNetResolverDestroy(resolver);if(verifier)xrtTlsVerifierRelease(verifier);
     xrtMutexLock(G_RequestLock);inst->activeIo--;
     if(wire.Data)xrtSecureZero(wire.Data,wire.Size);if(incoming.Data)xrtSecureZero(incoming.Data,incoming.Size);
-    xrtBufferUnit(&wire);xrtBufferUnit(&incoming);return result;
+    xrtBufferUnit(&wire);xrtBufferUnit(&incoming);xrtFree(ca_copy);return result;
 invalid:
-    if(wire.Data)xrtSecureZero(wire.Data,wire.Size);xrtBufferUnit(&wire);xrtBufferUnit(&incoming);return -1;
+    if(wire.Data)xrtSecureZero(wire.Data,wire.Size);xrtBufferUnit(&wire);xrtBufferUnit(&incoming);xrtFree(ca_copy);return -1;
 }

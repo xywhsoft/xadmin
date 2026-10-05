@@ -43,6 +43,11 @@ typedef struct XBillingResult {
     int64_t member_id, reserved, charged, expires_at;
     char state[17];
 } XBillingResult;
+typedef struct XBillingEvent {
+    uint32_t size;
+    int64_t member_id,charged;
+    char request_id[97],state[17];
+} XBillingEvent; /* billing.finalized; borrowed only during the event callback */
 typedef struct XBillingService {
     uint32_t size, version;
     int (*account)(int64_t member_id,XBillingAccount* out);
@@ -54,5 +59,7 @@ typedef struct XBillingService {
         const char* reason,const char* actor);
     int (*refund)(const char* request_id,const char* operation_id,const char* reason,const char* actor);
     xvalue* (*transactions)(int64_t member_id,int64_t offset,int limit); /* owned */
+    int (*maintain)(void); /* expire holds/credits and grant due membership periods */
+    xvalue* (*changes)(const char* service,int64_t after,int limit); /* owned durable receipts, ordered sequence */
 } XBillingService;
 #endif

@@ -266,6 +266,7 @@ typedef struct XAdminHttpStreamConfig {
     bool allow_http; /* explicit trusted server configuration only */
     const char* ca_pem; /* optional private CA; never disables verification */
     void* data;
+    void (*on_send)(void* data); /* before the first upstream write; may be accepted afterwards */
     int (*on_headers)(void* data, uint16_t status, const xhttpfield* fields, size_t count);
     int (*on_data)(void* data, const void* bytes, size_t size);
 } XAdminHttpStreamConfig;

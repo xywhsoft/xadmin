@@ -69,6 +69,9 @@ static bool XP_Member(XS_RequestObject req,XS_ResponseObject resp,xvalue* sessio
 }
 static sqlite3_stmt* XP_SQL(sqlite3* db,const char* sql)
 {sqlite3_stmt* s=NULL;if(!db || sqlite3_prepare_v2(db,sql,-1,&s,NULL)!=SQLITE_OK)return NULL;return s;}
+/* Reject newer private schemas instead of silently resetting their version. */
+static bool XP_SchemaSupported(sqlite3* db,int maximum)
+{sqlite3_stmt* s=XP_SQL(db,"PRAGMA user_version");bool ok=s && sqlite3_step(s)==SQLITE_ROW && sqlite3_column_int(s,0)>=0 && sqlite3_column_int(s,0)<=maximum;sqlite3_finalize(s);return ok;}
 static void XP_Bind(sqlite3_stmt* s,int i,const char* text)
 {if(s)sqlite3_bind_text(s,i,text?text:"",-1,SQLITE_TRANSIENT);}
 static bool XP_Done(sqlite3_stmt* s)

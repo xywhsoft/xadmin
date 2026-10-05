@@ -19,6 +19,7 @@ static void Work(XS_ServerObject s,XS_HostObject h,XS_RequestObject req,XS_Respo
     XAdminHttpStreamConfig c={0};c.size=sizeof(c);c.url=getenv("STREAM_TEST_URL");c.allow_http=true;
     c.body=XAdmin_ReqBody(req);c.body_size=XAdmin_ReqBodyLen(req);c.timeout_ms=10000;c.first_byte_timeout_ms=2000;c.idle_timeout_ms=1500;
     c.max_response=1048576;c.ca_pem=getenv("STREAM_TEST_CA");c.data=&reply;c.on_headers=Headers;c.on_data=Data;
+    if(strstr(c.body,"untrusted"))c.ca_pem=NULL;
     int result=XAdmin_HttpStream(Handle,req,&c,&status);
     if(reply.started)XAdmin_StreamFinish(req,result==0);
     else xsHttpReplyAuto(resp,result==-2?504:502,"Content-Type: application/json\r\n","{}",2);

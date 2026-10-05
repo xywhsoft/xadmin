@@ -58,6 +58,9 @@ static void Billing_AdminAPI(XS_ServerObject server,XS_HostObject host,XS_Reques
     }else if(!strcmp(path,"/admin/billing/subscribe")){
         const char* names[]={"member_id","plan_id","operation_id"};
         if(XP_Fields(body,names,3) && Billing_AdminOwner(body,&owner))status=Billing_Subscribe(owner,XP_Text(body,"plan_id",64),key,actor);
+    }else if(!strcmp(path,"/admin/billing/cancel")){
+        const char* names[]={"member_id","subscription_id"};int64_t id;
+        if(XP_Fields(body,names,2) && Billing_AdminOwner(body,&owner) && XP_Int(body,"subscription_id",1,INT64_MAX,&id))status=Billing_Cancel(owner,id);
     }else if(!strcmp(path,"/admin/billing/refund")){
         const char* names[]={"request_id","operation_id","reason"};
         if(XP_Fields(body,names,3) && reason)status=Billing_Refund(XP_Text(body,"request_id",96),key,reason,actor);

@@ -69,3 +69,9 @@ static bool Billing_Periods(void)
         if(s){sqlite3_bind_int64(s,1,end);sqlite3_bind_int64(s,2,id);}ok=Billing_End(applied && XP_Done(s));
     }xrtValueRelease(rows);return ok;
 }
+static int Billing_Cancel(int64_t owner,int64_t id)
+{
+    sqlite3_stmt* s=XP_SQL(G_DB,"UPDATE subscription SET cancelled_at=COALESCE(cancelled_at,?) WHERE id=? AND member_id=?");
+    if(s){sqlite3_bind_int64(s,1,(int64_t)time(NULL));sqlite3_bind_int64(s,2,id);sqlite3_bind_int64(s,3,owner);}
+    if(!XP_Done(s))return XBILL_UNAVAILABLE;return sqlite3_changes(G_DB)==1?0:404;
+}

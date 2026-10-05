@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import threading
 import time
+import ssl
 from smoke import ROOT, USER, PASSWORD, client_hash, fixture, request
 
 
@@ -34,7 +35,7 @@ class Upstream(BaseHTTPRequestHandler):
                     time.sleep(2 if mode == 'idle' else .35)
             if mode != 'truncated':
                 self.wfile.write(b'0\r\n\r\n'); self.wfile.flush()
-        except (BrokenPipeError, ConnectionResetError): pass
+        except (BrokenPipeError, ConnectionResetError, ssl.SSLError): pass
         self.close_connection = True
 
 
@@ -42,6 +43,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('--exe', type=Path, default=ROOT/'xs.exe')
     p.add_argument('--port', type=int, default=19184)
+    p.add_argument('--tls',action='store_true',help='verify native TLS with a disposable trusted CA')
     args = p.parse_args()
     target = fixture(args.port)
     shutil.copytree(ROOT/'tests/plugins/stream-sdk', target/'plugin/stream-sdk')
@@ -49,8 +51,15 @@ def main():
     config['services'][0]['host_default']['devfile'] = str(target/'main.c')
     (target/'xs.json').write_text(json.dumps(config))
     upstream = ThreadingHTTPServer(('127.0.0.1', 0), Upstream)
+    if args.tls:
+        from sms_unit import native_fixture
+        issuer=native_fixture(target);issuer.shutdown();issuer.server_close()
+        context=ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER);context.minimum_version=context.maximum_version=ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(target/'leaf.pem',target/'leaf.key');upstream.socket=context.wrap_socket(upstream.socket,server_side=True)
     threading.Thread(target=upstream.serve_forever, daemon=True).start()
-    env = dict(os.environ, STREAM_TEST_URL=f'http://127.0.0.1:{upstream.server_port}/')
+    env = dict(os.environ, STREAM_TEST_URL=f'{"https" if args.tls else "http"}://127.0.0.1:{upstream.server_port}/')
+    if args.tls:env['STREAM_TEST_CA']=(target/'ca.pem').read_text()
+    else:env.pop('STREAM_TEST_CA',None)
     log = target/'stream.log'
     with log.open('wb') as output:
         proc = subprocess.Popen([str(args.exe.resolve()), str(target/'xs.json')], cwd=ROOT, env=env,
@@ -77,6 +86,7 @@ def main():
         assert response.status==200 and body==b'data: {"delta":"'+ '你'.encode()+b'"}\r\n\r\ndata: [DONE]\n\n',body
         assert response.headers['Transfer-Encoding']=='chunked'
         assert request(args.port,'POST','/__test/stream',{'mode':'before'})[0]==401
+        if args.tls:assert request(args.port,'POST','/__test/stream',{'mode':'untrusted'})[0]==502
         for mode in ('truncated','idle'):
             conn=http.client.HTTPConnection('127.0.0.1',args.port,timeout=5)
             conn.request('POST','/__test/stream',json.dumps({'mode':mode}),{'Content-Type':'application/json'})
@@ -86,7 +96,7 @@ def main():
             else: raise AssertionError('incomplete upstream published successful framing')
             finally: conn.close()
         assert request(args.port,'GET','/admin/login')[0]==200
-        print('PASS incremental chunked forwarding, UTF-8 split, early first chunk, error status, truncated framing and idle cancellation')
+        print('PASS '+('verified TLS and rejection of untrusted CA; ' if args.tls else '')+'incremental chunked forwarding, UTF-8 split, early first chunk, error status, truncated framing and idle cancellation')
     finally:
         proc.terminate()
         try: proc.wait(timeout=10)

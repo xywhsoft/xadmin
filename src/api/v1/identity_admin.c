@@ -94,7 +94,7 @@ static void XA_AdminIdentity(XS_ServerObject server,XS_HostObject host,XAdminReq
                 if(!XA_ConfigMerge(full,ValueGet(body,"config"))||!XA_ConfigDecode(full,&next)){
                     status=400;message="invalid identity configuration";
                 }else {
-                    char* path=xrtPathJoin(DBPath,"identity.json");size_t n=0;char* bytes=xrtJsonStringify(full,true,&n);
+                    char* path=XA_ConfigPath();size_t n=0;char* bytes=xrtJsonStringify(full,true,&n);
                     bool ok=path&&bytes&&n<=32768&&xrtFileWriteAtomic(path,(xbytesview){(cbytes)bytes,n});
                     if(bytes)xrtSecureZero(bytes,n);xrtFree(bytes);xrtFree(path);
                     status=ok?200:500;message=ok?"saved; reload the application to apply":"configuration write failed";

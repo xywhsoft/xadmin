@@ -23,6 +23,7 @@ static bool Billing_AddCredit(int64_t owner,int64_t amount,int64_t expires,const
     if(rc==SQLITE_ROW){bool same=sqlite3_column_int64(s,0)==owner && sqlite3_column_int64(s,1)==amount && sqlite3_column_int64(s,2)==expires &&
         !strcmp((const char*)sqlite3_column_text(s,3),source);sqlite3_finalize(s);return same;}
     sqlite3_finalize(s);if(rc!=SQLITE_DONE)return false;
+    if(expires<0 || (expires && expires<=(int64_t)time(NULL)))return false;
     s=XP_SQL(G_DB,"SELECT COALESCE(SUM(balance),0) FROM credit WHERE member_id=?");
     if(s)sqlite3_bind_int64(s,1,owner);
     bool capacity=s && sqlite3_step(s)==SQLITE_ROW && sqlite3_column_int64(s,0)<=XBILL_MAX_AMOUNT-amount;
@@ -34,8 +35,7 @@ static bool Billing_AddCredit(int64_t owner,int64_t amount,int64_t expires,const
 }
 static int Billing_Grant(int64_t owner,int64_t amount,int64_t expires,const char* source,const char* key,const char* actor)
 {
-    if(amount<=0 || amount>XBILL_MAX_AMOUNT || !XP_Id(key,96) || !source || strlen(source)>128 ||
-        (expires && expires<=(int64_t)time(NULL)))return XBILL_INVALID;
+    if(amount<=0 || amount>XBILL_MAX_AMOUNT || !XP_Id(key,96) || !source || strlen(source)>128 || expires<0 || !actor || strlen(actor)>128)return XBILL_INVALID;
     if(!Billing_Ensure(owner) || !Billing_Begin())return XBILL_UNAVAILABLE;
     return Billing_End(Billing_AddCredit(owner,amount,expires,source,key,actor))?0:XBILL_CONFLICT;
 }
@@ -48,6 +48,13 @@ static int Billing_Lookup(const char* id,XBillingResult* out)
         out->charged=sqlite3_column_int64(s,2);out->expires_at=sqlite3_column_int64(s,3);
         snprintf(out->state,sizeof(out->state),"%s",sqlite3_column_text(s,4));}
     sqlite3_finalize(s);return rc==SQLITE_ROW?0:rc==SQLITE_DONE?404:XBILL_UNAVAILABLE;
+}
+static void Billing_Notify(const char* id)
+{
+    XBillingResult r={sizeof(r)};if(Billing_Lookup(id,&r))return;
+    XBillingEvent event={sizeof(event)};event.member_id=r.member_id;event.charged=r.charged;
+    snprintf(event.request_id,sizeof(event.request_id),"%s",id);snprintf(event.state,sizeof(event.state),"%s",r.state);
+    XAdmin_EmitEvent(G_Handle,"billing.finalized",&event,sizeof(event));
 }
 static bool Billing_Allocation(const char* request_id,int64_t bucket,int64_t amount)
 {
@@ -122,7 +129,8 @@ static int Billing_Finalize(const XBillingSettlement* r)
     s=ok?XP_SQL(G_DB,"UPDATE reservation SET state=?,charged=?,usage_json=?,finished_at=? WHERE request_id=? AND state IN('reserved','pending')"):NULL;
     XP_Bind(s,1,r->outcome);XP_Bind(s,3,r->usage_json);XP_Bind(s,5,r->request_id);
     if(s){sqlite3_bind_int64(s,2,r->amount);sqlite3_bind_int64(s,4,(int64_t)time(NULL));}ok=ok && XP_Done(s) && sqlite3_changes(G_DB)==1;
-    if(ok)ok=Billing_Expire(hold.member_id);return Billing_End(ok)?0:XBILL_UNAVAILABLE;
+    if(ok)ok=Billing_Expire(hold.member_id) && Billing_Changed(r->request_id);ok=Billing_End(ok);
+    if(ok)Billing_Notify(r->request_id);return ok?0:XBILL_UNAVAILABLE;
 }
 static int Billing_Refund(const char* id,const char* key,const char* reason,const char* actor)
 {
@@ -147,7 +155,8 @@ static int Billing_Refund(const char* id,const char* key,const char* reason,cons
     }xrtValueRelease(allocations);
     if(ok)ok=Billing_Ledger(hold.member_id,key,"refund_operation",0,"",id,reason,actor);
     s=ok?XP_SQL(G_DB,"UPDATE reservation SET state='refunded' WHERE request_id=? AND state='settled'"):NULL;XP_Bind(s,1,id);
-    ok=ok && XP_Done(s) && sqlite3_changes(G_DB)==1 && Billing_Expire(hold.member_id);return Billing_End(ok)?0:XBILL_UNAVAILABLE;
+    ok=ok && XP_Done(s) && sqlite3_changes(G_DB)==1 && Billing_Expire(hold.member_id) && Billing_Changed(id);ok=Billing_End(ok);
+    if(ok)Billing_Notify(id);return ok?0:XBILL_UNAVAILABLE;
 }
 /* Unknown requests are never silently charged. After the bounded recovery
  * window, release them and record the platform's unresolved cost separately. */
