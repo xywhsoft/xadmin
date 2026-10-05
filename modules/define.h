@@ -20,6 +20,7 @@ typedef struct RouteInfo {
 	bool bAuth, bAdmin, bPutLog, bActive;
 	bool bMaskBody; /* 攻击评审 F2：true 时该路由日志不记录请求体（口令类接口）。 */
 	uint32 AuthID, AuthLevel;
+	void* PluginOwner; /* internal admission gate while a plugin joins channels */
 } RouteInfo;
 static xmap* G_StaticRouteTableHTTP;
 static const xhttpmethod G_Methods[10] = {

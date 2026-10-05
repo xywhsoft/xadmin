@@ -5,6 +5,10 @@
 static void XAdmin_Dispatch(XAdminRequest* req, const RouteInfo* route, bool alias)
 {
 	char id[128] = {0}; xvalue* session; XAdminRouteProc proc = NULL; int i;
+	PluginInstance* owner = route->PluginOwner;
+	if (owner && (!owner->started || owner->stopping || G_PluginChannelsStopping)) {
+		XA_Reply(req,503,"plugin is stopping",NULL,NULL); return;
+	}
 	xsReqCookieValue(req, route->bAdmin ? "XSID" : "MSID", id, sizeof(id));
 	if (route->bAdmin) session=Session_Acquire(true,id);
 	else {
@@ -76,6 +80,7 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 		/* 安装向导接管（v1 http.h 语义）：建库+业务段启动在锁内完成 */
 		Install_RequestWizard(raw->host, &req);
 		xrtMutexUnlock(G_RequestLock);
+		XAdmin_RequestHeadersRelease(&req);
 		xrtFree(req.body); xrtFree(target);
 		return XS_OK;
 	}
@@ -97,7 +102,7 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 		}
 		if(allowed)xsHttpReplyAuto(&req,204,"Access-Control-Allow-Methods: GET, POST, PUT, DELETE\r\nAccess-Control-Allow-Headers: Authorization, Content-Type, X-CSRF-Token\r\nAccess-Control-Max-Age: 300\r\n","",0);
 		else XA_Reply(&req,403,"CORS preflight rejected",NULL,NULL);
-		xrtMutexUnlock(G_RequestLock);xrtFree(req.body);xrtFree(target);return XS_OK;
+		xrtMutexUnlock(G_RequestLock);XAdmin_RequestHeadersRelease(&req);xrtFree(req.body);xrtFree(target);return XS_OK;
 	}
 	alias = Option_AdminEntryIsMatch(req.path);
 	lookup = alias ? "/admin/login" : req.path;
@@ -112,9 +117,10 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 		 * req.path 指向 target，须在两处兜底都放弃后才能释放。 */
 		bool handled = StandalonePage_Dispatch(req.path, &req)
 			|| Plugin_TryServeStatic(req.path, &req);
+		XAdmin_RequestHeadersRelease(&req);
 		xrtFree(req.body); xrtFree(target);
 		return handled ? XS_OK : XS_FALLBACK;
 	}
-	xrtFree(req.body); xrtFree(target);
+	XAdmin_RequestHeadersRelease(&req);xrtFree(req.body); xrtFree(target);
 	return req.deferred ? XS_TAKEOVER : XS_OK;
 }

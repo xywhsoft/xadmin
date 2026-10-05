@@ -26,6 +26,7 @@ static xstrview XA_CORSOrigin(XS_HttpReq* raw);
 #include "modules/page.h"
 #include "modules/template.h"
 static bool XA_SessionRevokeAccount(int64 account,const char* keep_sid);
+static void PluginChannel_Revoke(const char* sid,int64 account,const char* keep_sid);
 static void XA_SessionMaintenance(void);
 #include "modules/session.h"
 #include "modules/guard.h"

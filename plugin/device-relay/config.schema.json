@@ -1,0 +1,9 @@
+{
+  "type":"object","additionalProperties":false,
+  "properties": {
+    "enabled":{"type":"boolean","title":"启用会员设备中继"},
+    "max_devices_per_member":{"type":"integer","minimum":1,"maximum":32,"title":"每位会员最多登记设备数"},
+    "max_viewers_per_device":{"type":"integer","minimum":0,"maximum":4,"title":"每台设备最多只读连接数"},
+    "ticket_ttl_seconds":{"type":"integer","minimum":5,"maximum":60,"title":"单次连接票据有效秒数"}
+  }
+}

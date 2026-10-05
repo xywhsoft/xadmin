@@ -1,0 +1,11 @@
+{
+  "formatVersion": 4, "xid": "device-relay", "name": "device-relay",
+  "title": "设备中继", "description": "会员设备登记与有界实时转发，正文不落盘",
+  "version": "1.0.0", "author": "xAdmin", "kind": "singleton", "sort": 990020,
+  "runtime": {"compiler": "tcc", "language": "c"},
+  "build": {"entry": "main.c", "sources": ["main.c"], "includeDirs": [], "libraryDirs": [], "libraries": [], "defines": []},
+  "compat": {"minHostVersion": "4.3.0", "maxHostVersion": "5.0.0", "abiVersion": 4},
+  "capabilities": ["route.public"],
+  "dependencies": {"plugins": [], "services": [], "features": []},
+  "defaultConfig": "config.defaults.json", "configSchema": "config.schema.json"
+}

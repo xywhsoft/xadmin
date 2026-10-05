@@ -1,0 +1,12 @@
+{
+  "formatVersion": 4,
+  "xid": "channel-sdk", "name": "channel-sdk", "title": "Managed channel test",
+  "description": "Functional test fixture", "version": "1.0.0", "author": "xAdmin",
+  "kind": "singleton", "sort": 999,
+  "runtime": {"compiler": "tcc", "language": "c"},
+  "build": {"entry": "main.c", "sources": ["main.c"], "includeDirs": [], "libraryDirs": [], "libraries": [], "defines": []},
+  "compat": {"minHostVersion": "4.3.0", "maxHostVersion": "5.0.0", "abiVersion": 4},
+  "capabilities": ["route.public"],
+  "dependencies": {"plugins": [], "services": [], "features": []},
+  "defaultConfig": "config.defaults.json"
+}
