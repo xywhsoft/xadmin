@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>后台账户安全</title><link rel="stylesheet" href="/account/account.css"><script src="/account/mfa.js" defer></script></head><body><main><header><h1>后台账户安全</h1><a href="/admin">返回后台</a></header><article class="card" data-mfa-root data-realm="admin">
+  <h2>两步验证（2FA）</h2>
+  <p data-mfa-status class="hint"></p>
+  <p data-mfa-flash role="status" aria-live="polite" hidden></p>
+  <label>当前密码<input data-mfa-password type="password" autocomplete="current-password" maxlength="128"></label>
+  <label data-mfa-old-code-label hidden>当前验证器验证码或恢复码<input data-mfa-code autocomplete="one-time-code" maxlength="40"></label>
+  <p class="hint">敏感操作需要近期身份确认。第三方账户可先通过已绑定的登录方式确认身份，再验证动态码。</p>
+  <div class="actions">
+    <button type="button" data-mfa-action="reauth">确认当前身份</button>
+    <button type="button" data-mfa-action="setup">绑定验证器</button>
+    <button type="button" data-mfa-action="recovery-codes" class="secondary" hidden>重新生成恢复码</button>
+    <button type="button" data-mfa-action="disable" class="secondary" hidden>关闭两步验证</button>
+  </div>
+  <form data-mfa-setup hidden>
+    <p>使用验证器应用扫描二维码，也可以手动输入密钥。二维码有效期 10 分钟。</p>
+    <img data-mfa-qr alt="验证器绑定二维码" width="240" height="240">
+    <label>手动绑定密钥<input data-mfa-secret readonly autocomplete="off"></label>
+    <label>新验证器的六位验证码<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+    <button type="submit">确认绑定</button>
+    <button type="button" data-mfa-clear-setup class="secondary">取消绑定</button>
+  </form>
+  <div data-mfa-recovery hidden>
+    <p>请保存这些恢复码。每个只能使用一次，之后不会再次显示；新码会替代全部旧码。</p>
+    <pre data-mfa-recovery-text style="white-space:pre-wrap;overflow-wrap:anywhere"></pre>
+    <div class="actions"><button type="button" data-mfa-download>下载恢复码</button><button type="button" data-mfa-clear-recovery class="secondary">已保存，隐藏恢复码</button></div>
+  </div>
+</article></main></body></html>

@@ -16,7 +16,7 @@ def run(args):
     database = target / 'db/main.db'
     origin = f'http://127.0.0.1:{args.port}'
     config = json.loads((target / 'xs.json').read_text())
-    config['services'][0]['host_default']['devfile'] = str(ROOT / 'tests/identity_management_host.c')
+    config['services'][0]['host_default']['devfile'] = str(target / 'tests/identity_management_host.c')
     (target / 'xs.json').write_text(json.dumps(config))
     (target / 'db/identity.json').write_text(json.dumps({
         'public_origin': origin, 'cors_origins': ['https://client.example.com'],
@@ -156,7 +156,7 @@ def run(args):
         # Maintenance drops expired families but keeps a live family's replay history.
         _, cookie = member_login('external_member')
         old = 'a' * 64
-        sql("INSERT INTO member_session VALUES(?,?,?, ?,0,0,0,0,0,'','')", (old, tokens['id'], 'b' * 64, 'c' * 64))
+        sql("INSERT INTO member_session(sid,member_id,cookie_hash,csrf_hash,created_at,last_used,expires_at,reauth_until,revoked_at,ip,user_agent) VALUES(?,?,?, ?,0,0,0,0,0,'','')", (old, tokens['id'], 'b' * 64, 'c' * 64))
         sql('INSERT INTO member_refresh VALUES(?,?,1)', ('d' * 64, old))
         sql("INSERT INTO member_refresh SELECT ?,sid,1 FROM member_session WHERE cookie_hash=?", ('e' * 64, hashlib.sha256(cookie[5:].encode()).hexdigest()))
         call('POST', '/__test/identity/maintenance', {})

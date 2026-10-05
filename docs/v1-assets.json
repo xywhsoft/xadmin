@@ -30,13 +30,13 @@
     "source": "dev/v1/hosts/xadmin/data/page/admin/index.html",
     "target": "page/admin/index.html",
     "sha256": "5b1d01e1f75b0cf30b14384d8bf113cafd74883060156099e9e15db57fd859c6",
-    "target_sha256": "c849f0ddd6503d3be01b3af1a9f62ad02f10229e7192f63d57bdfcdf88fcc6c6"
+    "target_sha256": "fada6b5443ab42f335805821929f7a0daa7bf82cef29b8f1762431791b43dddc"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/admin/login.html",
     "target": "page/admin/login.html",
     "sha256": "a77b5f5ffbde7d36fab7b6d58a71455c57aea94c7f976a7a3d2f9eba48d24b67",
-    "target_sha256": "0bcbf70737d096ab21325d1064afc7b6a6e6681b3a32114e561af1bb18e60942"
+    "target_sha256": "c6b7560379ac0f86779c54bb82ace8d6fec827e31879a3287178205cc01403e4"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/attachment/edit.html",

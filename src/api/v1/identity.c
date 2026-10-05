@@ -19,9 +19,9 @@ static void XA_LoginAPI(XAdminRequest* req,xvalue* body)
         if(!ok||!XA_PasswordCurrent(&account)||!XA_SetPassword(account.id,upgrade)){xrtSecureZero(upgrade,sizeof(upgrade));XA_Reply(req,500,"password upgrade unavailable",NULL,NULL);return;}
         xrtSecureZero(upgrade,sizeof(upgrade));
     }
-    if(!XA_SessionIssue(req,account.id,&tokens)){XA_TokensUnit(&tokens);XA_Reply(req,500,"session unavailable",NULL,NULL);return;}
-    xvalue* data=XA_TokenData(&tokens);char* headers=XA_CookieHeader(req,tokens.cookie,false,tokens.csrf);
-    if(data&&headers){ValueSetText(data,"username",account.username);ValueSetText(data,"nickname",account.nickname);Member_SetBalance(data,account.id,account.balance);
+    if(!XA_SessionIssue(req,account.id,&tokens)){int status=tokens.error_status==429?429:500;XA_TokensUnit(&tokens);XA_Reply(req,status,status==429?"too many MFA attempts":"session unavailable",NULL,NULL);return;}
+    xvalue* data=XA_TokenData(&tokens);char* headers=XA_TokenHeaders(req,&tokens);
+    if(data&&headers){if(!tokens.mfa_challenge[0]){ValueSetText(data,"username",account.username);ValueSetText(data,"nickname",account.nickname);Member_SetBalance(data,account.id,account.balance);}
         Guard_Reset(G_GuardMember,req->remote);XA_Reply(req,200,"signed in",data,headers);}
     else {XA_SessionRevoke(tokens.sid);XA_Reply(req,500,"session unavailable",NULL,NULL);}
     xrtFree(headers);xrtValueRelease(data);XA_TokensUnit(&tokens);xrtSecureZero(&account,sizeof(account));
@@ -89,6 +89,14 @@ static void XA_PasswordAPI(XAdminRequest* req,xvalue* session,xvalue* body,bool 
     if(Guard_Check(G_GuardMember,req->remote)){XA_Reply(req,429,"too many verification attempts",NULL,NULL);return;}
     if(!XA_AccountByID(ValueInt(session,"id"),&account)||!XA_VerifyPassword(&account,old)){
         Guard_Failed(G_GuardMember,req->remote);XA_Reply(req,401,"password is incorrect",NULL,NULL);return;}
+    if(!XA_MFARecent("member",session)){
+        const char* code=XA_Text(body,"code",40);int status=code?XA_MFAVerify("member",account.id,code,req->remote):403;
+        if(status!=200){XA_Reply(req,status,"confirm your MFA again",NULL,NULL);return;}
+        sqlite3_stmt* proof=XA_SQL("UPDATE member_session SET mfa_verified_at=? WHERE sid=? AND revoked_at=0");
+        if(proof)sqlite3_bind_int64(proof,1,XA_Now());XA_BindText(proof,2,ValueText(session,"sid"));
+        if(!XA_Done(proof,true)){XA_Reply(req,500,"identity service unavailable",NULL,NULL);return;}
+        ValueSetInt(session,"mfa_verified_at",XA_Now());
+    }
     if(!reauth){xrtMutexUnlock(G_RequestLock);bool ok=XA_PasswordHash(password,record);xrtMutexLock(G_RequestLock);
         if(!ok||!XA_PasswordCurrent(&account)){xrtSecureZero(record,sizeof(record));XA_Reply(req,409,"account changed; retry",NULL,NULL);return;}}
     if(!XA_SessionStillValid(session,false)){xrtSecureZero(record,sizeof(record));XA_Reply(req,401,"session revoked",NULL,NULL);return;}
@@ -172,6 +180,7 @@ static void XA_CurrentSessionAPI(XAdminRequest* req,xvalue* session)
     xvalue* data=ValueObject();
     ValueSetInt(data,"id",ValueInt(session,"id"));ValueSetText(data,"session_id",ValueText(session,"sid"));
     ValueSetInt(data,"reauth_until",ValueInt(session,"reauth_until"));
+    ValueSetInt(data,"mfa_verified_at",ValueInt(session,"mfa_verified_at"));
     ValueSetText(data,"access_token",access);ValueSetText(data,"token_type","Bearer");ValueSetInt(data,"expires_in",900);
     if(cookie)ValueSetText(data,"csrf_token",csrf);
     XA_Reply(req,access?200:500,access?"success":"session unavailable",access?data:NULL,headers);

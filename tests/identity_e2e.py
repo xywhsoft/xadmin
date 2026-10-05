@@ -18,7 +18,7 @@ def run(args):
     original = hashlib.sha256((ROOT / 'db/main.db').read_bytes()).digest()
     target = fixture(args.port)
     config=json.loads((target/'xs.json').read_text())
-    config['services'][0]['host_default']['devfile']=str(ROOT/'main.c')
+    config['services'][0]['host_default']['devfile']=str(target/'main.c')
     (target/'xs.json').write_text(json.dumps(config))
     (target/'db/identity.json').write_text(json.dumps({
         'public_origin': f'http://127.0.0.1:{args.port}', 'default_country_code': '+86'}))

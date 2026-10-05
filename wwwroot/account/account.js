@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  let providers = {providers: []}, authChallenge = null, contactChallenge = null;
+  let providers = {providers: []}, authChallenge = null, contactChallenge = null, mfaChallenge = null;
   // Only a public request ID survives a third-party redirect. Passwords and
   // member tokens never enter browser storage or native callback URLs.
   let applicationRequest = new URL(location.href).searchParams.get('application');
@@ -46,6 +46,11 @@
     await api('/api/v1/logout', 'POST'); await refresh(); $('login').elements.identifier.focus();
   }));
   const messages = {
+    'confirm your MFA again': '请先在“确认当前身份”中验证当前密码和两步验证码。',
+    'too many MFA attempts': '两步验证尝试过多，请五分钟后再试。',
+    'verification invalid, reused or expired': '验证码无效、已使用或已过期。请使用下一周期的验证码或未使用的恢复码。',
+    'MFA challenge invalid or expired': '两步验证已过期，请返回并重新登录。',
+    'invalid MFA challenge': '请输入有效的验证码或恢复码。',
     'identifier or password is incorrect': '登录标识或密码不正确。',
     'identifier or password is invalid': '请输入有效的账号、手机或邮箱。',
     'confirm your identity again': '请先在“确认当前身份”中重新验证。',
@@ -113,6 +118,7 @@
   function tab(id) {
     for (const name of ['login', 'register', 'otp', 'recover', 'security-recover']) $(name).hidden = name !== id;
     document.querySelectorAll('[data-tab]').forEach(node => node.setAttribute('aria-pressed', String(node.dataset.tab === id)));
+    mfaChallenge = null;$('mfa-login').hidden = true;$('mfa-login').reset();$('provider-login').hidden = false;
     authChallenge = null; $('auth-code').reset(); $('auth-code').hidden = true;
   }
   document.querySelectorAll('[data-tab]').forEach(node => node.addEventListener('click', () => tab(node.dataset.tab)));
@@ -125,6 +131,23 @@
   }
   const providerName = id => id === 'github' ? 'GitHub' : '微信';
   const time = value => new Date(value * 1000).toLocaleString();
+  function beginMFA(data) {
+    if (!data?.mfa_required) return false;
+    mfaChallenge = data.challenge_id;
+    for (const id of ['login', 'register', 'otp', 'recover', 'security-recover', 'auth-code']) $(id).hidden = true;
+    $('provider-login').hidden = true;$('mfa-login').hidden = false;$('mfa-login').elements.code.focus();
+    flash('请完成两步验证。也可以使用一个未使用的恢复码。');return true;
+  }
+  form('mfa-login', async data => {
+    if (!mfaChallenge) throw new Error('验证已过期，请重新登录。');
+    await api('/api/v1/auth/mfa/verify', 'POST', {challenge_id: mfaChallenge, code: data.code});
+    tab('login');await refresh();flash('登录成功。');
+  });
+  $('mfa-cancel').addEventListener('click', () => run($('mfa-login'), async () => {
+    if (mfaChallenge) await api('/api/v1/auth/mfa/cancel', 'POST', {challenge_id: mfaChallenge});
+    tab('login');flash('请重新登录。');
+  }));
+  window.addEventListener('xadmin:mfa-changed', () => refresh().catch(error => flash(error.message, true)));
   async function refresh() {
     let session;
     try {session = await api('/api/v1/session');}
@@ -132,11 +155,14 @@
       if (error.status !== 401) throw error;
       $('member').hidden = $('logout').hidden = true; $('auth').hidden = false;
       $('security-questions').reset();
-      $('heading').textContent = '登录网站账户'; await refreshApplication(null); return;
+      $('heading').textContent = '登录网站账户';window.dispatchEvent(new Event('xadmin:account'));
+      try {beginMFA(await api('/api/v1/auth/mfa/pending'));} catch (pendingError) {if (pendingError.status !== 404) throw pendingError;}
+      await refreshApplication(null); return;
     }
     const [profile, identities, sessions, security] = await Promise.all([
       api('/api/v1/profile'), api('/api/v1/profile/identities'), api('/api/v1/sessions'), api('/api/v1/profile/security-questions')]);
     $('auth').hidden = true; $('member').hidden = $('logout').hidden = false;
+    window.dispatchEvent(new Event('xadmin:account'));
     $('heading').textContent = profile.nickname || profile.username || '我的账户';
     await refreshApplication(profile);
     $('member-id').textContent = `用户 ${profile.id} · 账号：${profile.username || '尚未设置'}`;
@@ -179,7 +205,7 @@
       `${device.user_agent || 'API 客户端'} · ${device.ip} · 最近使用 ${time(device.last_used)}`,
       device.current ? null : button('退出', async () => {await api('/api/v1/sessions', 'DELETE', {session_id: device.id}); await refresh(); flash('设备已退出。');})));
   }
-  form('login', async data => {await api('/api/v1/login', 'POST', data); $('login').reset(); await refresh(); flash('登录成功。');});
+  form('login', async data => {const result = await api('/api/v1/login', 'POST', data);$('login').reset();if (beginMFA(result)) return;await refresh();flash('登录成功。');});
   form('register', async data => {await api('/api/v1/register', 'POST', data); $('register').reset(); tab('login'); $('login').elements.identifier.value = data.username; flash('注册成功，请登录。');});
   for (const id of ['otp', 'recover']) {
     form(id, async data => {
@@ -195,13 +221,14 @@
     if (!authChallenge) throw new Error('请重新发送验证码。');
     const payload = {challenge_id: authChallenge.id, code: data.code}, recovery = authChallenge.recover;
     if (recovery) payload.newPassword = data.newPassword;
-    await api('/api/v1/auth/challenges/verify', 'POST', payload); authChallenge = null; $('auth-code').reset();
+    const verified = await api('/api/v1/auth/challenges/verify', 'POST', payload);authChallenge = null;$('auth-code').reset();
+    if (!recovery && beginMFA(verified)) return;
     if (recovery) {tab('login'); flash('密码已重置，请重新登录。');}
     else {await refresh(); flash('登录成功。');}
   });
   form('profile', async data => {await api('/api/v1/profile', 'PUT', data); await refresh(); flash('资料已保存。');});
   form('credentials', async data => {await api('/api/v1/profile/credentials', 'POST', data); $('credentials').elements.password.value = ''; await refresh(); flash('账号和密码已更新，其他设备已退出。');});
-  form('reauth', async data => {await api('/api/v1/profile/reauth', 'POST', data); $('reauth').reset(); await refresh(); flash('身份已确认。');});
+  form('reauth', async data => {await api('/api/v1/profile/mfa/reauth', 'POST', data); $('reauth').reset(); await refresh(); flash('身份已确认。');});
   form('contact', async data => {
     const challenge = await api('/api/v1/profile/contacts/challenge', 'POST', data);
     contactChallenge = challenge.challenge_id; $('contact-code').hidden = false; $('contact-code').elements.code.focus();

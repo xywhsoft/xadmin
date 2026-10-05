@@ -9,11 +9,12 @@ import sqlite3
 import subprocess
 import time
 from urllib.parse import parse_qs,urlparse,urlencode
-from smoke import ROOT,PASSWORD,fixture,request
+from smoke import ROOT,PASSWORD,CSRF,fixture,request
+from mfa_e2e import Client,totp
 
 def run(args):
     original=hashlib.sha256((ROOT/'db/main.db').read_bytes()).digest();target=fixture(args.port);database=target/'db/main.db'
-    config=json.loads((target/'xs.json').read_text());config['services'][0]['host_default']['devfile']=str(ROOT/'tests/identity_oauth_host.c');(target/'xs.json').write_text(json.dumps(config))
+    config=json.loads((target/'xs.json').read_text());config['services'][0]['host_default']['devfile']=str(target/'tests/identity_oauth_host.c');(target/'xs.json').write_text(json.dumps(config))
     origin=f'http://127.0.0.1:{args.port}'
     (target/'db/identity.json').write_text(json.dumps({'public_origin':origin,
         'github':{'enabled':True,'client_id':'github-test','client_secret':'github-secret','callback':origin+'/api/v1/auth/oauth/github/callback'},
@@ -82,6 +83,25 @@ def run(args):
         _,headers=call('POST','/api/v1/login',{'identifier':'local_member','password':PASSWORD});local_cookie=headers['Set-Cookie'].split(';')[0]
         state,browser=start('github',local_cookie,action='bind');callback('github',state,browser+'; '+local_cookie,status=409)
         print('PASS WeChat token/userinfo identity agreement, AppID namespace, explicit bind and ownership conflict')
+        # Passwordless OAuth accounts can enroll using their recent primary proof.
+        mfa=Client(args.port);mfa.cookies['MSID']=wx_cookie.split('=',1)[1]
+        active,_=mfa.api('GET','/api/v1/session');mfa.csrf=active['csrf_token']
+        setup,_=mfa.api('POST','/api/v1/profile/mfa/setup',{})
+        enrolled,_=mfa.api('POST','/api/v1/profile/mfa/confirm',{'setup_id':setup['setup_id'],'code':totp(setup['secret'])})
+        recovery_codes=enrolled['recovery_codes']
+        for index,provider in enumerate(('github','wechat')):
+            state,browser=start(provider);candidate=Client(args.port)
+            candidate.cookies['MOB']=browser.split('=',1)[1]
+            before=sql('SELECT count(*)FROM member_session')[0][0]
+            actual,response,body=candidate.raw('GET','/api/v1/auth/oauth/'+provider+'/callback?'+urlencode({'state':state,'code':'gh_one'if provider=='github'else'wx_one'}),headers={'Accept':'text/html'})
+            assert actual==303 and not body and 'MMFA'in candidate.cookies and 'MSID'not in candidate.cookies
+            assert sql('SELECT count(*)FROM member_session')[0][0]==before
+            candidate.api('GET','/api/v1/profile',status=401)
+            pending,_=candidate.api('GET','/api/v1/auth/mfa/pending')
+            signed_in,_=candidate.api('POST','/api/v1/auth/mfa/verify',{'challenge_id':pending['challenge_id'],'code':recovery_codes[index]})
+            assert signed_in['id']==owner and 'MMFA'not in candidate.cookies
+            wx_cookie='MSID='+candidate.cookies['MSID'];CSRF[wx_cookie]=signed_in['csrf_token']
+        print('PASS GitHub/WeChat primary login cannot issue a session before MFA; passwordless enrollment and browser handoff')
         # Remove one method, but never the final usable login method.
         identities,_=call('GET','/api/v1/profile/identities',cookie=wx_cookie)
         call('DELETE','/api/v1/profile/identities/'+str(identities[0]['id']),cookie=wx_cookie)
@@ -98,6 +118,7 @@ def run(args):
         state,browser=start('github')
         sql('UPDATE identity_oauth SET expires_at=0 WHERE state_hash=?',(hashlib.sha256(state.encode()).hexdigest(),))
         callback('github',state,browser,status=401)
+        sql('UPDATE identity_rate SET expires_at=0')
         state,browser=start('github');process.terminate();process.wait(timeout=10);process=launch();ready()
         callback('github',state,browser,status=401)
         sql('UPDATE identity_rate SET expires_at=0')

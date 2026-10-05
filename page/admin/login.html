@@ -54,7 +54,8 @@
 											</div>
 										</div>
 									</div>
-									<div class="login-btn">
+									<div id="mfaLogin" hidden><p>请输入验证器验证码或未使用的恢复码。</p><input name="mfaCode" class="layui-input" maxlength="40" autocomplete="one-time-code" placeholder="验证码或恢复码"><button id="mfaRestart" type="button" class="layui-btn layui-btn-primary">返回密码登录</button></div>
+                            <div class="login-btn">
 										<button id="loginBtn" class="layui-btn login" lay-submit lay-filter="login">登 录</button>
 									</div>
 								</div>
@@ -105,6 +106,24 @@
 
 			loadAdminBranding();
 
+
+            var mfaChallenge = null;
+            function setMFA(challenge) {
+                mfaChallenge = challenge;document.getElementById('mfaLogin').hidden = !challenge;
+                document.querySelectorAll('input[name="username"],input[name="password"]').forEach(function(input){
+                    if (challenge) {input.dataset.mfaVerify = input.getAttribute('lay-verify') || '';input.removeAttribute('lay-verify');}
+                    else input.setAttribute('lay-verify',input.dataset.mfaVerify || 'required');
+                    input.disabled = !!challenge;
+                });
+                var code = document.querySelector('input[name="mfaCode"]');code.value = '';
+                if (challenge) {code.setAttribute('lay-verify','required');code.focus();} else code.removeAttribute('lay-verify');
+                document.getElementById('loginBtn').textContent = challenge ? '完成两步验证' : '登 录';
+                document.querySelector('input[name="password"]').value = '';
+            }
+            document.getElementById('mfaRestart').addEventListener('click',function(){
+                var challenge = mfaChallenge;setMFA(null);
+                if (challenge) fetch(window.location.pathname,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge_id:challenge,action:'cancel'})}).catch(function(){});
+            });
 			// 登 录 提 交
 			form.on('submit(login)', function (data) {
 				const formData = data.field;
@@ -122,7 +141,8 @@
 					try {
 				
 						// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
-						const pwdHash = await sha256(formData.username + '_xywhsoft_' + formData.password);
+						const payload = mfaChallenge ? {challenge_id:mfaChallenge,code:formData.mfaCode} :
+                            {username:formData.username,password:await sha256(formData.username + '_xywhsoft_' + formData.password),remember:formData.remember};
 				
 						// 发送请求（传输哈希值而非明文）
 						const response = await fetch(window.location.pathname, {
@@ -130,17 +150,20 @@
 							headers: {
 								'Content-Type': 'application/json'
 							},
-							body: JSON.stringify({
-								username: formData.username,
-								password: pwdHash,
-								remember: formData.remember
-							})
+							body: JSON.stringify(payload)
 						});
 						const result = await response.json();
-						if ( result.result ) {
+						if ( result.mfa_required ) {setMFA(result.challenge_id);}
+                        else if ( result.result ) {
 							window.location.href = '/admin';
 						} else {
-							layer.msg(result.message, {icon: 2});
+							var mfaErrors = {
+                                'MFA challenge invalid or expired': '两步验证已过期，请返回密码登录。',
+                                'verification invalid, reused or expired': '验证码无效、已使用或已过期，请使用新验证码或未使用的恢复码。',
+                                'too many MFA attempts': '验证尝试过多，请五分钟后再试。',
+                                'MFA challenge unavailable; retry later': '两步验证暂时不可用或尝试过多，请稍后再试。'
+                            };
+                            layer.msg(result.message || mfaErrors[result.msg] || result.msg || '登录失败，请重试', {icon: 2});
 						}
 					} catch (error) {
 						layer.msg(error.message || '登录失败，请重试', {icon: 2});

@@ -60,6 +60,9 @@ def fixture(port, protected=False, register_interval=0, source_db=None):
         shutil.copytree(ROOT/name,target/name)
     for name in ('main.c','route.h'):
         shutil.copy2(ROOT/name,target/name)
+    (target/'tests').mkdir(exist_ok=True)
+    for test_host in ('identity_delivery_host.c','identity_oauth_host.c','identity_management_host.c'):
+        shutil.copy2(ROOT/'tests'/test_host,target/'tests'/test_host)
     (target/'test-host.c').write_text((ROOT/'tests/host.c').read_text(encoding='utf-8')
         .replace('../main.c','main.c'),encoding='utf-8')
     (target / 'plugin_data').mkdir(exist_ok=True)
@@ -105,6 +108,9 @@ def fixture(port, protected=False, register_interval=0, source_db=None):
     # 用例经 API 启用）。否则 xlogserver 等自启插件会把多代重载时序竞态带入
     # 全部 smoke 轮次（间歇挂死，storm 门禁单测无法覆盖完整序列）。
     with sqlite3.connect(target / 'db/main.db') as db:
+        for mfa_table in ('mfa_key','mfa_factor','mfa_setup','mfa_challenge','mfa_recovery','mfa_audit'):
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (mfa_table,)).fetchone():
+                db.execute(f'DELETE FROM {mfa_table}')
         db.execute('UPDATE plugin_runtime SET enabled=0')
         db.execute('UPDATE sched_task SET enabled=0')
         db.commit()
@@ -152,7 +158,7 @@ def request(port, method, path, data=None, cookie=None, extra_headers=None, *, t
             CSRF[msid] = csrf
         if path == '/api/v1/login' and resp.status == 200:
             result = json.loads(body)
-            if result.get('code') == 0 and 'Set-Cookie' in response_headers:
+            if result.get('code') == 0 and (result.get('data') or {}).get('csrf_token') and 'Set-Cookie' in response_headers:
                 CSRF[response_headers['Set-Cookie'].split(';')[0]] = result['data']['csrf_token']
         return resp.status, response_headers, body
     finally:

@@ -13,3 +13,4 @@ __pycache__/
 /db/plugin/model-gateway/
 /plugin_data/model-gateway/
 /plugin_data/billing/
+/db/mfa.key

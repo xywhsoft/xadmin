@@ -76,3 +76,5 @@ python tests/smoke.py --functional-only --protected-entry
 本批范围和实施顺序见 [账号与身份服务实施方案](docs/账号与身份服务实施方案.md)。统一账号、已验证手机、已验证邮箱的登录，补充 JWT、持久会话及 GitHub、微信登录；全部会员接口使用 `/api/v1`，不加入搜索或模型业务。当前先完成 xs 依赖升级，应用身份流程按文档分批实施。
 
 升级 xs 前可用候选产物运行隔离回归：`python tests/smoke.py --functional-only --exe ../xserver/release/xs.exe`；受保护后台入口另加 `--protected-entry`。`--functional-only` 跳过并行请求与大数据计时检查，保留功能、写入失败和生命周期回归。夹具关闭继承的邮件发送、计划任务和插件自动运行，避免执行用户数据库里的外部任务。
+
+前后台已支持验证器两步验证、一次性恢复码和本地应急恢复。绑定后所有登录入口执行 2FA，使用方法、客户端接入和密钥备份要求见 [两步验证说明](docs/two-factor-auth.md)。

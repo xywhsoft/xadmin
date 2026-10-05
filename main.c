@@ -28,6 +28,8 @@ static xstrview XA_CORSOrigin(XS_HttpReq* raw);
 static bool XA_SessionRevokeAccount(int64 account,const char* keep_sid);
 static void PluginChannel_Revoke(const char* sid,int64 account,const char* keep_sid);
 static void XA_SessionMaintenance(void);
+static bool XA_MFAValidSession(bool admin,int64 owner,int64 version,int64 verified);
+static bool XA_MFARecent(const char* realm,xvalue* session);
 #include "modules/session.h"
 #include "modules/guard.h"
 #include "modules/auth.h"
@@ -44,6 +46,7 @@ static void XA_SessionMaintenance(void);
 #include "src/storage/identity_auth.c"
 static bool XA_SecurityClose(int64 owner,const char* resolution,const char* admin,const char* reason);
 #include "src/identity/password.c"
+#include "src/identity/mfa.c"
 #include "src/identity/session.c"
 #include "modules/notify.h"
 #include "modules/attachment.h"
@@ -71,6 +74,7 @@ static bool XA_SecurityClose(int64 owner,const char* resolution,const char* admi
 #include "src/identity/application.c"
 #include "src/api/v1/application.c"
 #include "src/site/assetlinks.c"
+#include "src/api/v1/mfa.c"
 static bool G_SessionStarted, G_BusinessStarted; /* install.h 的向导流程与本段启动链共用 */
 #include "route_http/index.h"
 #include "route_http/login.h"
@@ -143,6 +147,7 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 	if (!XA_ConfigInit() || !XA_MigrateComponent("auth",XA_AuthSchema1) || !XA_KeyInit()) {
 		printf("[xadmin][error] identity configuration or auth storage initialization failed\n"); return false;
 	}
+	if (!XA_MigrateComponent("mfa",XA_MFASchema1) || !XA_MFAKeyInit()) return false;
 	if (!XA_MigrateComponent("challenge",XA_ChallengeSchema1)) {
 		printf("[xadmin][error] identity challenge storage initialization failed\n"); return false;
 	}
@@ -223,6 +228,7 @@ void ServiceUnit(XS_HostInfo* host)
 		Auth_Unit();
 	}
 	XA_OAuthUnit();
+	XA_MFAKeyUnit();
 	xrtSecureZero(&G_Identity,sizeof(G_Identity));
 	Guard_Unit();
 	if (G_SessionStarted) Session_Unit();

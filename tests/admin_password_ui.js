@@ -17,10 +17,17 @@ const username = 'Hash_测试🔑';
 const password = '  Password_密碼🔐  ';
 const expected = createHash('sha256').update(username + '_xywhsoft_' + password).digest('hex');
 
-function page(kind, crypto = webcrypto, failRequest = false) {
+function page(kind, crypto = webcrypto, failRequest = false, mfaLogin = false) {
   const handlers = {};
   const requests = [], messages = [], closed = [];
   const button = { disabled: false, classList: { add() {}, remove() {} } };
+  const inputs = Object.fromEntries(['username', 'password', 'mfaCode'].map(name => [name, {
+    value: name === 'password' ? password : '', disabled: false, dataset: {}, attrs: {},
+    getAttribute(key) { return this.attrs[key]; }, setAttribute(key, value) { this.attrs[key] = value; },
+    removeAttribute(key) { delete this.attrs[key]; }, focus() {}
+  }]));
+  const mfaPane = { hidden: true };
+  const restart = { addEventListener(name, fn) { handlers['restart:' + name] = fn; } };
   const form = { on(name, fn) { handlers[name] = fn; }, render() {}, verify() {} };
   const table = { on: form.on, render() {}, reloadData() {} };
   const layer = {
@@ -32,14 +39,20 @@ function page(kind, crypto = webcrypto, failRequest = false) {
   const layui = { form, table, layer, jquery, $: jquery, use(names, fn) { fn(); } };
   const context = vm.createContext({
     TextEncoder, Uint8Array, crypto, console, layui, layer,
-    document: { getElementById() { return button; }, title: '' },
+    document: {
+      getElementById(id) { return id === 'mfaLogin' ? mfaPane : id === 'mfaRestart' ? restart : button; },
+      querySelectorAll() { return [inputs.username, inputs.password]; },
+      querySelector(selector) { return inputs[/name="([^"]+)"/.exec(selector)[1]]; }, title: ''
+    },
     window: { crypto, location: { pathname: '/private-admin-entry' } },
     parent: { layui, layer },
     async fetch(url, options = {}) {
       if (url.startsWith('/brand/admin')) return { json: async () => ({ result: false }) };
       requests.push({ url, ...options, data: JSON.parse(options.body) });
       if (failRequest) throw new Error('test request failure');
-      return { json: async () => ({ result: true, message: 'test success' }) };
+      return { json: async () => (mfaLogin && requests.length === 1
+        ? { result: false, mfa_required: true, challenge_id: 'c'.repeat(64) }
+        : { result: true, message: 'test success' }) };
     }
   });
   const source = readFileSync(resolve(__dirname, '..', files[kind]), 'utf8');
@@ -59,7 +72,7 @@ function page(kind, crypto = webcrypto, failRequest = false) {
     return result;
   }
   if (kind === 'reset') handlers['tool(Table_Auth_User)']({ event: 'resetPwd', data: { id: 7, user: username } });
-  return { context, requests, messages, closed, button, submit };
+  return { context, requests, messages, closed, button, submit, field, inputs, mfaPane };
 }
 
 async function settle(ui, kind) {
@@ -113,6 +126,20 @@ async function main() {
     assert.equal(failedRequest.button.disabled, false, 'request failure left the button disabled');
     console.log('PASS', kind, 'UTF-8 hash, synchronous cancellation, duplicate submit, hash/request failure and retry');
   }
+  const mfa = page('login', webcrypto, false, true);
+  mfa.submit();await settle(mfa, 'login');
+  assert.equal(mfa.mfaPane.hidden, false);
+  assert.equal(mfa.inputs.password.value, '');
+  assert.equal(mfa.inputs.username.disabled, true);
+  assert.equal(mfa.inputs.password.disabled, true);
+  mfa.field.mfaCode = 'abcdef01-abcdef01-abcdef01-abcdef01';
+  mfa.submit();await settle(mfa, 'login');
+  assert.deepEqual(mfa.requests[1].data, {
+    challenge_id: 'c'.repeat(64), code: mfa.field.mfaCode
+  });
+  assert.equal(mfa.context.window.location.href, '/admin');
+  console.log('PASS backend MFA handoff, password clearing, recovery-code submission and login redirect');
+
 }
 
 main().catch(error => { console.error(error); process.exitCode = 1; });

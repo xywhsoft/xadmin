@@ -87,7 +87,7 @@ static xvalue* Session_Acquire(bool admin, const char* id)
 {
 	xvalue* map = admin ? G_AdminSessions : G_MemberSessions;
 	xvalue* value = xrtValueObjectGet(map, xrtStrView(id));
-	if (value && Session_IsExpired(value)) { xrtValueObjectRemove(map, xrtStrView(id)); value = NULL; }
+	if (value && (Session_IsExpired(value) || (admin && !XA_MFAValidSession(true,ValueInt(value,"id"),ValueInt(value,"mfa_version"),ValueInt(value,"mfa_verified_at"))))) { xrtValueObjectRemove(map, xrtStrView(id)); value = NULL; }
 	return value ? xrtValueRetain(value) : xrtValueNull();
 }
 /* 先收集键，再删除；遍历期间不修改被遍历的容器。每五分钟清理无人再访问的过期项。 */

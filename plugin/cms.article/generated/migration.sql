@@ -1,1 +1,0 @@
--- Managed content migration is handled by generated plugin startup.

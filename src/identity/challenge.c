@@ -38,7 +38,7 @@ static bool XA_ChallengeRead(const char* id,XAChallenge* c)
     if(ok){c->member=sqlite3_column_int64(s,4);c->expires=sqlite3_column_int64(s,8);c->attempts=sqlite3_column_int(s,9);c->delivery=sqlite3_column_int(s,10);}
     sqlite3_finalize(s);return ok;
 }
-static bool XA_Recent(xvalue* session) { int64 until=ValueInt(session,"reauth_until");return until>XA_Now()&&until<=XA_Now()+300; }
+static bool XA_Recent(xvalue* session) { int64 until=ValueInt(session,"reauth_until");return until>XA_Now()&&until<=XA_Now()+300&&XA_MFARecent("member",session); }
 static void XA_ChallengeStart(XAdminRequest* req,xvalue* body,xvalue* session,bool binding)
 {
     const char* purpose=binding?"bind":XA_Text(body,"purpose",16);const char* channel=XA_Text(body,"channel",8);const char* target=XA_Text(body,"target",254);
@@ -123,9 +123,9 @@ static void XA_ChallengeConfirm(XAdminRequest* req,xvalue* body,xvalue* session,
     } else if(ok&&recover)ok=XA_SetPassword(c.member,password)&&XA_SessionRevokeAccount(c.member,NULL);
     else if(ok)ok=XA_SessionIssue(req,c.member,&tokens);
     int error=sqlite3_extended_errcode(G_DB);ok=XA_End(ok);xrtSecureZero(password,sizeof(password));
-    xvalue* data=ok&&!binding&&!recover?XA_TokenData(&tokens):NULL;char* headers=data?XA_CookieHeader(req,tokens.cookie,false,tokens.csrf):NULL;
+    xvalue* data=ok&&!binding&&!recover?XA_TokenData(&tokens):NULL;char* headers=data?XA_TokenHeaders(req,&tokens):NULL;
     if(ok&&!binding&&!recover&&(!data||!headers)){XA_SessionRevoke(tokens.sid);ok=false;}
-    int status=ok?200:(error==SQLITE_CONSTRAINT_UNIQUE?409:500);
+    int status=ok?200:tokens.error_status==429?429:(error==SQLITE_CONSTRAINT_UNIQUE?409:500);
     if(ok&&binding&&previous[0]&&strcmp(previous,c.target)){
         XAIdentityMessage message={c.id,c.channel,previous,"contact_changed","",0,req->raw->server->Engine,true};XADeliveryJob job;
         if(XA_DeliveryPrepare(&message,&job)){
@@ -134,7 +134,7 @@ static void XA_ChallengeConfirm(XAdminRequest* req,xvalue* body,xvalue* session,
         }
         xrtSecureZero(&job,sizeof(job));
     }
-    XA_Reply(req,status,ok?(binding?"contact verified":recover?"password reset":"signed in"):status==409?"contact already belongs to another account":"verification unavailable",data,headers);
+    XA_Reply(req,status,ok?(binding?"contact verified":recover?"password reset":"signed in"):status==409?"contact already belongs to another account":status==429?"too many MFA attempts":"verification unavailable",data,headers);
     xrtValueRelease(data);xrtFree(headers);XA_TokensUnit(&tokens);
 }
 static bool XA_HasOtherLogin(int64 member,const char* channel,int64 external_id)

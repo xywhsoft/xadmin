@@ -13,6 +13,7 @@ import subprocess
 import time
 from urllib.parse import parse_qs, urlencode, urlsplit
 from smoke import ROOT, PASSWORD, fixture, request
+from mfa_e2e import Client,totp
 
 
 def run(args):
@@ -156,6 +157,25 @@ def run(args):
         call('GET', '/api/v1/auth/authorize?request_id=' + expired[0], cookie=expired[1], status=410)
         mobile = begin(dict(client_id='example-mobile', redirect_uri='https://example.test/app/callback'))
         call('GET', '/api/v1/auth/authorize?request_id=' + mobile[0], cookie=mobile[1])
+        secured=Client(args.port)
+        secured.api('POST','/api/v1/login',{'identifier':'application_member','password':PASSWORD})
+        setup,_=secured.api('POST','/api/v1/profile/mfa/setup',{'password':PASSWORD})
+        enrolled,_=secured.api('POST','/api/v1/profile/mfa/confirm',{'setup_id':setup['setup_id'],'code':totp(setup['secret'])})
+        browser='MSID='+secured.cookies['MSID'];csrf=enrolled['csrf_token']
+        browser_session,_=call('GET','/api/v1/session',cookie=browser)
+        csrf=browser_session['csrf_token'];secured.csrf=csrf
+        proof_at=browser_session['mfa_verified_at'];assert proof_at>0
+        pending=begin()
+        code=parse_qs(urlsplit(approve(pending,browser,csrf)['redirect_uri']).query)['code'][0]
+        inherited=redeem(code)
+        native_session,_=call('GET','/api/v1/session',Authorization='Bearer '+inherited['access_token'])
+        assert native_session['mfa_verified_at']==proof_at
+        revoked=begin()
+        code=parse_qs(urlsplit(approve(revoked,browser,csrf)['redirect_uri']).query)['code'][0]
+        secured.api('POST','/api/v1/profile/mfa/recovery-codes',{})
+        redeem(code,status=401)
+        call('GET','/api/v1/session',status=401,Authorization='Bearer '+inherited['access_token'])
+        print('PASS native PKCE tokens inherit existing MFA assurance; credential rotation invalidates pending and issued grants')
         # No raw refresh token is retained in the native session database.
         assert sql('SELECT count(*) FROM member_refresh WHERE hash=?', (native['refresh_token'],)) == [(0,)]
         print('PASS public application login: PKCE, strict redirects/query, browser/CSRF binding, cancellation, restart, one-time codes, revocation and independent sessions')

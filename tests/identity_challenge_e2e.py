@@ -8,11 +8,12 @@ import sqlite3
 import subprocess
 import time
 from smoke import ROOT, PASSWORD, CSRF, fixture, request
+from mfa_e2e import Client,totp
 
 def run(args):
     original=hashlib.sha256((ROOT/'db/main.db').read_bytes()).digest()
     target=fixture(args.port);database=target/'db/main.db'
-    config=json.loads((target/'xs.json').read_text());config['services'][0]['host_default']['devfile']=str(ROOT/'tests/identity_delivery_host.c')
+    config=json.loads((target/'xs.json').read_text());config['services'][0]['host_default']['devfile']=str(target/'tests/identity_delivery_host.c')
     (target/'xs.json').write_text(json.dumps(config))
     (target/'db/identity.json').write_text(json.dumps({'public_origin':f'http://127.0.0.1:{args.port}','default_country_code':'+86'}))
     log=target/'server.log'
@@ -86,6 +87,25 @@ def run(args):
         call('GET','/api/v1/profile',cookie=otp_cookie,status=401)
         call('GET','/api/v1/profile',cookie=cookie,status=401)
         call('POST','/api/v1/login',{'identifier':'challenge_owner','password':PASSWORD+'-recovered'})
+        secured=Client(args.port)
+        secured.api('POST','/api/v1/login',{'identifier':'challenge_owner','password':PASSWORD+'-recovered'})
+        setup,_=secured.api('POST','/api/v1/profile/mfa/setup',{'password':PASSWORD+'-recovered'})
+        enrolled,_=secured.api('POST','/api/v1/profile/mfa/confirm',{'setup_id':setup['setup_id'],'code':totp(setup['secret'])})
+        challenge=start('email','Alice@example.com',purpose='login');candidate=Client(args.port)
+        before=sql('SELECT count(*)FROM member_session')[0][0]
+        pending,_=candidate.api('POST','/api/v1/auth/challenges/verify',challenge)
+        assert pending['mfa_required']and 'access_token'not in pending and 'MSID'not in candidate.cookies
+        assert sql('SELECT count(*)FROM member_session')[0][0]==before
+        candidate.api('GET','/api/v1/profile',status=401)
+        signed_in,_=candidate.api('POST','/api/v1/auth/mfa/verify',{'challenge_id':pending['challenge_id'],'code':enrolled['recovery_codes'][0]})
+        old=candidate.cookies['MSID']
+        challenge=start('email','Alice@example.com',purpose='recover')
+        call('POST','/api/v1/auth/challenges/verify',{**challenge,'newPassword':PASSWORD+'-mfa-recovered'})
+        assert sql("SELECT enabled FROM mfa_factor WHERE realm='member'AND owner=?",(signed_in['id'],))==[(1,)]
+        Client(args.port).api('GET','/api/v1/profile',headers={'Cookie':'MSID='+old},status=401)
+        after,_=Client(args.port).api('POST','/api/v1/login',{'identifier':'challenge_owner','password':PASSWORD+'-mfa-recovered'})
+        assert after['mfa_required']and 'access_token'not in after
+        print('PASS OTP primary login requires MFA and password recovery preserves the bound factor')
         # An account without a password must retain its final verified login.
         sql("INSERT INTO member(username,groupId,status,isDelete,email,email_key,email_verified_at)VALUES(NULL,1,1,0,'only@example.com','only@example.com',1)")
         challenge=start('email','only@example.com',purpose='login')

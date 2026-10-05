@@ -157,12 +157,12 @@ static void XA_OAuthCallback(XAdminRequest* req,const char* provider)
                 if(s){sqlite3_bind_int64(s,1,XA_Now()+300);sqlite3_bind_int64(s,3,member);sqlite3_bind_int64(s,4,XA_Now());}XA_BindText(s,2,local.sid);ok=XA_Done(s,true);}
             else if(ok)ok=XA_SessionRevokeAccount(member,local.sid);
             if(ok){s=XA_SQL("UPDATE identity_oauth SET status=2 WHERE state_hash=? AND status=1");XA_BindText(s,1,state_hash);ok=XA_Done(s,true);}
-            int write_error=sqlite3_extended_errcode(G_DB);completed=XA_End(ok);if(!completed)status=write_error==SQLITE_CONSTRAINT_UNIQUE?409:500;
+            int write_error=sqlite3_extended_errcode(G_DB);completed=XA_End(ok);if(!completed)status=tokens.error_status==429?429:write_error==SQLITE_CONSTRAINT_UNIQUE?409:500;
         }else if(status==200)status=500;
     }
     if(!completed){s=XA_SQL("UPDATE identity_oauth SET status=3 WHERE state_hash=? AND status=1");XA_BindText(s,1,state_hash);XA_Done(s,false);}
     if(completed){
-        char* cookie=tokens.cookie[0]?XA_CookieHeader(req,tokens.cookie,false,tokens.csrf):xrtStrDup("");
+        char* cookie=(tokens.cookie[0]||tokens.mfa_challenge[0])?XA_TokenHeaders(req,&tokens):xrtStrDup("");
         char* headers=cookie?xrtFormat("Content-Type: text/plain; charset=utf-8\r\nCache-Control: no-store\r\nReferrer-Policy: no-referrer\r\nLocation: /account/index.html\r\n%s",cookie):NULL;
         if(headers)xsHttpReplyAuto(req,303,headers,"",0);else {if(tokens.sid[0])XA_SessionRevoke(tokens.sid);XA_Reply(req,500,"authorization unavailable",NULL,NULL);}
         xrtFree(headers);xrtFree(cookie);

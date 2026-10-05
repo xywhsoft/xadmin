@@ -108,7 +108,7 @@ static void XA_ApplicationToken(XAdminRequest* req, xvalue* body)
     xvalue* source = XA_SessionRead(pending.sid, NULL);
     if (!source) { XA_Reply(req, 401, "authorization session revoked", NULL, NULL); return; }
     int64 owner = ValueInt(source, "id");
-    int64 proof_until = ValueInt(source, "reauth_until"); xrtValueRelease(source);
+    int64 proof_until = ValueInt(source, "reauth_until"),mfa_version=ValueInt(source,"mfa_version"),mfa_verified=ValueInt(source,"mfa_verified_at"); xrtValueRelease(source);
     /* SessionIssue has its own savepoint. The outer one makes code consumption
      * and issuance atomic, including rollback on response allocation failure. */
     if (sqlite3_exec(G_DB, "SAVEPOINT xa_application", NULL, NULL, NULL) != SQLITE_OK) {
@@ -116,7 +116,7 @@ static void XA_ApplicationToken(XAdminRequest* req, xvalue* body)
     }
     sqlite3_stmt* s = XA_SQL("UPDATE identity_application SET consumed_at=? WHERE request_id=? AND consumed_at=0 AND decision=1 AND expires_at>?");
     if (s) { sqlite3_bind_int64(s, 1, XA_Now()); sqlite3_bind_int64(s, 3, XA_Now()); } XA_BindText(s, 2, pending.id);
-    bool ok = XA_Done(s, true) && XA_SessionIssue(req, owner, &tokens);
+    bool ok = XA_Done(s, true) && XA_SessionIssueVerified(req, owner, &tokens,mfa_version,mfa_verified);
     if (ok) {
         /* An old browser cookie does not establish fresh identity proof. */
         s = XA_SQL("UPDATE member_session SET reauth_until=? WHERE sid=?");

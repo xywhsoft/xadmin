@@ -1,7 +1,0 @@
-{
-  "title": "Guestbook",
-  "intro": "Leave a message for the team.",
-  "pageSize": 20,
-  "maxContentLength": 280,
-  "requireApproval": false
-}
