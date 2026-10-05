@@ -21,7 +21,7 @@ static void XA_LoginAPI(XAdminRequest* req,xvalue* body)
     }
     if(!XA_SessionIssue(req,account.id,&tokens)){XA_TokensUnit(&tokens);XA_Reply(req,500,"session unavailable",NULL,NULL);return;}
     xvalue* data=XA_TokenData(&tokens);char* headers=XA_CookieHeader(req,tokens.cookie,false,tokens.csrf);
-    if(data&&headers){ValueSetText(data,"username",account.username);ValueSetText(data,"nickname",account.nickname);ValueSetInt(data,"balance",account.balance);
+    if(data&&headers){ValueSetText(data,"username",account.username);ValueSetText(data,"nickname",account.nickname);Member_SetBalance(data,account.id,account.balance);
         Guard_Reset(G_GuardMember,req->remote);XA_Reply(req,200,"signed in",data,headers);}
     else {XA_SessionRevoke(tokens.sid);XA_Reply(req,500,"session unavailable",NULL,NULL);}
     xrtFree(headers);xrtValueRelease(data);XA_TokensUnit(&tokens);xrtSecureZero(&account,sizeof(account));
@@ -65,7 +65,7 @@ static void XA_ProfileAPI(XAdminRequest* req,xvalue* session,xvalue* body)
             ValueSetInt(data,"phone_verified_at",sqlite3_column_int64(s,6));ValueSetInt(data,"email_verified_at",sqlite3_column_int64(s,7));
             ValueSetBool(data,"security_questions_configured",sqlite3_column_int(s,12)>0);
             ValueSetInt(data,"groupId",sqlite3_column_int64(s,8));ValueSetInt(data,"authLevel",sqlite3_column_int64(s,9));
-            ValueSetInt(data,"balance",sqlite3_column_int64(s,10));ValueSetInt(data,"createTime",sqlite3_column_int64(s,11));}
+            Member_SetBalance(data,owner,sqlite3_column_int64(s,10));ValueSetInt(data,"createTime",sqlite3_column_int64(s,11));}
         sqlite3_finalize(s);XA_Reply(req,data?200:500,data?"success":"profile unavailable",data,NULL);xrtValueRelease(data);return;
     }
     /* A strict whitelist also rejects aliases for verification/privilege fields. */

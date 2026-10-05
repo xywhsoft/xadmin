@@ -2,6 +2,12 @@
 
 
 // 前台用户模块 - SQL 预编译和基础操作
+/* Optional generic account service. 0 means never activated, 1 managed;
+ * -1 means activated but unavailable and MUST NOT fall back to legacy cash. */
+static int Member_BalanceAuthority(char name[65]);
+static int Member_ServiceAdjust(int64 owner,int64 cents,const char* reason,const char* actor);
+static bool Member_SetBalance(xvalue* data,int64 owner,int64 legacy_cents);
+static xvalue* Member_ServiceTransactions(int64 owner,int64 offset,int limit);
 
 
 
@@ -320,6 +326,8 @@ void Member_Unit()
 // 返回: true=成功, false=失败
 bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, str operator)
 {
+	int managed=Member_ServiceAdjust(memberId,amount,remark,operator);
+	if(managed)return managed>0;
 	if (!DB_BeginWrite()) return false;
 	// 获取当前余额
 	sqlite3_bind_int64(stmt_member_get, 1, memberId);

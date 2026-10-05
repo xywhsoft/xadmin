@@ -25,9 +25,8 @@ void API_Balance(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObj
 	sqlite3_bind_int64(stmt_member_get, 1, iMemberId);
 	if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
 		int64 iBalance = sqlite3_column_int64(stmt_member_get, 4);
-		// 更新 Session 中的余额
-		ValueSetInt(objSession, "balance", iBalance);
-		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"code\":0,\"msg\":\"success\",\"data\":{\"balance\":%lld}}", iBalance);
+		xvalue* data=ValueObject();bool ok=Member_SetBalance(data,iMemberId,iBalance);
+		XA_Reply(objResp,ok?200:503,ok?"success":"Balance provider unavailable",data,NULL);xrtValueRelease(data);
 	} else {
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"code\":404,\"msg\":\"用户不存在\"}", 0);
 	}
@@ -61,6 +60,11 @@ void API_BalanceLog(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	if ( iLimit > 100 ) iLimit = 100;
 	
 	int64 iOffset = (iPage - 1) * iLimit;
+	char provider[65];int managed=Member_BalanceAuthority(provider);
+	if(managed){
+		xvalue* rows=managed>0?Member_ServiceTransactions(iMemberId,iOffset,(int)iLimit):NULL;
+		XA_Reply(objResp,rows?200:503,rows?"success":"Balance provider unavailable",rows,NULL);xrtValueRelease(rows);return;
+	}
 	
 	// 构建返回数据
 	xvalue* arrRet = ValueArray();
@@ -89,5 +93,4 @@ void API_BalanceLog(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 	xrtFree(sJSON);
 	xrtValueRelease(arrRet);
 }
-
 

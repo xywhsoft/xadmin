@@ -1,0 +1,20 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>账户与计费</title><link rel="stylesheet" href="/plugin-static/billing/ui.css"></head>
+<body data-page="admin"><header><h1>账户与计费</h1><p>充值余额、服务额度、会员套餐和消费账单。</p></header>
+<div id="message" role="status" aria-live="polite"></div>
+<form id="lookup" class="toolbar"><label>会员 ID <input name="member_id" type="number" min="1" placeholder="留空查看最近记录"></label><button>查询</button><a href="/admin/model-gateway">模型网关</a></form>
+<div id="account" class="cards"></div>
+<nav aria-label="管理分类"><button type="button" data-tab="cash">余额与额度</button><button type="button" data-tab="plans">会员套餐</button><button type="button" data-tab="transactions">账单流水</button><button type="button" data-tab="requests">请求结算</button><button type="button" data-tab="subscriptions">会员记录</button></nav>
+<section data-panel="cash"><div class="forms">
+<form id="adjust"><h2>调整充值余额</h2><label>会员 ID<input name="member_id" type="number" min="1" required></label><label>金额（元；负数扣减）<input name="amount" inputmode="decimal" required></label><label>原因<input name="reason" maxlength="256" required></label><button>保存余额调整</button></form>
+<form id="grant"><h2>赠送服务额度</h2><label>会员 ID<input name="member_id" type="number" min="1" required></label><label>额度（元）<input name="amount" inputmode="decimal" required></label><label>到期时间（留空不过期）<input name="expiry" type="datetime-local"></label><label>用途<input name="reason" maxlength="128" required></label><button>发放额度</button></form>
+</div><p class="hint">已冻结的金额不能被扣减。赠送额度按较早到期的顺序使用，退款保留原有来源和有效期。</p></section>
+<section data-panel="plans" hidden><div class="forms">
+<form id="plan"><h2>创建或修改套餐</h2><label>标识<input name="id" pattern="[A-Za-z0-9_.-]+" maxlength="64" required></label><label>名称<input name="title" maxlength="128" required></label><label>会员天数<input name="duration_days" type="number" min="1" max="366" value="30" required></label><label>额度周期（天）<input name="period_days" type="number" min="1" max="366" value="30" required></label><label>每周期服务额度（元）<input name="credit" value="0" inputmode="decimal" required></label><label>收费比例（百分比）<input name="discount" type="number" min="0.01" max="100" step="0.01" value="100" required></label><label>同时模型请求上限<input name="concurrency_limit" type="number" min="1" max="16" value="2" required></label><label>可用会员模型（逗号分隔；* 为全部）<input name="model_ids" value="*" maxlength="1024" required></label><label class="check"><input name="enabled" type="checkbox" checked>允许新开通</label><button>保存套餐</button></form>
+<form id="subscribe"><h2>开通或续期</h2><label>会员 ID<input name="member_id" type="number" min="1" required></label><label>套餐标识<input name="plan_id" maxlength="64" required></label><button>开通会员</button><p class="hint">同套餐续期从原到期时间起算，不重复发放本期额度。套餐修改不改变已经开通的会员权益。</p></form>
+</div><div id="plans-table"></div></section>
+<section data-panel="transactions" hidden><h2>最近账单</h2><div id="transactions-table"></div></section>
+<section data-panel="requests" hidden><div class="forms">
+<form id="refund"><h2>退款</h2><label>请求编号<input name="request_id" maxlength="96" required></label><label>原因<input name="reason" maxlength="256" required></label><button>退回本次实扣金额</button></form>
+<form id="resolve"><h2>核实待结算请求</h2><label>请求编号<input name="request_id" maxlength="96" required></label><label>核实后的收费（元；0 释放预留）<input name="amount" inputmode="decimal" required></label><label>核实依据<input name="reason" maxlength="256" required></label><button>完成结算</button></form></div><div id="requests-table"></div></section>
+<section data-panel="subscriptions" hidden><h2>会员记录</h2><div id="subscriptions-table"></div></section>
+<script src="/plugin-static/billing/ui.js" defer></script></body></html>

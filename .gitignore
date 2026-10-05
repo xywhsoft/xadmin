@@ -9,3 +9,7 @@ __pycache__/
 /plugin_data/web-search/credentials.json
 /plugin_data/web-search/.xrt-write-*.tmp
 /db/plugin/web-search/
+/db/plugin/billing/
+/db/plugin/model-gateway/
+/plugin_data/model-gateway/
+/plugin_data/billing/

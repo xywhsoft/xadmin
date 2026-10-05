@@ -48,7 +48,7 @@ void Request_View_Member_User_Edit(XS_ServerObject objServer, XS_HostObject objH
 			ValueSetText(tblInfo, "username", (str)sqlite3_column_text(stmt_member_get, 1));
 			ValueSetInt(tblInfo, "groupId", sqlite3_column_int64(stmt_member_get, 2));
 			ValueSetInt(tblInfo, "authLevel", sqlite3_column_int64(stmt_member_get, 3));
-			ValueSetInt(tblInfo, "balance", sqlite3_column_int64(stmt_member_get, 4));
+			Member_SetBalance(tblInfo,id,sqlite3_column_int64(stmt_member_get,4));
 			ValueSetText(tblInfo, "nickname", (str)sqlite3_column_text(stmt_member_get, 5));
 			ValueSetText(tblInfo, "email", (str)sqlite3_column_text(stmt_member_get, 6));
 			ValueSetText(tblInfo, "phone", (str)sqlite3_column_text(stmt_member_get, 7));
@@ -86,8 +86,8 @@ void Request_View_Member_User_Balance(XS_ServerObject objServer, XS_HostObject o
 		if ( sqlite3_step(stmt_member_get) == SQLITE_ROW ) {
 			ValueSetInt(tblInfo, "id", sqlite3_column_int64(stmt_member_get, 0));
 			ValueSetText(tblInfo, "username", (str)sqlite3_column_text(stmt_member_get, 1));
-			int64 balance = sqlite3_column_int64(stmt_member_get, 4);
-			ValueSetInt(tblInfo, "balance", balance);
+			Member_SetBalance(tblInfo,id,sqlite3_column_int64(stmt_member_get,4));
+			int64 balance=ValueInt(tblInfo,"balance");
 			// 转换为元，保留两位小数
 			char sBalanceYuan[32];
 			snprintf(sBalanceYuan, sizeof(sBalanceYuan), "%.2f", balance / 100.0);
@@ -140,7 +140,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 				ValueSetText(tblRow, "username", (str)sqlite3_column_text(stmt_member_sel, 1));
 				ValueSetInt(tblRow, "groupId", sqlite3_column_int64(stmt_member_sel, 2));
 				ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_member_sel, 3));
-				ValueSetInt(tblRow, "balance", sqlite3_column_int64(stmt_member_sel, 4));
+				Member_SetBalance(tblRow,sqlite3_column_int64(stmt_member_sel,0),sqlite3_column_int64(stmt_member_sel,4));
 				ValueSetText(tblRow, "nickname", (str)sqlite3_column_text(stmt_member_sel, 5));
 				ValueSetInt(tblRow, "status", sqlite3_column_int64(stmt_member_sel, 9));
 				ValueSetText(tblRow,"phone",(str)sqlite3_column_text(stmt_member_sel,7));
@@ -168,7 +168,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			ValueSetText(tblRow, "username", (str)sqlite3_column_text(stmt_member_all, 1));
 			ValueSetInt(tblRow, "groupId", sqlite3_column_int64(stmt_member_all, 2));
 			ValueSetInt(tblRow, "authLevel", sqlite3_column_int64(stmt_member_all, 3));
-			ValueSetInt(tblRow, "balance", sqlite3_column_int64(stmt_member_all, 4));
+			Member_SetBalance(tblRow,sqlite3_column_int64(stmt_member_all,0),sqlite3_column_int64(stmt_member_all,4));
 			ValueSetText(tblRow, "nickname", (str)sqlite3_column_text(stmt_member_all, 5));
 			ValueSetInt(tblRow, "status", sqlite3_column_int64(stmt_member_all, 9));
 			ValueSetText(tblRow,"phone",(str)sqlite3_column_text(stmt_member_all,7));

@@ -1,0 +1,1 @@
+{"type":"object","additionalProperties":false,"properties":{"currency":{"type":"string","enum":["CNY"],"title":"账本币种"},"pending_timeout_seconds":{"type":"integer","minimum":600,"maximum":86400,"title":"无法核实用量的预留释放期限（秒）"}}}

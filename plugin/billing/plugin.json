@@ -1,0 +1,12 @@
+{
+  "formatVersion":4,"xid":"billing","name":"billing","title":"账户与计费",
+  "description":"通用高精度预付费、额度、会员权益和幂等结算服务",
+  "version":"1.0.0","author":"xAdmin","kind":"singleton","sort":35,
+  "runtime":{"compiler":"tcc","language":"c"},
+  "resources":{"page":"page","static":"static"},
+  "build":{"entry":"main.c","sources":["main.c"],"includeDirs":[],"libraryDirs":[],"libraries":[],"defines":["XADMIN_PLUGIN=1"]},
+  "compat":{"minHostVersion":"4.4.0","maxHostVersion":"5.0.0","abiVersion":4},
+  "capabilities":["route.public","route.admin","menu","auth","service"],
+  "dependencies":{"plugins":[],"services":[],"features":[]},
+  "defaultConfig":"config.defaults.json","configSchema":"config.schema.json"
+}
