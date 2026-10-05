@@ -78,11 +78,13 @@ XS_RequestResult RequestProc(XS_HttpReq* raw)
 	xrtMutexLock(G_RequestLock);
 	if (G_InstallMode) {
 		/* 安装向导接管（v1 http.h 语义）：建库+业务段启动在锁内完成 */
-		Install_RequestWizard(raw->host, &req);
+		bool asset = (xsReqMethodID(&req) == XHTTP_METHOD_GET || xsReqMethodID(&req) == XHTTP_METHOD_HEAD)
+			&& Install_IsPublicAsset(req.path);
+		if (!asset) Install_RequestWizard(raw->host, &req);
 		xrtMutexUnlock(G_RequestLock);
 		XAdmin_RequestHeadersRelease(&req);
 		xrtFree(req.body); xrtFree(target);
-		return XS_OK;
+		return asset ? XS_FALLBACK : XS_OK;
 	}
 	if(!strncmp(req.path,"/api/v1/",8)&&xsReqMethodID(&req)==XHTTP_METHOD_OPTIONS){
 		bool bad=false;const xhttpfield* method=XA_Header(&req,"Access-Control-Request-Method",&bad);

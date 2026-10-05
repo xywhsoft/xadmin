@@ -7,7 +7,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/install.html",
     "target": "page/install.html",
-    "sha256": "0896ebbe813588f1cd8f2496e363dd9698554f00c0a7a8233106d720315cfa40"
+    "sha256": "0896ebbe813588f1cd8f2496e363dd9698554f00c0a7a8233106d720315cfa40",
+    "target_sha256": "8eff6ff7e35e46b6cdd993ea37374ab458315eedfa6295169115bb72621af68f"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/logs.html",
@@ -34,7 +35,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/admin/login.html",
     "target": "page/admin/login.html",
-    "sha256": "a77b5f5ffbde7d36fab7b6d58a71455c57aea94c7f976a7a3d2f9eba48d24b67"
+    "sha256": "a77b5f5ffbde7d36fab7b6d58a71455c57aea94c7f976a7a3d2f9eba48d24b67",
+    "target_sha256": "0bcbf70737d096ab21325d1064afc7b6a6e6681b3a32114e561af1bb18e60942"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/attachment/edit.html",
@@ -88,7 +90,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/auth/user.html",
     "target": "page/auth/user.html",
-    "sha256": "e54fa72b18d03bdd7a3514327d28b723abbb5f332cdbe4111fce456a8be2ba98"
+    "sha256": "e54fa72b18d03bdd7a3514327d28b723abbb5f332cdbe4111fce456a8be2ba98",
+    "target_sha256": "d0365d7cc9264a3864e0bf2f92f17c9f24ae176075d65778c7d89d0754c23fc4"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/member/auth.html",
@@ -313,7 +316,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/template/auth/user_add.html",
     "target": "template/auth/user_add.html",
-    "sha256": "e966e6c341377b680f0aa1b7f1f2739994a4d63f0da70d1a25c9727c86c427cd"
+    "sha256": "e966e6c341377b680f0aa1b7f1f2739994a4d63f0da70d1a25c9727c86c427cd",
+    "target_sha256": "b13bc40d533113c9cc7b2e1657c397419443705af04adc78f84f8fd673e5af0c"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/template/auth/user_edit.html",

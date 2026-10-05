@@ -12,6 +12,7 @@ XADMIN_EXPORT void XAdmin_PluginSetGlobalData(int index,void* value)
 {if(index==XADMIN_GLOBAL_HOST_CONTEXT)G_Host=value;}
 #include "src/storage.c"
 #include "src/ledger.c"
+#include "src/cash.c"
 #include "src/subscriptions.c"
 #include "src/routes.c"
 static int Billing_ServiceAccount(int64_t owner,XBillingAccount* out)
@@ -32,6 +33,7 @@ static xvalue* Billing_Changes(const char* service,int64_t after,int limit)
     XP_Bind(s,1,service);if(s){sqlite3_bind_int64(s,2,after);sqlite3_bind_int(s,3,limit);}return XP_Rows(s);
 }
 static XBillingService G_Service={sizeof(XBillingService),1,Billing_ServiceAccount,Billing_Entitlement,Billing_Reserve,Billing_Finalize,Billing_Lookup,Billing_AdjustCash,Billing_Refund,Billing_Transactions,Billing_ServiceMaintain,Billing_Changes};
+static XBillingCashService G_CashService={sizeof(XBillingCashService),1,Billing_CashPay,Billing_CashLookup};
 static int Billing_Start(XAdminPluginHandle handle)
 {
     G_Handle=handle;if(!G_Host || !G_Host->main_db || !G_Host->plugin_private_db_path)return -1;
@@ -39,6 +41,8 @@ static int Billing_Start(XAdminPluginHandle handle)
     if(!Billing_Schema() || !Billing_Migrate() || !Billing_Maintain() || !Billing_Periods())return -1;
     XAdminServiceDecl service={XADMIN_BILLING_SERVICE,1,0,"billing",0,sizeof(G_Service),""};
     if(XAdmin_RegisterService(handle,&service,&G_Service))return -1;
+    XAdminServiceDecl cash={XADMIN_BILLING_CASH_SERVICE,1,0,"billing",0,sizeof(G_CashService),""};
+    if(XAdmin_RegisterService(handle,&cash,&G_CashService))return -1;
     int group_id=0,auth_id=0;XAdminAuthGroupDecl group={XADMIN_AUTH_SCOPE_ADMIN,"billing","账户计费","账户与会员服务",990020};
     XAdminAuthDecl auth={XADMIN_AUTH_SCOPE_ADMIN,"billing.manage",0,"管理账户计费","管理余额、会员、额度及退款",990020};
     if(XAdmin_RegisterAuthGroup(handle,&group,&group_id,NULL))return -1;auth.group_id=group_id;

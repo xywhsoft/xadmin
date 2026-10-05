@@ -202,8 +202,8 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			xrtValueRelease(tblForm);
 			return;
 		}
-		if ( strlen(password) > 128 ) {
-			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码最多128个字符！\"}", 0);
+		if ( !IsClientPasswordHash(password) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码哈希格式无效，请刷新页面后重试！\"}", 0);
 			xrtValueRelease(tblForm);
 			return;
 		}
@@ -225,6 +225,13 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		// 服务端二次 SHA-256 哈希
 		str sSalt = Util_Token();
 		str sPwdHash = ServerHashPassword(user, sSalt, password);
+		if (!sSalt || !sPwdHash) {
+			xrtFree(sSalt);
+			xrtFree(sPwdHash);
+			xrtValueRelease(tblForm);
+			xsHttpReplyAuto(objResp, 500, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码生成失败，请重试！\"}", 0);
+			return;
+		}
 		
 		// 写入数据库
 		xtime now = xrtNow();
@@ -232,7 +239,10 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_text(stmt_user_add, 2, sSalt, strlen(sSalt), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_user_add, 3, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_user_add, 4, role);
-		sqlite3_bind_int64(stmt_user_add, 5, 0); // authLevel 默认为 0
+		int64 authLevel = ValueInt(tblForm, "authLevel");
+		if (authLevel < 0) authLevel = 0;
+		if (authLevel > 999) authLevel = 999;
+		sqlite3_bind_int64(stmt_user_add, 5, authLevel);
 		sqlite3_bind_int64(stmt_user_add, 6, now);
 		sqlite3_bind_int64(stmt_user_add, 7, now);
 		bool written = DB_Write(stmt_user_add, true);
@@ -359,16 +369,23 @@ void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, X
 			xrtValueRelease(tblForm);
 			return;
 		}
-		if ( strlen(password) > 128 ) {
-			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码最多128个字符！\"}", 0);
+		if ( !IsClientPasswordHash(password) ) {
+			xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码哈希格式无效，请刷新页面后重试！\"}", 0);
 			xrtValueRelease(tblForm);
 			return;
 		}
-		// 生成新的随机 salt（使用 XID）
+		// 生成新的安全随机 salt
 		str sSalt = Util_Token();
 		
 		// 服务端二次 SHA-256 哈希
 		str sPwdHash = ServerHashPassword(username, sSalt, password);
+		if (!sSalt || !sPwdHash) {
+			xrtFree(sSalt);
+			xrtFree(sPwdHash);
+			xrtValueRelease(tblForm);
+			xsHttpReplyAuto(objResp, 500, HTTP_CT_JSON, "{\"result\": false, \"message\": \"密码生成失败，请重试！\"}", 0);
+			return;
+		}
 		
 		// 更新 salt 和密码
 		xtime now = xrtNow();
@@ -376,6 +393,8 @@ void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, X
 		sqlite3_bind_text(stmt_user_pwd, 2, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_user_pwd, 3, now);
 		sqlite3_bind_int64(stmt_user_pwd, 4, id);
+		// 客户端哈希绑定用户名；只有 ID 和用户名同时匹配有效账号才可更新。
+		sqlite3_bind_text(stmt_user_pwd, 5, username, -1, SQLITE_STATIC);
 		bool written = DB_Write(stmt_user_pwd, true);
 		
 		xrtFree(sSalt);
@@ -696,9 +715,12 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sqlite3_bind_int64(stmt_role_put, 4, authLevel);
 		sqlite3_bind_int64(stmt_role_put, 5, now);
 		sqlite3_bind_int64(stmt_role_put, 6, id);
+		int64 previousLevel = -1;
+		Auth_DBRoleGetAccess(id, 0, &previousLevel);
 		bool written = DB_Write(stmt_role_put, true);
 		xrtValueRelease(tblForm);
 		if (ReplyIfWriteFailed(objResp, written)) return;
+		if (previousLevel != authLevel) Session_RevokeRole(id);
 		
 		// 返回成功信息
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"角色更新成功！\"}", 0);

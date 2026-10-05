@@ -1,10 +1,10 @@
 /* v1 安装向导契约（module/install.h + http.h 拦截）：
- * install.lock 缺失且 db/main.db 缺失 → 向导接管全部请求；GET 出 install.html
+ * install.lock 缺失且 db/main.db 缺失 → 向导接管请求（放行必需静态资源）；GET 出 install.html
  * （客户端 SHA-256(用户名+"_xywhsoft_"+密码) 后 POST 到 /），POST 四步：
  * 建库（本代改为执行 install/init.sql 全量脚本，v1 为复制预置库文件）→
  * 业务段启动 → 创建超管（随机 salt + 服务端二次哈希）→ 写 install.lock。
  * 加固偏差：db/main.db 已存在而 lock 缺失视为存量部署，不进向导（v1 会复制
- * 预置库覆盖既有数据，本代拒绝覆盖）；密码必须为 64 位十六进制客户端哈希。 */
+ * 预置库覆盖既有数据，本代拒绝覆盖）；密码必须为 64 位小写十六进制客户端哈希。 */
 static bool G_Install;     /* install.lock 存在 */
 static bool G_InstallMode; /* 向导接管中（未安装） */
 static bool G_InstallBusy; /* 安装事务执行中（防并发重复提交） */
@@ -30,13 +30,22 @@ static void Install_Init(void)
 
 static bool Install_IsHex64(const char* text)
 {
+	return IsClientPasswordHash(text);
+}
+
+/* Only the wizard's public resources bypass installation interception. Exact
+ * paths keep database/source files and encoded traversal in the wizard. */
+static bool Install_IsPublicAsset(const char* path)
+{
+	static const char* assets[] = {
+		"/layui/layui.js", "/layui/css/layui.css",
+		"/layui/font/iconfont.eot", "/layui/font/iconfont.svg",
+		"/layui/font/iconfont.ttf", "/layui/font/iconfont.woff", "/layui/font/iconfont.woff2"
+	};
 	size_t i;
-	if (!text || strlen(text) != 64) return false;
-	for (i = 0; i < 64; i++) {
-		char c = text[i];
-		if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return false;
-	}
-	return true;
+	for (i = 0; i < sizeof(assets)/sizeof(assets[0]); i++)
+		if (!strcmp(path, assets[i])) return true;
+	return false;
 }
 
 static bool Install_ValidUsername(const char* user)
@@ -121,9 +130,14 @@ done:
 
 static void Install_ReplyJSON(XAdminRequest* req, int code, bool result, const char* message)
 {
-	char* body = xrtFormat("{\"result\": %s, \"message\": \"%s\"}", result ? "true" : "false", message);
-	xsHttpReplyAuto(req, code, HTTP_CT_JSON, body, strlen(body));
+	xvalue* reply = ValueObject(); size_t size = 0;
+	ValueSetBool(reply, "result", result);
+	ValueSetText(reply, "message", message);
+	if (result) ValueSetText(reply, "loginPath", Option_GetAdminLoginPath());
+	char* body = xrtJsonStringify(reply, false, &size);
+	xsHttpReplyAuto(req, code, HTTP_CT_JSON, body, size);
 	xrtFree(body);
+	xrtValueRelease(reply);
 }
 
 /* 由 Protocol 在向导模式调用：接管一切请求。host 与 ServiceInit 收到的是同一

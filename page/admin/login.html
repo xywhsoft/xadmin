@@ -29,7 +29,7 @@
 							</div>
 		
 							<!-- 表单区域 -->
-							<form class="layui-form" action="#" lay-filter="install-form">
+							<form class="layui-form" action="#" lay-filter="install-form" onsubmit="return false;">
 								<div style="margin-top: 30px;">
 									<div class="layui-form-item">
 										<div class="layui-input-wrap">
@@ -71,6 +71,9 @@
 	<script>
 		// SHA-256 哈希函数（使用 Web Crypto API）
 		async function sha256(message) {
+			if (!window.crypto || !window.crypto.subtle) {
+				throw new Error('当前环境无法计算密码哈希，请使用 HTTPS 或 localhost 访问后台');
+			}
 			const msgBuffer = new TextEncoder().encode(message);
 			const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
 			const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -103,51 +106,50 @@
 			loadAdminBranding();
 
 			// 登 录 提 交
-			form.on('submit(login)', async function (data) {
+			form.on('submit(login)', function (data) {
 				const formData = data.field;
 				
 				// 禁用按钮
 				var btn = document.getElementById('loginBtn');
+				if (btn.disabled) return false;
 				btn.classList.add('layui-btn-disabled');
 				btn.disabled = true;
 				
 				// 显示加载动画
-				layer.load(2);
+				var loading = layer.load(2);
+				// Layui 需要同步返回 false；异步哈希和请求在内部完成。
+				(async function () {
+					try {
 				
-				// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
-				const pwdHash = await sha256(formData.username + '_xywhsoft_' + formData.password);
+						// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
+						const pwdHash = await sha256(formData.username + '_xywhsoft_' + formData.password);
 				
-				// 发送请求（传输哈希值而非明文）
-				fetch(window.location.pathname, {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						username: formData.username,
-						password: pwdHash,
-						remember: formData.remember
-					})
-				})
-				.then(response => response.json())
-				.then(data => {
-					if ( data.result ) {
-						window.location.href = '/admin';
-					} else {
-						layer.msg(data.message, {icon: 2});
+						// 发送请求（传输哈希值而非明文）
+						const response = await fetch(window.location.pathname, {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify({
+								username: formData.username,
+								password: pwdHash,
+								remember: formData.remember
+							})
+						});
+						const result = await response.json();
+						if ( result.result ) {
+							window.location.href = '/admin';
+						} else {
+							layer.msg(result.message, {icon: 2});
+						}
+					} catch (error) {
+						layer.msg(error.message || '登录失败，请重试', {icon: 2});
+					} finally {
 						btn.classList.remove('layui-btn-disabled');
 						btn.disabled = false;
+						layer.close(loading);
 					}
-				})
-				.catch(error => {
-					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
-					console.error('Error:', error)
-					btn.classList.remove('layui-btn-disabled');
-					btn.disabled = false;
-				});
-				
-				// 关闭加载动画
-				layer.closeAll('loading');
+				})();
 				
 				// 阻止默认提交（由JS控制）
 				return false;

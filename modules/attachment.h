@@ -244,7 +244,8 @@ static bool Attachment_Add(const char* xid, const char* filename, const char* ex
 	}
 }
 
-static bool Attachment_CheckPurchased(const char* xid, int64 memberId)
+static bool Attachment_RecoverPurchase(const char* xid, int64 memberId);
+static bool Attachment_HasOrder(const char* xid, int64 memberId)
 {
 	sqlite3_bind_text(stmt_attachment_check_order, 1, xid, -1, NULL);
 	sqlite3_bind_int64(stmt_attachment_check_order, 2, memberId);
@@ -253,6 +254,11 @@ static bool Attachment_CheckPurchased(const char* xid, int64 memberId)
 		sqlite3_reset(stmt_attachment_check_order);
 		return purchased;
 	}
+}
+
+static bool Attachment_CheckPurchased(const char* xid, int64 memberId)
+{
+	return Attachment_HasOrder(xid, memberId) || Attachment_RecoverPurchase(xid, memberId);
 }
 
 static bool Attachment_AddOrder(const char* xid, int64 memberId, int64 price, int priceType,
@@ -265,21 +271,13 @@ static bool Attachment_AddOrder(const char* xid, int64 memberId, int64 price, in
 	sqlite3_bind_int64(stmt_attachment_add_order, 5, sellerId);
 	sqlite3_bind_int64(stmt_attachment_add_order, 6, sellerIncome);
 	sqlite3_bind_int64(stmt_attachment_add_order, 7, xrtNow());
-	{
-		int rc = sqlite3_step(stmt_attachment_add_order);
-		sqlite3_reset(stmt_attachment_add_order);
-		return rc == SQLITE_DONE;
-	}
+	return DB_Write(stmt_attachment_add_order, true);
 }
 
 static bool Attachment_UpdateSales(const char* xid)
 {
 	sqlite3_bind_text(stmt_attachment_update_sales, 1, xid, -1, NULL);
-	{
-		int rc = sqlite3_step(stmt_attachment_update_sales);
-		sqlite3_reset(stmt_attachment_update_sales);
-		return rc == SQLITE_DONE;
-	}
+	return DB_Write(stmt_attachment_update_sales, true);
 }
 
 static bool Attachment_UpdateDownloadCount(const char* xid)

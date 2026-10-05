@@ -30,6 +30,9 @@
 <script>
 	// SHA-256 哈希函数（使用 Web Crypto API）
 	async function sha256(message) {
+		if (!window.crypto || !window.crypto.subtle) {
+			throw new Error('当前环境无法计算密码哈希，请使用 HTTPS 或 localhost 访问后台');
+		}
 		const msgBuffer = new TextEncoder().encode(message);
 		const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
 		const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -116,33 +119,36 @@
 				});
 			} else if ( obj.event == 'resetPwd' ) {
 				// 重置密码
+				var resetting = false;
 				layer.prompt({
 					formType: 1,
 					title: '重置密码 - ' + data.user,
 					area: ['400px', '200px']
 				}, async function(newPassword, promptIndex) {
+					if (resetting) return;
 					if (!newPassword || newPassword.trim() === '') {
 						layer.msg('密码不能为空', {icon: 2});
 						return;
 					}
 					
-					// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
-					const pwdHash = await sha256(data.user + '_xywhsoft_' + newPassword);
+					resetting = true;
+					try {
+						// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
+						const pwdHash = await sha256(data.user + '_xywhsoft_' + newPassword);
 					
-					// 发送请求重置密码（传输哈希值而非明文）
-					fetch('/admin/auth/user/repwd', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json'
-						},
-						body: JSON.stringify({
-							id: data.id,
-							username: data.user,
-							password: pwdHash
-						})
-					})
-					.then(response => response.json())
-					.then(result => {
+						// 发送请求重置密码（传输哈希值而非明文）
+						const response = await fetch('/admin/auth/user/repwd', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify({
+								id: data.id,
+								username: data.user,
+								password: pwdHash
+							})
+						});
+						const result = await response.json();
 						if (result && result.result === true) {
 							layer.msg(result.message || '密码重置成功', {icon: 1});
 							table.reloadData('Table_Auth_User');
@@ -150,11 +156,11 @@
 						} else {
 							layer.msg(result.message || '重置失败', {icon: 2});
 						}
-					})
-					.catch(error => {
-						layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
-						console.error('Error:', error);
-					});
+					} catch (error) {
+						layer.msg(error.message || '重置失败，请重试', {icon: 2});
+					} finally {
+						resetting = false;
+					}
 				});
 			} else if ( obj.event == 'delete' ) {
 				// 删除

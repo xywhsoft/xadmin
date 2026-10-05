@@ -58,6 +58,7 @@ static bool XA_SecurityClose(int64 owner,const char* resolution,const char* admi
 #include "modules/form.h"
 #include "modules/plugin_host.h"
 #include "src/storage/balance_service.c"
+#include "src/storage/attachment_purchase.c"
 #include "modules/content.h"
 #include "modules/content_generator.h"
 #include "modules/install.h"

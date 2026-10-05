@@ -1,5 +1,6 @@
 """Exercise real HTTP writes and inject failures only into the smoke database."""
 from contextlib import contextmanager
+import hashlib
 import json
 import sqlite3
 
@@ -45,10 +46,10 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     def snapshot(table):
         return query(f'SELECT * FROM "{table}" ORDER BY id')
 
-    def login(username, member=False):
+    def login(username, member=False, secret=password):
         path = '/api/v1/login' if member else login_path
         status, headers, body = request(port, 'POST', path, {
-            ('identifier' if member else 'username'): username, 'password': password if member else client_hash(username, password)})
+            ('identifier' if member else 'username'): username, 'password': secret if member else client_hash(username, secret)})
         result = json.loads(body)
         assert status == 200 and (result.get('code') == 0 if member else result.get('result')), result
         return headers['Set-Cookie'].split(';')[0]
@@ -122,6 +123,98 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
         call('DELETE', path + '?id=2147483647', success=False)
         assert request(port, 'GET', '/admin/auth/user', cookie=cookie)[0] == 200, 'unrelated session revoked'
     print('PASS management writes: SQL failures, ignored/missing rows, retries and account session revocation')
+
+    # Creation must bind levels and timestamps to their matching SQL columns.
+    auth_id = query("SELECT authID FROM uris WHERE uri='/admin/option' AND isBackend=1")[0][0]
+    role = {'name': 'level_regression', 'desc': '', 'authList': json.dumps([auth_id]), 'authLevel': 500}
+    _, created = call('POST', '/admin/auth/role', role)
+    role_id = created['data']['id']
+    level, created_at, updated_at = query('SELECT authLevel,createTime,updateTime FROM role WHERE id=?', (role_id,))[0]
+    assert level == 500 and created_at == updated_at and created_at > 1_500_000_000_000_000
+    _, created = call('POST', '/admin/auth/user', {'username': 'level_admin', 'role': role_id,
+        'authLevel': 300, 'password': client_hash('level_admin', password)})
+    user_id = created['data']['id']
+    assert query('SELECT authLevel FROM user WHERE id=?', (user_id,)) == [(300,)]
+    level_file = target / 'options/level-regression.json'
+    level_file.write_text(json.dumps({'title': 'Test only', 'authLevel': 400, 'classList': []}), encoding='utf-8')
+    try:
+        session = login('level_admin')
+        path = '/admin/option?file=level-regression.json'
+        call('GET', path, auth=session)
+        lower = {**role, 'id': role_id, 'authLevel': 0}
+        with fail('role'):
+            call('PUT', '/admin/auth/role', lower, success=False)
+        call('GET', path, auth=session)
+        call('PUT', '/admin/auth/role', lower)
+        assert request(port, 'GET', path, cookie=session)[0] == revoked_status()
+        call('GET', path, auth=login('level_admin'), success=False)
+        assert access(cookie) == 200, 'role update revoked an unrelated role'
+    finally:
+        level_file.unlink()
+    call('DELETE', '/admin/auth/user?id=' + str(user_id))
+    call('DELETE', '/admin/auth/role?id=' + str(role_id))
+    print('PASS role/admin creation levels, timestamps and role downgrade session revocation')
+
+    attachment_file = target / 'data/uploads/write-regression.txt'
+    attachment_file.parent.mkdir(parents=True, exist_ok=True)
+    attachment_file.write_bytes(b'attachment failure regression')
+    execute("INSERT INTO attachment(xid,filename,ext,mime,path,size) VALUES(?,?,?,?,?,?)",
+            ('write-regression', 'write-regression.txt', 'txt', 'text/plain', 'write-regression.txt', attachment_file.stat().st_size))
+    save = {'xid': 'write-regression', 'remark': 'updated', 'allowHotlink': True, 'accessType': 0, 'price': 0}
+    for ignore in (False, True):
+        with fail('attachment', ignore=ignore):
+            call('POST', '/admin/attachment/save', save, success=False)
+            call('POST', '/admin/attachment/delete?xid=write-regression', success=False)
+        assert attachment_file.read_bytes() == b'attachment failure regression'
+        assert query("SELECT isDelete,remark FROM attachment WHERE xid='write-regression'") == [(0, '')]
+    call('POST', '/admin/attachment/save', save)
+    call('POST', '/admin/attachment/save', {**save, 'xid': 'missing-attachment'}, success=False)
+    call('POST', '/admin/attachment/delete?xid=missing-attachment', success=False)
+    call('POST', '/admin/attachment/delete?xid=write-regression')
+    assert not attachment_file.exists()
+    call('POST', '/admin/attachment/save', save, success=False)
+    call('POST', '/admin/attachment/delete?xid=write-regression', success=False)
+    assert query("SELECT isDelete,remark FROM attachment WHERE xid='write-regression'") == [(1, 'updated')]
+    print('PASS attachment save/delete: missing and deleted rows, SQL failures preserve file, successful cleanup')
+
+    # Admin passwords keep both SHA-256 stages, exact UTF-8 bytes and hex case.
+    username = 'hash_admin_\u6d4b\u8bd5'
+    initial_password = '  Old-\u5bc6\u7801-\U0001f511  '
+    new_password = '  New-\u5bc6\u7801-\U0001f512  '
+    payload = {'username': username, 'password': client_hash(username, initial_password), 'role': 1}
+    _, created = call('POST', '/admin/auth/user', payload)
+    account_id = created['data']['id']
+
+    def stored_hash(secret):
+        salt, stored = query('SELECT salt,pwd FROM user WHERE id=?', (account_id,))[0]
+        assert len(salt) == 32 and set(salt) <= set('0123456789ABCDEF'), 'invalid random salt'
+        expected = hashlib.sha256((username + salt + client_hash(username, secret)).encode()).hexdigest().upper()
+        assert stored == expected, 'incomplete or inconsistent password hashing'
+        return salt
+
+    old_salt = stored_hash(initial_password)
+    old_session = login(username, secret=initial_password)
+    reset = {'id': account_id, 'username': username, 'password': client_hash(username, new_password)}
+    before = snapshot('user')
+    for invalid in ('plaintext-password', 'a' * 63, 'a' * 65, 'g' * 64, 'A' * 64):
+        call('POST', '/admin/auth/user', {**payload, 'username': 'invalid_hash_admin', 'password': invalid}, success=False)
+        call('POST', '/admin/auth/user/repwd', {**reset, 'password': invalid}, success=False)
+        assert snapshot('user') == before, 'malformed client hash modified an account'
+    wrong_name = 'another_admin'
+    call('POST', '/admin/auth/user/repwd', {
+        **reset, 'username': wrong_name, 'password': client_hash(wrong_name, new_password)}, success=False)
+    assert snapshot('user') == before, 'mismatched ID/username changed the password'
+    assert access(old_session) == 200, 'rejected reset revoked an existing session'
+    call('POST', '/admin/auth/user/repwd', reset)
+    assert stored_hash(new_password) != old_salt, 'password reset reused the old salt'
+    assert access(old_session) == revoked_status(), 'password reset kept the old session'
+    call('POST', login_path, payload, auth=None, success=False)
+    login(username, secret=new_password)
+    call('DELETE', '/admin/auth/user?id=' + str(account_id))
+    before = snapshot('user')
+    call('POST', '/admin/auth/user/repwd', reset, success=False)
+    assert snapshot('user') == before, 'reset modified a deleted account'
+    print('PASS admin password add/reset/login: UTF-8 double hash, new salt, invalid hash and target rejection')
 
     # Removing the account that owns the current request must not free that
     # request's retained session before the response has finished.
@@ -260,7 +353,7 @@ def checks(port, target, cookie, login_path, request, client_hash, password):
     oversize_rejected('/admin/member/group', {'name': 'write_e1_mgroup', 'desc': ''}, 'memberGroup', {'desc': 'x' * 1025})
     _, created = call('POST', '/admin/auth/role', {'name': 'y' * 64, 'desc': 'z' * 1024, 'authList': '[]', 'authLevel': 0})
     call('DELETE', '/admin/auth/role?id=' + str(created['data']['id']))
-    _, created = call('POST', '/admin/auth/user', {'username': 'u' * 64, 'password': 'p' * 128, 'role': 1})
+    _, created = call('POST', '/admin/auth/user', admin_payload('u' * 64))
     call('DELETE', '/admin/auth/user?id=' + str(created['data']['id']))
     _, created = call('POST', '/admin/member/user', member_payload('write_e1_put'))
     before = snapshot('member')

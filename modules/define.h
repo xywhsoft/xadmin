@@ -29,6 +29,16 @@ static const xhttpmethod G_Methods[10] = {
 	XHTTP_METHOD_TRACE, XHTTP_METHOD_PATCH, XHTTP_METHOD_OTHER
 };
 
+/* 后台页面传入小写 SHA-256 hex，不能把明文或其他格式当作第一层哈希保存。 */
+static bool IsClientPasswordHash(const char* hash)
+{
+	if (!hash || strlen(hash) != 64) return false;
+	for (size_t i = 0; i < 64; ++i) {
+		if (!((hash[i] >= '0' && hash[i] <= '9') || (hash[i] >= 'a' && hash[i] <= 'f'))) return false;
+	}
+	return true;
+}
+
 /* 密码算法保持 v1 契约，兼容既有 salt/pwd 和旧页面的客户端哈希。 */
 static char* ServerHashPassword(const char* user, const char* salt, const char* client_hash)
 {

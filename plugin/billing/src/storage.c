@@ -8,7 +8,7 @@ static bool Billing_End(bool ok)
 }
 static bool Billing_Schema(void)
 {
-    if(!XP_SchemaSupported(G_DB,2))return false;
+    if(!XP_SchemaSupported(G_DB,3))return false;
     return sqlite3_exec(G_DB,
         "PRAGMA foreign_keys=ON;PRAGMA journal_mode=WAL;PRAGMA synchronous=FULL;"
         "CREATE TABLE IF NOT EXISTS account(member_id INTEGER PRIMARY KEY,cash INTEGER NOT NULL DEFAULT 0 CHECK(cash BETWEEN 0 AND 1000000000000000),reserved INTEGER NOT NULL DEFAULT 0 CHECK(reserved BETWEEN 0 AND cash));"
@@ -29,7 +29,10 @@ static bool Billing_Schema(void)
         "CREATE TRIGGER IF NOT EXISTS receipt_change_no_update BEFORE UPDATE ON receipt_change BEGIN SELECT RAISE(ABORT,'immutable receipt change'); END;"
         "CREATE TRIGGER IF NOT EXISTS receipt_change_no_delete BEFORE DELETE ON receipt_change BEGIN SELECT RAISE(ABORT,'immutable receipt change'); END;"
         "INSERT INTO receipt_change(service,request_id,member_id,charged,state) SELECT service,request_id,member_id,charged,state FROM reservation r WHERE state IN('settled','released','refunded') AND NOT EXISTS(SELECT 1 FROM receipt_change c WHERE c.request_id=r.request_id);"
-        "PRAGMA user_version=2;",NULL,NULL,NULL)==SQLITE_OK;
+        "CREATE TABLE IF NOT EXISTS cash_payment(operation_id TEXT PRIMARY KEY,buyer_id INTEGER NOT NULL REFERENCES account(member_id),seller_id INTEGER NOT NULL,amount INTEGER NOT NULL CHECK(amount BETWEEN 0 AND 1000000000000000),seller_income INTEGER NOT NULL CHECK(seller_income BETWEEN 0 AND amount),created_at INTEGER NOT NULL);"
+        "CREATE TRIGGER IF NOT EXISTS cash_payment_no_update BEFORE UPDATE ON cash_payment BEGIN SELECT RAISE(ABORT,'immutable cash payment'); END;"
+        "CREATE TRIGGER IF NOT EXISTS cash_payment_no_delete BEFORE DELETE ON cash_payment BEGIN SELECT RAISE(ABORT,'immutable cash payment'); END;"
+        "PRAGMA user_version=3;",NULL,NULL,NULL)==SQLITE_OK;
 }
 /* Same transaction as the monetary transition. An in-memory event alone
  * cannot repair consumers that were stopped during a refund or settlement. */
@@ -50,7 +53,8 @@ static bool Billing_Ledger(int64_t owner,const char* key,const char* kind,int64_
 {
     sqlite3_stmt* s=XP_SQL(G_DB,"INSERT INTO ledger(entry_key,member_id,kind,amount,source,request_id,reason,actor,created_at)VALUES(?,?,?,?,?,?,?,?,?)");
     XP_Bind(s,1,key);if(s){sqlite3_bind_int64(s,2,owner);sqlite3_bind_int64(s,4,amount);sqlite3_bind_int64(s,9,(int64_t)time(NULL));}
-    XP_Bind(s,3,kind);XP_Bind(s,5,source);XP_Bind(s,6,request_id);XP_Bind(s,7,reason);XP_Bind(s,8,actor);return XP_Done(s);
+    XP_Bind(s,3,kind);XP_Bind(s,5,source);XP_Bind(s,6,request_id);XP_Bind(s,7,reason);XP_Bind(s,8,actor);
+    return XP_Done(s) && sqlite3_changes(G_DB)==1;
 }
 /* Expire only unreserved credit. A running request retains its allocations;
  * later release/refund expires them again without converting to cash. */

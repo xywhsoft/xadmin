@@ -61,15 +61,29 @@ try:
     check('wizard takes over /', st == 200 and b'install' in body.lower(), 'status=%d' % st)
     st, _, body = smoke.request(PORT, 'GET', '/admin/login')
     check('wizard takes over /admin/login', st == 200 and b'install' in body.lower(), 'status=%d' % st)
+    for asset, content_type in (('/layui/layui.js', 'javascript'), ('/layui/css/layui.css', 'text/css'),
+                                ('/layui/font/iconfont.woff2', 'font')):
+        st, headers, body = smoke.request(PORT, 'GET', asset + '?v=install')
+        check('wizard asset ' + asset, st == 200 and content_type in headers.get('Content-Type', '')
+              and b'<html' not in body[:100].lower(), (st, headers.get('Content-Type')))
+        st, headers, body = smoke.request(PORT, 'HEAD', asset)
+        check('wizard HEAD ' + asset, st == 200 and not body and content_type in headers.get('Content-Type', ''))
+    for private in ('/db/main.db', '/main.c', '/layui/../db/main.db', '/layui/%2e%2e/db/main.db'):
+        st, _, body = smoke.request(PORT, 'GET', private)
+        check('wizard does not expose ' + private, st in (200,400,403,404) and
+              (st != 200 or 'xAdmin 安装'.encode() in body))
     # 负例：非法用户名 / 非 64hex
     st, _, body = smoke.request(PORT, 'POST', '/', {'username': 'x!', 'password': 'a' * 64})
     check('bad username rejected', st == 400 and json.loads(body)['result'] is False, body[:150])
     st, _, body = smoke.request(PORT, 'POST', '/', {'username': ADMIN, 'password': 'zz'})
     check('bad hash rejected', st == 400 and json.loads(body)['result'] is False, body[:150])
+    st, _, body = smoke.request(PORT, 'POST', '/', {'username': ADMIN, 'password': 'A' * 64})
+    check('uppercase hash rejected consistently with login', st == 400 and not json.loads(body)['result'])
     # 正例：安装（客户端哈希 = sha256(user + "_xywhsoft_" + pwd)）
     chash = hashlib.sha256((ADMIN + '_xywhsoft_' + PWD).encode()).hexdigest()
     st, _, body = smoke.request(PORT, 'POST', '/', {'username': ADMIN, 'password': chash})
     check('install succeeds', st == 200 and json.loads(body)['result'] is True, body[:200])
+    check('install returns login destination', json.loads(body).get('loginPath') == '/admin/login')
     check('install.lock written', (target / 'install.lock').exists())
     # 安装后立即可登录
     st, hd, body = smoke.request(PORT, 'POST', '/admin/login',

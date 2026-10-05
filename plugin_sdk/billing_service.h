@@ -62,4 +62,19 @@ typedef struct XBillingService {
     int (*maintain)(void); /* expire holds/credits and grant due membership periods */
     xvalue* (*changes)(const char* service,int64_t after,int limit); /* owned durable receipts, ordered sequence */
 } XBillingService;
+
+/* Optional companion service: <balance authority>.cash. This leaves the v1
+ * reservation ABI unchanged. A payment spends cash only (never usage credit),
+ * pays the seller and stores its immutable receipt in one transaction. Replay
+ * with different parameters is a conflict; lookup returns 404 before payment. */
+#define XADMIN_BILLING_CASH_SERVICE "xadmin.billing.cash"
+typedef struct XBillingCashPayment {
+    uint32_t size;
+    int64_t buyer_id, seller_id, amount, seller_income;
+} XBillingCashPayment;
+typedef struct XBillingCashService {
+    uint32_t size, version;
+    int (*pay)(const char* operation_id,const XBillingCashPayment* payment);
+    int (*lookup)(const char* operation_id,XBillingCashPayment* out);
+} XBillingCashService;
 #endif

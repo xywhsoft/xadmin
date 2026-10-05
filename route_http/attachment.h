@@ -297,7 +297,7 @@ void Request_Attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, X
 	xvalue* form;
 	str xid;
 	sqlite3_stmt* stmt = NULL;
-	int rc;
+	bool written = false;
 
 	(void)objServer; (void)objHost; (void)objSession;
 	if (xsReqMethodID(objReq) != XHTTP_METHOD_POST) {
@@ -316,24 +316,23 @@ void Request_Attachment_Save(XS_ServerObject objServer, XS_HostObject objHost, X
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing xid\"}", 0);
 		return;
 	}
-	sqlite3_prepare_v3(G_DB,
-		"UPDATE attachment SET allowHotlink=?, accessType=?, accessLevel=?, price=?, priceType=?, remark=? WHERE xid=?",
-		-1, 0, &stmt, NULL);
-	sqlite3_bind_int(stmt, 1, ValueBool(form, "allowHotlink") ? 1 : 0);
-	sqlite3_bind_int(stmt, 2, (int)ValueInt(form, "accessType"));
-	sqlite3_bind_int(stmt, 3, (int)ValueInt(form, "accessLevel"));
-	sqlite3_bind_int64(stmt, 4, ValueInt(form, "price"));
-	sqlite3_bind_int(stmt, 5, (int)ValueInt(form, "priceType"));
-	{
+	if (sqlite3_prepare_v3(G_DB,
+		"UPDATE attachment SET allowHotlink=?, accessType=?, accessLevel=?, price=?, priceType=?, remark=? WHERE xid=? AND isDelete=0",
+		-1, 0, &stmt, NULL) == SQLITE_OK) {
+		sqlite3_bind_int(stmt, 1, ValueBool(form, "allowHotlink") ? 1 : 0);
+		sqlite3_bind_int(stmt, 2, (int)ValueInt(form, "accessType"));
+		sqlite3_bind_int(stmt, 3, (int)ValueInt(form, "accessLevel"));
+		sqlite3_bind_int64(stmt, 4, ValueInt(form, "price"));
+		sqlite3_bind_int(stmt, 5, (int)ValueInt(form, "priceType"));
 		str remark = ValueText(form, "remark");
 		sqlite3_bind_text(stmt, 6, remark ? remark : "", -1, NULL);
+		sqlite3_bind_text(stmt, 7, xid, -1, NULL);
+		written = DB_Write(stmt, true);
 	}
-	sqlite3_bind_text(stmt, 7, xid, -1, NULL);
-	rc = sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
 	xrtValueRelease(form);
 	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON,
-		rc == SQLITE_DONE ? "{\"result\":true,\"message\":\"保存成功\"}" : "{\"result\":false,\"message\":\"保存失败\"}", 0);
+		written ? "{\"result\":true,\"message\":\"保存成功\"}" : "{\"result\":false,\"message\":\"保存失败，附件不存在或数据库写入失败\"}", 0);
 }
 
 // 后台附件删除
@@ -342,7 +341,7 @@ void Request_Attachment_Delete(XS_ServerObject objServer, XS_HostObject objHost,
 	char xid[48] = {0};
 	char* path = NULL;
 	sqlite3_stmt* stmt = NULL;
-	int rc;
+	bool written = false, cleaned = true;
 
 	(void)objServer; (void)objHost; (void)objSession;
 	if (xsReqMethodID(objReq) != XHTTP_METHOD_DELETE && xsReqMethodID(objReq) != XHTTP_METHOD_POST) {
@@ -360,18 +359,23 @@ void Request_Attachment_Delete(XS_ServerObject objServer, XS_HostObject objHost,
 		if (tmp) path = xrtStrDup(tmp);
 	}
 	sqlite3_reset(stmt_attachment_get);
-	if (path) {
-		char* fullPath = xrtPathJoin(AttachmentPath, path);
-		xrtFileDelete(fullPath);
-		xrtFree(fullPath);
-		xrtFree(path);
+	/* Commit the tombstone before removing bytes. A rejected database write
+	 * must leave the live attachment and its file intact. */
+	if (path && sqlite3_prepare_v3(G_DB, "UPDATE attachment SET isDelete=1 WHERE xid=? AND isDelete=0", -1, 0, &stmt, NULL) == SQLITE_OK) {
+		sqlite3_bind_text(stmt, 1, xid, -1, NULL);
+		written = DB_Write(stmt, true);
 	}
-	sqlite3_prepare_v3(G_DB, "UPDATE attachment SET isDelete = 1 WHERE xid = ?", -1, 0, &stmt, NULL);
-	sqlite3_bind_text(stmt, 1, xid, -1, NULL);
-	rc = sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
+	if (written) {
+		char* fullPath = xrtPathJoin(AttachmentPath, path);
+		cleaned = fullPath && (!xrtPathExists(fullPath) || xrtFileDelete(fullPath));
+		xrtFree(fullPath);
+	}
+	xrtFree(path);
 	xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON,
-		rc == SQLITE_DONE ? "{\"result\":true,\"message\":\"删除成功\"}" : "{\"result\":false,\"message\":\"删除失败\"}", 0);
+		!written ? "{\"result\":false,\"message\":\"删除失败，附件不存在或数据库写入失败\"}" :
+		cleaned ? "{\"result\":true,\"message\":\"删除成功\"}" :
+		"{\"result\":true,\"message\":\"附件已删除，但磁盘文件清理失败，请检查文件权限\"}", 0);
 }
 
 // 存储统计

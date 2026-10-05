@@ -9,7 +9,7 @@
 	<link href="/layui/css/layui.css" rel="stylesheet">
 </head>
 <body style="height: 100vh; display: flex; flex-direction: column; overflow: hidden;">
-	<form class="layui-form" lay-filter="UserAddForm" style="height: 100%; display: flex; flex-direction: column;">
+	<form class="layui-form" lay-filter="UserAddForm" onsubmit="return false;" style="height: 100%; display: flex; flex-direction: column;">
 	<div style="flex: 1; overflow-y: auto; padding: 20px;">
 			<div class="layui-form-item">
 				<label class="layui-form-label">用户名</label>
@@ -50,6 +50,9 @@
 	<script>
 		// SHA-256 哈希函数（使用 Web Crypto API）
 		async function sha256(message) {
+			if (!window.crypto || !window.crypto.subtle) {
+				throw new Error('当前环境无法计算密码哈希，请使用 HTTPS 或 localhost 访问后台');
+			}
 			const msgBuffer = new TextEncoder().encode(message);
 			const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
 			const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -86,45 +89,53 @@
 			};
 			
 			// 提交事件
-			form.on('submit(submit)', async function(data){
+			form.on('submit(submit)', function(data){
 				var field = data.field;
+				var btn = data.elem;
+				if (btn.disabled) return false;
+				btn.disabled = true;
+				btn.classList.add('layui-btn-disabled');
+				// 先同步阻止默认提交，再等待哈希，避免明文密码进入 GET 地址。
+				(async function () {
+					try {
 				
-				// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
-				const pwdHash = await sha256(field.username + '_xywhsoft_' + field.password);
+						// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
+						const pwdHash = await sha256(field.username + '_xywhsoft_' + field.password);
 				
-				// 构建提交数据（传输哈希值而非明文）
-				var submitData = {
-					username: field.username,
-					password: pwdHash,
-					role: parseInt(field.role),
-					authLevel: parseInt(field.authLevel) || 0
-				};
+						// 构建提交数据（传输哈希值而非明文）
+						var submitData = {
+							username: field.username,
+							password: pwdHash,
+							role: parseInt(field.role),
+							authLevel: parseInt(field.authLevel) || 0
+						};
 				
-				// 提交请求
-				fetch('/admin/auth/user', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify(submitData),
-				})
-				.then(function(response) { return response.json(); })
-				.then(function(data) {
-					if ( data.result ) {
-						layer.msg(data.message, {icon: 1});
-						// 刷新父窗口列表
-						parent.layui.table.reloadData('Table_Auth_User');
-						// 关闭当前弹窗
-						var index = parent.layer.getFrameIndex(window.name);
-						parent.layer.close(index);
-					} else {
-						layer.msg('请求服务报错：' + data.message, {icon: 2});
+						// 提交请求
+						const response = await fetch('/admin/auth/user', {
+							method: 'POST',
+							headers: {
+								'Content-Type': 'application/json'
+							},
+							body: JSON.stringify(submitData),
+						});
+						const result = await response.json();
+						if ( result.result ) {
+							layer.msg(result.message, {icon: 1});
+							// 刷新父窗口列表
+							parent.layui.table.reloadData('Table_Auth_User');
+							// 关闭当前弹窗
+							var index = parent.layer.getFrameIndex(window.name);
+							parent.layer.close(index);
+						} else {
+							layer.msg('请求服务报错：' + result.message, {icon: 2});
+						}
+					} catch (error) {
+						layer.msg(error.message || '添加失败，请重试', {icon: 2});
+					} finally {
+						btn.disabled = false;
+						btn.classList.remove('layui-btn-disabled');
 					}
-				})
-				.catch(function(error) {
-					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
-					console.error('Error:', error);
-				});
+				})();
 				
 				// 阻止默认 form 跳转
 				return false;

@@ -22,12 +22,8 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 	str xid;
 	int64 uploaderId, memberId, price;
 	int uploaderType, accessType, priceType;
-	sqlite3_stmt* stmt = NULL;
 	xvalue* cfg;
-	int platformFeeRate;
-	int64 sellerIncome, balance = 0;
-	int rc1, rc2;
-	bool orderOK;
+	int64 platformFeeRate, sellerIncome;
 
 	(void)objServer; (void)objHost;
 	if (xsReqMethodID(objReq) != XHTTP_METHOD_POST) {
@@ -46,9 +42,14 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 		return;
 	}
 	xid = ValueText(form, "xid");
-	if (!xid || !xid[0]) {
+	if (!xid || !xid[0] || strlen(xid)>64) {
 		xrtValueRelease(form);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Missing xid\"}", 0);
+		return;
+	}
+	if (Attachment_CheckPurchased(xid, memberId)) {
+		xrtValueRelease(form);
+		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Already purchased\"}", 0);
 		return;
 	}
 	sqlite3_bind_text(stmt_attachment_get, 1, xid, -1, NULL);
@@ -75,62 +76,33 @@ void Request_Api_Attachment_Purchase(XS_ServerObject objServer, XS_HostObject ob
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Cannot purchase own attachment\"}", 0);
 		return;
 	}
-	if (Attachment_CheckPurchased(xid, memberId)) {
-		xrtValueRelease(form);
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Already purchased\"}", 0);
-		return;
-	}
 	if (priceType != 0) {
 		xrtValueRelease(form);
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Currency type not supported\"}", 0);
 		return;
 	}
-	if (price <= 0) {
+	if (price < 0 || price > XBILL_MAX_AMOUNT/10000) {
 		xrtValueRelease(form);
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Already purchased\"}", 0);
-		return;
-	}
-	if (sqlite3_prepare_v3(G_DB, "SELECT balance FROM member WHERE id = ?", -1, 0, &stmt, NULL) == SQLITE_OK) {
-		sqlite3_bind_int64(stmt, 1, memberId);
-		if (sqlite3_step(stmt) == SQLITE_ROW) balance = sqlite3_column_int64(stmt, 0);
-		sqlite3_finalize(stmt);
-	}
-	if (balance < price) {
-		xrtValueRelease(form);
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Insufficient balance\"}", 0);
+		xsHttpReplyAuto(objResp, 400, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid attachment price\"}", 0);
 		return;
 	}
 	cfg = ValueGet(G_Option, "attachment");
-	platformFeeRate = cfg ? (int)ValueInt(cfg, "platformFeeRate") : 10;
-	sellerIncome = price * (100 - platformFeeRate) / 100;
-
-	sqlite3_exec(G_DB, "BEGIN TRANSACTION", NULL, NULL, NULL);
-	rc1 = SQLITE_DONE;
-	if (sqlite3_prepare_v3(G_DB, "UPDATE member SET balance = balance - ? WHERE id = ?", -1, 0, &stmt, NULL) == SQLITE_OK) {
-		sqlite3_bind_int64(stmt, 1, price);
-		sqlite3_bind_int64(stmt, 2, memberId);
-		rc1 = sqlite3_step(stmt);
-		sqlite3_finalize(stmt);
+	platformFeeRate = cfg ? ValueInt(cfg, "platformFeeRate") : 10;
+	if (platformFeeRate < 0 || platformFeeRate > 100) {
+		xrtValueRelease(form);
+		xsHttpReplyAuto(objResp, 503, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Invalid platform fee configuration\"}", 0);
+		return;
 	}
-	rc2 = SQLITE_DONE;
-	if (uploaderType == 2 && sellerIncome > 0
-		&& sqlite3_prepare_v3(G_DB, "UPDATE member SET balance = balance + ? WHERE id = ?", -1, 0, &stmt, NULL) == SQLITE_OK) {
-		sqlite3_bind_int64(stmt, 1, sellerIncome);
-		sqlite3_bind_int64(stmt, 2, uploaderId);
-		rc2 = sqlite3_step(stmt);
-		sqlite3_finalize(stmt);
-	}
-	orderOK = Attachment_AddOrder(xid, memberId, price, priceType,
-		(uploaderType == 2) ? uploaderId : 0, sellerIncome);
-	Attachment_UpdateSales(xid);
+	sellerIncome = uploaderType == 2 ? price * (100 - platformFeeRate) / 100 : 0;
+	int status = Attachment_Pay(xid, memberId, uploaderType == 2 ? uploaderId : 0, price, sellerIncome);
 	xrtValueRelease(form);
 
-	if (rc1 == SQLITE_DONE && rc2 == SQLITE_DONE && orderOK) {
-		sqlite3_exec(G_DB, "COMMIT", NULL, NULL, NULL);
+	if (status == XBILL_OK) {
 		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"Purchase successful\"}", 0);
 	} else {
-		sqlite3_exec(G_DB, "ROLLBACK", NULL, NULL, NULL);
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\":false,\"message\":\"Transaction failed\"}", 0);
+		xsHttpReplyAuto(objResp, status, HTTP_CT_JSON, status == XBILL_INSUFFICIENT ?
+			"{\"result\":false,\"message\":\"Insufficient cash balance\"}" :
+			"{\"result\":false,\"message\":\"Payment or order service unavailable; retry safely with the same attachment\"}", 0);
 	}
 }
 

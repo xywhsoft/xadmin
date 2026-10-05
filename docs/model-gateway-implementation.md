@@ -24,6 +24,12 @@ mdo 模型选择界面接入属于客户端后续工作，本批交付它所需�
   整次调用统一舍入。未知用量不能伪装为零。
 - 一个用户只有一个可写余额事实源。启用 billing 后基础余额操作走服务接口；
   旧分余额一次性迁移。关闭服务不得静默回退到陈旧余额。
+- 附件购买通过可选的 `xadmin.billing.cash` 服务消费现金并向卖家分成，
+  不能消费赠送额度或已冻结现金。扣款、分成、账本和付款凭据在钱包内同事务提交。
+  主库订单写入失败后，同一附件的购买重试或下载会用持久凭据补齐订单，保留
+  原价格、卖家和分成；不会再次扣款。该服务独立于原有计费 v1 ABI。
+  billing 数据库新增不可变的 `cash_payment` 表，启动时迁移到 schema 3；
+  更新时需同时更新宿主代码、SDK 和 billing 插件，旧插件没有该服务时购买返回 503。
 - 请求唯一编号与幂等键；计费结算可重试，模型生成不自动重试。
 - 赠送额度保留来源与期限；退款回原来源。现金、冻结和消费流水禁止直接编辑。
 - 价格、渠道与权益在请求开始时固定。密钥仅私有文件/环境变量，后台不可回显。
@@ -49,6 +55,8 @@ deferred job 延长 socket/server/plugin 生命周期；禁用/重载在在途 I
   冻结与余额不足回滚、微额结算、退款、赠送额度过期、待核实到期释放、
   会员周期及提前续期、重启恢复、停用后拒绝回退旧余额、账本不可改写。
 - 原功能：`tests/smoke.py --functional-only` 全部通过，未执行并行负载或批量门禁。
+- 附件计费：`tests/attachment_billing_e2e.py` 验证旧余额交易回滚、新钱包扣款及分成、
+  数据库拒绝/忽略写入、重复购买、冻结现金、赠送额度隔离、重启补单、零价附件和插件停用。
 
 会员周期额度按访问/新请求惰性发放；错过的历史周期不补发已经过期的额度。
 同套餐续期从原到期时刻开始；更换套餐停止原套餐未来发放，不撤销已获额度。
@@ -160,12 +168,13 @@ cookie 写请求仍受主机 CSRF 保护。身份只取已验证 session，不�
 ```powershell
 python tests/stream_e2e.py --exe D:\GIT\home\xs.exe --tls
 python tests/billing_e2e.py --exe D:\GIT\home\xs.exe
+python tests/attachment_billing_e2e.py
 python tests/model_gateway_e2e.py --exe D:\GIT\home\xs.exe
 python tests/smoke.py --exe D:\GIT\home\xs.exe --functional-only --port 19186
 node --check plugin/model-gateway/static/ui.js
 ```
 
-三个新增测试都使用一次性站点、数据库和小型本地模拟上游。真实 xs/TCC 运行，
+上述测试使用一次性站点、数据库和小型本地模拟上游。真实 xs/TCC 运行，
 没有生产密钥或在线费用，没有压力测试；原有功能测试确认源数据库未被修改。
 流式 SDK 同时验证私有 CA、UTF-8 分片、即时首块、HTTP 错误、截断与空闲取消。
 网关测试覆盖三协议流/非流、工具/思考透传、缓存/累积用量、幂等、身份隔离、

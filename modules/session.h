@@ -140,6 +140,21 @@ static void Session_RevokeAccount(bool admin, int64 account_id)
 	}
 	Session_Prune(sessions);
 }
+/* Role levels are copied into login sessions; revoke those snapshots after a
+ * successful level change, including the current request's retained session. */
+static void Session_RevokeRole(int64 role_id)
+{
+	xvalueiter it = {0}; xvaluekey key; xvalue* session;
+	if (role_id <= 0) return;
+	if (xrtValueIterBegin(G_AdminSessions, &it)) {
+		while ((session = xrtValueIterNext(&it, &key))) {
+			if (ValueInt(session, "roleID") == role_id)
+				ValueSetInt(session, "_expireTime", -1);
+		}
+		xrtValueIterEnd(&it);
+	}
+	Session_Prune(G_AdminSessions);
+}
 static void Session_Tick(void* unused)
 {
 	(void)unused;

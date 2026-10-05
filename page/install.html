@@ -8,10 +8,12 @@
     <link rel="stylesheet" type="text/css" href="/layui/css/layui.css" media="all">
 	<style>
 		/* 页面整体居中布局 */
-		html, body {
-			height: 100%;
+		html { min-height: 100%; background: #f2f2f2; }
+		body {
+			min-height: 100vh;
+			box-sizing: border-box;
 			margin: 0;
-			padding: 0;
+			padding: 24px 16px;
 			display: flex;
 			justify-content: center;
 			align-items: center;
@@ -20,7 +22,9 @@
 		
 		/* 安装窗口样式 */
 		.install-container {
-			width: 500px;
+			box-sizing: border-box;
+			width: 100%;
+			max-width: 560px;
 			padding: 30px;
 			background-color: #fff;
 			border-radius: 8px;
@@ -34,6 +38,12 @@
 			margin-bottom: 20px;
 			color: #333;
 		}
+		.install-note { color: #666; line-height: 1.7; margin: 0 0 24px; text-align: center; }
+		@media (max-width: 480px) {
+			.install-container { padding: 24px 20px; }
+			.layui-form-label { float: none; width: auto; text-align: left; padding: 0 0 8px; }
+			.layui-input-block { margin-left: 0; }
+		}
 	</style>
 </head>
 <body>
@@ -41,15 +51,17 @@
 	<!-- 安装主容器 -->
 	<div class="install-container">
 		<div class="install-title">xAdmin 安装程序</div>
+		<p class="install-note">创建首个管理员账号，完成系统初始化。</p>
+		<noscript>请启用浏览器 JavaScript 后刷新此页面。</noscript>
 		
 		<!-- 表单区域 -->
-		<form class="layui-form" action="#" lay-filter="install-form">
+		<form class="layui-form" action="#" method="post" onsubmit="return false;" lay-filter="install-form">
 			
 			<!-- 管理账号 -->
 			<div class="layui-form-item">
 				<label class="layui-form-label">管理账号</label>
 				<div class="layui-input-block">
-					<input type="text" name="username" required lay-verify="required" placeholder="请输入管理员邮箱" class="layui-input">
+					<input type="text" name="username" required lay-verify="required|username" maxlength="32" autocomplete="username" placeholder="3–32 位字母、数字或 _ . -" class="layui-input">
 				</div>
 			</div>
 			
@@ -57,7 +69,7 @@
 			<div class="layui-form-item">
 				<label class="layui-form-label">管理密码</label>
 				<div class="layui-input-block">
-					<input type="password" name="password" required lay-verify="required" placeholder="请输入管理员密码" class="layui-input">
+					<input type="password" name="password" required lay-verify="required" autocomplete="new-password" placeholder="请输入管理员密码" class="layui-input">
 				</div>
 			</div>
 			
@@ -78,6 +90,9 @@
 	<script>
 		// SHA-256 哈希函数（使用 Web Crypto API）
 		async function sha256(message) {
+			if (!window.crypto || !window.crypto.subtle) {
+				throw new Error('当前浏览器无法安全处理密码，请使用 HTTPS 或 localhost 访问');
+			}
 			const msgBuffer = new TextEncoder().encode(message);
 			const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
 			const hashArray = Array.from(new Uint8Array(hashBuffer));
@@ -89,56 +104,40 @@
 		layui.use(['form', 'layer'], function () {
 			const form = layui.form;
 			const layer = layui.layer;
+			form.verify({ username: [/^[A-Za-z0-9_.-]{3,32}$/, '管理账号须为 3–32 位字母、数字或 _ . -'] });
 			
 			// 开始安装
-			form.on('submit(install)', async function (data) {
+			form.on('submit(install)', function (data) {
 				const formData = data.field;
 				
 				// 禁用按钮
 				var btn = document.getElementById('install');
+				if (btn.disabled) return false;
 				btn.classList.add('layui-btn-disabled');
 				btn.disabled = true;
 				
 				// 显示加载动画
-				layer.load(2);
-				
-				// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
-				const pwdHash = await sha256(formData.username + '_xywhsoft_' + formData.password);
-				
-				// 发送请求（传输哈希值而非明文）
-				fetch("/", {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: JSON.stringify({
-						username: formData.username,
-						password: pwdHash
-					})
-				})
-				.then(response => response.json())
-				.then(data => {
-					if ( data.result ) {
-						layer.msg(data.message, {icon: 1});
-						// 2秒后跳转到登陆页面
-						setTimeout(() => {
-							window.location.href = '/';
-						}, 1000);
-					} else {
-						layer.msg('请求服务报错：' + data.message, {icon: 2});
+				const loading = layer.load(2);
+				// Layui 必须同步收到 false；哈希与请求在内部等待完成。
+				(async function () {
+					try {
+						const pwdHash = await sha256(formData.username + '_xywhsoft_' + formData.password);
+						const response = await fetch('/', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({ username: formData.username, password: pwdHash })
+						});
+						const result = await response.json();
+						if (!result.result) throw new Error(result.message || '安装失败，请重试');
+						window.location.href = result.loginPath || '/admin/login';
+					} catch (error) {
+						layer.msg(error.message || '安装请求失败，请重试', {icon: 2});
+					} finally {
+						layer.close(loading);
 						btn.classList.remove('layui-btn-disabled');
 						btn.disabled = false;
 					}
-				})
-				.catch(error => {
-					layer.msg('请求出错，请查看开发者工具检查原因', {icon: 2});
-					console.error('Error:', error)
-					btn.classList.remove('layui-btn-disabled');
-					btn.disabled = false;
-				});
-				
-				// 关闭加载动画
-				layer.closeAll('loading');
+				})();
 				
 				// 阻止默认提交（由JS控制）
 				return false;
