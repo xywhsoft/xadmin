@@ -53,6 +53,15 @@ def fixture(port, protected=False, register_interval=0, source_db=None):
         shutil.copytree(ROOT / name, target / name)
     shutil.copytree(ROOT / 'plugin', target / 'plugin')
     shutil.copytree(ROOT / 'tests/plugins/hello-sdk', target / 'plugin/hello-sdk')
+    # Current xs application VFS keeps hosted code inside the application root.
+    # Copy sources into the disposable site instead of borrowing an absolute
+    # devfile outside it; this also isolates reloads from live source edits.
+    for name in ('src','modules','include','route_http'):
+        shutil.copytree(ROOT/name,target/name)
+    for name in ('main.c','route.h'):
+        shutil.copy2(ROOT/name,target/name)
+    (target/'test-host.c').write_text((ROOT/'tests/host.c').read_text(encoding='utf-8')
+        .replace('../main.c','main.c'),encoding='utf-8')
     (target / 'plugin_data').mkdir(exist_ok=True)
     for name in ():
         shutil.copytree(ROOT / name, target / name)
@@ -104,7 +113,7 @@ def fixture(port, protected=False, register_interval=0, source_db=None):
     service = config['services'][0]
     service['port'] = port
     host = service['host_default']
-    host['devfile'] = str(ROOT / 'tests/host.c')
+    host['devfile'] = str(target / 'test-host.c')
     host['dev_inc'] = str(ROOT / 'includes')
     host['dev_lib'] = str(ROOT / 'librarys')
     (target / 'xs.json').write_text(json.dumps(config), encoding='utf-8')

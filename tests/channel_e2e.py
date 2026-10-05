@@ -70,6 +70,10 @@ class WebSocket:
 
 def run(args):
     target = fixture(args.port, source_db=args.source_db)
+    if getattr(args,'idle_regression',False):
+        config=json.loads((target/'xs.json').read_text())
+        config['services'][0]['idle_timeout']=1000
+        (target/'xs.json').write_text(json.dumps(config))
     shutil.copytree(ROOT / 'tests/plugins/channel-sdk', target / 'plugin/channel-sdk')
     origin = f'{"https" if args.tls else "http"}://127.0.0.1:{args.port}'
     tls_context = None
@@ -139,6 +143,14 @@ def run(args):
         first = connect(bearer)
         assert first.recv() == (1, b'ready')
         first.send(1, b'hello'); actual = first.recv(); assert actual == (1, b'hello'), actual
+        if getattr(args,'idle_regression',False):
+            # The plugin owns the accepted protocol's heartbeat/idle policy;
+            # the retired HTTP idle timestamp must not close this connection.
+            time.sleep(2.5)
+            first.send(9,b'after-http-idle')
+            assert first.recv()==(10,b'after-http-idle')
+            print('PASS taken-over WebSocket survives the HTTP idle deadline')
+            return
         first.send(2, bytes(range(256))); assert first.recv() == (2, bytes(range(256)))
         first.send(1, b'frag', final=False)
         first.send(9, b'ping'); assert first.recv() == (10, b'ping')
@@ -209,4 +221,5 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, default=19281)
     parser.add_argument('--source-db', type=Path)
     parser.add_argument('--tls', action='store_true')
+    parser.add_argument('--idle-regression',action='store_true')
     run(parser.parse_args())
