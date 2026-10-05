@@ -144,8 +144,41 @@
   }
   async function showReceipt(id) {
     const value = await api('/api/v1/ai/requests/' + encodeURIComponent(id)),
-      dialog = document.querySelector('#receipt');
-    dialog.querySelector('pre').textContent = JSON.stringify(value, null, 2);
+      dialog = document.querySelector('#receipt'),
+      details = dialog.querySelector('.receipt-details');
+    details.replaceChildren();
+    const section = (title, rows) => {
+      const list = elem('dl', undefined, 'receipt-fields');
+      rows.forEach(([label, text]) => list.append(elem('dt', label), elem('dd', text)));
+      details.append(elem('h3', title), list);
+    };
+    section('本次调用', [
+      ['模型', value.model_id],
+      ['状态', states[value.state] || value.state],
+      ['时间', new Date(value.created_at * 1000).toLocaleString()],
+      ['请求编号', value.id]
+    ]);
+    section('费用', [
+      ['预留金额', money(value.reserved_micros)],
+      ['原始消费', money(value.charged_micros)],
+      ['已退金额', money(value.refunded_micros)],
+      ['净消费', money(value.net_charged_micros)]
+    ]);
+    if (value.usage) {
+      section('平台确认的 token 用量', Object.entries({
+        input_tokens: '普通输入',
+        cache_read_tokens: '缓存读取',
+        cache_write_5m_tokens: '缓存写入（5 分钟）',
+        cache_write_1h_tokens: '缓存写入（1 小时）',
+        output_tokens: '输出（包含思考）',
+        reasoning_tokens: '其中思考'
+      }).map(([key, title]) => [title, value.usage[key]?.toLocaleString() ?? '未知']));
+    } else details.append(elem('p', '尚未获得可确认的用量，请稍后刷新。', 'hint'));
+    if (value.error) details.append(elem('p', '调用信息：' + value.error, 'hint'));
+    section('响应时间', [
+      ['首个响应', value.first_byte_ms === null ? '未知' : value.first_byte_ms + ' 毫秒'],
+      ['总时长', value.total_ms === null ? '未知' : value.total_ms + ' 毫秒']
+    ]);
     dialog.showModal();
   }
 
