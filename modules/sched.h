@@ -329,8 +329,9 @@ static int64 Sched_CalcCronNextTime(const char* expr, int64 afterMicro)
 
 	if (!Sched_ParseCronExpr(expr, &cron)) return 0;
 	xtime native;
-	if (!XAdmin_TimeFromUnixUs(afterMicro + 1, &native) || !xrtTimeLocal(native, &date)) return 0;
-	/* 从 after+1 微秒起步：先把秒进位到候选集合 */
+	if (!XAdmin_TimeFromUnixUs(afterMicro, &native) ||
+		!xrtTimeFromUnix(xrtTimeUnix(native) + 1, &native) || !xrtTimeLocal(native, &date)) return 0;
+	/* cron 只有整秒候选，严格从 after 之后的下一秒开始。 */
 	year = (int)date.Year; month = date.Month; day = date.Day;
 	hour = date.Hour; minute = date.Minute; second = date.Second;
 
@@ -359,7 +360,7 @@ static int64 Sched_CalcCronNextTime(const char* expr, int64 afterMicro)
 					xtime t;
 					if (xrtTimeMake(&probe, &t)) {
 						xdatetime local;
-						if (xrtTimeLocal(t, &local) && Sched_CronDayMatches(&cron, day, local.Weekday % 7)) {
+						if (xrtTimeSplit(t, &local) && Sched_CronDayMatches(&cron, day, local.Weekday % 7)) {
 							matched = true;
 							break;
 						}
@@ -387,7 +388,10 @@ static int64 Sched_CalcCronNextTime(const char* expr, int64 afterMicro)
 			xtime t;
 			when.Year = year; when.Month = month; when.Day = day;
 			when.Hour = hour; when.Minute = minute; when.Second = second;
-			if (!xrtTimeMake(&when, &t)) return 0;
+			if (!xrtTimeFromLocal(&when, XTIME_FOLD_EARLIER, &t)) {
+				/* 夏令时跳过的本地秒不是候选，继续扫描。 */
+				second++; continue;
+			}
 			return xrtTimeUnix(t) * 1000000;
 		}
 	}

@@ -15,6 +15,8 @@ SOURCE = r'''
 #include <stdio.h>
 #include <stdlib.h>
 #include "xadmin_time.h"
+#include "xadmin_util.h"
+/* CRON_SOURCE */
 void ServiceInit(XS_HostInfo* host) {
     xtime epoch, earlier, historic;
     xdatetime date;
@@ -23,6 +25,14 @@ void ServiceInit(XS_HostInfo* host) {
         !XAdmin_TimeFromUnixUs(1767225600000000LL, &historic) ||
         !xrtTimeSplit(historic, &date) || date.Year != 2026 || date.Month != 1 || date.Day != 1)
         {printf("time conversion failed: %lld %lld %lld %lld/%d/%d\n",(long long)epoch,(long long)earlier,(long long)historic,(long long)date.Year,date.Month,date.Day);exit(2);}
+    xdatetime local = {0}; xtime after, expected;
+    local.Year=2026; local.Month=1; local.Day=1; local.Hour=8;
+    if (!xrtTimeFromLocal(&local,XTIME_FOLD_EARLIER,&after)) {printf("local conversion failed\n");exit(4);}
+    local.Minute=30;
+    if (!xrtTimeFromLocal(&local,XTIME_FOLD_EARLIER,&expected) ||
+        Sched_CalcCronNextTime("0 30 8 * * * *",xrtTimeUnix(after)*1000000)!=xrtTimeUnix(expected)*1000000 ||
+        Sched_CalcCronNextTime("* * * * * * *",xrtTimeUnix(after)*1000000+500000)!=xrtTimeUnix(after)*1000000+1000000) {
+        printf("cron failed: %lld %lld %lld %lld\n",(long long)xrtTimeUnix(after),(long long)xrtTimeUnix(expected),(long long)Sched_CalcCronNextTime("0 30 8 * * * *",xrtTimeUnix(after)*1000000),(long long)Sched_CalcCronNextTime("* * * * * * *",xrtTimeUnix(after)*1000000+500000));exit(4);}
     XAdminDeadline deadline = XAdmin_DeadlineAfterMs(80);
     int64 before = XAdmin_DeadlineRemainingMs(deadline);
     xrtSleep(110);
@@ -38,7 +48,11 @@ def run(exe):
     with tempfile.TemporaryDirectory(prefix='time-contract-', dir=base) as name:
         site = Path(name)
         shutil.copyfile(ROOT / 'include/xadmin/time.h', site / 'xadmin_time.h')
-        (site / 'main.c').write_text(SOURCE, encoding='utf-8')
+        shutil.copyfile(ROOT / 'modules/util.h', site / 'xadmin_util.h')
+        module=(ROOT/'modules/sched.h').read_text(encoding='utf-8')
+        prefix=module[module.index('#define SCHED_YEAR_BASE'):module.index('typedef struct SchedTaskSnapshot')]
+        cron=module[module.index('/* ---- cron 解析'):module.index('/* ---- 下一跳计算')]
+        (site / 'main.c').write_text(SOURCE.replace('/* CRON_SOURCE */',prefix+cron), encoding='utf-8')
         (site / 'wwwroot').mkdir()
         with socket.socket() as sock:
             sock.bind(('127.0.0.1',0)); port = sock.getsockname()[1]
@@ -55,7 +69,7 @@ def run(exe):
         row = next(line for line in output.splitlines() if line.startswith('TIME_CONTRACT '))
         result = json.loads(row[len('TIME_CONTRACT '):])
         assert begin - 1 <= result['now_us'] / 1_000_000 <= time.time() + 1, result
-        print('PASS Unix epoch, negative floor, historical date, current persisted clock and 80 ms monotonic budget')
+        print('PASS Unix epoch, negative floor, historical date, persisted clock, local cron, strict next second and 80 ms budget')
 
 if __name__ == '__main__':
     parser=argparse.ArgumentParser();parser.add_argument('--exe',type=Path,required=True)

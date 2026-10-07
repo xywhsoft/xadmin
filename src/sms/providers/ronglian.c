@@ -6,7 +6,7 @@ static bool XA_SmsRonglianValid(const xvalue* o) { return XA_SmsName(XA_SmsOptio
 static bool XA_SmsRonglianBuild(const xvalue* o, const xvalue* t, const XASmsMessage* m, XASmsHttpRequest* r)
 {
     const char* id = XA_Text(t, "id", 128); if (!id || !*id || strncmp(m->phone, "+86", 3) || strlen(m->phone) != 14) return false;
-    char* date = xrtTimeFormat(xrtNow(), 480, XRT_STR_LITERAL("%Y%m%d%H%M%S"));
+    char* date = xrtTimeFormat(xrtNow(), 8 * 60 * 60, XRT_STR_LITERAL("%Y%m%d%H%M%S"));
     const char* sid = XA_SmsOption(o, "account_sid");
     char* signtext = date ? xrtFormat("%s%s%s", sid, XA_SmsOption(o, "auth_token"), date) : NULL;
     char* authtext = date ? xrtFormat("%s:%s", sid, date) : NULL;
