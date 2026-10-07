@@ -752,7 +752,7 @@ bool AuthRouteCheckProc(xbytesview key, RouteInfo* pInfo, void* param)
 		sqlite3_bind_text(stmt_uris_add, 1, (const char*)key.Data, (int)key.Size, SQLITE_STATIC);
 		/* F2：新路由把注册参数的脱敏开关写入列（仅作记录，运行时以参数为权威）。 */
 		sqlite3_bind_int(stmt_uris_add, 2, pInfo->bMaskBody ? 1 : 0);
-		xtime tNow = xrtNow();
+		xtime tNow = XAdmin_UnixNowUs();
 		sqlite3_bind_int64(stmt_uris_add, 3, tNow);
 		sqlite3_bind_int64(stmt_uris_add, 4, tNow);
 		sqlite3_step(stmt_uris_add);
@@ -813,7 +813,7 @@ static void XAdminRepairDuplicateAuthGroups()
 	sqlite3_stmt* stmtDeleteGroup = NULL;
 	int iRet;
 	int iFixed = 0;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 
 	iRet = sqlite3_prepare_v3(G_DB, "SELECT name, desc, sort FROM authGroup WHERE isDelete = 0 GROUP BY name, desc, sort HAVING COUNT(*) > 1;", -1, 0, &stmtDupSig, NULL);
 	if ( iRet != SQLITE_OK ) { goto cleanup; }
@@ -876,7 +876,7 @@ static void XAdminRepairDuplicateAuthItems()
 	sqlite3_stmt* stmtDeleteAuth = NULL;
 	int iRet;
 	int iFixed = 0;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 
 	iRet = sqlite3_prepare_v3(G_DB, "SELECT groupID, name, desc, sort FROM auth WHERE isDelete = 0 GROUP BY groupID, name, desc, sort HAVING COUNT(*) > 1;", -1, 0, &stmtDupSig, NULL);
 	if ( iRet != SQLITE_OK ) { goto cleanup; }

@@ -355,7 +355,7 @@ xvalue* XLog_TaskGetOne(sqlite3* pDb, int64 id)
 
 int64 XLog_TaskCreate(sqlite3* pDb, const char* sName, const char* sDesc)
 {
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	int64 newId = 0;
 	sqlite3_stmt* stmt = NULL;
 	str sql;
@@ -399,7 +399,7 @@ int64 XLog_TaskCreate(sqlite3* pDb, const char* sName, const char* sDesc)
 
 int64 XLog_LogAdd(sqlite3* pDb, const char* sTableName, const char* sClass, const char* sText)
 {
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	str sql = xrtFormat("INSERT INTO %s (time, class, text) VALUES (?, ?, ?);", sTableName);
 	sqlite3_stmt* stmt = NULL;
 	int64 logId = 0;
@@ -703,7 +703,7 @@ void XLog_Req_ApiServices(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		sDbName = xrtFormat("%s.db", sDbXID);
 		xrtFree(sDbXID);
 
-		now = xrtNow();
+		now = XAdmin_UnixNowUs();
 		if ( sqlite3_prepare_v2(pDb, "INSERT INTO services (name, desc, db, createTime, updateTime, isDelete) VALUES (?, ?, ?, ?, ?, 0);", -1, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_text(stmt, 1, sName, -1, SQLITE_TRANSIENT);
 			sqlite3_bind_text(stmt, 2, sDesc, -1, SQLITE_TRANSIENT);
@@ -747,7 +747,7 @@ void XLog_Req_ApiServices(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		sDesc = ValueText(tblForm, "desc");
 		if ( !sDesc ) sDesc = "";
 
-		now = xrtNow();
+		now = XAdmin_UnixNowUs();
 		if ( sqlite3_prepare_v2(pDb, "UPDATE services SET name = ?, desc = ?, updateTime = ? WHERE id = ?;", -1, &stmt, NULL) == SQLITE_OK ) {
 			sqlite3_bind_text(stmt, 1, sName, -1, SQLITE_TRANSIENT);
 			sqlite3_bind_text(stmt, 2, sDesc, -1, SQLITE_TRANSIENT);
@@ -899,7 +899,7 @@ void XLog_Req_ApiTasks(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		sDesc = ValueText(tblForm, "desc");
 		if ( !sDesc ) sDesc = "";
 		{
-			xtime now = xrtNow();
+			xtime now = XAdmin_UnixNowUs();
 			if ( sqlite3_prepare_v2(pSvcDb, "UPDATE tasks SET name = ?, desc = ?, updateTime = ? WHERE id = ?;", -1, &stmt, NULL) == SQLITE_OK ) {
 				sqlite3_bind_text(stmt, 1, sName, -1, SQLITE_TRANSIENT);
 				sqlite3_bind_text(stmt, 2, sDesc, -1, SQLITE_TRANSIENT);

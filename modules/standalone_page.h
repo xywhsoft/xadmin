@@ -108,7 +108,7 @@ bool StandalonePage_Dispatch(const char* uri, XS_ResponseObject resp)
 static bool Standalone_EnsureUriRowProc(const char* uri, void* ctx)
 {
 	sqlite3_stmt* stmt = NULL;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	(void)ctx;
 
 	if (sqlite3_prepare_v3(G_DB,
@@ -168,7 +168,7 @@ static StandalonePage* Standalone_FindByUri(const char* uri)
 
 static bool Standalone_Render(const StandalonePage* page, str* outBody, size_t* outSize)
 {
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 
 	if (outBody) *outBody = NULL;
 	if (outSize) *outSize = 0;

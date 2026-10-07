@@ -344,7 +344,7 @@ bool Member_ChangeBalance(int64 memberId, int type, int64 amount, str remark, st
 		return DB_EndWrite(false); // 余额不足
 	}
 	
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	
 	// 更新余额
 	sqlite3_bind_int64(stmt_member_balance, 1, newBalance);

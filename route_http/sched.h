@@ -396,7 +396,7 @@ void Request_Sched_Preview(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		Sched_ReplyMessage(objResp, false, xrtStrDup("任务参数无效，无法预览"));
 		return;
 	}
-	cursor = xrtNow();
+	cursor = XAdmin_UnixNowUs();
 	for (i = 0; i < 5; i++) {
 		int64 next = Sched_CalcNextTime(&task, cursor);
 		if (next <= 0) break;
@@ -442,7 +442,7 @@ void Request_Sched_Dashboard(XS_ServerObject objServer, XS_HostObject objHost, X
 	if (sqlite3_prepare_v3(G_DB,
 		"SELECT status, COUNT(*) FROM sched_run_log WHERE startTime > ? GROUP BY status",
 		-1, 0, &stmt, NULL) == SQLITE_OK) {
-		sqlite3_bind_int64(stmt, 1, xrtNow() - 86400LL * 1000000);
+		sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs() - 86400LL * 1000000);
 		{
 			xvalue* byStatus = xrtValueObject();
 			while (sqlite3_step(stmt) == SQLITE_ROW)

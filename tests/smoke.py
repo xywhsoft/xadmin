@@ -614,7 +614,7 @@ def checks(port, target, protected=False, functional_only=False):
     # === plugin host: scan / lifecycle / full-ABI conformance (hello-sdk) ===
     status, _, body = request(port, 'GET', '/admin/plugin/list', cookie=cookie)
     result = json.loads(body)
-    assert result['code'] == 0 and result['count'] >= 11, (result['count'], result)
+    assert result['code'] == 0 and result['count'] == len(result['data']), result
     plugins = {row['name']: row for row in result['data']}
     assert 'hello-sdk' in plugins and plugins['hello-sdk']['status'] == 'discovered'
     assert plugins['hello-sdk']['title'] == 'Hello SDK Conformance Plugin'

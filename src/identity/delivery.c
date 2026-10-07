@@ -96,11 +96,11 @@ static XAIdentityDeliveryResult XA_Deliver(XADeliveryJob* job)
         config.Net.Resolver=resolver;config.Net.Host=job->smtp_host;config.Net.Port=(uint16)job->smtp_port;
         config.Net.Security=job->starttls?XMAIL_SECURITY_STARTTLS:XMAIL_SECURITY_TLS;
         config.Net.Tls.Context=tls;config.Net.Tls.Verifier=verifier;
-        xdeadline deadline=xrtDeadlineAfter(15000000);client=xrtSmtpClientOpen(&config,deadline,NULL);
+        XAdminDeadline deadline=XAdmin_DeadlineAfterMs(15000);client=xrtSmtpClientOpen(&config,XAdmin_DeadlineRemainingMs(deadline),NULL);
         bool authenticated=client!=NULL;
         if(client&&job->smtp_auth){xsmtpauthconfig auth;xrtSmtpAuthConfigInit(&auth);
             auth.Method=XSMTP_AUTH_PLAIN;auth.Username=xrtStrView(job->smtp_user);auth.Secret=xrtStrView(job->smtp_password);
-            authenticated=job->smtp_user[0]&&job->smtp_password[0]&&xrtSmtpClientAuth(client,&auth,deadline,NULL);}
+            authenticated=job->smtp_user[0]&&job->smtp_password[0]&&xrtSmtpClientAuth(client,&auth,XAdmin_DeadlineRemainingMs(deadline),NULL);}
         if(authenticated){
             char text[256];
             if(m->security_notice)snprintf(text,sizeof(text),"Your verified account contact was changed. If this was not you, sign in using another login method and review your sessions.\r\n");
@@ -108,12 +108,12 @@ static XAIdentityDeliveryResult XA_Deliver(XADeliveryJob* job)
             xmailmessage mail;xrtMailMessageInit(&mail);xmailaddress to={0};to.Address=xrtStrView(m->target);to.Name=xrtStrView("");
             mail.From.Address=xrtStrView(job->smtp_sender);mail.From.Name=xrtStrView("Account service");mail.To=&to;mail.ToCount=1;
             mail.Subject=xrtStrView(m->security_notice?"Account security notification":"Account verification");mail.Text=xrtStrView(text);composed=xrtMailCompose(&mail,&size);
-            if(composed&&xrtSmtpClientMail(client,xrtStrView(job->smtp_sender),xrtStrView(""),deadline,NULL)&&
-                xrtSmtpClientRcpt(client,xrtStrView(m->target),xrtStrView(""),deadline,NULL)){
-                submitted=true;sent=xrtSmtpClientData(client,xrtStrViewN(composed,size),deadline,NULL);}
+            if(composed&&xrtSmtpClientMail(client,xrtStrView(job->smtp_sender),xrtStrView(""),XAdmin_DeadlineRemainingMs(deadline),NULL)&&
+                xrtSmtpClientRcpt(client,xrtStrView(m->target),xrtStrView(""),XAdmin_DeadlineRemainingMs(deadline),NULL)){
+                submitted=true;sent=xrtSmtpClientData(client,xrtStrViewN(composed,size),XAdmin_DeadlineRemainingMs(deadline),NULL);}
             xrtSecureZero(text,sizeof(text));
         }
-        if(client)xrtSmtpClientQuit(client,deadline,NULL);
+        if(client)xrtSmtpClientQuit(client,XAdmin_DeadlineRemainingMs(deadline),NULL);
     }
     if(composed)xrtSecureZero(composed,size);xrtFree(composed);
     if(client)xrtSmtpClientDestroy(client);if(resolver)xrtNetResolverDestroy(resolver);

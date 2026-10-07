@@ -110,7 +110,7 @@ void Request_Content_Page_Save(XS_ServerObject s, XS_HostObject h, XS_RequestObj
 	str normalizedHeader = NULL;
 	int64 useTemplate, cacheSeconds;
 	sqlite3_stmt* stmt = NULL;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 
 	(void)s; (void)h; (void)sess;
 	if (xsReqMethodID(r) != XHTTP_METHOD_POST) {
@@ -227,7 +227,7 @@ void Request_Content_Page_Delete(XS_ServerObject s, XS_HostObject h, XS_RequestO
 		Standalone_ReplyError(w, "prepare delete failed");
 		return;
 	}
-	sqlite3_bind_int64(stmt, 1, xrtNow());
+	sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs());
 	sqlite3_bind_int64(stmt, 2, id);
 	sqlite3_step(stmt);
 	sqlite3_finalize(stmt);

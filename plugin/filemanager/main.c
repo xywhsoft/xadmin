@@ -978,7 +978,7 @@ void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 
 	if ( !xrtDirExists(sSave) ) xrtDirCreateAll(sSave);
 
-	sTempList = xrtFormat("%s/_filelist-%u.txt", (char*)G_FMConfig.sTempPath, (unsigned)xrtNow() % 1000000u);
+	sTempList = xrtFormat("%s/_filelist-%u.txt", (char*)G_FMConfig.sTempPath, (unsigned)XAdmin_UnixNowUs() % 1000000u);
 	fp = fopen(sTempList, "w");
 	if ( !fp ) {
 		FM_SendError(objResp, 500, "cannot create temp file list");
@@ -998,7 +998,7 @@ void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	xrtPathSetCwd(sSrc);
 	if ( strcmp((char*)sFormat, "tar.gz") == 0 || strcmp((char*)sFormat, "tgz") == 0 ) {
 		char sTempTar[1024];
-		snprintf(sTempTar, sizeof(sTempTar), "%s\\temp_%u.tar", (char*)sSave, (unsigned)(xrtNow() % 1000000));
+		snprintf(sTempTar, sizeof(sTempTar), "%s\\temp_%u.tar", (char*)sSave, (unsigned)(XAdmin_UnixNowUs() % 1000000));
 		snprintf(sCmd, sizeof(sCmd), "%s\\7z.exe a -ttar \"%s\" @\"%s\"", (char*)G_FMConfig.sToolPath, sTempTar, (char*)sTempList);
 		ret = system(sCmd);
 		if ( ret == 0 ) {

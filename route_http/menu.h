@@ -176,7 +176,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		}
 		
 		// 添加菜单
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_int(stmt_menu_add, 1, iParent);
 		sqlite3_bind_text(stmt_menu_add, 2, sTitle, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_menu_add, 3, sIcon ? (ptr)sIcon : (str)"", -1, SQLITE_STATIC);
@@ -262,7 +262,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		}
 		
 		// 更新菜单
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_int(stmt_menu_put, 1, iParent);
 		sqlite3_bind_text(stmt_menu_put, 2, sTitle, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_menu_put, 3, sIcon ? (ptr)sIcon : (str)"", -1, SQLITE_STATIC);
@@ -304,7 +304,7 @@ void Request_Option_Menu(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		}
 		
 		// 删除菜单
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_int64(stmt_menu_del, 1, now);
 		sqlite3_bind_int(stmt_menu_del, 2, iID);
 		

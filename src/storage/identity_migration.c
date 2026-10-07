@@ -85,7 +85,7 @@ static bool XA_IdentityMigrate(sqlite3* db, const char* backup_path)
     if (rc == SQLITE_OK) rc = sqlite3_prepare_v2(db, "INSERT INTO xadmin_migration VALUES('identity',1,?,?)", -1, &stmt, NULL);
     if (rc == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, checksum, -1, SQLITE_TRANSIENT);
-        sqlite3_bind_int64(stmt, 2, xrtNow());
+        sqlite3_bind_int64(stmt, 2, XAdmin_UnixNowUs());
         rc = sqlite3_step(stmt); sqlite3_finalize(stmt);
         if (rc == SQLITE_DONE) rc = sqlite3_exec(db, "COMMIT", NULL, NULL, NULL);
     }

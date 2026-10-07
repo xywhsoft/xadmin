@@ -582,7 +582,7 @@ void Comment_RequestPost(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	const char* sBody;
 	CommentRequestContext context;
 	CommentMountOptions mountOptions;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 	int iStatus;
 	int64 iId = 0;
 	xvalue tblRet;
@@ -670,7 +670,7 @@ void Comment_RequestApprove(XS_ServerObject objServer, XS_HostObject objHost, XS
 	sqlite3_stmt* stmt = NULL;
 	CommentRequestContext context;
 	int64 iId = 0;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 
 	(void)objServer; (void)objHost; (void)objSession;
 
@@ -724,7 +724,7 @@ void Comment_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 	sqlite3_stmt* stmt = NULL;
 	CommentRequestContext context;
 	int64 iId = 0;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 
 	(void)objServer; (void)objHost; (void)objSession;
 

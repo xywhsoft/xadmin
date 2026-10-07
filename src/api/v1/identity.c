@@ -45,7 +45,7 @@ static void XA_RegisterAPI(XAdminRequest* req,xvalue* body)
     if(!hashed){XA_Reply(req,500,"password service unavailable",NULL,NULL);return;}
     s=XA_SQL("INSERT INTO member(username,salt,pwd,groupId,authLevel,balance,nickname,email,phone,avatar,status,createTime,updateTime,isDelete)VALUES(?,'',?,1,0,0,?,'','','',1,?,?,0)");
     XA_BindText(s,1,username);XA_BindText(s,2,record);XA_BindText(s,3,nickname?nickname:username);
-    if(s){sqlite3_bind_int64(s,4,xrtNow());sqlite3_bind_int64(s,5,xrtNow());}
+    if(s){sqlite3_bind_int64(s,4,XAdmin_UnixNowUs());sqlite3_bind_int64(s,5,XAdmin_UnixNowUs());}
     bool ok=XA_Done(s,true);xrtSecureZero(record,sizeof(record));
     if(!ok){int code=sqlite3_extended_errcode(G_DB);int status=(code==SQLITE_CONSTRAINT_UNIQUE||code==SQLITE_CONSTRAINT_PRIMARYKEY)?409:500;XA_Reply(req,status,status==409?"account name is reserved":"registration unavailable",NULL,NULL);return;}
     int64 id=sqlite3_last_insert_rowid(G_DB);Register_Note(req->remote);
@@ -78,7 +78,7 @@ static void XA_ProfileAPI(XAdminRequest* req,xvalue* session,xvalue* body)
     if(!valid||(ValueHas(body,"nickname")&&!nickname)||(ValueHas(body,"avatar")&&!avatar)){
         XA_Reply(req,400,"only nickname and avatar can be edited; use contact verification",NULL,NULL);return;}
     s=XA_SQL("UPDATE member SET nickname=COALESCE(?,nickname),avatar=COALESCE(?,avatar),updateTime=? WHERE id=? AND status=1 AND isDelete=0");
-    XA_BindText(s,1,nickname);XA_BindText(s,2,avatar);if(s){sqlite3_bind_int64(s,3,xrtNow());sqlite3_bind_int64(s,4,owner);}
+    XA_BindText(s,1,nickname);XA_BindText(s,2,avatar);if(s){sqlite3_bind_int64(s,3,XAdmin_UnixNowUs());sqlite3_bind_int64(s,4,owner);}
     bool ok=XA_Done(s,true);XA_Reply(req,ok?200:500,ok?"updated":"profile unavailable",NULL,NULL);
 }
 static void XA_PasswordAPI(XAdminRequest* req,xvalue* session,xvalue* body,bool reauth)
@@ -149,7 +149,7 @@ static void XA_CredentialsAPI(XAdminRequest* req,xvalue* session,xvalue* body)
     if(!XA_Begin()){xrtSecureZero(record,sizeof(record));XA_Reply(req,500,"identity service unavailable",NULL,NULL);return;}
     sqlite3_stmt* s=XA_SQL("UPDATE member SET username=?,salt='',pwd=?,updateTime=? WHERE id=? AND status=1 AND isDelete=0");
     XA_BindText(s,1,username);XA_BindText(s,2,record);
-    if(s){sqlite3_bind_int64(s,3,xrtNow());sqlite3_bind_int64(s,4,account.id);}
+    if(s){sqlite3_bind_int64(s,3,XAdmin_UnixNowUs());sqlite3_bind_int64(s,4,account.id);}
     ok=XA_Done(s,true);int error=sqlite3_extended_errcode(G_DB);
     if(ok)ok=XA_SecurityClose(account.id,"credentials_changed",NULL,NULL)&&XA_SessionRevokeAccount(account.id,ValueText(session,"sid"));
     ok=XA_End(ok);xrtSecureZero(record,sizeof(record));xrtSecureZero(&account,sizeof(account));

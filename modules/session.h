@@ -11,7 +11,7 @@ static XS_HostInfo* G_SessionOwner;
 static uint64 G_SessionTimer;
 static bool Session_IsExpired(xvalue* session)
 {
-	return !session || xrtValueType(session) != XVALUE_OBJECT || xrtNow() > ValueInt(session, "_expireTime");
+	return !session || xrtValueType(session) != XVALUE_OBJECT || XAdmin_UnixNowUs() > ValueInt(session, "_expireTime");
 }
 /* R4 上限执行与 R3 保留式撤销在 Store 之后定义，此处前置声明。 */
 static void Session_EnforceAccountCap(xvalue* sessions, xvalue* session);
@@ -19,7 +19,7 @@ static void Session_RevokeAccountExcept(bool admin, int64 account_id, xvalue* ke
 
 static xvalue* Session_Create(int seconds)
 {
-	xvalue* value = xrtValueObject(); int64 now = xrtNow();
+	xvalue* value = xrtValueObject(); int64 now = XAdmin_UnixNowUs();
 	ValueSetInt(value, "_createTime", now);
 	ValueSetInt(value, "_activeTime", now);
 	ValueSetInt(value, "_expireTime", now + (int64)seconds * 1000000);
@@ -77,7 +77,7 @@ static void Session_EnforceAccountCap(xvalue* sessions, xvalue* session)
 
 static void Session_Extend(xvalue* session, int seconds)
 {
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	ValueSetInt(session, "_activeTime", now);
 	ValueSetInt(session, "_expireTime", now + (int64)seconds * 1000000);
 }

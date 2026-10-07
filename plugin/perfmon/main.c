@@ -587,7 +587,7 @@ static int PM_GetDiskList(str** ppMounts, int64** ppTotals, int64** ppUseds, int
 
 static void PM_CollectData(PMData* pData)
 {
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	float timeDiff = (float)(now - G_PMLastTime) / 1000.0f;
 	int64 netTx, netRx, diskRead, diskWrite;
 
@@ -677,7 +677,7 @@ static void* PM_CollectThread(void* param)
 
 		iCleanupCounter++;
 		if ( iCleanupCounter >= 600 ) {
-			xtime iCutoff = xrtNow() - ((int64)G_PMConfig.iHistoryRetentionDays * 24 * 60 * 60 * 1000);
+			xtime iCutoff = XAdmin_UnixNowUs() - ((int64)G_PMConfig.iHistoryRetentionDays * 24 * 60 * 60 * 1000);
 			str sSQL = xrtFormat("DELETE FROM performance WHERE timestamp < %lld;", iCutoff);
 			if ( PM_OpenDb(&pDb) ) {
 				sqlite3_exec(pDb, sSQL, NULL, NULL, NULL);
@@ -1072,7 +1072,7 @@ void PM_Req_ApiDisk(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 void PM_Req_ApiHistory(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	str sPeriod;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	xtime startTime = now;
 	int iLimit = 60;
 	sqlite3* pDb;

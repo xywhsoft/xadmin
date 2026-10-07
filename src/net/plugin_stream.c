@@ -20,7 +20,7 @@ static bool PluginStream_Send(XS_RequestObject req, const void* bytes, size_t si
     size_t offset = 0;
     while (offset < size) {
         size_t n = size-offset; if (n > 16384) n = 16384;
-        if (!PluginStream_PeerOpen(req) || xrtDeadlineExpired(req->stream_deadline)) return false;
+        if (!PluginStream_PeerOpen(req) || XAdmin_DeadlineExpired(req->stream_deadline)) return false;
         if (req->raw->tls) {
             if (!PluginAsync_Future(xrtTlsStreamSendAsync(req->raw->tls,(cbytes)bytes+offset,n),req->stream_deadline) ||
                 !PluginAsync_Future(xrtTlsStreamWaitAsync(req->raw->tls,XTLS_STREAM_WAIT_DRAIN),req->stream_deadline)) return false;
@@ -29,7 +29,7 @@ static bool PluginStream_Send(XS_RequestObject req, const void* bytes, size_t si
             if (!limit) return false; if (n > limit) n = limit;
             xnetresult sent = xrtNetStreamSend(req->raw->tcp,(cbytes)bytes+offset,n);
             if ((sent != XNET_RESULT_OK && sent != XNET_RESULT_AGAIN) ||
-                !xrtNetStreamWait(req->raw->tcp,XNET_STREAM_WAIT_DRAIN,req->stream_deadline,NULL)) return false;
+                !xrtNetStreamWait(req->raw->tcp,XNET_STREAM_WAIT_DRAIN,XAdmin_DeadlineRemainingMs(req->stream_deadline),NULL)) return false;
             if (sent == XNET_RESULT_AGAIN) continue;
         }
         offset += n;
@@ -54,7 +54,7 @@ static int XAdmin_StreamBegin(XS_RequestObject req, uint16 status,
     if(origin.Size){all[count++]=(xhttpfield){XRT_STR_LITERAL("Access-Control-Allow-Origin"),origin};
         all[count++]=(xhttpfield){XRT_STR_LITERAL("Vary"),XRT_STR_LITERAL("Origin")};}
     if (!xrtHttp1ResponseWrite(XHTTP_VERSION_1_1,status,xrtHttpStatusText(status),all,count,head,sizeof(head),&n)) return -1;
-    req->replied=true; req->streaming=true; req->stream_deadline=xrtDeadlineAfter((uint64)timeout_ms*1000);
+    req->replied=true; req->streaming=true; req->stream_deadline=XAdmin_DeadlineAfterMs(timeout_ms);
     xrtMutexUnlock(G_RequestLock); bool ok=PluginStream_Send(req,head,n);
     if(!ok)PluginStream_Abort(req); xrtMutexLock(G_RequestLock);
     req->stream_failed=!ok; return ok?0:-1;
@@ -81,14 +81,14 @@ static int XAdmin_StreamFinish(XS_RequestObject req,bool success)
     if(!ok)PluginStream_Abort(req); xrtMutexLock(G_RequestLock);
     req->streaming=false; req->stream_failed=!ok; return ok?0:-1;
 }
-static bool PluginStream_Wait(XS_RequestObject req,xfuture* future,xdeadline total,unsigned idle_ms)
+static bool PluginStream_Wait(XS_RequestObject req,xfuture* future,XAdminDeadline total,unsigned idle_ms)
 {
     if(!future)return false;
-    xdeadline idle=xrtDeadlineAfter((uint64)idle_ms*1000);
+    XAdminDeadline idle=XAdmin_DeadlineAfterMs(idle_ms);
     while(xrtFutureState(future)==XFUTURE_PENDING){
-        uint64 remaining=xrtDeadlineRemaining(total), r=xrtDeadlineRemaining(idle);
+        uint64 remaining=XAdmin_DeadlineRemainingMs(total), r=XAdmin_DeadlineRemainingMs(idle);
         if(!remaining || !r || !PluginStream_PeerOpen(req))break;
-        if(r<remaining)remaining=r; if(remaining>100000)remaining=100000;
+        if(r<remaining)remaining=r; if(remaining>100)remaining=100;
         xrtFutureWaitFor(future,remaining);
     }
     return xrtFutureState(future)!=XFUTURE_PENDING && PluginStream_PeerOpen(req);
@@ -157,8 +157,8 @@ static int XAdmin_HttpStream(XAdminPluginHandle handle,XS_RequestObject req,
     xhttp1body body; xhttp1bodyplan plan; xhttp1limits limits; xhttp1bodylimits body_limits; xhttp1errorinfo error;
     xrtHttp1HeadInit(&head,response_fields,64); xrtHttp1LimitsInit(&limits); limits.MaxFields=64;
     xrtHttp1BodyLimitsInit(&body_limits); body_limits.MaxBody=config.max_response; body_limits.MaxTrailers=16;
-    xdeadline deadline=xrtDeadlineAfter((uint64)config.timeout_ms*1000);
-    xdeadline first=xrtDeadlineAfter((uint64)config.first_byte_timeout_ms*1000);
+    XAdminDeadline deadline=XAdmin_DeadlineAfterMs(config.timeout_ms);
+    XAdminDeadline first=XAdmin_DeadlineAfterMs(config.first_byte_timeout_ms);
     inst->activeIo++; xrtMutexUnlock(G_RequestLock);
     xnetresolverconfig rc; xrtNetResolverConfigInit(&rc); resolver=xrtNetResolverCreate(&rc);
     if(!resolver)goto done;
@@ -170,10 +170,10 @@ static int XAdmin_HttpStream(XAdminPluginHandle handle,XS_RequestObject req,
         xtlsclientconfig tc; xtlsdialconfig dc; xrtTlsClientConfigInit(&tc);xrtTlsDialConfigInit(&dc);
         tc.Verifier=verifier;tc.VerifyName=xrtStrView(url.host); xnetaddr address;
         if(!xrtNetAddrParse(&address,url.host,(uint16)url.port))tc.ServerName=tc.VerifyName;
-        dc.ServerNameFromHost=false;dc.Timeout=xrtDeadlineRemaining(first);
+        dc.ServerNameFromHost=false;dc.Timeout=XAdmin_DeadlineRemainingMs(first);
         future=xrtTlsDialAsync(req->raw->server->Engine,resolver,url.host,(uint16)url.port,&tc,&dc,NULL,NULL);
     }else{
-        xnetdialconfig dc;xrtNetDialConfigInit(&dc);dc.Timeout=xrtDeadlineRemaining(first);
+        xnetdialconfig dc;xrtNetDialConfigInit(&dc);dc.Timeout=XAdmin_DeadlineRemainingMs(first);
         future=xrtNetDialAsync(req->raw->server->Engine,resolver,url.host,(uint16)url.port,&dc,NULL,NULL);
     }
     if(!PluginStream_Wait(req,future,first,config.first_byte_timeout_ms) || xrtFutureState(future)!=XFUTURE_RESOLVED)goto done;
@@ -188,7 +188,7 @@ static int XAdmin_HttpStream(XAdminPluginHandle handle,XS_RequestObject req,
         }else{
             size_t limit=xrtNetStreamWriteLimit(tcp);if(!limit)goto done;if(n>limit)n=limit;
             xnetresult sent=xrtNetStreamSend(tcp,(cbytes)wire.Data+i,n);
-            if((sent!=XNET_RESULT_OK&&sent!=XNET_RESULT_AGAIN)||!xrtNetStreamWait(tcp,XNET_STREAM_WAIT_DRAIN,first,NULL))goto done;
+            if((sent!=XNET_RESULT_OK&&sent!=XNET_RESULT_AGAIN)||!xrtNetStreamWait(tcp,XNET_STREAM_WAIT_DRAIN,XAdmin_DeadlineRemainingMs(first),NULL))goto done;
             if(sent==XNET_RESULT_AGAIN)continue;
         }i+=n;
     }
@@ -234,7 +234,7 @@ static int XAdmin_HttpStream(XAdminPluginHandle handle,XS_RequestObject req,
 done:
     if(result && !PluginStream_PeerOpen(req))result=-3;
     else if(result && ((future && xrtFutureState(future)==XFUTURE_PENDING) ||
-        xrtDeadlineExpired(deadline)||(!headed&&xrtDeadlineExpired(first))))result=-2;
+        XAdmin_DeadlineExpired(deadline)||(!headed&&XAdmin_DeadlineExpired(first))))result=-2;
     XA_HttpsFutureDone(future);
     if(tls){xrtTlsStreamAbort(tls);xrtTlsStreamDestroy(tls);}if(tcp){xrtNetStreamAbort(tcp);xrtNetStreamDestroy(tcp);}
     if(resolver)xrtNetResolverDestroy(resolver);if(verifier)xrtTlsVerifierRelease(verifier);

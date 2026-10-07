@@ -7,6 +7,7 @@
 
 #include "xsbase.h"
 #include <stdint.h>
+#include "../include/xadmin/time.h"
 
 /* 应用侧（宿主 TU）已从 modules/http.h 取得 XS_* 对象类型；
  * 插件侧无该头——这里提供不透明指针定义，两者 ABI 兼容（仅指针传递）。 */

@@ -36,7 +36,7 @@ static int64 Util_ParseI64(const char* text)
 static struct { char ip[48]; int64 windowStart; int count; } Util_RateSlots[UTIL_RATE_SLOTS];
 static bool Util_RateAllow(const char* ip, int maxPerMinute)
 {
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	int64 window = 60LL * 1000000LL;
 	int oldest = 0;
 	int i;

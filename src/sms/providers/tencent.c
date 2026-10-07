@@ -16,7 +16,7 @@ static bool XA_SmsTencentBuild(const xvalue* o, const xvalue* t, const XASmsMess
         XA_SmsBodyValue(r, "https://sms.tencentcloudapi.com/", body, false);
     char payload_hash[65], canonical_hash[65], signature[65], timestamp[32]; unsigned char kdate[32], kservice[32], ksign[32];
     xtime now=xrtNow(); char* date = xrtTimeFormat(now, 0, XRT_STR_LITERAL("%Y-%m-%d"));
-    snprintf(timestamp, sizeof(timestamp), "%lld", (long long)(now/1000000));
+    snprintf(timestamp, sizeof(timestamp), "%lld", (long long)xrtTimeUnix(now));
     ok = ok && date && XA_SmsDigest(r->body, payload_hash);
     char* canonical = ok ? xrtFormat("POST\n/\n\ncontent-type:application/json\nhost:sms.tencentcloudapi.com\n\ncontent-type;host\n%s", payload_hash) : NULL;
     ok = canonical && XA_SmsDigest(canonical, canonical_hash);

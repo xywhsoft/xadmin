@@ -200,7 +200,7 @@ static bool Mail_SendOne(const xsmtpclientconfig* config, const char* toEmail, c
 	xsmtpauthconfig auth;
 	xmailmessage msg;
 	xmailaddress to;
-	xdeadline deadline;
+	XAdminDeadline deadline;
 	uint64 timeoutUs = (uint64)(Mail_GetInt("smtp_timeout_sec", 15)) * 1000000;
 	const char* user = Mail_GetText("smtp_username", "");
 	const char* pass = Mail_GetText("smtp_password", "");
@@ -219,20 +219,20 @@ static bool Mail_SendOne(const xsmtpclientconfig* config, const char* toEmail, c
 	msg.Text = xrtStrView(textBody ? textBody : "");
 	if (htmlBody && htmlBody[0]) msg.Html = xrtStrView(htmlBody);
 
-	deadline = xrtDeadlineAfter(timeoutUs);
+	deadline = XAdmin_DeadlineAfterMs(timeoutUs / 1000);
 	if (!xrtSmtpClientConfigValid(config)) {
 		snprintf(error, errorCap, "SMTP 配置无效（主机/端口/安全模式/TLS 验证器）");
 		return false;
 	}
-	client = xrtSmtpClientOpen(config, deadline, NULL);
+	client = xrtSmtpClientOpen(config, XAdmin_DeadlineRemainingMs(deadline), NULL);
 	if (!client) {
 		/* auto 模式回落：STARTTLS 失败时按明文重试一次 */
 		if (config->Net.Security == XMAIL_SECURITY_STARTTLS &&
 			strcmp(Mail_GetText("smtp_secure", "ssl"), "auto") == 0) {
 			xsmtpclientconfig plain = *config;
 			plain.Net.Security = XMAIL_SECURITY_PLAIN;
-			deadline = xrtDeadlineAfter(timeoutUs);
-			client = xrtSmtpClientOpen(&plain, deadline, NULL);
+			deadline = XAdmin_DeadlineAfterMs(timeoutUs / 1000);
+			client = xrtSmtpClientOpen(&plain, XAdmin_DeadlineRemainingMs(deadline), NULL);
 		}
 	}
 	if (!client) {
@@ -245,12 +245,12 @@ static bool Mail_SendOne(const xsmtpclientconfig* config, const char* toEmail, c
 		auth.Method = XSMTP_AUTH_PLAIN;
 		auth.Username = xrtStrView(user);
 		auth.Secret = xrtStrView(pass);
-		if (!xrtSmtpClientAuth(client, &auth, deadline, NULL)) {
+		if (!xrtSmtpClientAuth(client, &auth, XAdmin_DeadlineRemainingMs(deadline), NULL)) {
 			/* PLAIN 被拒时回落 LOGIN */
 			auth.Method = XSMTP_AUTH_LOGIN;
-			if (!xrtSmtpClientAuth(client, &auth, deadline, NULL)) {
+			if (!xrtSmtpClientAuth(client, &auth, XAdmin_DeadlineRemainingMs(deadline), NULL)) {
 				snprintf(error, errorCap, "SMTP 认证失败");
-				xrtSmtpClientQuit(client, deadline, NULL);
+				xrtSmtpClientQuit(client, XAdmin_DeadlineRemainingMs(deadline), NULL);
 				xrtSmtpClientDestroy(client);
 				return false;
 			}
@@ -263,14 +263,14 @@ static bool Mail_SendOne(const xsmtpclientconfig* config, const char* toEmail, c
 		composed = xrtMailCompose(&msg, &composedSize);
 		if (!composed) {
 			snprintf(error, errorCap, "SMTP 邮件内容构建失败");
-			xrtSmtpClientQuit(client, deadline, NULL);
+			xrtSmtpClientQuit(client, XAdmin_DeadlineRemainingMs(deadline), NULL);
 			xrtSmtpClientDestroy(client);
 			return false;
 		}
-		ok = xrtSmtpClientMail(client, xrtStrView(toEmail ? toEmail : ""), xrtStrView(""), deadline, NULL)
-			&& xrtSmtpClientRcpt(client, xrtStrView(toEmail ? toEmail : ""), xrtStrView(""), deadline, NULL);
+		ok = xrtSmtpClientMail(client, xrtStrView(toEmail ? toEmail : ""), xrtStrView(""), XAdmin_DeadlineRemainingMs(deadline), NULL)
+			&& xrtSmtpClientRcpt(client, xrtStrView(toEmail ? toEmail : ""), xrtStrView(""), XAdmin_DeadlineRemainingMs(deadline), NULL);
 		if (ok) {
-			ok = xrtSmtpClientData(client, xrtStrViewN(composed, composedSize), deadline, NULL);
+			ok = xrtSmtpClientData(client, xrtStrViewN(composed, composedSize), XAdmin_DeadlineRemainingMs(deadline), NULL);
 			if (!ok) {
 				xsmtpreply reply;
 				if (xrtSmtpClientLastReply(client, &reply)) {
@@ -286,7 +286,7 @@ static bool Mail_SendOne(const xsmtpclientconfig* config, const char* toEmail, c
 		xrtFree(composed);
 		(void)mailBody;
 	}
-	xrtSmtpClientQuit(client, deadline, NULL);
+	xrtSmtpClientQuit(client, XAdmin_DeadlineRemainingMs(deadline), NULL);
 	xrtSmtpClientDestroy(client);
 	return ok;
 }
@@ -352,7 +352,7 @@ static void Mail_UpdateTaskResult(sqlite3* db, int64 taskId, const char* status,
 	sqlite3_bind_int64(stmt, 3, nextRetryAt);
 	sqlite3_bind_int64(stmt, 4, sendTime);
 	sqlite3_bind_text(stmt, 5, errorMessage ? errorMessage : "", -1, SQLITE_TRANSIENT);
-	sqlite3_bind_int64(stmt, 6, xrtNow());
+	sqlite3_bind_int64(stmt, 6, XAdmin_UnixNowUs());
 	sqlite3_bind_int64(stmt, 7, taskId);
 	sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
@@ -363,7 +363,7 @@ static void Mail_UpdateTaskResult(sqlite3* db, int64 taskId, const char* status,
 		-1, 0, &stmt, NULL) == SQLITE_OK) {
 		sqlite3_bind_text(stmt, 1, status, -1, SQLITE_TRANSIENT);
 		sqlite3_bind_text(stmt, 2, errorMessage ? errorMessage : "", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_int64(stmt, 3, xrtNow());
+		sqlite3_bind_int64(stmt, 3, XAdmin_UnixNowUs());
 		sqlite3_bind_int64(stmt, 4, taskId);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
@@ -379,7 +379,7 @@ static bool Mail_ClaimTask(sqlite3* db, int64 taskId)
 	if (sqlite3_prepare_v3(db,
 		"UPDATE mail_task SET status = 'sending', updateTime = ? WHERE id = ? AND status = 'pending'",
 		-1, 0, &stmt, NULL) != SQLITE_OK) return false;
-	sqlite3_bind_int64(stmt, 1, xrtNow());
+	sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs());
 	sqlite3_bind_int64(stmt, 2, taskId);
 	ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0;
 	sqlite3_finalize(stmt);
@@ -391,12 +391,12 @@ static void Mail_RecoverStale(sqlite3* db)
 {
 	sqlite3_stmt* stmt = NULL;
 	int64 staleAfter = Mail_GetInt("smtp_timeout_sec", 15) * 2;
-	int64 cutoff = xrtNow() - staleAfter * 1000000;
+	int64 cutoff = XAdmin_UnixNowUs() - staleAfter * 1000000;
 
 	if (sqlite3_prepare_v3(db,
 		"UPDATE mail_task SET status = 'pending', updateTime = ? WHERE status = 'sending' AND updateTime < ?",
 		-1, 0, &stmt, NULL) != SQLITE_OK) return;
-	sqlite3_bind_int64(stmt, 1, xrtNow());
+	sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs());
 	sqlite3_bind_int64(stmt, 2, cutoff);
 	sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
@@ -412,7 +412,7 @@ static bool Mail_RunBatch(sqlite3* db, int64 limit, bool ignoreRetryAt,
 	int64 retryInterval = Mail_GetInt("mail_retry_interval_sec", 300);
 	int64 processed = 0;
 	int64 success = 0, fail = 0;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	char firstError[192] = {0};
 
 	if (successCount) *successCount = 0;
@@ -470,11 +470,11 @@ static bool Mail_RunBatch(sqlite3* db, int64 limit, bool ignoreRetryAt,
 				htmlBody, textBody, sendError, sizeof(sendError));
 			xrtFree(finalSubject);
 			if (sent) {
-				Mail_UpdateTaskResult(db, taskId, "success", retryCount, 0, xrtNow(), "");
+				Mail_UpdateTaskResult(db, taskId, "success", retryCount, 0, XAdmin_UnixNowUs(), "");
 				success++;
 			} else {
 				bool willRetry = (retryCount + 1 < (maxRetry > 0 ? maxRetry : 3));
-				int64 nextRetryAt = willRetry ? (xrtNow() + retryInterval * 1000000) : 0;
+				int64 nextRetryAt = willRetry ? (XAdmin_UnixNowUs() + retryInterval * 1000000) : 0;
 				Mail_UpdateTaskResult(db, taskId, willRetry ? "pending" : "fail",
 					retryCount + 1, nextRetryAt, 0, sendError);
 				if (!firstError[0]) snprintf(firstError, sizeof(firstError), "%s", sendError);
@@ -518,22 +518,22 @@ static int32 Mail_ThreadProc(ptr param)
 
 		interval = Mail_ScanInterval();
 		force = Mail_PeekForceRun();
-		if (force || lastRun == 0 || xrtNow() >= lastRun + interval * 1000000) {
+		if (force || lastRun == 0 || XAdmin_UnixNowUs() >= lastRun + interval * 1000000) {
 			if (Mail_Enabled() && Mail_GetBool("mail_queue_enabled", true)) {
 				int64 success = 0, fail = 0;
 				char message[256];
 				Mail_SetRunning(true);
 				Mail_RunBatch(db, Mail_BatchLimit(interval), force, &success, &fail, message, sizeof(message));
 				Mail_SetRunning(false);
-				lastRun = xrtNow();
+				lastRun = XAdmin_UnixNowUs();
 				if (success > 0 || fail > 0)
 					printf("[mail_queue] success=%lld fail=%lld %s\n", (long long)success, (long long)fail, message);
 				/* 一次只消化一个 force 请求 */
 				continue;
 			}
-			lastRun = xrtNow();
+			lastRun = XAdmin_UnixNowUs();
 		}
-		xrtSleepUs(1000000);
+		xrtSleep(1000);
 	}
 	sqlite3_close(db);
 	return 0;
@@ -614,7 +614,7 @@ static xvalue* Mail_QueueStatus(void)
 	if (sqlite3_prepare_v3(G_DB,
 		"SELECT COUNT(*) FROM mail_task WHERE status = 'pending' AND nextRetryAt <= ?",
 		-1, 0, &stmt, NULL) == SQLITE_OK) {
-		sqlite3_bind_int64(stmt, 1, xrtNow());
+		sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs());
 		if (sqlite3_step(stmt) == SQLITE_ROW) pending = sqlite3_column_int64(stmt, 0);
 		sqlite3_finalize(stmt);
 	}
@@ -684,8 +684,8 @@ static bool Mail_CreateTasks(const char* sendType, const char* memberIds, const 
 			sqlite3_bind_text(stmt, 3, subject, -1, SQLITE_TRANSIENT);
 			sqlite3_bind_text(stmt, 4, content, -1, SQLITE_TRANSIENT);
 			sqlite3_bind_int64(stmt, 5, maxRetry);
-			sqlite3_bind_int64(stmt, 6, xrtNow());
-			sqlite3_bind_int64(stmt, 7, xrtNow());
+			sqlite3_bind_int64(stmt, 6, XAdmin_UnixNowUs());
+			sqlite3_bind_int64(stmt, 7, XAdmin_UnixNowUs());
 			if (sqlite3_step(stmt) == SQLITE_DONE) made++;
 			sqlite3_reset(stmt);
 			sqlite3_clear_bindings(stmt);
@@ -742,7 +742,7 @@ static bool Mail_RetryTask(int64 taskId, str* outMessage)
 		if (outMessage) *outMessage = xrtStrDup(sqlite3_errmsg(G_DB));
 		return false;
 	}
-	sqlite3_bind_int64(stmt, 1, xrtNow());
+	sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs());
 	sqlite3_bind_int64(stmt, 2, taskId);
 	{
 		bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(G_DB) > 0;
@@ -807,7 +807,7 @@ static bool Mail_TestSmtp(const char* toEmail, str* outMessage)
 		return false;
 	}
 	{
-		char* now = TimeText(xrtNow(), TIME_TEXT_DATETIME);
+		char* now = TimeText(XAdmin_UnixNowUs(), TIME_TEXT_DATETIME);
 		snprintf(subject, sizeof(subject), "[xadmin] SMTP 测试 %s", now ? now : "");
 		snprintf(body, sizeof(body), "这是一封来自 xadmin 的 SMTP 测试邮件。\r\n时间：%s\r\n主机：%s:%d",
 			now ? now : "", Mail_GetText("smtp_host", ""), (int)rt.client.Net.Port);
@@ -835,7 +835,7 @@ void Mail_Init(void)
 	{
 		sqlite3_stmt* stmt = NULL;
 		int menuId = 0;
-		int64 now = xrtNow();
+		int64 now = XAdmin_UnixNowUs();
 		if (sqlite3_prepare_v2(G_DB, "SELECT id FROM menu WHERE isDelete=0 AND href='/admin/view/member/mail' LIMIT 1", -1, &stmt, NULL) == SQLITE_OK) {
 			if (sqlite3_step(stmt) == SQLITE_ROW) menuId = sqlite3_column_int(stmt, 0);
 			sqlite3_finalize(stmt);
@@ -878,7 +878,7 @@ void Mail_Unit(void)
 		G_MailThread = NULL;
 	}
 	/* 队列线程每秒轮询，归零窗口极短；上限兜底 */
-	for (i = 0; i < 30 && Mail_IsRunning(); i++) xrtSleepUs(1000000);
+	for (i = 0; i < 30 && Mail_IsRunning(); i++) xrtSleep(1000);
 	if (G_MailLock) { xrtMutexDestroy(G_MailLock); G_MailLock = NULL; }
 }
 

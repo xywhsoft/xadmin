@@ -86,7 +86,7 @@ static bool XA_ExternalInsert(int64 member,const char* provider,const char* app,
 {
     sqlite3_stmt* s=XA_SQL("INSERT INTO member_external_identity(member_id,provider,app_namespace,subject,union_id,created_at)VALUES(?,?,?,?,?,?)");
     if(s)sqlite3_bind_int64(s,1,member);XA_BindText(s,2,provider);XA_BindText(s,3,app);XA_BindText(s,4,subject);XA_BindText(s,5,union_id);
-    if(s)sqlite3_bind_int64(s,6,xrtNow());return XA_Done(s,true);
+    if(s)sqlite3_bind_int64(s,6,XAdmin_UnixNowUs());return XA_Done(s,true);
 }
 static int64 XA_ExternalCreate(xvalue* info,const char* provider)
 {
@@ -95,7 +95,7 @@ static int64 XA_ExternalCreate(xvalue* info,const char* provider)
     const char* avatar=XA_Text(info,!strcmp(provider,"wechat")?"headimgurl":"avatar_url",512);
     if(!avatar||strncmp(avatar,"https://",8)||strpbrk(avatar,"\r\n"))avatar="";
     sqlite3_stmt* s=XA_SQL("INSERT INTO member(username,salt,pwd,groupId,authLevel,balance,nickname,email,phone,avatar,status,createTime,updateTime,isDelete)VALUES(NULL,NULL,NULL,1,0,0,?,'','',?,1,?,?,0)");
-    XA_BindText(s,1,nickname);XA_BindText(s,2,avatar);if(s){sqlite3_bind_int64(s,3,xrtNow());sqlite3_bind_int64(s,4,xrtNow());}
+    XA_BindText(s,1,nickname);XA_BindText(s,2,avatar);if(s){sqlite3_bind_int64(s,3,XAdmin_UnixNowUs());sqlite3_bind_int64(s,4,XAdmin_UnixNowUs());}
     return XA_Done(s,true)?sqlite3_last_insert_rowid(G_DB):0;
 }
 static bool XA_ProviderSubject(const char* provider,const xoauth2token* token,xvalue* info,char out[129])

@@ -1,3 +1,4 @@
+#include "../include/xadmin/time.h"
 /* 原生 xrtValue 便捷层：仅消除双步取值与 xstrview 样板。
  * 语义与 xrt 完全一致——Get 系返回借用视图，SetOwn 系消费调用方引用，
  * SetText 系拷贝文本；无 keylen、无 take 布尔双义、无 v1 单位。 */
@@ -217,8 +218,8 @@ static void ValueWalk(xvalue* obj, ValueWalkProc proc, void* context)
 /* 本地时区格式化；返回堆串（xrtFree）。 */
 static str TimeText(xtime t, int fmt)
 {
-	xdatetime date;
-	if (!xrtTimeLocal(t, &date)) return xrtStrDup("");
+	xdatetime date; xtime native;
+	if (!XAdmin_TimeFromUnixUs(t, &native) || !xrtTimeLocal(native, &date)) return xrtStrDup("");
 	return xrtDateTimeFormat(&date, xrtStrView(
 		fmt == TIME_TEXT_DATE ? "%Y-%m-%d" :
 		fmt == TIME_TEXT_CLOCK ? "%H:%M:%S" : "%Y-%m-%d %H:%M:%S"));

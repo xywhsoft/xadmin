@@ -3623,7 +3623,7 @@ void Managed_RequestMediaSaveAdmin(XS_ServerObject objServer, XS_HostObject objH
 	const char* sExt = tblBody ? xvoTableGetText(tblBody, "ext", 3) : NULL;
 	const char* sAttachmentXid = tblBody ? xvoTableGetText(tblBody, "attachmentXid", 13) : NULL;
 	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
-	int64 iNow = xrtNow();
+	int64 iNow = XAdmin_UnixNowUs();
 
 	(void)objServer; (void)objHost; (void)objSession;
 	if ( tblBody == NULL ) {
@@ -3690,7 +3690,7 @@ void Managed_RequestMediaDeleteAdmin(XS_ServerObject objServer, XS_HostObject ob
 	sqlite3* pDb = NULL;
 	sqlite3_stmt* stmt = NULL;
 	int64 iId = tblBody ? xvoTableGetInt(tblBody, "id", 2) : 0;
-	int64 iNow = xrtNow();
+	int64 iNow = XAdmin_UnixNowUs();
 
 	(void)objServer; (void)objHost; (void)objSession;
 	if ( !Managed_AbilityPackMounted("content.media") ) {
@@ -3845,7 +3845,7 @@ void Managed_RequestWorkflowActionAdmin(XS_ServerObject objServer, XS_HostObject
 	bool bToDraft = FALSE;
 	xvalue tblSpec = Managed_LoadSpec();
 	xvalue tblRet = NULL;
-	int64 iNow = xrtNow();
+	int64 iNow = XAdmin_UnixNowUs();
 
 	(void)objServer; (void)objHost; (void)objSession;
 	if ( !Managed_AbilityPackMounted("content.workflow") || (iId <= 0) || Managed_IsBlank(sAction) ) {
@@ -3924,7 +3924,7 @@ void Managed_RequestSave(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	int iCategoryId = 0;
 	int iStatus = 0;
 	bool bDraft = FALSE;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 	xvalue tblRet = NULL;
 
 	(void)objServer;
@@ -4075,7 +4075,7 @@ void Managed_RequestDelete(XS_ServerObject objServer, XS_HostObject objHost, XS_
 		return;
 	}
 	if ( sqlite3_prepare_v2(pDb, "UPDATE content_item SET delete_time = ?, update_time = ? WHERE id = ? AND delete_time = 0", -1, &stmt, NULL) == SQLITE_OK ) {
-		xtime iNow = xrtNow();
+		xtime iNow = XAdmin_UnixNowUs();
 		sqlite3_bind_int64(stmt, 1, iNow);
 		sqlite3_bind_int64(stmt, 2, iNow);
 		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);
@@ -4203,7 +4203,7 @@ void Managed_RequestCategorySaveAdmin(XS_ServerObject objServer, XS_HostObject o
 	int iParentId = 0;
 	int iSort = 0;
 	int iStatus = 1;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 	const char* sTitle;
 	const char* sSlug;
 	str sPath = NULL;
@@ -4291,7 +4291,7 @@ void Managed_RequestCategoryDeleteAdmin(XS_ServerObject objServer, XS_HostObject
 	sqlite3* pDb = NULL;
 	sqlite3_stmt* stmt = NULL;
 	int64 iId = 0;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 
 	(void)objServer;
 	(void)objHost;
@@ -4339,7 +4339,7 @@ void Managed_RequestCategorySortAdmin(XS_ServerObject objServer, XS_HostObject o
 	xvalue tblRet = NULL;
 	sqlite3* pDb = NULL;
 	sqlite3_stmt* stmt = NULL;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 	int iUpdated = 0;
 
 	(void)objServer;

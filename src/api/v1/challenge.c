@@ -14,7 +14,7 @@ static void XA_ChallengeHandler(XS_ServerObject server,XS_HostObject host,XAdmin
         else if(!XA_Begin())XA_Reply(req,500,"contact service unavailable",NULL,NULL);
         else {
             const char* sql=!strcmp(channel,"phone")?"UPDATE member SET phone='',phone_key=NULL,phone_verified_at=0,updateTime=? WHERE id=?":"UPDATE member SET email='',email_key=NULL,email_verified_at=0,updateTime=? WHERE id=?";
-            sqlite3_stmt* s=XA_SQL(sql);if(s){sqlite3_bind_int64(s,1,xrtNow());sqlite3_bind_int64(s,2,owner);}
+            sqlite3_stmt* s=XA_SQL(sql);if(s){sqlite3_bind_int64(s,1,XAdmin_UnixNowUs());sqlite3_bind_int64(s,2,owner);}
             bool ok=XA_Done(s,true)&&XA_SessionRevokeAccount(owner,ValueText(session,"sid"));ok=XA_End(ok);XA_Reply(req,ok?200:500,ok?"contact removed":"contact service unavailable",NULL,NULL);
         }
     } else if(!strcmp(req->path,"/api/v1/auth/challenges")||!strcmp(req->path,"/api/v1/profile/contacts/challenge"))XA_ChallengeStart(req,body,session,binding);

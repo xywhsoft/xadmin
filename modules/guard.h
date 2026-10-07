@@ -41,7 +41,7 @@ xtime Guard_Check(xmap* dictGuard, str sRemote)
 		pInfo->TimeRate = 0;
 		return 0;
 	}
-	if ( pInfo->CoolDown > xrtNow() ) {
+	if ( pInfo->CoolDown > XAdmin_UnixNowUs() ) {
 		return pInfo->CoolDown;
 	}
 
@@ -62,7 +62,7 @@ void Guard_Failed(xmap* dictGuard, str sRemote)
 	if ( pInfo->FailCount >= BRUTE_COUNT ) {
 		pInfo->FailCount = 0;
 		pInfo->TimeRate++;
-		pInfo->CoolDown = xrtNow() + (xtime)BRUTE_TIMES * pInfo->TimeRate * 1000000;
+		pInfo->CoolDown = XAdmin_UnixNowUs() + (xtime)BRUTE_TIMES * pInfo->TimeRate * 1000000;
 	}
 }
 
@@ -101,7 +101,7 @@ static int Register_WaitSeconds(str sRemote, int iInterval)
 	if ( (pInfo == NULL) || (pInfo->LastOK == 0) ) {
 		return 0;
 	}
-	tNow = xrtNow();
+	tNow = XAdmin_UnixNowUs();
 	if ( tNow - pInfo->LastOK < (xtime)iInterval * 1000000 ) {
 		return (int)(((xtime)iInterval * 1000000 - (tNow - pInfo->LastOK)) / 1000000) + 1;
 	}
@@ -118,7 +118,7 @@ static void Register_Note(str sRemote)
 	}
 	pInfo = xrtMapGetOrAdd(G_RegisterGuard, KeyView(sKey), NULL);
 	if ( pInfo != NULL ) {
-		pInfo->LastOK = xrtNow();
+		pInfo->LastOK = XAdmin_UnixNowUs();
 	}
 }
 

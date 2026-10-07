@@ -21,7 +21,7 @@ static bool XA_MigrateComponent(const char* component,const char* sql)
     if(!ok||!XA_Begin())return false;
     ok=sqlite3_exec(G_DB,sql,NULL,NULL,NULL)==SQLITE_OK;
     if(ok){s=XA_SQL("INSERT INTO xadmin_migration(component,version,checksum,applied_at)VALUES(?,1,?,?)");
-        XA_BindText(s,1,component);XA_BindText(s,2,hash);if(s)sqlite3_bind_int64(s,3,xrtNow());ok=XA_Done(s,true);}
+        XA_BindText(s,1,component);XA_BindText(s,2,hash);if(s)sqlite3_bind_int64(s,3,XAdmin_UnixNowUs());ok=XA_Done(s,true);}
     return XA_End(ok);
 }
 static bool XA_KeyInit(void)

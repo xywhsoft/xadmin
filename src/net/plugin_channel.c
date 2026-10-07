@@ -70,12 +70,12 @@ static bool PluginChannel_Live(PluginChannelState* channel)
     return channel->raw.tls?xrtTlsStreamState(channel->raw.tls)==XTLS_STREAM_OPEN:
         xrtNetStreamState(channel->raw.tcp)==XNET_STREAM_OPEN;
 }
-static bool PluginChannel_SendBytes(PluginChannelState* channel,const void* bytes,size_t size,xdeadline deadline)
+static bool PluginChannel_SendBytes(PluginChannelState* channel,const void* bytes,size_t size,XAdminDeadline deadline)
 {
     const char* data=bytes;size_t offset=0;
     while(offset<size){
         size_t count=size-offset;if(count>16384)count=16384;
-        if(xrtDeadlineExpired(deadline)||!PluginChannel_Live(channel))return false;
+        if(XAdmin_DeadlineExpired(deadline)||!PluginChannel_Live(channel))return false;
         if(channel->raw.tls){
             if(!PluginAsync_Future(xrtTlsStreamSendAsync(channel->raw.tls,data+offset,count),deadline)||
                !PluginAsync_Future(xrtTlsStreamWaitAsync(channel->raw.tls,XTLS_STREAM_WAIT_DRAIN),deadline))return false;
@@ -84,7 +84,7 @@ static bool PluginChannel_SendBytes(PluginChannelState* channel,const void* byte
             if(count>limit)count=limit;
             xnetresult sent=xrtNetStreamSend(channel->raw.tcp,data+offset,count);
             if((sent!=XNET_RESULT_OK&&sent!=XNET_RESULT_AGAIN)||
-               !xrtNetStreamWait(channel->raw.tcp,XNET_STREAM_WAIT_DRAIN,deadline,NULL))return false;
+               !xrtNetStreamWait(channel->raw.tcp,XNET_STREAM_WAIT_DRAIN,XAdmin_DeadlineRemainingMs(deadline),NULL))return false;
             if(sent==XNET_RESULT_AGAIN)continue;
         }
         offset+=count;
@@ -95,7 +95,7 @@ static bool PluginChannel_Frame(PluginChannelState* channel,uint8 opcode,const v
 {
     xwsframe frame;char head[XWS_FRAME_HEAD_MAX];size_t count=0;
     xrtWsFrameInit(&frame);frame.Opcode=opcode;frame.Flags=XWS_FRAME_FIN;frame.PayloadSize=size;
-    xdeadline deadline=xrtDeadlineAfter(PLUGIN_CHANNEL_SEND_US);
+    XAdminDeadline deadline=XAdmin_DeadlineAfterMs(PLUGIN_CHANNEL_SEND_US / 1000);
     return xrtWsFrameWrite(&frame,NULL,head,sizeof(head),&count)&&
         PluginChannel_SendBytes(channel,head,count,deadline)&&PluginChannel_SendBytes(channel,data,size,deadline);
 }
@@ -118,7 +118,7 @@ static bool PluginChannel_Receive(PluginChannelState* channel,uint64* last_read)
         size_t capacity=channel->config.message_limit+XWS_FRAME_HEAD_MAX-channel->input_size;
         if(!capacity)return PluginChannel_Fail(channel,1009);
         xfuture* future=channel->raw.tls?xrtTlsStreamRecvAsync(channel->raw.tls,capacity):xrtNetStreamRecvAsync(channel->raw.tcp,capacity);
-        bool ok=future&&xrtFutureWaitUntil(future,xrtDeadlineAfter(PLUGIN_CHANNEL_SEND_US))==XWAIT_OK&&xrtFutureState(future)==XFUTURE_RESOLVED;
+        bool ok=future&&xrtFutureWaitFor(future,XAdmin_DeadlineRemainingMs(XAdmin_DeadlineAfterMs(PLUGIN_CHANNEL_SEND_US / 1000)))==XWAIT_OK&&xrtFutureState(future)==XFUTURE_RESOLVED;
         xnetbytes* bytes=ok?xrtFutureValue(future):NULL;
         if(!bytes)ok=false;
         if(ok){xbytesview view=xrtNetBytesView(bytes);ok=view.Size<=capacity;
@@ -139,7 +139,7 @@ static bool PluginChannel_Receive(PluginChannelState* channel,uint64* last_read)
            !xrtWsMessageFrameBegin(&channel->parser,&frame,&info,&error)||
            !xrtWsMessagePayload(&channel->parser,(xbytesview){(uint8*)payload,size},&error)||
            !xrtWsMessageFrameEnd(&channel->parser,&error))return PluginChannel_Fail(channel,error.CloseCode?error.CloseCode:1002);
-        *last_read=xrtClock();
+        *last_read=XAdmin_MonotonicUs();
         if(frame.Opcode==XWS_OPCODE_CLOSE){
             uint16 code=size>=2?((uint16)(uint8)payload[0]<<8)|(uint8)payload[1]:1000;
             return PluginChannel_Fail(channel,code);
@@ -166,10 +166,10 @@ static bool PluginChannel_Receive(PluginChannelState* channel,uint64* last_read)
 }
 static int32 PluginChannel_Run(void* data)
 {
-    PluginChannelState* channel=data;uint64 last_read=xrtClock(),last_ping=last_read,last_auth=last_read,last_owner=last_read;
+    PluginChannelState* channel=data;uint64 last_read=XAdmin_MonotonicUs(),last_ping=last_read,last_auth=last_read,last_owner=last_read;
     xwsmessageconfig config;xrtWsMessageConfigInitSafe(&config);config.MaxSize=channel->config.message_limit;
     bool ok=xrtWsMessageInit(&channel->parser,&config)&&
-        PluginChannel_SendBytes(channel,channel->head,channel->head_size,xrtDeadlineAfter(PLUGIN_CHANNEL_SEND_US));
+        PluginChannel_SendBytes(channel,channel->head,channel->head_size,XAdmin_DeadlineAfterMs(PLUGIN_CHANNEL_SEND_US / 1000));
     xrtMutexLock(G_RequestLock);
     if(ok&&!channel->closing&&channel->plugin->started&&PluginChannel_Validate(channel)){
         if(channel->config.on_open){G_PluginChannelCallbacks++;
@@ -177,7 +177,7 @@ static int32 PluginChannel_Run(void* data)
     }else{channel->closing=true;channel->close_code=ok?1008:1006;}
     xrtMutexUnlock(G_RequestLock);
     while(ok){
-        uint64 now=xrtClock();PluginChannelPacket* packet=NULL;
+        uint64 now=XAdmin_MonotonicUs();PluginChannelPacket* packet=NULL;
         /* TAKEOVER connections can otherwise keep a retired generation alive
          * forever. Public retained-server lookup detects publication without
          * peeking at xs' private generation or replacing its callbacks. */
@@ -197,7 +197,7 @@ static int32 PluginChannel_Run(void* data)
         if(closing)break;
         if(packet){ok=PluginChannel_Frame(channel,packet->binary?XWS_OPCODE_BINARY:XWS_OPCODE_TEXT,packet->bytes,packet->size);PluginChannel_PacketFree(packet);}
         if(ok)ok=PluginChannel_Live(channel)&&PluginChannel_Receive(channel,&last_read);
-        now=xrtClock(); /* Receive can advance last_read; compare the newer clock. */
+        now=XAdmin_MonotonicUs(); /* Receive can advance last_read; compare the newer clock. */
         if(ok&&now-last_read>=PLUGIN_CHANNEL_IDLE_US){PluginChannel_Fail(channel,1001);break;}
         if(ok&&now-last_ping>=PLUGIN_CHANNEL_PING_US){ok=PluginChannel_Frame(channel,XWS_OPCODE_PING,NULL,0);last_ping=now;}
         if(ok&&!packet)xrtSleep(10);

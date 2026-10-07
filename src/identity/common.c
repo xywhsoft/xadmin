@@ -1,6 +1,6 @@
 /* Identity services run under G_RequestLock except explicitly bracketed CPU/I/O
  * work. Every SQL operation owns its statement; no bound request data escapes. */
-static int64 XA_Now(void) { return xrtNow() / 1000000; }
+static int64 XA_Now(void) { return XAdmin_UnixNowUs() / 1000000; }
 static bool XA_Hex(const void* data, size_t size, char* out)
 {
     const unsigned char* bytes = data; size_t i;

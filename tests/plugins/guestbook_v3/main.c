@@ -470,7 +470,7 @@ bool Guestbook_InsertMessage(const char* sNickname, const char* sContent, int iS
 		return false;
 	}
 
-	iNow = xrtNow();
+	iNow = XAdmin_UnixNowUs();
 	sqlite3_bind_text(stmt, 1, sNickname ? sNickname : "", -1, SQLITE_TRANSIENT);
 	sqlite3_bind_text(stmt, 2, sContent ? sContent : "", -1, SQLITE_TRANSIENT);
 	sqlite3_bind_int(stmt, 3, iStatus);
@@ -511,7 +511,7 @@ bool Guestbook_UpdateMessage(int64 iId, bool bHasStatus, int iStatus, bool bHasR
 		return false;
 	}
 
-	iNow = xrtNow();
+	iNow = XAdmin_UnixNowUs();
 	iReplyTime = (bHasReply && sReply && sReply[0]) ? iNow : 0;
 	if ( bHasStatus && bHasReply ) {
 		sqlite3_bind_int(stmt, 1, iStatus);

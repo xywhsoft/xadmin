@@ -18,7 +18,7 @@ typedef struct XAdminRequest {
 	bool replied;
 	bool deferred; /* owned async route; protocol returns XS_TAKEOVER */
 	bool streaming, stream_failed;
-	xdeadline stream_deadline;
+	XAdminDeadline stream_deadline;
 	char* header_copy[64]; /* legacy C-string SDK views, owned for this request */
 } XAdminRequest;
 typedef XAdminRequest* XS_RequestObject;

@@ -188,7 +188,7 @@ static void OptionFile_DeleteMenusByFile(str sFileName)
 	sqlite3_bind_text(stmt, 1, (const char*)OptionFile_StrOrEmpty(sHref), -1, SQLITE_TRANSIENT);
 	while ( sqlite3_step(stmt) == SQLITE_ROW ) {
 		int iMenuID = sqlite3_column_int(stmt, 0);
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_int64(stmt_menu_del, 1, now);
 		sqlite3_bind_int(stmt_menu_del, 2, iMenuID);
 		DB_Write(stmt_menu_del, true);
@@ -248,8 +248,8 @@ static bool OptionFile_AddMenu(str sFileName, str* psError)
 	sqlite3_bind_int(stmt_menu_add, 7, iSort);
 	sqlite3_bind_int(stmt_menu_add, 8, 1);
 	sqlite3_bind_text(stmt_menu_add, 9, (const char*)((sDesc && sDesc[0]) ? sDesc : (str)"自定义配置页面"), -1, SQLITE_TRANSIENT);
-	sqlite3_bind_int64(stmt_menu_add, 10, xrtNow());
-	sqlite3_bind_int64(stmt_menu_add, 11, xrtNow());
+	sqlite3_bind_int64(stmt_menu_add, 10, XAdmin_UnixNowUs());
+	sqlite3_bind_int64(stmt_menu_add, 11, XAdmin_UnixNowUs());
 
 	if ( !DB_Write(stmt_menu_add, true) ) {
 		xrtFree(sHref);

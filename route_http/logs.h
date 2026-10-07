@@ -123,7 +123,7 @@ void Request_Logs_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
 		// 清理数据库
-		xtime tDay7 = xrtNow() - (7LL * 24 * 60 * 60 * 1000000);
+		xtime tDay7 = XAdmin_UnixNowUs() - (7LL * 24 * 60 * 60 * 1000000);
 		sqlite3_bind_int64(stmt_logs_clear, 1, tDay7);
 		if (ReplyIfWriteFailed(objResp, DB_Write(stmt_logs_clear, false))) return;
 		

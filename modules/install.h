@@ -99,7 +99,7 @@ static bool Install_CreateAdmin(const char* user, const char* clientHash, char* 
 {
 	str salt = Util_Token();
 	str pwd = salt ? ServerHashPassword(user, salt, clientHash) : NULL;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	sqlite3_stmt* stmt = NULL;
 	bool ok = false;
 

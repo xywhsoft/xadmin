@@ -328,7 +328,8 @@ static int64 Sched_CalcCronNextTime(const char* expr, int64 afterMicro)
 	int year, month, day, hour, minute, second;
 
 	if (!Sched_ParseCronExpr(expr, &cron)) return 0;
-	if (!xrtTimeLocal((afterMicro + 1) / 1000000, &date)) return 0;
+	xtime native;
+	if (!XAdmin_TimeFromUnixUs(afterMicro + 1, &native) || !xrtTimeLocal(native, &date)) return 0;
 	/* 从 after+1 微秒起步：先把秒进位到候选集合 */
 	year = (int)date.Year; month = date.Month; day = date.Day;
 	hour = date.Hour; minute = date.Minute; second = date.Second;
@@ -516,7 +517,7 @@ static void Sched_UpdateTaskRunningFlag(sqlite3* db, int64 id, int running, cons
 	sqlite3_bind_int(stmt, 1, running);
 	sqlite3_bind_text(stmt, 2, status, -1, SQLITE_TRANSIENT);
 	sqlite3_bind_text(stmt, 3, message, -1, SQLITE_TRANSIENT);
-	sqlite3_bind_int64(stmt, 4, xrtNow());
+	sqlite3_bind_int64(stmt, 4, XAdmin_UnixNowUs());
 	sqlite3_bind_int64(stmt, 5, id);
 	sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
@@ -620,7 +621,7 @@ static bool Sched_RunShellTask(const SchedTaskSnapshot* task, const char* trigge
 	else if (Sched_TextEquals(task->sShellType, "powershell")) ext = "ps1";
 	else ext = "sh";
 
-	fileName = xrtFormat("task_%lld_%lld.%s", (long long)task->id, (long long)xrtNow(), ext);
+	fileName = xrtFormat("task_%lld_%lld.%s", (long long)task->id, (long long)XAdmin_UnixNowUs(), ext);
 	scriptPath = xrtPathJoin(G_SchedCachePath, fileName);
 	xrtFree(fileName);
 	if (!scriptPath
@@ -711,7 +712,7 @@ static bool Sched_RunCTask(const SchedTaskSnapshot* task, const char* triggerSou
 		if (outMessage) *outMessage = xrtStrDup("Scheduler xs runtime is missing");
 		return false;
 	}
-	baseName = xrtFormat("task_%lld_%lld", (long long)task->id, (long long)xrtNow());
+	baseName = xrtFormat("task_%lld_%lld", (long long)task->id, (long long)XAdmin_UnixNowUs());
 	runnerFile = xrtPathJoin(G_SchedCachePath, xrtFormat("%s_runner.c", baseName));
 	paramFile = xrtPathJoin(G_SchedCachePath, xrtFormat("%s_param.json", baseName));
 	configFile = xrtPathJoin(G_SchedCachePath, xrtFormat("%s_runner.json", baseName));
@@ -723,7 +724,7 @@ static bool Sched_RunCTask(const SchedTaskSnapshot* task, const char* triggerSou
 			"{\"taskId\": %lld, \"taskName\": \"%s\", \"triggerSource\": \"%s\", "
 			"\"customJson\": \"%s\", \"startTime\": %lld, \"timeoutSec\": %d}\n",
 			(long long)task->id, Sched_CStrOrEmpty(name), Sched_CStrOrEmpty(trig),
-			Sched_CStrOrEmpty(custom), (long long)xrtNow(), task->timeoutSec);
+			Sched_CStrOrEmpty(custom), (long long)XAdmin_UnixNowUs(), task->timeoutSec);
 		xrtFree(name); xrtFree(trig); xrtFree(custom);
 	}
 	if (!paramJson || !xrtFileWriteAtomic(paramFile, (xbytesview){(cbytes)paramJson, strlen(paramJson)})) {
@@ -821,7 +822,7 @@ static int32 Sched_WorkerProc(ptr param)
 	sqlite3_stmt* stmt = NULL;
 	SchedTaskSnapshot state;
 	int64 runLogId = 0;
-	int64 start = xrtNow();
+	int64 start = XAdmin_UnixNowUs();
 	int64 finish, durationMs, nextRun, retryNextRun = 0;
 	int nextRunningCount = 0;
 	int nextRetryState = 0;
@@ -859,7 +860,7 @@ static int32 Sched_WorkerProc(ptr param)
 	else
 		result = Sched_RunCTask(&ctx->task, ctx->sTriggerSource, &exitCode, &timedOutFlag, &stdoutText, &stderrText, &message);
 
-	finish = xrtNow();
+	finish = XAdmin_UnixNowUs();
 	durationMs = (finish - start) / 1000;
 	nextRun = Sched_CalcNextAfterRun(&ctx->task, finish);
 	finalStatus = timedOutFlag ? "timeout" : (result && exitCode == 0 ? "success" : "failed");
@@ -1034,7 +1035,7 @@ static bool Sched_StartTaskRunInternal(int64 id, const char* triggerSource, bool
 			"UPDATE sched_task SET pendingRun = 1, lastStatus = 'queued', lastMessage = ?, updateTime = ? WHERE id = ? AND isDelete = 0",
 			-1, 0, &stmt, NULL) == SQLITE_OK) {
 			sqlite3_bind_text(stmt, 1, task.pendingRun ? "Pending run already queued" : "Queued to run once after current execution", -1, SQLITE_TRANSIENT);
-			sqlite3_bind_int64(stmt, 2, xrtNow());
+			sqlite3_bind_int64(stmt, 2, XAdmin_UnixNowUs());
 			sqlite3_bind_int64(stmt, 3, id);
 			sqlite3_step(stmt);
 			sqlite3_finalize(stmt);
@@ -1048,7 +1049,7 @@ static bool Sched_StartTaskRunInternal(int64 id, const char* triggerSource, bool
 		"UPDATE sched_task SET runningCount = CASE WHEN runningCount < 0 THEN 1 ELSE runningCount + 1 END, isRunning = 1, lastStatus = 'queued', lastMessage = ?, updateTime = ? WHERE id = ? AND isDelete = 0",
 		-1, 0, &stmt, NULL) == SQLITE_OK) {
 		sqlite3_bind_text(stmt, 1, triggerSource ? triggerSource : "scheduler", -1, SQLITE_TRANSIENT);
-		sqlite3_bind_int64(stmt, 2, xrtNow());
+		sqlite3_bind_int64(stmt, 2, XAdmin_UnixNowUs());
 		sqlite3_bind_int64(stmt, 3, id);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
@@ -1069,7 +1070,7 @@ static bool Sched_StartTaskRunInternal(int64 id, const char* triggerSource, bool
 		if (sqlite3_prepare_v3(db,
 			"UPDATE sched_task SET runningCount = CASE WHEN runningCount > 0 THEN runningCount - 1 ELSE 0 END, isRunning = CASE WHEN runningCount > 1 THEN 1 ELSE 0 END, lastStatus = 'failed', lastMessage = 'Failed to start task thread', updateTime = ? WHERE id = ? AND isDelete = 0",
 			-1, 0, &stmt, NULL) == SQLITE_OK) {
-			sqlite3_bind_int64(stmt, 1, xrtNow());
+			sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs());
 			sqlite3_bind_int64(stmt, 2, id);
 			sqlite3_step(stmt);
 			sqlite3_finalize(stmt);
@@ -1130,7 +1131,7 @@ static bool Sched_ProcessDueTask(sqlite3* db, const SchedTaskSnapshot* task, int
 		-1, 0, &stmt, NULL) == SQLITE_OK) {
 		sqlite3_bind_int64(stmt, 1, nextRunAt);
 		sqlite3_bind_text(stmt, 2, message, -1, SQLITE_TRANSIENT);
-		sqlite3_bind_int64(stmt, 3, xrtNow());
+		sqlite3_bind_int64(stmt, 3, XAdmin_UnixNowUs());
 		sqlite3_bind_int64(stmt, 4, task->id);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
@@ -1173,7 +1174,7 @@ static void Sched_ApplyMisfirePolicies(sqlite3* db)
 {
 	sqlite3_stmt* stmt = NULL;
 	sqlite3_stmt* stmtUpd = NULL;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 
 	if (sqlite3_prepare_v3(db,
 		"SELECT id, misfirePolicy FROM sched_task WHERE isDelete = 0 AND enabled = 1 AND nextRunAt > 0 AND nextRunAt < ?",
@@ -1225,7 +1226,7 @@ static int32 Sched_ThreadProc(ptr param)
 		if (G_SchedStop) { xrtMutexUnlock(G_SchedLock); break; }
 		xrtMutexUnlock(G_SchedLock);
 
-		now = xrtNow();
+		now = XAdmin_UnixNowUs();
 		memset(&task, 0, sizeof(task));
 		if (Sched_FetchDueTask(db, now, &task)) {
 			shouldStart = Sched_ProcessDueTask(db, &task, now, NULL);
@@ -1238,12 +1239,12 @@ static int32 Sched_ThreadProc(ptr param)
 		xrtMutexLock(G_SchedLock);
 		if (G_SchedStop) { xrtMutexUnlock(G_SchedLock); break; }
 		if (nextWake <= 0) {
-			xrtCondWaitFor(G_SchedCond, G_SchedLock, 1000000);
+			xrtCondWaitFor(G_SchedCond, G_SchedLock, 1000);
 		} else {
-			waitMicro = nextWake - xrtNow();
+			waitMicro = nextWake - XAdmin_UnixNowUs();
 			if (waitMicro < 100000) waitMicro = 100000;
 			if (waitMicro > 86400000000ull) waitMicro = 86400000000ull;
-			xrtCondWaitFor(G_SchedCond, G_SchedLock, (uint64)waitMicro);
+			xrtCondWaitFor(G_SchedCond, G_SchedLock, (waitMicro + 999) / 1000);
 		}
 		xrtMutexUnlock(G_SchedLock);
 	}
@@ -1345,7 +1346,7 @@ static bool Sched_SaveTaskRequest(xvalue* body, bool update, str* outMessage, in
 	SchedTaskSnapshot task;
 	sqlite3_stmt* stmt = NULL;
 	int64 id = 0;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	bool ok = false;
 
 	memset(&task, 0, sizeof(task));
@@ -1461,7 +1462,7 @@ bool Sched_DeleteTask(int64 id, str* outMessage)
 		if (outMessage) *outMessage = xrtStrDup("删除失败");
 		return false;
 	}
-	sqlite3_bind_int64(stmt, 1, xrtNow());
+	sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs());
 	sqlite3_bind_int64(stmt, 2, id);
 	{
 		bool ok = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(G_DB) > 0;
@@ -1476,7 +1477,7 @@ bool Sched_SetEnabled(int64 id, bool enabled, str* outMessage)
 {
 	sqlite3_stmt* stmt = NULL;
 	SchedTaskSnapshot task;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 
 	memset(&task, 0, sizeof(task));
 	if (!Sched_LoadTaskSnapshotById(G_DB, id, &task)) {
@@ -1507,7 +1508,7 @@ static bool Sched_CopyTask(int64 id, str* outMessage, int64* outTaskId)
 {
 	SchedTaskSnapshot task;
 	sqlite3_stmt* stmt = NULL;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	bool ok = false;
 
 	memset(&task, 0, sizeof(task));
@@ -1563,7 +1564,7 @@ static bool Sched_CreateExampleTask(const char* kind, str* outMessage, int64* ou
 		ValueSetText(body, "name", "示例：C 任务（输出问候）");
 		ValueSetText(body, "execType", "c");
 		ValueSetText(body, "scheduleType", "once");
-		ValueSetInt(body, "onceAt", (xrtNow() + 60 * 1000000) / 1000000 * 1000000);
+		ValueSetInt(body, "onceAt", (XAdmin_UnixNowUs() + 60 * 1000000) / 1000000 * 1000000);
 		ValueSetText(body, "codeText",
 			"int TaskProc(TaskInfo* info) {\n"
 			"    snprintf(info->output, SCHED_OUTPUT_CAP, \"hello from C task %lld\", (long long)info->task_id);\n"
@@ -1723,7 +1724,7 @@ void Sched_Unit(void)
 		pending = G_SchedWorkerCount;
 		xrtMutexUnlock(G_SchedLock);
 		if (pending <= 0) break;
-		xrtSleepUs(1000000);
+		xrtSleep(1000);
 	}
 	if (G_SchedCond) { xrtCondDestroy(G_SchedCond); G_SchedCond = NULL; }
 	if (G_SchedLock) { xrtMutexDestroy(G_SchedLock); G_SchedLock = NULL; }

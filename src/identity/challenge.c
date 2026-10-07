@@ -119,7 +119,7 @@ static void XA_ChallengeConfirm(XAdminRequest* req,xvalue* body,xvalue* session,
         "UPDATE member SET phone=?,phone_key=?,phone_verified_at=?,updateTime=? WHERE id=? AND status=1 AND isDelete=0":
         "UPDATE member SET email=?,email_key=?,email_verified_at=?,updateTime=? WHERE id=? AND status=1 AND isDelete=0";
         sqlite3_stmt* s=XA_SQL(sql);XA_BindText(s,1,c.target);XA_BindText(s,2,c.target);
-        if(s){sqlite3_bind_int64(s,3,xrtNow());sqlite3_bind_int64(s,4,xrtNow());sqlite3_bind_int64(s,5,c.member);}ok=XA_Done(s,true)&&XA_SessionRevokeAccount(c.member,c.sid);
+        if(s){sqlite3_bind_int64(s,3,XAdmin_UnixNowUs());sqlite3_bind_int64(s,4,XAdmin_UnixNowUs());sqlite3_bind_int64(s,5,c.member);}ok=XA_Done(s,true)&&XA_SessionRevokeAccount(c.member,c.sid);
     } else if(ok&&recover)ok=XA_SetPassword(c.member,password)&&XA_SessionRevokeAccount(c.member,NULL);
     else if(ok)ok=XA_SessionIssue(req,c.member,&tokens);
     int error=sqlite3_extended_errcode(G_DB);ok=XA_End(ok);xrtSecureZero(password,sizeof(password));

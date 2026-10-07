@@ -139,7 +139,7 @@ static bool ContentDB_Init(void)
 			"INSERT INTO content_schema_version (module,version,description,update_time) VALUES ('content',1,'initial builtin content schema',?) "
 			"ON CONFLICT(module) DO UPDATE SET version=excluded.version,description=excluded.description,update_time=excluded.update_time",
 			-1, &stmt, NULL) == SQLITE_OK) {
-			sqlite3_bind_int64(stmt, 1, xrtNow());
+			sqlite3_bind_int64(stmt, 1, XAdmin_UnixNowUs());
 			ok = sqlite3_step(stmt) == SQLITE_DONE;
 			sqlite3_finalize(stmt);
 		}
@@ -182,7 +182,7 @@ static bool ContentPack_UpsertManifest(xvalue* pack, const char* dir)
 	xvalue* update; xvalue* protection; xvalue* config;
 	str updateChannel = NULL, updatePackageId = NULL;
 	int canUpdate = 0, canUninstall = 0, readonly = 0, system = 0, sort;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	bool ok = false;
 
 	if (!G_DB || !pack || xrtValueType(pack) != XVALUE_OBJECT) return false;
@@ -426,7 +426,7 @@ static xvalue* ContentPack_FormDefaults(const xvalue* schema)
 static bool ContentPack_SaveOptions(const char* packId, const char* optionsJson)
 {
 	sqlite3_stmt* stmt = NULL;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	bool ok = false;
 	if (!G_DB || !packId || !packId[0]) return false;
 	if (sqlite3_prepare_v2(G_DB, "INSERT INTO content_pack_option (pack_id,options_json,create_time,update_time) VALUES (?,?,?,?) ON CONFLICT(pack_id) DO UPDATE SET options_json=excluded.options_json,update_time=excluded.update_time", -1, &stmt, NULL) == SQLITE_OK) {
@@ -780,7 +780,7 @@ static bool Content_DeleteModelByXid(const char* xid, str* error)
 {
 	sqlite3_stmt* stmt = NULL;
 	int modelId = 0;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	bool ok;
 	if (error) *error = NULL;
 	if (!Content_IsValidXid(xid)) {
@@ -824,7 +824,7 @@ static xvalue* Content_SaveModelSpec(xvalue* spec, str* error)
 	size_t specSize = 0;
 	str xid, name, title, ns, description, icon, tableName, generatedPluginXid, note;
 	int fieldCount, modelId = 0, currentRevision = 0, newRevision;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	sqlite3_stmt* stmt = NULL;
 	xvalue* data;
 	if (error) *error = NULL;
@@ -1149,7 +1149,7 @@ static bool Content_EnsureMenuItem(int parent, const char* title, const char* hr
 {
 	sqlite3_stmt* stmt = NULL;
 	int menuId = 0;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	bool ok;
 	if (sqlite3_prepare_v2(G_DB, "SELECT id FROM menu WHERE isDelete = 0 AND href = ? LIMIT 1", -1, &stmt, NULL) == SQLITE_OK) {
 		Content_BindText(stmt, 1, href);
@@ -1188,7 +1188,7 @@ static bool Content_EnsureMenu(void)
 {
 	sqlite3_stmt* stmt = NULL;
 	int menuId = 0;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	if (sqlite3_prepare_v2(G_DB, "SELECT id FROM menu WHERE isDelete = 0 AND (href = '/admin/view/content' OR title = ? OR title = ? OR title = 'Content Model') ORDER BY id ASC LIMIT 1", -1, &stmt, NULL) == SQLITE_OK) {
 		Content_BindText(stmt, 1, "内容管理");
 		Content_BindText(stmt, 2, "内容模型");

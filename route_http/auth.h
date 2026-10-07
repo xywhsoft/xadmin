@@ -234,7 +234,7 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		}
 		
 		// 写入数据库
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_text(stmt_user_add, 1, user, strlen(user), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_user_add, 2, sSalt, strlen(sSalt), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_user_add, 3, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
@@ -285,7 +285,7 @@ void Request_Auth_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		if ( authLevel > 999 ) authLevel = 999;
 								
 		// 写入数据库
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_int64(stmt_user_put, 1, role);
 		sqlite3_bind_int64(stmt_user_put, 2, authLevel);
 		sqlite3_bind_int64(stmt_user_put, 3, now);
@@ -388,7 +388,7 @@ void Request_Auth_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost, X
 		}
 		
 		// 更新 salt 和密码
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_text(stmt_user_pwd, 1, sSalt, strlen(sSalt), SQLITE_STATIC);
 		sqlite3_bind_text(stmt_user_pwd, 2, sPwdHash, strlen(sPwdHash), SQLITE_STATIC);
 		sqlite3_bind_int64(stmt_user_pwd, 3, now);
@@ -655,7 +655,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		}
 		
 		// 添加数据库记录
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_text(stmt_role_add, 1, name, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_add, 2, desc, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_add, 3, authList, -1, SQLITE_STATIC);
@@ -708,7 +708,7 @@ void Request_Auth_Role(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 		}
 		
 		// 更新数据库记录
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_text(stmt_role_put, 1, name, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_put, 2, desc, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_role_put, 3, authList, -1, SQLITE_STATIC);
@@ -956,7 +956,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 			xrtValueRelease(tblForm);
 			return;
 		}
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		
 		sqlite3_bind_text(stmt_group_add, 1, name, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_group_add, 2, desc, -1, SQLITE_STATIC);
@@ -998,7 +998,7 @@ void Request_Auth_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 			xrtValueRelease(tblForm);
 			return;
 		}
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		
 		sqlite3_bind_text(stmt_group_put, 1, name, -1, SQLITE_STATIC);
 		sqlite3_bind_text(stmt_group_put, 2, desc, -1, SQLITE_STATIC);
@@ -1245,7 +1245,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			xrtValueRelease(tblForm);
 			return;
 		}
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		
 		sqlite3_bind_int64(stmt_auth_add, 1, groupID);
 		sqlite3_bind_text(stmt_auth_add, 2, name, -1, SQLITE_STATIC);
@@ -1290,7 +1290,7 @@ void Request_Auth_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			xrtValueRelease(tblForm);
 			return;
 		}
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		
 		sqlite3_bind_int64(stmt_auth_put, 1, groupID);
 		sqlite3_bind_text(stmt_auth_put, 2, name, -1, SQLITE_STATIC);
@@ -1589,7 +1589,7 @@ void Request_Auth_URIs(XS_ServerObject objServer, XS_HostObject objHost, XS_Requ
 			str ns = ValueText(tblForm, "namespace");
 			sqlite3_bind_text(stmt_uris_put, 9, ns && ns[0] ? ns : "auto", -1, SQLITE_TRANSIENT);
 		}
-		sqlite3_bind_int64(stmt_uris_put, 10, xrtNow());
+		sqlite3_bind_int64(stmt_uris_put, 10, XAdmin_UnixNowUs());
 		sqlite3_bind_int64(stmt_uris_put, 11, id);
 		bool written = DB_Write(stmt_uris_put, true);
 		xrtValueRelease(tblForm);

@@ -121,9 +121,9 @@ static void PluginAsync_Unit(void)
     }
 }
 
-static bool PluginAsync_Future(xfuture* future, xdeadline deadline)
+static bool PluginAsync_Future(xfuture* future, XAdminDeadline deadline)
 {
-    bool ok = future && xrtFutureWaitUntil(future,deadline) == XWAIT_OK &&
+    bool ok = future && xrtFutureWaitFor(future,XAdmin_DeadlineRemainingMs(deadline)) == XWAIT_OK &&
         xrtFutureState(future) == XFUTURE_RESOLVED;
     if (!ok && future) xrtFutureCancel(future);
     xrtFutureDestroy(future); return ok;
@@ -152,14 +152,14 @@ static int XAdmin_ReplyBinary(XS_RequestObject req, uint16 status,
     all[count++] = (xhttpfield){XRT_STR_LITERAL("Connection"),XRT_STR_LITERAL("close")};
     if (!xrtHttp1ResponseWrite(XHTTP_VERSION_1_1,status,xrtHttpStatusText(status),
             all,count,head,sizeof(head),&head_size)) return -1;
-    xdeadline deadline = xrtDeadlineAfter((uint64)timeout_ms*1000);
+    XAdminDeadline deadline = XAdmin_DeadlineAfterMs(timeout_ms);
     req->replied = true; bool ok = true; size_t offset = 0;
     const char* bytes = head; size_t total = head_size; int pass;
     xrtMutexUnlock(G_RequestLock);
     for (pass = 0; ok && pass < 2; ++pass) {
         while (ok && offset < total) {
             size_t chunk = total-offset; if (chunk > 16384) chunk = 16384;
-            if (xrtDeadlineExpired(deadline)) { ok = false; break; }
+            if (XAdmin_DeadlineExpired(deadline)) { ok = false; break; }
             if (req->raw->tls) {
                 ok = PluginAsync_Future(xrtTlsStreamSendAsync(req->raw->tls,bytes+offset,chunk),deadline) &&
                     PluginAsync_Future(xrtTlsStreamWaitAsync(req->raw->tls,XTLS_STREAM_WAIT_DRAIN),deadline);
@@ -169,7 +169,7 @@ static int XAdmin_ReplyBinary(XS_RequestObject req, uint16 status,
                 if (chunk > limit) chunk = limit;
                 xnetresult sent = xrtNetStreamSend(req->raw->tcp,bytes+offset,chunk);
                 ok = (sent == XNET_RESULT_OK || sent == XNET_RESULT_AGAIN) &&
-                    xrtNetStreamWait(req->raw->tcp,XNET_STREAM_WAIT_DRAIN,deadline,NULL);
+                    xrtNetStreamWait(req->raw->tcp,XNET_STREAM_WAIT_DRAIN,XAdmin_DeadlineRemainingMs(deadline),NULL);
                 if (ok && sent == XNET_RESULT_AGAIN) continue;
             }
             offset += chunk;

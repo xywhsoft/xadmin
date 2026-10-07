@@ -170,7 +170,7 @@ static void Menu_EnsureOptionManagerMenu()
 	int iRet;
 	int iMenuID = 0;
 	int iParentID = 0;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 
 	iRet = sqlite3_prepare_v3(G_DB, "SELECT id, parent FROM menu WHERE isDelete = 0 AND title = '设置管理' ORDER BY id ASC LIMIT 1;", -1, SQL_PREPARE_DEFAULT, &stmt, NULL);
 	if ( iRet == SQLITE_OK ) {

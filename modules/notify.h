@@ -1,5 +1,5 @@
 /* 站内通知：notify_message / notify_recipient 的核心操作与自装（菜单/URI）。
- * 秒单位 v1 库列已由 DB_MigrateTimeUnits 换算为微秒；新写入一律 xrtNow()。 */
+ * 秒单位 v1 库列已由 DB_MigrateTimeUnits 换算为微秒；新写入一律 XAdmin_UnixNowUs()。 */
 
 static const char* Notify_StrOrEmpty(const char* text)
 {
@@ -195,7 +195,7 @@ bool Notify_Send(const char* sendType, const char* memberIds, const char* groupI
 	xvalue* recipients = NULL;
 	sqlite3_stmt* stmtMessage = NULL;
 	sqlite3_stmt* stmtRecipient = NULL;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	int64 count = 0, messageId = 0;
 	bool ok = false;
 
@@ -409,7 +409,7 @@ static xvalue* Notify_MemberDetail(int64 memberId, int64 recipientId)
 static bool Notify_MarkRead(int64 memberId, xvalue* ids, bool readAll)
 {
 	sqlite3_stmt* stmt = NULL;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	bool ok = false;
 
 	if (readAll) {
@@ -445,7 +445,7 @@ static bool Notify_MarkRead(int64 memberId, xvalue* ids, bool readAll)
 static bool Notify_MemberDelete(int64 memberId, xvalue* ids)
 {
 	sqlite3_stmt* stmt = NULL;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	bool ok = false;
 
 	if (!ids || xrtValueType(ids) != XVALUE_ARRAY || xrtValueCount(ids) == 0) return false;
@@ -478,7 +478,7 @@ static void Notify_ExecSQLIgnore(const char* sql)
 static bool Notify_EnsureURIItem(const char* uri, bool needAuth)
 {
 	sqlite3_stmt* stmt = NULL;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	int64 id = 0;
 
 	if (!uri || !uri[0]) return false;
@@ -529,7 +529,7 @@ static int Notify_FindMenuParentID(void)
 static void Notify_EnsureMenuItem(const char* title, const char* icon, const char* href, int parentId, int sort, const char* remark)
 {
 	sqlite3_stmt* stmt = NULL;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 	int64 id = 0;
 
 	if (!href || !href[0] || parentId <= 0) return;

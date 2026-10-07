@@ -261,7 +261,7 @@ str Option_GenerateAdminEntryPath()
 
 		while ( iWrite < 32 ) {
 			const char sHex[] = "0123456789abcdef";
-			uint64 iFill = (uint64)xrtNow() + (uint64)(iTry + 1) * 1315423911ull + (uint64)(iWrite * 2654435761ull);
+			uint64 iFill = (uint64)XAdmin_UnixNowUs() + (uint64)(iTry + 1) * 1315423911ull + (uint64)(iWrite * 2654435761ull);
 			sToken[iWrite++] = sHex[iFill & 0x0f];
 		}
 		sToken[32] = '\0';

@@ -1,6 +1,6 @@
 /* 附件存储核心：路径布局 data/uploads/<model>/<YYYY>/<MM>/<xid>.<ext>、
  * MIME 映射、防盗链白名单、扩展名/配额检查与附件/订单表操作。
- * 时间列已由 DB_MigrateTimeUnits 换算微秒；新写入一律 xrtNow()。 */
+ * 时间列已由 DB_MigrateTimeUnits 换算微秒；新写入一律 XAdmin_UnixNowUs()。 */
 
 static char* AttachmentPath;
 
@@ -236,7 +236,7 @@ static bool Attachment_Add(const char* xid, const char* filename, const char* ex
 	sqlite3_bind_int(stmt_attachment_add, 13, accessLevel);
 	sqlite3_bind_int64(stmt_attachment_add, 14, price);
 	sqlite3_bind_int(stmt_attachment_add, 15, priceType);
-	sqlite3_bind_int64(stmt_attachment_add, 16, xrtNow());
+	sqlite3_bind_int64(stmt_attachment_add, 16, XAdmin_UnixNowUs());
 	{
 		int rc = sqlite3_step(stmt_attachment_add);
 		sqlite3_reset(stmt_attachment_add);
@@ -270,7 +270,7 @@ static bool Attachment_AddOrder(const char* xid, int64 memberId, int64 price, in
 	sqlite3_bind_int(stmt_attachment_add_order, 4, priceType);
 	sqlite3_bind_int64(stmt_attachment_add_order, 5, sellerId);
 	sqlite3_bind_int64(stmt_attachment_add_order, 6, sellerIncome);
-	sqlite3_bind_int64(stmt_attachment_add_order, 7, xrtNow());
+	sqlite3_bind_int64(stmt_attachment_add_order, 7, XAdmin_UnixNowUs());
 	return DB_Write(stmt_attachment_add_order, true);
 }
 

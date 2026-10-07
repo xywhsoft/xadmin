@@ -231,7 +231,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		if (!hashed) { xsHttpReplyAuto(objResp,500,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码服务不可用\"}",0); xrtValueRelease(tblForm); return; }
 		str sSalt=xrtStrDup(""); str sPwdHash=xrtStrDup(record); xrtSecureZero(record,sizeof(record));
 		if (!sSalt||!sPwdHash) { xrtFree(sSalt);xrtFree(sPwdHash);xrtValueRelease(tblForm); xsHttpReplyAuto(objResp,500,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码服务不可用\"}",0);return; }
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_text(stmt_member_add, 1, username, -1, NULL);
 		sqlite3_bind_text(stmt_member_add, 2, sSalt, -1, NULL);
 		sqlite3_bind_text(stmt_member_add, 3, sPwdHash, -1, NULL);
@@ -274,7 +274,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 			oldAuthLevel = sqlite3_column_int64(stmt_member_get, 3);
 		}
 		sqlite3_reset(stmt_member_get);
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_int64(stmt_member_put, 1, groupId);
 		sqlite3_bind_int64(stmt_member_put, 2, authLevel);
 		sqlite3_bind_text(stmt_member_put, 3, nickname ? nickname : (str)"", -1, NULL);
@@ -300,7 +300,7 @@ void Request_Member_User(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		xsReqQueryValue(objReq, "id", sID, sizeof(sID));
 		int64 id = Util_ParseI64(sID);
 		if ( id > 0 ) {
-			xtime now = xrtNow();
+			xtime now = XAdmin_UnixNowUs();
 			sqlite3_bind_int64(stmt_member_del, 1, now);
 			sqlite3_bind_int64(stmt_member_del, 2, id);
 			bool begun=DB_BeginWrite();bool written=begun&&DB_Write(stmt_member_del,true);
@@ -336,7 +336,7 @@ void Request_Member_User_Repwd(XS_ServerObject objServer, XS_HostObject objHost,
 		if(!hashed){xsHttpReplyAuto(objResp,500,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码服务不可用\"}",0);xrtValueRelease(tblForm);return;}
 		str sSalt=xrtStrDup("");str sPwdHash=xrtStrDup(record);xrtSecureZero(record,sizeof(record));
 		if(!sSalt||!sPwdHash){xrtFree(sSalt);xrtFree(sPwdHash);xrtValueRelease(tblForm);xsHttpReplyAuto(objResp,500,HTTP_CT_JSON,"{\"result\":false,\"message\":\"密码服务不可用\"}",0);return;}
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_text(stmt_member_pwd, 1, sSalt, -1, NULL);
 		sqlite3_bind_text(stmt_member_pwd, 2, sPwdHash, -1, NULL);
 		sqlite3_bind_int64(stmt_member_pwd, 3, now);
@@ -554,7 +554,7 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( strlen(authList) > 4096 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限列表最多4096个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_text(stmt_mgroup_add, 1, name, -1, NULL);
 		sqlite3_bind_text(stmt_mgroup_add, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_text(stmt_mgroup_add, 3, authList, -1, NULL);
@@ -580,7 +580,7 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( strlen(authList) > 4096 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"权限列表最多4096个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		xtime now = xrtNow();
+		xtime now = XAdmin_UnixNowUs();
 		sqlite3_bind_text(stmt_mgroup_put, 1, name, -1, NULL);
 		sqlite3_bind_text(stmt_mgroup_put, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_text(stmt_mgroup_put, 3, authList, -1, NULL);
@@ -604,7 +604,7 @@ void Request_Member_Group(XS_ServerObject objServer, XS_HostObject objHost, XS_R
 			if ( userCount > 0 ) {
 				xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"无法删除此用户组，因为它关联了用户！\"}", 0);
 			} else {
-				xtime now = xrtNow();
+				xtime now = XAdmin_UnixNowUs();
 				sqlite3_bind_int64(stmt_mgroup_del, 1, now);
 				sqlite3_bind_int64(stmt_mgroup_del, 2, id);
 				bool written = DB_Write(stmt_mgroup_del, true);
@@ -716,7 +716,7 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
 		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		xtime now = xrtNow(); sqlite3_bind_text(stmt_magroup_add, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_add, 2, desc ? desc : (str)"", -1, NULL);
+		xtime now = XAdmin_UnixNowUs(); sqlite3_bind_text(stmt_magroup_add, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_add, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_int64(stmt_magroup_add, 3, sort); sqlite3_bind_int64(stmt_magroup_add, 4, now); sqlite3_bind_int64(stmt_magroup_add, 5, now);
 		bool written = DB_Write(stmt_magroup_add, true);
 		int64 newId = written ? sqlite3_last_insert_rowid(G_DB) : 0;
@@ -731,7 +731,7 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
 		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		xtime now = xrtNow(); sqlite3_bind_text(stmt_magroup_put, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_put, 2, desc ? desc : (str)"", -1, NULL);
+		xtime now = XAdmin_UnixNowUs(); sqlite3_bind_text(stmt_magroup_put, 1, name, -1, NULL); sqlite3_bind_text(stmt_magroup_put, 2, desc ? desc : (str)"", -1, NULL);
 		sqlite3_bind_int64(stmt_magroup_put, 3, sort); sqlite3_bind_int64(stmt_magroup_put, 4, now); sqlite3_bind_int64(stmt_magroup_put, 5, id);
 		bool written = DB_Write(stmt_magroup_put, true);
 		xrtValueRelease(tblForm);
@@ -740,7 +740,7 @@ void Request_Member_AuthGroup(XS_ServerObject objServer, XS_HostObject objHost, 
 	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_DELETE) ) {
 		char sID[24]; xsReqQueryValue(objReq, "id", sID, sizeof(sID)); int64 id = Util_ParseI64(sID);
 		if ( id > 1 ) {
-			xtime now = xrtNow();
+			xtime now = XAdmin_UnixNowUs();
 			sqlite3_bind_int64(stmt_magroup_mov, 1, now);
 			sqlite3_bind_int64(stmt_magroup_mov, 2, id);
 			sqlite3_bind_int64(stmt_magroup_del, 1, now);
@@ -859,7 +859,7 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
 		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		xtime now = xrtNow(); sqlite3_bind_int64(stmt_mauth_add, 1, groupID); sqlite3_bind_text(stmt_mauth_add, 2, name, -1, NULL);
+		xtime now = XAdmin_UnixNowUs(); sqlite3_bind_int64(stmt_mauth_add, 1, groupID); sqlite3_bind_text(stmt_mauth_add, 2, name, -1, NULL);
 		sqlite3_bind_text(stmt_mauth_add, 3, desc ? desc : (str)"", -1, NULL); sqlite3_bind_int64(stmt_mauth_add, 4, sort);
 		sqlite3_bind_int64(stmt_mauth_add, 5, now); sqlite3_bind_int64(stmt_mauth_add, 6, now);
 		bool written = DB_Write(stmt_mauth_add, true);
@@ -876,7 +876,7 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 		/* E1：管理写接口字段长度上限（防异常长载荷膨胀行与缓存内存） */
 		if ( name && strlen(name) > 64 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"名称最多64个字符！\"}", 0); xrtValueRelease(tblForm); return; }
 		if ( desc && strlen(desc) > 1024 ) { xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": false, \"message\": \"描述最多1024个字符！\"}", 0); xrtValueRelease(tblForm); return; }
-		xtime now = xrtNow(); sqlite3_bind_int64(stmt_mauth_put, 1, groupID); sqlite3_bind_text(stmt_mauth_put, 2, name, -1, NULL);
+		xtime now = XAdmin_UnixNowUs(); sqlite3_bind_int64(stmt_mauth_put, 1, groupID); sqlite3_bind_text(stmt_mauth_put, 2, name, -1, NULL);
 		sqlite3_bind_text(stmt_mauth_put, 3, desc ? desc : (str)"", -1, NULL); sqlite3_bind_int64(stmt_mauth_put, 4, sort);
 		sqlite3_bind_int64(stmt_mauth_put, 5, now); sqlite3_bind_int64(stmt_mauth_put, 6, id);
 		bool written = DB_Write(stmt_mauth_put, true);
@@ -887,7 +887,7 @@ void Request_Member_Auth(XS_ServerObject objServer, XS_HostObject objHost, XS_Re
 	} else if ( (xsReqMethodID(objReq) == XHTTP_METHOD_DELETE) ) {
 		char sID[24]; xsReqQueryValue(objReq, "id", sID, sizeof(sID)); int64 id = Util_ParseI64(sID);
 		if ( id > 1 ) {
-			xtime now = xrtNow();
+			xtime now = XAdmin_UnixNowUs();
 			sqlite3_bind_int64(stmt_mauth_mov, 1, now);
 			sqlite3_bind_int64(stmt_mauth_mov, 2, id);
 			sqlite3_bind_int64(stmt_mauth_del, 1, now);

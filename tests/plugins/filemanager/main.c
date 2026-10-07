@@ -1007,7 +1007,7 @@ void FM_Req_ApiCompress(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 
 	if ( !xrtDirExists(sSave) ) xrtDirCreateAll(sSave);
 
-	sTempList = xrtFormat("%s/_filelist-%u.txt", (char*)G_FMConfig.sTempPath, (unsigned)xrtNow() % 1000000u);
+	sTempList = xrtFormat("%s/_filelist-%u.txt", (char*)G_FMConfig.sTempPath, (unsigned)XAdmin_UnixNowUs() % 1000000u);
 	fp = fopen(sTempList, "w");
 	if ( !fp ) {
 		FM_SendError(objResp, 500, "cannot create temp file list");

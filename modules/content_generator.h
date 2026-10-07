@@ -1708,7 +1708,7 @@ static char* Content_BuildManagedMainC(const char* pluginXid, const char* plugin
 				"		}\n"
 				"	}\n"
 				"	if ( sqlite3_prepare_v2(pDb, \"UPDATE content_item SET delete_time = ?, update_time = ? WHERE id = ? AND delete_time = 0\", -1, &stmt, NULL) == SQLITE_OK ) {\n"
-				"		xtime iNow = xrtNow();\n"
+				"		xtime iNow = XAdmin_UnixNowUs();\n"
 				"		sqlite3_bind_int64(stmt, 1, iNow);\n"
 				"		sqlite3_bind_int64(stmt, 2, MANAGED_CONTENT_TIME(iNow));\n"
 				"		sqlite3_bind_int64(stmt, 3, (sqlite3_int64)iId);\n"
@@ -2787,7 +2787,7 @@ static void Content_UpdateAppliedRevision(int modelId, int revision, const char*
 		return;
 	Content_BindText(stmt, 1, pluginXid);
 	sqlite3_bind_int(stmt, 2, revision);
-	sqlite3_bind_int64(stmt, 3, xrtNow());
+	sqlite3_bind_int64(stmt, 3, XAdmin_UnixNowUs());
 	sqlite3_bind_int(stmt, 4, modelId);
 	sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
@@ -2920,7 +2920,7 @@ static xvalue* Content_GeneratePluginForModel(const char* xid, str* error)
 	char* capabilityManifestJson = NULL;
 	char* migrationPlanJson = NULL;
 	char* outputJson = NULL;
-	int64 now = xrtNow();
+	int64 now = XAdmin_UnixNowUs();
 	sqlite3_int64 genRowId = 0;
 	bool categoryPack = false;
 	bool metricPack = false;

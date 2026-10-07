@@ -24,7 +24,7 @@ static void ProbeExpire(XS_ServerObject s, XS_HostObject h, XS_RequestObject req
 	char id[128]; xvalue* value; (void)s; (void)h; (void)session;
 	xsReqCookieValue(req, "XSID", id, sizeof(id));
 	value = Session_Acquire(true, id);
-	ValueSetInt(value, "_expireTime", xrtNow() - 1);
+	ValueSetInt(value, "_expireTime", XAdmin_UnixNowUs() - 1);
 	xrtValueRelease(value);
 	Session_Prune(G_AdminSessions);
 	xsHttpReplyAuto(resp, 200, HTTP_CT_TEXT, "expired", 0);

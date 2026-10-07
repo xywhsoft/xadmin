@@ -55,7 +55,7 @@ void Logs_Add(XS_RequestObject objReq, xvalue* objSession, bool bMaskBody)
 	const char* sMethod = xsReqMethod(objReq);
 	const char* pBody = NULL;
 	size_t iBodyLen = 0;
-	xtime now = xrtNow();
+	xtime now = XAdmin_UnixNowUs();
 
 	if ( objSession && (xrtValueType(objSession) == XVALUE_OBJECT) ) {
 		sUser = ValueText(objSession, "user");

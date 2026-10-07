@@ -159,7 +159,7 @@ static int XAdmin_HttpPostJson(XAdminPluginHandle handle, XS_RequestObject req,
     if (!ok) { XA_HttpsHttpUnit(&request); return -1; }
     void* engine = req->raw->server->Engine;
     XAPluginHttpTransport transport = G_PluginHttpTransport;
-    xdeadline deadline = xrtDeadlineAfter((uint64)timeout_ms * 1000);
+    XAdminDeadline deadline = XAdmin_DeadlineAfterMs(timeout_ms);
     inst->activeIo++;
     xrtMutexUnlock(G_RequestLock);
     ok = transport ? transport(engine, &request, timeout_ms, max_response, status, response) :
@@ -170,7 +170,7 @@ static int XAdmin_HttpPostJson(XAdminPluginHandle handle, XS_RequestObject req,
     if (!ok || !*response || strlen(*response) > max_response) {
         if (*response) xrtSecureZero(*response, strlen(*response));
         xrtFree(*response); *response = NULL; *status = 0;
-        return !xrtDeadlineRemaining(deadline) ? -2 : -1;
+        return !XAdmin_DeadlineRemainingMs(deadline) ? -2 : -1;
     }
     return 0;
 }
@@ -321,7 +321,7 @@ static char* Plugin_StaticBuildHeader(const char* sContentType, const char* sFil
 {
 	xfileinfo info; char* sModifiedText; const char* sCacheControl; char* sHeader;
 	if (!sFilePath || !xrtPathStat(sFilePath, true, &info) || info.Type != XFILE_TYPE_FILE) return NULL;
-	sModifiedText = TimeText(info.Changed, TIME_TEXT_DATETIME);
+	sModifiedText = TimeText(info.Changed * 1000, TIME_TEXT_DATETIME);
 	sCacheControl = Plugin_StaticLooksVersioned(sRelPath)
 		? "public, max-age=31536000, immutable"
 		: "no-cache";
@@ -726,7 +726,7 @@ static void Plugin_LedgerAdd(PluginInstance* inst, const char* sType, const char
 	Plugin_BindText(stmt, 3, sKey);
 	Plugin_BindText(stmt, 4, sRef);
 	Plugin_BindText(stmt, 5, sPolicy);
-	sqlite3_bind_int64(stmt, 6, xrtNow());
+	sqlite3_bind_int64(stmt, 6, XAdmin_UnixNowUs());
 	Plugin_BindText(stmt, 7, inst->xid);
 	sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
@@ -775,15 +775,15 @@ static void Plugin_CleanupResources(PluginInstance* inst)
 		if (!strcmp(sType, "route")) {
 			xrtMapRemove(G_StaticRouteTableHTTP, KeyView(sRef));
 		} else if (!strcmp(sType, "menu")) {
-			Plugin_Exec(xrtFormat("UPDATE menu SET isDelete=1, updateTime=%lld WHERE id=%s;", xrtNow(), sRef));
+			Plugin_Exec(xrtFormat("UPDATE menu SET isDelete=1, updateTime=%lld WHERE id=%s;", XAdmin_UnixNowUs(), sRef));
 		} else if (!strcmp(sType, "admin_auth")) {
-			Plugin_Exec(xrtFormat("UPDATE auth SET isDelete=1, updateTime=%lld WHERE id=%s;", xrtNow(), sRef));
+			Plugin_Exec(xrtFormat("UPDATE auth SET isDelete=1, updateTime=%lld WHERE id=%s;", XAdmin_UnixNowUs(), sRef));
 		} else if (!strcmp(sType, "admin_auth_group")) {
-			Plugin_Exec(xrtFormat("UPDATE authGroup SET isDelete=1, updateTime=%lld WHERE id=%s;", xrtNow(), sRef));
+			Plugin_Exec(xrtFormat("UPDATE authGroup SET isDelete=1, updateTime=%lld WHERE id=%s;", XAdmin_UnixNowUs(), sRef));
 		} else if (!strcmp(sType, "member_auth")) {
-			Plugin_Exec(xrtFormat("UPDATE memberAuth SET isDelete=1, updateTime=%lld WHERE id=%s;", xrtNow(), sRef));
+			Plugin_Exec(xrtFormat("UPDATE memberAuth SET isDelete=1, updateTime=%lld WHERE id=%s;", XAdmin_UnixNowUs(), sRef));
 		} else if (!strcmp(sType, "member_auth_group")) {
-			Plugin_Exec(xrtFormat("UPDATE memberAuthGroup SET isDelete=1, updateTime=%lld WHERE id=%s;", xrtNow(), sRef));
+			Plugin_Exec(xrtFormat("UPDATE memberAuthGroup SET isDelete=1, updateTime=%lld WHERE id=%s;", XAdmin_UnixNowUs(), sRef));
 		} else if (!strcmp(sType, "admin_uri_auth") || !strcmp(sType, "member_uri_auth")) {
 			Plugin_Exec(xrtFormat("DELETE FROM uris WHERE id=%s;", sRef));
 		}
@@ -853,8 +853,8 @@ int XAdmin_RegisterRoute(XAdminPluginHandle plugin_handle, const XAdminRouteDecl
 			Plugin_BindText(u, 1, decl->path);
 			Plugin_BindText(u, 2, inst->xid);
 			sqlite3_bind_int(u, 3, decl->admin_only ? 1 : 0);
-			sqlite3_bind_int64(u, 4, xrtNow());
-			sqlite3_bind_int64(u, 5, xrtNow());
+			sqlite3_bind_int64(u, 4, XAdmin_UnixNowUs());
+			sqlite3_bind_int64(u, 5, XAdmin_UnixNowUs());
 			Plugin_BindText(u, 6, inst->xid);
 			sqlite3_bind_int(u, 7, inst->generation);
 			sqlite3_step(u);
@@ -1004,7 +1004,7 @@ int XAdmin_RegisterMenu(XAdminPluginHandle plugin_handle, const XAdminMenuDecl* 
 		sqlite3_bind_int(stmt, 7, decl->sort);
 		sqlite3_bind_int(stmt, 8, decl->visible ? 1 : 0);
 		Plugin_BindText(stmt, 9, decl->remark);
-		sqlite3_bind_int64(stmt, 10, xrtNow());
+		sqlite3_bind_int64(stmt, 10, XAdmin_UnixNowUs());
 		Plugin_BindText(stmt, 11, inst->xid);
 		sqlite3_bind_int(stmt, 12, inst->generation);
 		sqlite3_bind_int(stmt, 13, id);
@@ -1024,8 +1024,8 @@ int XAdmin_RegisterMenu(XAdminPluginHandle plugin_handle, const XAdminMenuDecl* 
 		sqlite3_bind_int(stmt, 7, decl->sort);
 		sqlite3_bind_int(stmt, 8, decl->visible ? 1 : 0);
 		Plugin_BindText(stmt, 9, decl->remark);
-		sqlite3_bind_int64(stmt, 10, xrtNow());
-		sqlite3_bind_int64(stmt, 11, xrtNow());
+		sqlite3_bind_int64(stmt, 10, XAdmin_UnixNowUs());
+		sqlite3_bind_int64(stmt, 11, XAdmin_UnixNowUs());
 		Plugin_BindText(stmt, 12, inst->xid);
 		sqlite3_bind_int(stmt, 13, inst->generation);
 		sqlite3_step(stmt);
@@ -1041,7 +1041,7 @@ int XAdmin_RegisterMenu(XAdminPluginHandle plugin_handle, const XAdminMenuDecl* 
 int XAdmin_UnregisterMenu(XAdminMenuToken token)
 {
 	int id = (int)(token & 0xFFFFFFFFFF);
-	Plugin_Exec(xrtFormat("UPDATE menu SET isDelete=1, updateTime=%lld WHERE id=%d;", xrtNow(), id));
+	Plugin_Exec(xrtFormat("UPDATE menu SET isDelete=1, updateTime=%lld WHERE id=%d;", XAdmin_UnixNowUs(), id));
 	return 0;
 }
 
@@ -1070,7 +1070,7 @@ int XAdmin_RegisterAuthGroup(XAdminPluginHandle plugin_handle, const XAdminAuthG
 		Plugin_BindText(stmt, 1, decl->name);
 		Plugin_BindText(stmt, 2, decl->description);
 		sqlite3_bind_int(stmt, 3, decl->sort);
-		sqlite3_bind_int64(stmt, 4, xrtNow());
+		sqlite3_bind_int64(stmt, 4, XAdmin_UnixNowUs());
 		sqlite3_bind_int(stmt, 5, id);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
@@ -1082,8 +1082,8 @@ int XAdmin_RegisterAuthGroup(XAdminPluginHandle plugin_handle, const XAdminAuthG
 		Plugin_BindText(stmt, 1, decl->name);
 		Plugin_BindText(stmt, 2, decl->description);
 		sqlite3_bind_int(stmt, 3, decl->sort);
-		sqlite3_bind_int64(stmt, 4, xrtNow());
-		sqlite3_bind_int64(stmt, 5, xrtNow());
+		sqlite3_bind_int64(stmt, 4, XAdmin_UnixNowUs());
+		sqlite3_bind_int64(stmt, 5, XAdmin_UnixNowUs());
 		Plugin_BindText(stmt, 6, inst->xid);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
@@ -1131,7 +1131,7 @@ int XAdmin_RegisterAuth(XAdminPluginHandle plugin_handle, const XAdminAuthDecl* 
 		Plugin_BindText(stmt, 2, decl->name);
 		Plugin_BindText(stmt, 3, decl->description);
 		sqlite3_bind_int(stmt, 4, decl->sort);
-		sqlite3_bind_int64(stmt, 5, xrtNow());
+		sqlite3_bind_int64(stmt, 5, XAdmin_UnixNowUs());
 		sqlite3_bind_int(stmt, 6, id);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
@@ -1144,8 +1144,8 @@ int XAdmin_RegisterAuth(XAdminPluginHandle plugin_handle, const XAdminAuthDecl* 
 		Plugin_BindText(stmt, 2, decl->name);
 		Plugin_BindText(stmt, 3, decl->description);
 		sqlite3_bind_int(stmt, 4, decl->sort);
-		sqlite3_bind_int64(stmt, 5, xrtNow());
-		sqlite3_bind_int64(stmt, 6, xrtNow());
+		sqlite3_bind_int64(stmt, 5, XAdmin_UnixNowUs());
+		sqlite3_bind_int64(stmt, 6, XAdmin_UnixNowUs());
 		Plugin_BindText(stmt, 7, inst->xid);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
@@ -1172,7 +1172,7 @@ int XAdmin_RegisterAuth(XAdminPluginHandle plugin_handle, const XAdminAuthDecl* 
 						if (ValueIntOf(xrtValueArrayGet(arr, i)) == id) { has = true; break; }
 				xrtValueRelease(arr);
 				if (!has)
-					Plugin_Exec(xrtFormat("UPDATE role SET authList = trim(authList, ']') || ', %d]', updateTime=%lld WHERE id=1;", id, xrtNow()));
+					Plugin_Exec(xrtFormat("UPDATE role SET authList = trim(authList, ']') || ', %d]', updateTime=%lld WHERE id=1;", id, XAdmin_UnixNowUs()));
 			}
 			sqlite3_finalize(rt);
 		}
@@ -1216,7 +1216,7 @@ int XAdmin_RegisterUriAuth(XAdminPluginHandle plugin_handle, const XAdminUriAuth
 		sqlite3_bind_int(stmt, 5, decl->need_auth ? 1 : 0);
 		sqlite3_bind_int(stmt, 6, decl->need_log ? 1 : 0);
 		sqlite3_bind_int(stmt, 7, decl->keep_active ? 1 : 0);
-		sqlite3_bind_int64(stmt, 8, xrtNow());
+		sqlite3_bind_int64(stmt, 8, XAdmin_UnixNowUs());
 		Plugin_BindText(stmt, 9, inst->xid);
 		sqlite3_bind_int(stmt, 10, id);
 		sqlite3_step(stmt);
@@ -1234,8 +1234,8 @@ int XAdmin_RegisterUriAuth(XAdminPluginHandle plugin_handle, const XAdminUriAuth
 		sqlite3_bind_int(stmt, 6, decl->need_auth ? 1 : 0);
 		sqlite3_bind_int(stmt, 7, decl->need_log ? 1 : 0);
 		sqlite3_bind_int(stmt, 8, decl->keep_active ? 1 : 0);
-		sqlite3_bind_int64(stmt, 9, xrtNow());
-		sqlite3_bind_int64(stmt, 10, xrtNow());
+		sqlite3_bind_int64(stmt, 9, XAdmin_UnixNowUs());
+		sqlite3_bind_int64(stmt, 10, XAdmin_UnixNowUs());
 		Plugin_BindText(stmt, 11, inst->xid);
 		sqlite3_bind_int(stmt, 12, 1);
 		sqlite3_step(stmt);
@@ -1544,11 +1544,11 @@ static PluginInstance* Plugin_RegisterGenerated(const char* sRootPath, const cha
 	Plugin_Exec(xrtFormat(
 		"INSERT OR IGNORE INTO plugin_package (package_id, plugin_id, version, source_type, install_path, checksum, signature, trust_level, manifest_json, install_time, xid) "
 		"VALUES ('%s', '%s', '1.0.0', 'generated', '%s', '', '', 'system', '', %lld, '%s');",
-		sXid, sXid, sRootPath, xrtNow(), sXid));
+		sXid, sXid, sRootPath, XAdmin_UnixNowUs(), sXid));
 	Plugin_Exec(xrtFormat(
 		"INSERT OR IGNORE INTO plugin_runtime (package_id, xid, mount_path, data_path, private_db_path, enabled, installed, config_json, status, active_generation, create_time, update_time) "
 		"VALUES ('%s', '%s', '', '%s', '%s', 0, 0, '', 'discovered', 0, %lld, %lld);",
-		sXid, sXid, inst->dataPath, inst->dbPath, xrtNow(), xrtNow()));
+		sXid, sXid, inst->dataPath, inst->dbPath, XAdmin_UnixNowUs(), XAdmin_UnixNowUs()));
 	printf("[plugin] generated %s registered\n", sXid);
 	return inst;
 }
@@ -1941,8 +1941,8 @@ static bool Plugin_Start(PluginInstance* inst, char* sError, size_t iErrorSize)
 			char* sVersion = ValueText(inst->manifest, "version");
 			sqlite3_bind_int(stmt, 1, gen);
 			Plugin_BindText(stmt, 2, sVersion ? sVersion : "");
-			sqlite3_bind_int64(stmt, 3, xrtNow());
-			sqlite3_bind_int64(stmt, 4, xrtNow());
+			sqlite3_bind_int64(stmt, 3, XAdmin_UnixNowUs());
+			sqlite3_bind_int64(stmt, 4, XAdmin_UnixNowUs());
 			Plugin_BindText(stmt, 5, sError);
 			Plugin_BindText(stmt, 6, inst->xid);
 			sqlite3_step(stmt);
@@ -1970,8 +1970,8 @@ static bool Plugin_Start(PluginInstance* inst, char* sError, size_t iErrorSize)
 		sqlite3_bind_int(stmt, 1, gen);
 		Plugin_BindText(stmt, 2, sVersion ? sVersion : "");
 		Plugin_BindText(stmt, 3, xrtFormat("%s:%d", sVersion ? sVersion : "", gen));
-		sqlite3_bind_int64(stmt, 4, xrtNow());
-		sqlite3_bind_int64(stmt, 5, xrtNow());
+		sqlite3_bind_int64(stmt, 4, XAdmin_UnixNowUs());
+		sqlite3_bind_int64(stmt, 5, XAdmin_UnixNowUs());
 		Plugin_BindText(stmt, 6, inst->xid);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
@@ -2025,7 +2025,7 @@ static bool Plugin_Start(PluginInstance* inst, char* sError, size_t iErrorSize)
 		goto rollback;
 	}
 	G_PluginRegIdx = -1;
-	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET status='running', active_generation=%d, update_time=%lld WHERE xid='%s';", gen, xrtNow(), inst->xid));
+	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET status='running', active_generation=%d, update_time=%lld WHERE xid='%s';", gen, XAdmin_UnixNowUs(), inst->xid));
 	printf("[plugin] started %s (generation %d)\n", inst->xid, gen);
 	return true;
 rollback:
@@ -2050,7 +2050,7 @@ rollback:
 	CacheRetire(inst->config);
 	inst->config = NULL;
 	if (inst->genRowId)
-		Plugin_Exec(xrtFormat("UPDATE plugin_generation SET state='stopped', stop_time=%lld, error_message='start failed' WHERE id=%lld;", xrtNow(), inst->genRowId));
+		Plugin_Exec(xrtFormat("UPDATE plugin_generation SET state='stopped', stop_time=%lld, error_message='start failed' WHERE id=%lld;", XAdmin_UnixNowUs(), inst->genRowId));
 	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET status='error' WHERE xid='%s';", inst->xid));
 	return false;
 }
@@ -2110,9 +2110,9 @@ static void Plugin_Stop(PluginInstance* inst)
 	CacheRetire(inst->config);
 	inst->config = NULL;
 	if (inst->genRowId)
-		Plugin_Exec(xrtFormat("UPDATE plugin_generation SET state='stopped', stop_time=%lld WHERE id=%lld;", xrtNow(), inst->genRowId));
+		Plugin_Exec(xrtFormat("UPDATE plugin_generation SET state='stopped', stop_time=%lld WHERE id=%lld;", XAdmin_UnixNowUs(), inst->genRowId));
 	inst->genRowId = 0;
-	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET status='disabled', active_generation=0, update_time=%lld WHERE xid='%s';", xrtNow(), inst->xid));
+	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET status='disabled', active_generation=0, update_time=%lld WHERE xid='%s';", XAdmin_UnixNowUs(), inst->xid));
 	printf("[plugin] stopped %s\n", inst->xid);
 	inst->stopping = false;
 }
@@ -2130,7 +2130,7 @@ static bool PluginHost_SetEnabled(const char* sXid, bool bEnable)
 	if (G_PluginRegIdx >= 0) return false; /* GR3：插件启动期间禁止换代操作（防重入） */
 	if (bEnable) {
 		if (inst->started) return true;
-		Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET enabled=1, update_time=%lld WHERE xid='%s';", xrtNow(), sXid));
+		Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET enabled=1, update_time=%lld WHERE xid='%s';", XAdmin_UnixNowUs(), sXid));
 		if (!Plugin_Start(inst, sError, sizeof(sError))) {
 			printf("[plugin] enable failed %s: %s\n", sXid, sError);
 			Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET status='error' WHERE xid='%s';", sXid));
@@ -2139,7 +2139,7 @@ static bool PluginHost_SetEnabled(const char* sXid, bool bEnable)
 		return true;
 	}
 	Plugin_Stop(inst);
-	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET enabled=0, update_time=%lld WHERE xid='%s';", xrtNow(), sXid));
+	Plugin_Exec(xrtFormat("UPDATE plugin_runtime SET enabled=0, update_time=%lld WHERE xid='%s';", XAdmin_UnixNowUs(), sXid));
 	return true;
 }
 
@@ -2302,7 +2302,7 @@ static void Plugin_SyncDatabase(void)
 				Plugin_BindText(stmt, 3, sVersion ? sVersion : "0.0.0");
 				Plugin_BindText(stmt, 4, inst->rootPath);
 				Plugin_BindText(stmt, 5, sManifestText ? sManifestText : "");
-				sqlite3_bind_int64(stmt, 6, xrtNow());
+				sqlite3_bind_int64(stmt, 6, XAdmin_UnixNowUs());
 				Plugin_BindText(stmt, 7, inst->xid);
 				sqlite3_step(stmt);
 				sqlite3_finalize(stmt);
@@ -2314,8 +2314,8 @@ static void Plugin_SyncDatabase(void)
 				Plugin_BindText(stmt, 2, inst->xid);
 				Plugin_BindText(stmt, 3, inst->dataPath);
 				Plugin_BindText(stmt, 4, inst->dbPath);
-				sqlite3_bind_int64(stmt, 5, xrtNow());
-				sqlite3_bind_int64(stmt, 6, xrtNow());
+				sqlite3_bind_int64(stmt, 5, XAdmin_UnixNowUs());
+				sqlite3_bind_int64(stmt, 6, XAdmin_UnixNowUs());
 				sqlite3_step(stmt);
 				sqlite3_finalize(stmt);
 			}
@@ -2346,7 +2346,7 @@ static void PluginHost_Init(void)
 	memset(G_PluginServices, 0, sizeof(G_PluginServices));
 
 	/* 两代共同清理：上次运行的 active 代际在本次启动前全部视为 stopped。 */
-	Plugin_Exec(xrtFormat("UPDATE plugin_generation SET state='stopped', stop_time=%lld WHERE state='active';", xrtNow()));
+	Plugin_Exec(xrtFormat("UPDATE plugin_generation SET state='stopped', stop_time=%lld WHERE state='active';", XAdmin_UnixNowUs()));
 
 	Plugin_ConvertLegacyPaths();
 	sPluginRoot = xrtPathJoin(AppPath, "plugin");
@@ -2418,12 +2418,12 @@ static void PluginHost_Init(void)
 			sStarted[used - 1] = '\0'; /* 去尾逗号 */
 			Plugin_Exec(xrtFormat(
 				"UPDATE menu SET isDelete=1, updateTime=%lld WHERE isDelete=0 AND plugin_xid<>'' AND plugin_xid NOT IN (%s);",
-				xrtNow(), sStarted));
+				XAdmin_UnixNowUs(), sStarted));
 				} else {
 					/* 本轮零插件启动：清全部插件自有菜单 */
 					Plugin_Exec(xrtFormat(
 						"UPDATE menu SET isDelete=1, updateTime=%lld WHERE isDelete=0 AND plugin_xid<>'';",
-						xrtNow()));
+						XAdmin_UnixNowUs()));
 				}
 	}
 }

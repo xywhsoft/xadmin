@@ -2566,7 +2566,7 @@ bool CS_SaveTypeInternal(sqlite3* pDb, int64 iTypeId, const char* sNote, xvalue 
 	bool bExists = FALSE;
 	int iCurrentRevision = 0;
 	int iFieldCount = 0;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 
 	if ( piSavedTypeId ) *piSavedTypeId = 0;
 	if ( piSavedRevision ) *piSavedRevision = 0;
@@ -2919,7 +2919,7 @@ void CS_RecordUpgrade(sqlite3* pDb, int64 iTypeId, int iFromRevision, int iToRev
 	sqlite3_bind_int(stmt, 3, iToRevision);
 	sqlite3_bind_text(stmt, 4, sPlanJson ? sPlanJson : "{}", -1, SQLITE_TRANSIENT);
 	sqlite3_bind_text(stmt, 5, sResult ? sResult : "pending", -1, SQLITE_TRANSIENT);
-	sqlite3_bind_int64(stmt, 6, xrtNow());
+	sqlite3_bind_int64(stmt, 6, XAdmin_UnixNowUs());
 	sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
 }
@@ -3291,7 +3291,7 @@ str CS_BuildMigrationPlanJson(const char* sPluginXid, int64 iTypeId, int iFromRe
 	xvoTableSetText(tblRoot, "specHash", 8, (str)(sSpecHash ? sSpecHash : ""), 0, FALSE);
 	xvoTableSetText(tblRoot, "storageModel", 12, "content_item.payload_json", 0, FALSE);
 	xvoTableSetText(tblRoot, "planMode", 8, (iFromRevision <= 0) ? "initial-generation" : "regeneration", 0, FALSE);
-	xvoTableSetInt(tblRoot, "generatedAt", 11, (int)xrtNow());
+	xvoTableSetInt(tblRoot, "generatedAt", 11, (int)XAdmin_UnixNowUs());
 	xvoArrayAppendText(arrSql, "BEGIN IMMEDIATE;", 0, FALSE);
 	xvoArrayAppendText(arrSql, "CREATE TABLE IF NOT EXISTS content_item (id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL DEFAULT '', status INTEGER NOT NULL DEFAULT 0, payload_json TEXT NOT NULL DEFAULT '{}', is_draft INTEGER NOT NULL DEFAULT 0, create_time INTEGER NOT NULL, update_time INTEGER NOT NULL DEFAULT 0, delete_time INTEGER NOT NULL DEFAULT 0);", 0, FALSE);
 	xvoArrayAppendText(arrSql, "CREATE INDEX IF NOT EXISTS idx_content_item_public ON content_item(delete_time, is_draft, status, update_time DESC);", 0, FALSE);
@@ -3486,7 +3486,7 @@ void CS_RequestGenerate(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 	int iFieldCount = 0;
 	int iFileCount = 0;
 	int iGenerateRet = -1;
-	xtime iNow = xrtNow();
+	xtime iNow = XAdmin_UnixNowUs();
 
 	(void)objServer;
 	(void)objHost;

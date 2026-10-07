@@ -73,10 +73,10 @@ static void XA_HttpsHttpUnit(XAHttpRequest* req)
     if (req->body) xrtSecureZero(req->body, strlen(req->body));
     xrtFree(req->body); xrtSecureZero(req, sizeof(*req));
 }
-static bool XA_HttpsWait(xfuture* future, xdeadline deadline)
+static bool XA_HttpsWait(xfuture* future, XAdminDeadline deadline)
 {
-    return future && xrtDeadlineRemaining(deadline) &&
-        xrtFutureWaitFor(future, xrtDeadlineRemaining(deadline)) == XWAIT_OK &&
+    return future && XAdmin_DeadlineRemainingMs(deadline) &&
+        xrtFutureWaitFor(future, XAdmin_DeadlineRemainingMs(deadline)) == XWAIT_OK &&
         xrtFutureState(future) == XFUTURE_RESOLVED;
 }
 static void XA_HttpsFutureDone(xfuture* future)
@@ -90,7 +90,7 @@ static bool XA_HttpsHttp(void* engine, const char* ca_pem, const XAHttpRequest* 
     XAHttpUrl url; xbuffer wire, incoming;
     xnetresolver* resolver = NULL; xtlsverifier* verifier = NULL; xtlsstream* stream = NULL;
     xfuture* future = NULL; bool ok = false, end = false; size_t i, headsize = 0;
-    xdeadline deadline = xrtDeadlineAfter((uint64)timeout_ms * 1000);
+    XAdminDeadline deadline = XAdmin_DeadlineAfterMs(timeout_ms);
     size_t max_wire = max_body + 32768;
     *status = 0; *response = NULL;
     if (!engine || !req || timeout_ms < 100 || timeout_ms > 60000 || !max_body || max_body > 1048576 || !req->body || !XA_HttpsUrlParse(req->url, &url)) return false;
@@ -120,7 +120,7 @@ static bool XA_HttpsHttp(void* engine, const char* ca_pem, const XAHttpRequest* 
     if(url.host[0]=='[')tls.VerifyName=(xstrview){url.host+1,strlen(url.host)-2};
     xnetaddr address;
     if (!xrtNetAddrParse(&address, url.host, (uint16)url.port)) tls.ServerName = tls.VerifyName;
-    dial.ServerNameFromHost = false; dial.Timeout = xrtDeadlineRemaining(deadline);
+    dial.ServerNameFromHost = false; dial.Timeout = XAdmin_DeadlineRemainingMs(deadline);
     if (!dial.Timeout) goto done;
     future = xrtTlsDialAsync(engine, resolver, url.host, (uint16)url.port, &tls, &dial, NULL, NULL);
     if (!XA_HttpsWait(future, deadline)) goto done;
@@ -151,8 +151,8 @@ static bool XA_HttpsHttp(void* engine, const char* ca_pem, const XAHttpRequest* 
         }
         if (parsed != XHTTP1_MORE || end || incoming.Size >= max_wire) goto done;
         future = xrtTlsStreamRecvAsync(stream, 8192);
-        if (!future || !xrtDeadlineRemaining(deadline) ||
-            xrtFutureWaitFor(future, xrtDeadlineRemaining(deadline)) != XWAIT_OK) goto done;
+        if (!future || !XAdmin_DeadlineRemainingMs(deadline) ||
+            xrtFutureWaitFor(future, XAdmin_DeadlineRemainingMs(deadline)) != XWAIT_OK) goto done;
         if (xrtFutureState(future) == XFUTURE_CLOSED) {
             XA_HttpsFutureDone(future); future = xrtTlsStreamWaitAsync(stream, XTLS_STREAM_WAIT_END);
             if (!XA_HttpsWait(future, deadline)) goto done;
