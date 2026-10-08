@@ -19,13 +19,13 @@ static bool XA_MFAAdminSession(XAdminRequest* req,int64 owner,int64 version,int6
     bool ok=s&&sqlite3_step(s)==SQLITE_ROW&&XA_CopyColumn(s,0,username,sizeof(username));
     if(ok){role=sqlite3_column_int64(s,1);level=sqlite3_column_int64(s,2);}sqlite3_finalize(s);
     if(!ok||!Auth_DBRoleGetAccess(role,0,&role_level))return false;
-    char* id=Util_Token();xvalue* session=id?Session_CreateAdmin(id):NULL;
+    char* id=Util_Token();xvalue* session=id?Session_CreateAdmin(id,remember):NULL;
     char csrf[65];
     ok=session&&XA_Random(csrf)&&ValueSetText(session,"xid",id)&&ValueSetText(session,"user",username)&&
         ValueSetInt(session,"id",owner)&&ValueSetInt(session,"roleID",role)&&ValueSetInt(session,"authLevel",level>role_level?level:role_level)&&
         ValueSetInt(session,"mfa_version",version)&&ValueSetInt(session,"mfa_verified_at",verified)&&
         ValueSetInt(session,"primary_verified_at",XA_Now())&&ValueSetText(session,"_mfaCSRF",csrf);
-    if(ok){char* cookies=Session_AdminHeaders(req,id,remember?604800:-1,NULL);
+    if(ok){char* cookies=Session_AdminHeaders(req,id,remember?Session_AdminRememberSeconds():-1,NULL);
         *headers=cookies?xrtFormat("%sCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\n",cookies):NULL;xrtFree(cookies);}
     ok=ok&&*headers&&Session_StoreAdmin(id,session);xrtFree(id);
     if(!ok){xrtFree(*headers);*headers=NULL;xrtValueRelease(session);return false;}
@@ -169,7 +169,7 @@ static void XA_MFAChange(XAdminRequest* req,const char* realm,xvalue* session,xv
     if(ok&&!admin)ok=XA_MFARotateMember(req,owner,version,disable?0:XA_Now(),&tokens);
     if(ok){data=admin?ValueObject():XA_TokenData(&tokens);ok=data&&ValueSetBool(data,"enabled",!disable)&&(!codes||ValueSetRef(data,"recovery_codes",codes));}
     if(ok&&!admin){headers=XA_TokenHeaders(req,&tokens);ok=headers!=NULL;}
-    if(ok&&admin)ok=XA_MFAAdminSession(req,owner,version,disable?0:XA_Now(),false,&renewed,&headers);
+    if(ok&&admin)ok=XA_MFAAdminSession(req,owner,version,disable?0:XA_Now(),ValueBool(session,"_remember"),&renewed,&headers);
     ok=XA_End(ok);
     if(admin&&renewed){
         if(ok)Session_RevokeAccountExcept(true,owner,renewed);

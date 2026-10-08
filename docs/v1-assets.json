@@ -13,7 +13,8 @@
   {
     "source": "dev/v1/hosts/xadmin/data/page/logs.html",
     "target": "page/logs.html",
-    "sha256": "4e4bb64513c77813b22c99397e230f974c9afbe4291a7a353d8143e5cca9d6b9"
+    "sha256": "4e4bb64513c77813b22c99397e230f974c9afbe4291a7a353d8143e5cca9d6b9",
+    "target_sha256": "ca625dc4762345521be2fc42608953b25e007be69e976c6e6e464f94f8843443"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/option.html",
@@ -30,13 +31,13 @@
     "source": "dev/v1/hosts/xadmin/data/page/admin/index.html",
     "target": "page/admin/index.html",
     "sha256": "5b1d01e1f75b0cf30b14384d8bf113cafd74883060156099e9e15db57fd859c6",
-    "target_sha256": "fada6b5443ab42f335805821929f7a0daa7bf82cef29b8f1762431791b43dddc"
+    "target_sha256": "64b026a11b3adfb10e772442b01b233e83cda4e4f98df2a7003d244af173d9ce"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/admin/login.html",
     "target": "page/admin/login.html",
     "sha256": "a77b5f5ffbde7d36fab7b6d58a71455c57aea94c7f976a7a3d2f9eba48d24b67",
-    "target_sha256": "c6b7560379ac0f86779c54bb82ace8d6fec827e31879a3287178205cc01403e4"
+    "target_sha256": "f3eb42924a63d3de73c9a1246fc04af1f4dc72e9e1f00274adf5feceaca7abd0"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/attachment/edit.html",
@@ -245,7 +246,7 @@
     "source": "dev/v1/hosts/xadmin/data/page/sched/list.html",
     "target": "page/sched/list.html",
     "sha256": "049ffd35c0bebd08eff579439056ae8be3b94a7c25f3fd11f203193ee037a8e4",
-    "target_sha256": "6187d70a7757d07552a7fc789790e39ab3eac0206c812cdeceab1e6cc5fd6636"
+    "target_sha256": "390931bbde82ea1eabb6f467863ae169383ed3167e46cb98461e44360a96067d"
   },
   {
     "source": "dev/v1/hosts/xadmin/data/page/sched/log.html",
@@ -465,7 +466,8 @@
   {
     "source": "dev/v1/hosts/xadmin/wwwroot/css/other/login.css",
     "target": "wwwroot/css/other/login.css",
-    "sha256": "65dd803392d96b00ad7acd2ac5a452231e33055f1e07aff5935fdf3fe59717b4"
+    "sha256": "65dd803392d96b00ad7acd2ac5a452231e33055f1e07aff5935fdf3fe59717b4",
+    "target_sha256": "818b1a71d170a78dec8ba7554c8413884fbf4463df35cbf98605710dc59cc78d"
   },
   {
     "source": "dev/v1/hosts/xadmin/wwwroot/css/other/profile.css",

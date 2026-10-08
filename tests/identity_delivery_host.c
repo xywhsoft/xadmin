@@ -11,6 +11,7 @@ static XAIdentityDeliveryResult TestDelivery(const XAIdentityMessage* message,vo
     (void)context;
     xrtMutexLock(G_RequestLock);
     xvalue* v=ValueObject();ValueSetText(v,"code",message->code);ValueSetText(v,"target",message->target);ValueSetText(v,"purpose",message->purpose);
+    ValueSetInt(v,"expires_in",message->expires_in);
     ValueSetOwn(TestDeliveries,message->challenge_id,v);xrtMutexUnlock(G_RequestLock);return XA_DELIVERY_SENT;
 }
 static void DeliveryRead(XS_ServerObject server,XS_HostObject host,XAdminRequest* req,XAdminRequest* resp,xvalue* session)

@@ -148,17 +148,25 @@
 
 <script type="text/html" id="Tool_Sched">
 	<div class="sched-actions">
+		{{# if(d.managed){ }}
+			<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="settings">全局配置</a>
+		{{# } else { }}
 		<a class="layui-btn layui-btn-xs layui-bg-blue" lay-event="edit">编辑</a>
 		<a class="layui-btn layui-btn-xs layui-btn-normal" lay-event="copy">复制</a>
 		<a class="layui-btn layui-btn-xs layui-btn-primary" lay-event="export">导出</a>
+		{{# } }}
 		<a class="layui-btn layui-btn-xs layui-bg-green" lay-event="run">立即执行</a>
+		{{# if(!d.managed){ }}
 		{{# if(d.enabled){ }}
 			<a class="layui-btn layui-btn-xs layui-bg-orange" lay-event="toggle">停用</a>
 		{{# } else { }}
 			<a class="layui-btn layui-btn-xs" lay-event="toggle">启用</a>
 		{{# } }}
+		{{# } }}
 		<a class="layui-btn layui-btn-xs" lay-event="logs">日志</a>
+		{{# if(!d.managed){ }}
 		<a class="layui-btn layui-btn-xs layui-bg-red" lay-event="delete">删除</a>
+		{{# } }}
 	</div>
 </script>
 
@@ -179,6 +187,7 @@ layui.use(['table', 'layer', 'form', 'dropdown'], function(){
 	}
 
 	function formatExecType(row) {
+		if ( row.execType === 'builtin' ) return '系统内建任务';
 		if ( row.execType === 'shell' ) {
 			return 'Shell' + (row.shellType ? ' / ' + row.shellType : '');
 		}
@@ -623,6 +632,10 @@ layui.use(['table', 'layer', 'form', 'dropdown'], function(){
 
 	table.on('tool(Table_Sched)', function(obj){
 		var data = obj.data;
+		if ( obj.event === 'settings' ) {
+			location.href = '/admin/view/option?file=global.json';
+			return;
+		}
 
 		if ( obj.event === 'edit' ) {
 			openEdit(data.id);

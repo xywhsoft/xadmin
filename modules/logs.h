@@ -7,6 +7,41 @@ sqlite3_stmt* stmt_logs_add = NULL;
 sqlite3_stmt* stmt_logs_clear = NULL;
 sqlite3_stmt* stmt_logs_count = NULL;
 sqlite3_stmt* stmt_logs_count_sel = NULL;
+static xmutex* G_LogsConfigLock;
+static bool G_LogsCleanupEnabled;
+static int G_LogsRetentionDays = 7;
+static bool G_LogsCleanupSyncOK;
+static int64 Logs_ExpiryCutoff(int days)
+{
+	return XAdmin_UnixNowUs() - (int64)days * 86400 * 1000000;
+}
+static void Logs_SyncCleanupConfig(void)
+{
+	bool enabled = Global_Int("admin_log_auto_cleanup") != 0;
+	xrtMutexLock(G_LogsConfigLock);
+	G_LogsCleanupEnabled = enabled;
+	G_LogsRetentionDays = Global_Int("admin_log_retention_days");
+	xrtMutexUnlock(G_LogsConfigLock);
+	G_LogsCleanupSyncOK = Sched_EnsureLogCleanupTask(enabled, Global_Int("admin_log_cleanup_hour"));
+	if (!G_LogsCleanupSyncOK) printf("[logs][error] failed to synchronize cleanup task: %s\n", sqlite3_errmsg(G_DB));
+}
+/* Worker 只用独立连接和日志配置锁，不访问请求锁或配置缓存。
+ * Sched_Unit 在 Logs_Unit 前等待 worker，保证重载时的锁与回调寿命。 */
+static bool Logs_RunScheduledCleanup(sqlite3* db, str* message)
+{
+	bool enabled; int days; sqlite3_stmt* stmt = NULL;
+	xrtMutexLock(G_LogsConfigLock);
+	enabled = G_LogsCleanupEnabled; days = G_LogsRetentionDays;
+	xrtMutexUnlock(G_LogsConfigLock);
+	if (!enabled) { *message = xrtStrDup("自动清理已关闭，本次跳过"); return true; }
+	sqlite3_busy_timeout(db, 5000);
+	bool ok = sqlite3_prepare_v3(db, "DELETE FROM logs WHERE createTime < ?", -1, 0, &stmt, NULL) == SQLITE_OK;
+	if (ok) { sqlite3_bind_int64(stmt, 1, Logs_ExpiryCutoff(days)); ok = sqlite3_step(stmt) == SQLITE_DONE; }
+	*message = ok ? xrtFormat("已清理 %d 天前的后台操作日志，共 %d 条", days, sqlite3_changes(db)) :
+		xrtFormat("后台日志清理失败：%s", sqlite3_errmsg(db));
+	sqlite3_finalize(stmt);
+	return ok;
+}
 
 
 
@@ -14,6 +49,7 @@ sqlite3_stmt* stmt_logs_count_sel = NULL;
 void Logs_Init()
 {
 	printf("        Logs_Init \n");
+	G_LogsConfigLock = xrtMutexCreate();
 
 	int iRet = sqlite3_prepare_v3(G_DB, "SELECT id, user, ip, uri, method, param, body, createTime FROM logs ORDER BY id DESC LIMIT ?  OFFSET ?;", -1, SQL_PREPARE_DEFAULT, &stmt_logs_all, NULL);
 	if ( iRet != SQLITE_OK ) {
@@ -100,6 +136,7 @@ void Logs_Add(XS_RequestObject objReq, xvalue* objSession, bool bMaskBody)
 // free logs module
 void Logs_Unit()
 {
+	xrtMutexDestroy(G_LogsConfigLock); G_LogsConfigLock = NULL;
 	printf("        Logs_Unit \n");
 	sqlite3_finalize(stmt_logs_all);
 	sqlite3_finalize(stmt_logs_sel);

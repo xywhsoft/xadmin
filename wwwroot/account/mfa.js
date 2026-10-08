@@ -4,6 +4,7 @@
   const q = selector => root.querySelector(selector);
   const admin = root.dataset.realm === 'admin', base = admin ? '/admin/auth/mfa' : '/api/v1/profile/mfa';
   let state = null, csrf = '', setup = null, qrURL = null, timer = null, recovery = [], busy = false;
+  let focusPending = !admin && location.hash === '#two-factor-auth';
   function flash(text, error = false) {q('[data-mfa-flash]').textContent = text; q('[data-mfa-flash]').hidden = false; q('[data-mfa-flash]').classList.toggle('error', error);}
   function clearSetup() {
     setup = null; clearTimeout(timer); q('[data-mfa-setup]').hidden = true; q('[data-mfa-setup]').reset();
@@ -44,6 +45,10 @@
     try {state = await api(base);}
     catch (error) {if (error.status === 401) {root.hidden = true;clearSetup();clearRecovery();return;}throw error;}
     root.hidden = false; csrf = state.csrf_token || '';
+    if (focusPending) {
+      const member = document.getElementById('member');
+      if (member && !member.hidden) {root.scrollIntoView({block: 'start'});focusPending = false;}
+    }
     q('[data-mfa-status]').textContent = state.enabled
       ? '已启用。所有登录方式都需要两步验证，剩余恢复码 ' + state.recovery_codes_remaining + ' 个。'
       : '尚未启用。绑定后，每次登录需要验证器验证码或一次性恢复码。';

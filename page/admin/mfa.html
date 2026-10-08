@@ -1,5 +1,14 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>后台账户安全</title><link rel="stylesheet" href="/account/account.css"><script src="/account/mfa.js" defer></script></head><body><main><header><h1>后台账户安全</h1><a href="/admin">返回后台</a></header><article class="card" data-mfa-root data-realm="admin">
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>后台账户安全</title><link rel="stylesheet" href="/account/account.css"><script src="/account/mfa.js" defer></script>
+<style>
+  html.mfa-dialog {background: #fff;}
+  .mfa-dialog main {padding: 24px;}
+  .mfa-dialog header {display: none;}
+  .mfa-dialog .card {padding: 0; border: 0; border-radius: 0; box-shadow: none;}
+  @media (max-width: 480px) {.mfa-dialog main {padding: 20px 16px;}}
+</style>
+<script>if (window.self !== window.top) document.documentElement.classList.add('mfa-dialog');</script>
+</head><body><main><header><h1>后台账户安全</h1><a href="/admin">返回后台</a></header><article class="card" data-mfa-root data-realm="admin">
   <h2>两步验证（2FA）</h2>
   <p data-mfa-status class="hint"></p>
   <p data-mfa-flash role="status" aria-live="polite" hidden></p>

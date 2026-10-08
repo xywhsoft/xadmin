@@ -216,3 +216,33 @@ body{
 	}
 	.form-center-box{width: 95%;}
 }
+/* The second factor stays in a dialog, preserving the password login layout. */
+.admin-mfa-layer.layui-layer {
+	border-radius: 12px;
+	box-shadow: 0 16px 48px rgba(0, 21, 41, .18);
+}
+.admin-mfa-layer .layui-layer-content { border-radius: 12px; }
+.admin-mfa-form { padding: 30px 28px 24px; }
+.admin-mfa-heading { text-align: center; margin-bottom: 24px; }
+.admin-mfa-icon {
+	display: inline-flex; align-items: center; justify-content: center;
+	width: 48px; height: 48px; margin-bottom: 12px; border-radius: 14px;
+	background: #f0f5ff; color: var(--global-primary-color);
+}
+.admin-mfa-icon .layui-icon { font-size: 24px; }
+.admin-mfa-heading h2 { margin: 0 0 8px; font-size: 22px; font-weight: 600; color: #1f2937; }
+.admin-mfa-heading p, .admin-mfa-hint { color: #808695; font-size: 13px; line-height: 1.6; }
+.admin-mfa-form label { display: block; margin-bottom: 8px; color: #374151; font-size: 14px; }
+.admin-mfa-form .layui-input { height: 44px; font-size: 18px; letter-spacing: .14em; }
+.admin-mfa-form .layui-input::placeholder { font-size: 14px; letter-spacing: normal; }
+.admin-mfa-form .admin-mfa-recovery { font-size: 13px; letter-spacing: normal; }
+.admin-mfa-form .layui-input[aria-invalid="true"] { border-color: #e05252; }
+.admin-mfa-hint { margin-top: 10px; }
+.admin-mfa-error { min-height: 20px; margin: 10px 0 14px; color: #d14343; font-size: 13px; line-height: 1.6; }
+.admin-mfa-actions { display: flex; gap: 10px; }
+.admin-mfa-actions .layui-btn { flex: 1; height: 42px; margin: 0; }
+.admin-mfa-actions .layui-btn-primary { background: #fff; }
+.admin-mfa-form button:disabled { cursor: wait; opacity: .65; }
+.admin-mfa-switch { display: block; margin: 18px auto 0; padding: 3px 8px; border: 0; background: none; color: var(--global-primary-color); cursor: pointer; font-size: 13px; }
+.admin-mfa-switch:focus-visible { outline: 2px solid var(--global-primary-color); outline-offset: 3px; border-radius: 4px; }
+@media (max-width: 480px) { .admin-mfa-form { padding: 28px 20px 22px; } }

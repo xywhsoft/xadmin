@@ -13,7 +13,7 @@
 		<button class="layui-btn layui-btn-sm layui-btn-primary" lay-event="Logs_Refresh"><i class="layui-icon layui-icon-refresh"></i> 刷新</button>
 	</div>
 	<div class="layui-inline" style="float: right;">
-		<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="Logs_Clear"><i class="layui-icon layui-icon-delete"></i> 清空7天前日志</button>
+		<button class="layui-btn layui-btn-sm layui-btn-danger" lay-event="Logs_Clear"><i class="layui-icon layui-icon-delete"></i> 清理过期日志</button>
 	</div>
 </script>
 
@@ -72,8 +72,8 @@
 					table.reloadData('Table_Logs');
 				break;
 				case 'Logs_Clear':
-					// 清空7天前日志
-					layer.confirm('确定要清空7天前的操作日志吗？此操作不可恢复！', {
+					// 按全局配置的保留天数清理日志
+					layer.confirm('确定按全局配置的保留天数清理过期操作日志吗？此操作不可恢复！', {
 						icon: 3,
 						title: '清空日志'
 					}, function(index) {
@@ -85,7 +85,7 @@
 						.then(result => {
 							layer.close(loading);
 							if ( result.result ) {
-								layer.msg('已清理 7 天前的日志记录', {icon: 1});
+								layer.msg(result.message || '已清理过期日志', {icon: 1});
 								table.reloadData('Table_Logs');
 							} else {
 								layer.msg('清空失败: ' + (result.message || '未知错误'), {icon: 2});

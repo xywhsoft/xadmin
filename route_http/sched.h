@@ -13,7 +13,7 @@ static void Sched_ExportCommon(XS_RequestObject objReq, XS_ResponseObject objRes
 	if (sqlite3_prepare_v3(G_DB,
 		"SELECT name, scheduleType, execType, shellType, codeText, customText, cronExpr, onceAt, "
 		"intervalValue, intervalUnit, startAt, timeoutSec, overlapPolicy, misfirePolicy, workDir, "
-		"parallelLimit, retryCount, retryDelaySec FROM sched_task WHERE isDelete = 0 ORDER BY id ASC",
+		"parallelLimit, retryCount, retryDelaySec FROM sched_task WHERE isDelete = 0 AND systemKey IS NULL ORDER BY id ASC",
 		-1, 0, &stmt, NULL) == SQLITE_OK) {
 		xvalue* keep = NULL;
 		xvalue* form = NULL;
@@ -80,6 +80,7 @@ static void Sched_FillTaskRow(xvalue* row, sqlite3_stmt* stmt)
 	ValueSetBool(row, "enabled", sqlite3_column_int(stmt, 2) != 0);
 	ValueSetText(row, "scheduleType", Sched_SQLiteTextOrEmpty(stmt, 3));
 	ValueSetText(row, "execType", Sched_SQLiteTextOrEmpty(stmt, 4));
+	ValueSetBool(row, "managed", Sched_IsManagedTask(sqlite3_column_int64(stmt, 0)));
 	ValueSetText(row, "shellType", Sched_SQLiteTextOrEmpty(stmt, 5));
 	ValueSetText(row, "overlapPolicy", Sched_SQLiteTextOrEmpty(stmt, 6));
 	ValueSetText(row, "misfirePolicy", Sched_SQLiteTextOrEmpty(stmt, 7));

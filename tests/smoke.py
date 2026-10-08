@@ -72,8 +72,20 @@ def fixture(port, protected=False, register_interval=0, source_db=None):
     # disables it; dedicated tests cover the protected-entry setting separately.
     global_path = target / 'options/global.json'
     options = json.loads(global_path.read_text(encoding='utf-8-sig'))
+    policy_defaults = {
+        'admin_session_timeout_minutes': 120, 'admin_remember_days': 7,
+        'admin_session_limit': 5, 'admin_login_failure_limit': 5,
+        'admin_login_cooldown_seconds': 300, 'verification_code_ttl_seconds': 300,
+        'verification_send_interval_seconds': 60, 'verification_ip_limit_per_hour': 20,
+        'admin_log_retention_days': 7, 'admin_log_auto_cleanup': False,
+        'admin_log_cleanup_hour': 3,
+    }
     for group in options.get('classList', []):
         for option in group.get('options', []):
+            if option.get('name') in policy_defaults:
+                # Fixture policies are deterministic and never inherit permission
+                # to clean the user's archived logs automatically.
+                option['value'] = policy_defaults[option['name']]
             if option.get('name') == 'cp_url':
                 option['value'] = '/smoke-private-entry' if protected else ''
             if option.get('name') == 'mail_enabled':

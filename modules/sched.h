@@ -64,6 +64,7 @@ static SchedWorkerSlot G_SchedWorkers[SCHED_WORKER_MAX];
 static char* G_SchedPath;
 static char* G_SchedCachePath;
 static char* G_SchedXSPath;
+#define SCHED_LOG_CLEANUP_KEY "xadmin.admin.logs.cleanup"
 
 /* ---- 小工具 ---- */
 
@@ -861,6 +862,10 @@ static int32 Sched_WorkerProc(ptr param)
 
 	if (Sched_TextEquals(ctx->task.sExecType, "shell"))
 		result = Sched_RunShellTask(&ctx->task, ctx->sTriggerSource, &exitCode, &timedOutFlag, &stdoutText, &stderrText, &message);
+	else if (Sched_TextEquals(ctx->task.sExecType, "builtin")) {
+		result = Sched_TextEquals(ctx->task.sCodeText, SCHED_LOG_CLEANUP_KEY) && Logs_RunScheduledCleanup(db, &message);
+		exitCode = result ? 0 : 1;
+	}
 	else
 		result = Sched_RunCTask(&ctx->task, ctx->sTriggerSource, &exitCode, &timedOutFlag, &stdoutText, &stderrText, &message);
 
@@ -870,6 +875,7 @@ static int32 Sched_WorkerProc(ptr param)
 	finalStatus = timedOutFlag ? "timeout" : (result && exitCode == 0 ? "success" : "failed");
 	memset(&state, 0, sizeof(state));
 	if (Sched_LoadTaskSnapshotById(db, ctx->task.id, &state)) {
+		if (Sched_TextEquals(ctx->task.sExecType, "builtin")) nextRun = Sched_CalcNextAfterRun(&state, finish);
 		nextRunningCount = state.runningCount > 0 ? (state.runningCount - 1) : 0;
 		if (!Sched_TextEquals(ctx->task.sScheduleType, "once")
 			&& Sched_IsOverlapPolicy(&state, "queue_one")
@@ -1049,14 +1055,19 @@ static bool Sched_StartTaskRunInternal(int64 id, const char* triggerSource, bool
 		if (outMessage) *outMessage = xrtStrDup("Task queued to run after current execution");
 		return true;
 	}
+	bool claimed = false;
 	if (sqlite3_prepare_v3(db,
-		"UPDATE sched_task SET runningCount = CASE WHEN runningCount < 0 THEN 1 ELSE runningCount + 1 END, isRunning = 1, lastStatus = 'queued', lastMessage = ?, updateTime = ? WHERE id = ? AND isDelete = 0",
+		"UPDATE sched_task SET runningCount = CASE WHEN runningCount < 0 THEN 1 ELSE runningCount + 1 END, isRunning = 1, lastStatus = 'queued', lastMessage = ?, updateTime = ? WHERE id = ? AND isDelete = 0 AND (execType <> 'builtin' OR runningCount = 0)",
 		-1, 0, &stmt, NULL) == SQLITE_OK) {
 		sqlite3_bind_text(stmt, 1, triggerSource ? triggerSource : "scheduler", -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int64(stmt, 2, XAdmin_UnixNowUs());
 		sqlite3_bind_int64(stmt, 3, id);
-		sqlite3_step(stmt);
+		claimed = sqlite3_step(stmt) == SQLITE_DONE && sqlite3_changes(db) > 0;
 		sqlite3_finalize(stmt);
+	}
+	if (!claimed) {
+		if (outMessage) *outMessage = xrtStrDup("Task could not be claimed or is already running");
+		Sched_FreeTaskSnapshot(&task); sqlite3_close(db); return false;
 	}
 
 	ctx = (SchedWorkerContext*)xrtMalloc(sizeof(SchedWorkerContext));
@@ -1266,6 +1277,46 @@ void Sched_NotifyChanged(void)
 
 /* ---- 任务 CRUD（保存校验/导入/复制/启用/删除） ---- */
 
+static bool Sched_IsManagedTask(int64 id)
+{
+	sqlite3_stmt* stmt = NULL; bool managed = false;
+	if (sqlite3_prepare_v3(G_DB, "SELECT systemKey FROM sched_task WHERE id=?", -1, 0, &stmt, NULL) != SQLITE_OK) return true;
+	sqlite3_bind_int64(stmt, 1, id);
+	if (sqlite3_step(stmt) == SQLITE_ROW) managed = sqlite3_column_type(stmt, 0) != SQLITE_NULL;
+	sqlite3_finalize(stmt);
+	return managed;
+}
+static bool Sched_RejectManagedChange(int64 id, str* message)
+{
+	if (!Sched_IsManagedTask(id)) return false;
+	if (message) *message = xrtStrDup("此系统任务由全局配置管理，请在设置中调整");
+	return true;
+}
+/* 固定标识保证升级、重载和保存配置不会重复建任务；不按名称覆盖用户任务。 */
+static bool Sched_EnsureLogCleanupTask(bool enabled, int hour)
+{
+	char cron[48]; snprintf(cron, sizeof(cron), "0 0 %d * * * *", hour);
+	SchedTaskSnapshot task = {0}; task.sScheduleType = "cron"; task.sCronExpr = cron;
+	int64 now = XAdmin_UnixNowUs();
+	int64 next = enabled ? Sched_CalcNextTime(&task, now) : 0;
+	sqlite3_stmt* stmt = NULL;
+	const char* sql = "INSERT INTO sched_task(systemKey,name,enabled,scheduleType,execType,codeText,cronExpr,nextRunAt,timeoutSec,overlapPolicy,misfirePolicy,retryCount,retryDelaySec,createTime,updateTime) "
+		"VALUES(?,'后台操作日志自动清理',?,'cron','builtin',?,?,?,30,'skip','run_once',2,60,?,?) "
+		"ON CONFLICT(systemKey) WHERE systemKey IS NOT NULL DO UPDATE SET "
+		"nextRunAt=CASE WHEN excluded.enabled=0 THEN 0 WHEN sched_task.enabled<>excluded.enabled OR sched_task.cronExpr<>excluded.cronExpr OR sched_task.isDelete=1 OR sched_task.nextRunAt<=0 THEN excluded.nextRunAt ELSE sched_task.nextRunAt END,"
+		"enabled=excluded.enabled,cronExpr=excluded.cronExpr,isDelete=0,scheduleType='cron',execType='builtin',codeText=excluded.codeText,overlapPolicy='skip',misfirePolicy='run_once',retryCount=2,retryDelaySec=60,updateTime=excluded.updateTime";
+	if (sqlite3_prepare_v3(G_DB, sql, -1, 0, &stmt, NULL) != SQLITE_OK) return false;
+	sqlite3_bind_text(stmt, 1, SCHED_LOG_CLEANUP_KEY, -1, SQLITE_STATIC);
+	sqlite3_bind_int(stmt, 2, enabled);
+	sqlite3_bind_text(stmt, 3, SCHED_LOG_CLEANUP_KEY, -1, SQLITE_STATIC);
+	sqlite3_bind_text(stmt, 4, cron, -1, SQLITE_TRANSIENT);
+	sqlite3_bind_int64(stmt, 5, next); sqlite3_bind_int64(stmt, 6, now); sqlite3_bind_int64(stmt, 7, now);
+	bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+	sqlite3_finalize(stmt);
+	if (ok) Sched_NotifyChanged();
+	return ok;
+}
+
 static bool Sched_TaskIsValidForSave(SchedTaskSnapshot* task, str* outMessage)
 {
 	if (!task->sName || !task->sName[0]) {
@@ -1363,6 +1414,7 @@ static bool Sched_SaveTaskRequest(xvalue* body, bool update, str* outMessage, in
 	Sched_ReadTaskFieldFromBody(body, &task);
 	task.enabled = update ? false : ValueBool(body, "enabled");
 	if (update) id = ValueInt(body, "id");
+	if (update && Sched_RejectManagedChange(id, outMessage)) { Sched_FreeTaskSnapshot(&task); return false; }
 	if (!Sched_TaskIsValidForSave(&task, outMessage)) {
 		Sched_FreeTaskSnapshot(&task);
 		return false;
@@ -1459,6 +1511,7 @@ static int64 Sched_FindTaskIdByName(const char* name)
 
 bool Sched_DeleteTask(int64 id, str* outMessage)
 {
+	if (Sched_RejectManagedChange(id, outMessage)) return false;
 	sqlite3_stmt* stmt = NULL;
 
 	if (sqlite3_prepare_v3(G_DB, "UPDATE sched_task SET isDelete = 1, enabled = 0, updateTime = ? WHERE id = ? AND isDelete = 0",
@@ -1479,6 +1532,7 @@ bool Sched_DeleteTask(int64 id, str* outMessage)
 
 bool Sched_SetEnabled(int64 id, bool enabled, str* outMessage)
 {
+	if (Sched_RejectManagedChange(id, outMessage)) return false;
 	sqlite3_stmt* stmt = NULL;
 	SchedTaskSnapshot task;
 	int64 now = XAdmin_UnixNowUs();
@@ -1510,6 +1564,7 @@ bool Sched_SetEnabled(int64 id, bool enabled, str* outMessage)
 
 static bool Sched_CopyTask(int64 id, str* outMessage, int64* outTaskId)
 {
+	if (Sched_RejectManagedChange(id, outMessage)) return false;
 	SchedTaskSnapshot task;
 	sqlite3_stmt* stmt = NULL;
 	int64 now = XAdmin_UnixNowUs();
@@ -1694,13 +1749,25 @@ void Sched_Init(void)
 	sqlite3_exec(G_DB, "CREATE TABLE IF NOT EXISTS sched_run_log (id INTEGER PRIMARY KEY AUTOINCREMENT, taskId INTEGER DEFAULT 0, taskName TEXT DEFAULT '', triggerSource TEXT DEFAULT '', startTime INTEGER DEFAULT 0, finishTime INTEGER DEFAULT 0, durationMs INTEGER DEFAULT 0, status TEXT DEFAULT '', exitCode INTEGER DEFAULT 0, stdoutText TEXT DEFAULT '', stderrText TEXT DEFAULT '', message TEXT DEFAULT '')", NULL, NULL, NULL);
 	sqlite3_exec(G_DB, "CREATE INDEX IF NOT EXISTS idx_sched_task_due ON sched_task(enabled, isDelete, nextRunAt)", NULL, NULL, NULL);
 	sqlite3_exec(G_DB, "CREATE INDEX IF NOT EXISTS idx_sched_run_log_task ON sched_run_log(taskId, id)", NULL, NULL, NULL);
+	{
+		sqlite3_stmt* columns = NULL; bool found = false;
+		if (sqlite3_prepare_v3(G_DB, "PRAGMA table_info(sched_task)", -1, 0, &columns, NULL) == SQLITE_OK)
+			while (sqlite3_step(columns) == SQLITE_ROW) if (!strcmp(Sched_SQLiteTextOrEmpty(columns, 1), "systemKey")) found = true;
+		sqlite3_finalize(columns);
+		if (!found) sqlite3_exec(G_DB, "ALTER TABLE sched_task ADD COLUMN systemKey TEXT DEFAULT NULL", NULL, NULL, NULL);
+		sqlite3_exec(G_DB, "CREATE UNIQUE INDEX IF NOT EXISTS idx_sched_task_system ON sched_task(systemKey) WHERE systemKey IS NOT NULL", NULL, NULL, NULL);
+		sqlite3_exec(G_DB, "UPDATE sched_task SET isRunning=0,runningCount=0,pendingRun=0 WHERE systemKey='xadmin.admin.logs.cleanup'", NULL, NULL, NULL);
+	}
 
 	G_SchedLock = xrtMutexCreate();
 	G_SchedCond = xrtCondCreate();
 	G_SchedStop = false;
 	G_SchedWorkerCount = 0;
 	memset(G_SchedWorkers, 0, sizeof(G_SchedWorkers));
-	G_SchedThread = xrtThreadCreate(Sched_ThreadProc, NULL, 0);
+}
+static void Sched_Start(void)
+{
+	if (!G_SchedThread) G_SchedThread = xrtThreadCreate(Sched_ThreadProc, NULL, 0);
 }
 
 void Sched_Unit(void)

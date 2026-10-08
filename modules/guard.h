@@ -59,10 +59,12 @@ void Guard_Failed(xmap* dictGuard, str sRemote)
 	}
 
 	pInfo->FailCount++;
-	if ( pInfo->FailCount >= BRUTE_COUNT ) {
+	int limit = dictGuard == G_GuardAdmin ? Global_Int("admin_login_failure_limit") : BRUTE_COUNT;
+	int seconds = dictGuard == G_GuardAdmin ? Global_Int("admin_login_cooldown_seconds") : BRUTE_TIMES;
+	if ( pInfo->FailCount >= limit ) {
 		pInfo->FailCount = 0;
 		pInfo->TimeRate++;
-		pInfo->CoolDown = XAdmin_UnixNowUs() + (xtime)BRUTE_TIMES * pInfo->TimeRate * 1000000;
+		pInfo->CoolDown = XAdmin_UnixNowUs() + (xtime)seconds * pInfo->TimeRate * 1000000;
 	}
 }
 

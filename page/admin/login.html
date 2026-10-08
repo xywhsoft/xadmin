@@ -5,7 +5,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 	<title>后台登录</title>
 	<link rel="stylesheet" href="/pear/css/pear.css" />
-	<link rel="stylesheet" href="/css/other/login.css" />
+	<link rel="stylesheet" href="/css/other/login.css?v=mfa-dialog" />
 	<link rel="stylesheet" href="/css/variables.css" />
 	<script>if (window.self != window.top) { top.location.reload();}</script>
 </head>
@@ -54,8 +54,7 @@
 											</div>
 										</div>
 									</div>
-									<div id="mfaLogin" hidden><p>请输入验证器验证码或未使用的恢复码。</p><input name="mfaCode" class="layui-input" maxlength="40" autocomplete="one-time-code" placeholder="验证码或恢复码"><button id="mfaRestart" type="button" class="layui-btn layui-btn-primary">返回密码登录</button></div>
-                            <div class="login-btn">
+									<div class="login-btn">
 										<button id="loginBtn" class="layui-btn login" lay-submit lay-filter="login">登 录</button>
 									</div>
 								</div>
@@ -66,6 +65,24 @@
 			</div>
 		</div>
 	</div>
+	<template id="mfaLoginTemplate">
+		<form class="admin-mfa-form" data-mfa-form novalidate>
+			<div class="admin-mfa-heading">
+				<span class="admin-mfa-icon" aria-hidden="true"><i class="layui-icon layui-icon-password"></i></span>
+				<h2 id="adminMfaTitle">两步验证</h2>
+				<p>密码已验证，请完成安全验证后登录。</p>
+			</div>
+			<label for="adminMfaCode" data-mfa-label>验证器验证码</label>
+			<input id="adminMfaCode" data-mfa-code class="layui-input" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="请输入 6 位验证码" aria-describedby="adminMfaHint adminMfaError" required>
+			<p id="adminMfaHint" data-mfa-hint class="admin-mfa-hint">打开验证器应用，输入当前显示的 6 位验证码。</p>
+			<p id="adminMfaError" data-mfa-error class="admin-mfa-error" role="alert" aria-live="polite"></p>
+			<div class="admin-mfa-actions">
+				<button type="button" data-mfa-cancel class="layui-btn layui-btn-primary">返回登录</button>
+				<button type="submit" data-mfa-submit class="layui-btn">验证并登录</button>
+			</div>
+			<button type="button" data-mfa-switch class="admin-mfa-switch">使用恢复码</button>
+		</form>
+	</template>
 	<!-- 资 源 引 入 -->
 	<script src="/layui/layui.js"></script>
 	<script src="/pear/pear.js"></script>
@@ -99,38 +116,130 @@
 			});
 		}
 		
-		layui.use(['form', 'button', 'popup'], function () {
+		layui.use(['form', 'layer'], function () {
 			var form = layui.form;
-			var button = layui.button;
-			var popup = layui.popup;
+			var layer = layui.layer;
 
 			loadAdminBranding();
 
 
-            var mfaChallenge = null;
-            function setMFA(challenge) {
-                mfaChallenge = challenge;document.getElementById('mfaLogin').hidden = !challenge;
-                document.querySelectorAll('input[name="username"],input[name="password"]').forEach(function(input){
-                    if (challenge) {input.dataset.mfaVerify = input.getAttribute('lay-verify') || '';input.removeAttribute('lay-verify');}
-                    else input.setAttribute('lay-verify',input.dataset.mfaVerify || 'required');
-                    input.disabled = !!challenge;
-                });
-                var code = document.querySelector('input[name="mfaCode"]');code.value = '';
-                if (challenge) {code.setAttribute('lay-verify','required');code.focus();} else code.removeAttribute('lay-verify');
-                document.getElementById('loginBtn').textContent = challenge ? '完成两步验证' : '登 录';
-                document.querySelector('input[name="password"]').value = '';
-            }
-            document.getElementById('mfaRestart').addEventListener('click',function(){
-                var challenge = mfaChallenge;setMFA(null);
-                if (challenge) fetch(window.location.pathname,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({challenge_id:challenge,action:'cancel'})}).catch(function(){});
-            });
+			var mfaChallenge = null;
+			var mfaErrors = {
+				'MFA challenge invalid or expired': '两步验证已过期，请重新输入密码登录。',
+				'verification invalid, reused or expired': '验证码无效、已使用或已过期，请使用新验证码或未使用的恢复码。',
+				'too many MFA attempts': '验证尝试过多，请五分钟后再试。',
+				'MFA challenge unavailable; retry later': '两步验证暂时不可用或尝试过多，请稍后再试。'
+			};
+			function loginError(result) {
+				return result.message || mfaErrors[result.msg] || result.msg || '登录失败，请重试';
+			}
+			function openMFA(id) {
+				var challenge = {id: id, busy: false, verified: false, recovery: false};
+				mfaChallenge = challenge;
+				document.querySelector('input[name="password"]').value = '';
+				layer.open({
+					type: 1,
+					title: false,
+					area: [Math.min(420, (window.innerWidth || 452) - 32) + 'px', 'auto'],
+					skin: 'admin-mfa-layer',
+					resize: false,
+					shade: 0.35,
+					shadeClose: false,
+					content: document.getElementById('mfaLoginTemplate').innerHTML,
+					cancel: function () {if (challenge.busy) return false;},
+					end: function () {
+						if (mfaChallenge === challenge) mfaChallenge = null;
+						if (!challenge.verified) {
+							fetch(window.location.pathname, {method: 'POST', headers: {'Content-Type': 'application/json'},
+								body: JSON.stringify({challenge_id: id, action: 'cancel'})}).catch(function () {});
+							document.querySelector('input[name="password"]').focus();
+						}
+					},
+					success: function (layero, index) {
+						var dialog = layero[0];
+						dialog.setAttribute('role', 'dialog');
+						dialog.setAttribute('aria-modal', 'true');
+						dialog.setAttribute('aria-labelledby', 'adminMfaTitle');
+						var code = dialog.querySelector('[data-mfa-code]');
+						var error = dialog.querySelector('[data-mfa-error]');
+						var controls = dialog.querySelectorAll('button');
+						function showError(message) {
+							error.textContent = message;
+							code.setAttribute('aria-invalid', message ? 'true' : 'false');
+						}
+						code.addEventListener('input', function () {showError('');});
+						dialog.querySelector('[data-mfa-cancel]').addEventListener('click', function () {
+							if (!challenge.busy) layer.close(index);
+						});
+						dialog.querySelector('[data-mfa-switch]').addEventListener('click', function () {
+							if (challenge.busy) return;
+							challenge.recovery = !challenge.recovery;
+							code.value = '';
+							code.maxLength = challenge.recovery ? 40 : 6;
+							code.setAttribute('inputmode', challenge.recovery ? 'text' : 'numeric');
+							code.setAttribute('autocomplete', challenge.recovery ? 'off' : 'one-time-code');
+							code.placeholder = challenge.recovery ? '请输入一个未使用的恢复码' : '请输入 6 位验证码';
+							code.classList.toggle('admin-mfa-recovery', challenge.recovery);
+							dialog.querySelector('[data-mfa-label]').textContent = challenge.recovery ? '恢复码' : '验证器验证码';
+							dialog.querySelector('[data-mfa-hint]').textContent = challenge.recovery
+								? '输入绑定时保存的恢复码，每个恢复码只能使用一次。'
+								: '打开验证器应用，输入当前显示的 6 位验证码。';
+							this.textContent = challenge.recovery ? '使用验证器验证码' : '使用恢复码';
+							showError('');code.focus();
+						});
+						dialog.addEventListener('keydown', function (event) {
+							if (event.key === 'Escape') {
+								event.preventDefault();if (!challenge.busy) layer.close(index);
+							} else if (event.key === 'Tab') {
+								var focusable = Array.from(dialog.querySelectorAll('input,button,.layui-layer-close')).filter(function (item) {return !item.disabled;});
+								var first = focusable[0], last = focusable[focusable.length - 1];
+								if (event.shiftKey && document.activeElement === first) {event.preventDefault();last.focus();}
+								else if (!event.shiftKey && document.activeElement === last) {event.preventDefault();first.focus();}
+							}
+						});
+						dialog.querySelector('[data-mfa-form]').addEventListener('submit', async function (event) {
+							event.preventDefault();
+							if (challenge.busy || mfaChallenge !== challenge) return;
+							var value = code.value.trim();
+							if (!value || (!challenge.recovery && !/^\d{6}$/.test(value))) {
+								showError(challenge.recovery ? '请输入恢复码。' : '请输入 6 位数字验证码。');code.focus();return;
+							}
+							challenge.busy = true;showError('');
+							controls.forEach(function (control) {control.disabled = true;});code.disabled = true;
+							var submit = dialog.querySelector('[data-mfa-submit]');submit.textContent = '正在验证…';
+							var controller = new AbortController();
+							var timeout = setTimeout(function () {controller.abort();}, 15000);
+							try {
+								var response = await fetch(window.location.pathname, {method: 'POST', headers: {'Content-Type': 'application/json'},
+									body: JSON.stringify({challenge_id: id, code: value}), signal: controller.signal});
+								var result = await response.json();
+								if (mfaChallenge !== challenge) return;
+								if (result.result) {
+									challenge.verified = true;layer.close(index);window.location.href = '/admin';
+								} else if (result.msg === 'MFA challenge invalid or expired') {
+									layer.close(index);layer.msg(loginError(result), {icon: 2});
+								} else {showError(loginError(result));code.value = '';}
+							} catch (failure) {
+								if (mfaChallenge === challenge) showError(failure.name === 'AbortError' ? '验证请求超时，请重试。' : '验证请求失败，请检查网络后重试。');
+							} finally {
+								clearTimeout(timeout);challenge.busy = false;
+								if (mfaChallenge === challenge) {
+									controls.forEach(function (control) {control.disabled = false;});code.disabled = false;
+									submit.textContent = '验证并登录';code.focus();
+								}
+							}
+						});
+						code.focus();
+					}
+				});
+			}
 			// 登 录 提 交
 			form.on('submit(login)', function (data) {
 				const formData = data.field;
 				
 				// 禁用按钮
 				var btn = document.getElementById('loginBtn');
-				if (btn.disabled) return false;
+				if (btn.disabled || mfaChallenge) return false;
 				btn.classList.add('layui-btn-disabled');
 				btn.disabled = true;
 				
@@ -141,8 +250,8 @@
 					try {
 				
 						// 计算密码的 SHA-256 哈希值（客户端加盐：用户名 + "_xywhsoft_" + 密码）
-						const payload = mfaChallenge ? {challenge_id:mfaChallenge,code:formData.mfaCode} :
-                            {username:formData.username,password:await sha256(formData.username + '_xywhsoft_' + formData.password),remember:formData.remember};
+						const payload = {username:formData.username,
+							password:await sha256(formData.username + '_xywhsoft_' + formData.password),remember:formData.remember};
 				
 						// 发送请求（传输哈希值而非明文）
 						const response = await fetch(window.location.pathname, {
@@ -153,17 +262,11 @@
 							body: JSON.stringify(payload)
 						});
 						const result = await response.json();
-						if ( result.mfa_required ) {setMFA(result.challenge_id);}
+						if ( result.mfa_required ) {openMFA(result.challenge_id);}
                         else if ( result.result ) {
 							window.location.href = '/admin';
 						} else {
-							var mfaErrors = {
-                                'MFA challenge invalid or expired': '两步验证已过期，请返回密码登录。',
-                                'verification invalid, reused or expired': '验证码无效、已使用或已过期，请使用新验证码或未使用的恢复码。',
-                                'too many MFA attempts': '验证尝试过多，请五分钟后再试。',
-                                'MFA challenge unavailable; retry later': '两步验证暂时不可用或尝试过多，请稍后再试。'
-                            };
-                            layer.msg(result.message || mfaErrors[result.msg] || result.msg || '登录失败，请重试', {icon: 2});
+							layer.msg(loginError(result), {icon: 2});
 						}
 					} catch (error) {
 						layer.msg(error.message || '登录失败，请重试', {icon: 2});

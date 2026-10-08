@@ -213,12 +213,14 @@ def run(args):
         print('PASS persistent challenges, bindings, sessions and account cooldown; disabling rotates credentials')
 
         # Backend realm has independent factors, CSRF and the original private entry.
-        admin = Client(args.port);result, _ = admin_login(admin);assert result['result']
+        admin = Client(args.port);result, headers = admin_login(admin);assert result['result']
+        assert any('Max-Age=604800' in value for key, value in headers if key.lower() == 'set-cookie')
         state, _ = admin.api('GET', '/admin/auth/mfa');admin.csrf = state['csrf_token']
         admin.api('POST', '/admin/auth/mfa/setup', {}, status=403, headers={'X-CSRF-Token': ''})
         admin_setup, _ = admin.api('POST', '/admin/auth/mfa/setup', {})
         old_xsid = admin.cookies['XSID']
-        activated, _ = admin.api('POST', '/admin/auth/mfa/confirm', {'setup_id': admin_setup['setup_id'], 'code': totp(admin_setup['secret'])})
+        activated, enrollment_headers = admin.api('POST', '/admin/auth/mfa/confirm', {'setup_id': admin_setup['setup_id'], 'code': totp(admin_setup['secret'])})
+        assert any('Max-Age=604800' in value for key, value in enrollment_headers if key.lower() == 'set-cookie')
         assert admin.cookies['XSID'] != old_xsid
         admin.csrf = ''
         state, _ = admin.api('GET', '/admin/auth/mfa');admin.csrf = state['csrf_token'];assert state['enabled']
@@ -227,13 +229,22 @@ def run(args):
         new_admin = Client(args.port);challenge, _ = admin_login(new_admin)
         assert challenge['mfa_required'] and not challenge['result'] and 'XSID' not in new_admin.cookies
         assert new_admin.raw('GET', '/admin')[0] != 200
+        # Completing MFA must use the current settings, including a save while the challenge is pending.
+        status, _, body = admin.raw('GET', '/admin/option?file=global.json')
+        options = json.loads(body)
+        assert status == 200 and options['result']
+        values = options['data']['values']
+        values.update({'admin_session_timeout_minutes': 60, 'admin_remember_days': 2})
+        status, _, body = admin.raw('POST', '/admin/form', {'source': 'option', 'file': 'global.json', 'data': values})
+        assert status == 200 and json.loads(body)['result']
         result, headers = admin_login(new_admin, challenge['challenge_id'], activated['recovery_codes'][0])
         assert result['result'] and 'XSID' in new_admin.cookies
-        assert any('Max-Age=604800' in value for key, value in headers if key.lower() == 'set-cookie')
+        assert any('Max-Age=172800' in value for key, value in headers if key.lower() == 'set-cookie')
         state, _ = new_admin.api('GET', '/admin/auth/mfa');new_admin.csrf = state['csrf_token']
-        new_admin.api('POST', '/admin/auth/mfa/disable', {})
+        _, disable_headers = new_admin.api('POST', '/admin/auth/mfa/disable', {})
+        assert any('Max-Age=172800' in value for key, value in disable_headers if key.lower() == 'set-cookie')
         assert not new_admin.api('GET', '/admin/auth/mfa')[0]['enabled']
-        print('PASS backend enrollment, CSRF, cookie rotation, MFA challenge and remember-login contract')
+        print('PASS backend enrollment, CSRF, cookie rotation, MFA challenge and configurable remember-login contract')
 
         ordinary=Client(args.port);name='MFA_'+'测试🔐'*20
         salt='mfa-test-only-salt'

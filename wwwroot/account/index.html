@@ -24,6 +24,7 @@
     </div>
   </section>
   <section id="auth" class="card" hidden>
+    <p class="hint">登录会员账户后，可在下方“两步验证（2FA）”中绑定验证器和管理恢复码。</p>
     <nav class="tabs" aria-label="登录方式">
       <button data-tab="login" aria-pressed="true">密码登录</button>
       <button data-tab="otp" hidden>验证码登录</button>
@@ -89,7 +90,7 @@
         <form id="reauth"><label>验证码或恢复码（已启用 2FA 时）<input name="code" autocomplete="one-time-code" maxlength="40"></label><label>当前密码<input name="password" type="password" autocomplete="current-password" maxlength="128" required></label><button type="submit">确认身份</button></form>
         <div id="provider-reauth" class="actions"></div><p class="hint">第三方账户可使用已绑定的登录方式确认；也可退出后通过已验证联系方式重新登录。</p>
       </article>
-      <article class="card" data-mfa-root data-realm="member">
+      <article id="two-factor-auth" class="card" data-mfa-root data-realm="member">
   <h2>两步验证（2FA）</h2>
   <p data-mfa-status class="hint"></p>
   <p data-mfa-flash role="status" aria-live="polite" hidden></p>

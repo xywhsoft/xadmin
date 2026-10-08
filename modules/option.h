@@ -14,6 +14,54 @@ static str Option_StrOrEmpty(str sText)
 	return sText ? sText : (str)"";
 }
 
+/* 内建字段在读取时补齐，升级旧配置无需替换用户的 global.json。
+ * 只有显式保存时才将补齐后的定义写回文件。 */
+static void Option_EnsureGlobalSettings(xvalue* config)
+{
+	const char* ns = ValueText(config, "namespace");
+	xvalue* classes = ValueGet(config, "classList");
+	if (!ns || strcmp(ns, "global") || xrtValueType(classes) != XVALUE_ARRAY) return;
+	for (size_t n = 0; n < GLOBAL_SETTING_COUNT; n++) {
+		const GlobalSettingSpec* spec = &G_GlobalSettings[n];
+		xvalue* field = NULL; xvalue* group = NULL;
+		for (size_t i = 0; i < ValueCount(classes); i++) {
+			xvalue* candidateGroup = xrtValueArrayGet(classes, i);
+			const char* title = ValueText(candidateGroup, "title");
+			if (title && !strcmp(title, spec->group)) group = candidateGroup;
+			xvalue* options = ValueGet(candidateGroup, "options");
+			for (size_t j = 0; j < ValueCount(options); j++) {
+				xvalue* candidate = xrtValueArrayGet(options, j);
+				const char* name = ValueText(candidate, "name");
+				if (name && !strcmp(name, spec->name)) field = candidate;
+			}
+		}
+		if (!field) {
+			if (!group) {
+				group = ValueObject();
+				ValueSetText(group, "title", spec->group);
+				ValueSetOwn(group, "options", ValueArray());
+				ValueArrayOwn(classes, group);
+			}
+			field = ValueObject();
+			ValueSetText(field, "name", spec->name);
+			ValueArrayOwn(ValueGet(group, "options"), field);
+		}
+		ValueSetText(field, "title", spec->title);
+		ValueSetText(field, "desc", spec->desc);
+		ValueSetText(field, "type", spec->boolean ? "switch" : "int");
+		ValueSetBool(field, "required", !spec->boolean);
+		if (!spec->boolean) {
+			ValueSetInt(field, "min", spec->minimum);
+			ValueSetInt(field, "max", spec->maximum);
+			ValueSetInt(field, "step", 1);
+		}
+		if (!Global_ValidSetting(spec, ValueGet(field, "value"))) {
+			if (spec->boolean) ValueSetBool(field, "value", spec->fallback != 0);
+			else ValueSetInt(field, "value", spec->fallback);
+		}
+	}
+}
+
 static bool Option_IsSpaceChar(char c)
 {
 	return (c == ' ') || (c == '\t') || (c == '\r') || (c == '\n');
@@ -529,6 +577,7 @@ int ScanOptionFileProc(const char* sPath, size_t iSize, bool bDir, void* pParam)
 		if ( (sExt != NULL) && (xrtStrCaseCompare(xrtStrViewN(sExt, 4), xrtStrViewN("json", 4)) == 0) ) {
 			xvalue* tblConfig = JsonParseFile(sPath);
 			if ( tblConfig != NULL ) {
+				Option_EnsureGlobalSettings(tblConfig);
 				str sNamespace = ValueText(tblConfig, "namespace");
 				if ( sNamespace != NULL ) {
 					xvalue* tblNamespace = ValueGet(G_Option, sNamespace);
@@ -860,6 +909,7 @@ xvalue* Option_LoadFile(str sFileName)
 	sFilePath = Option_BuildFilePath(sFileName);
 	tblConfig = JsonParseFile(sFilePath);
 	xrtFree(sFilePath);
+	Option_EnsureGlobalSettings(tblConfig);
 
 	return tblConfig;
 }
@@ -868,6 +918,8 @@ xvalue* Option_LoadFile(str sFileName)
 
 void Option_RebuildCache()
 {
+	int previousTimeout = Session_AdminTimeoutSeconds();
+	int previousLimit = Global_Int("admin_session_limit");
 	printf("[option] Option_RebuildCache begin\n");
 	fflush(stdout);
 	if ( G_Option != NULL ) {
@@ -880,6 +932,9 @@ void Option_RebuildCache()
 	DirScan(OptionPath, false, ScanOptionFileProc, NULL);
 	XAdminValuePublishShared(G_Option);
 	Option_RefreshAdminEntryConfig();
+	if (previousTimeout != Session_AdminTimeoutSeconds()) Session_RefreshAdminTimeout();
+	if (previousLimit != Global_Int("admin_session_limit")) Session_RefreshAdminLimit();
+	Logs_SyncCleanupConfig();
 	printf("[option] Option_RebuildCache done\n");
 	fflush(stdout);
 }
@@ -887,10 +942,10 @@ void Option_RebuildCache()
 
 
 // 保存配置文件中的 value
-bool Option_SaveFile(str sFileName, xvalue* tblFormData)
+bool Option_SaveFile(str sFileName, xvalue* tblFormData, str* psError)
 {
 	str sFilePath = Option_BuildFilePath(sFileName);
-	xvalue* tblConfig = JsonParseFile(sFilePath);
+	xvalue* tblConfig = Option_LoadFile(sFileName);
 	bool bRet = false;
 
 	if ( tblConfig == NULL ) {
@@ -900,6 +955,17 @@ bool Option_SaveFile(str sFileName, xvalue* tblFormData)
 
 	str sNamespace = ValueText(tblConfig, "namespace");
 	if ( (sNamespace != NULL) && (strcmp(sNamespace, "global") == 0) ) {
+		for (size_t i = 0; i < GLOBAL_SETTING_COUNT; i++) {
+			const GlobalSettingSpec* spec = &G_GlobalSettings[i];
+			xvalue* value = ValueGet(tblFormData, spec->name);
+			if (value && !Global_ValidSetting(spec, value)) {
+				if (psError) *psError = spec->boolean ? xrtFormat("%s 必须为开关值", spec->title) :
+					xrtFormat("%s 必须为 %d–%d 的整数", spec->title, spec->minimum, spec->maximum);
+				xrtValueRelease(tblConfig);
+				xrtFree(sFilePath);
+				return false;
+			}
+		}
 		str sAdminEntry = ValueText(tblFormData, "cp_url");
 		if ( !Option_IsAdminEntryPathValid(sAdminEntry) ) {
 			xrtValueRelease(tblConfig);
@@ -938,7 +1004,11 @@ bool Option_SaveFile(str sFileName, xvalue* tblFormData)
 	bRet = JsonWriteFile(sFilePath, tblConfig, true);
 	xrtValueRelease(tblConfig);
 	xrtFree(sFilePath);
-	Option_RebuildCache();
+	if (bRet) Option_RebuildCache();
+	if (bRet && !G_LogsCleanupSyncOK) {
+		if (psError) *psError = xrtStrDup("配置已保存，但日志清理计划任务同步失败，请检查数据库后重新保存");
+		return false;
+	}
 
 	return bRet;
 }
@@ -1064,5 +1134,3 @@ void Option_Unit()
 	}
 	G_AdminEntryEnabled = false;
 }
-
-

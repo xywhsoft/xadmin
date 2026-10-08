@@ -139,9 +139,9 @@ void Request_Form(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 				Form_ReplyError(objResp, "权限不足");
 				return;
 			}
-			bRet = Option_SaveFile(sFileName, tblData);
+			bRet = Option_SaveFile(sFileName, tblData, &sError);
 			if ( !bRet ) {
-				sError = xrtStrDup("配置保存失败");
+				if (!sError) sError = xrtStrDup("配置保存失败");
 			}
 		} else {
 			bRet = Form_SaveDemoData(sFileName, tblData, &sError);

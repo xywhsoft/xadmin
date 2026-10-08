@@ -48,7 +48,8 @@ static void XA_ChallengeStart(XAdminRequest* req,xvalue* body,xvalue* session,bo
        (strcmp(channel,"phone")&&strcmp(channel,"email"))||
        (parsed.kind!=(strcmp(channel,"phone")?XA_IDENTIFIER_EMAIL:XA_IDENTIFIER_PHONE))){XA_Reply(req,400,"invalid verification purpose/channel/target",NULL,NULL);return;}
     if(binding&&!XA_Recent(session)){XA_Reply(req,403,"confirm your identity again",NULL,NULL);return;}
-    int rate=XA_Rate("challenge-ip",req->remote,20,3600);if(!rate)rate=XA_Rate("challenge-target",parsed.key,1,60);
+    int rate=XA_Rate("challenge-ip",req->remote,Global_Int("verification_ip_limit_per_hour"),3600);
+    if(!rate)rate=XA_Rate("challenge-target",parsed.key,1,Global_Int("verification_send_interval_seconds"));
     if(rate){XA_Reply(req,rate,rate==429?"verification is too frequent":"verification unavailable",NULL,NULL);return;}
     strcpy(c.purpose,purpose);strcpy(c.channel,channel);strcpy(c.target,parsed.key);c.member=binding?ValueInt(session,"id"):0;
     if(binding)snprintf(c.sid,sizeof(c.sid),"%s",ValueText(session,"sid"));
@@ -58,8 +59,9 @@ static void XA_ChallengeStart(XAdminRequest* req,xvalue* body,xvalue* session,bo
     snprintf(code,sizeof(code),"%06u",random%1000000U);
     bool ok=XA_Random(c.id);s=XA_SQL("SELECT id FROM identity_key WHERE active=1");
     ok=ok&&s&&sqlite3_step(s)==SQLITE_ROW&&XA_CopyColumn(s,0,c.kid,sizeof(c.kid));sqlite3_finalize(s);
-    c.expires=XA_Now()+300;
-    XAIdentityMessage message={c.id,channel,c.target,purpose,code,300,req->raw->server->Engine};
+    int ttl=Global_Int("verification_code_ttl_seconds");
+    c.expires=XA_Now()+ttl;
+    XAIdentityMessage message={c.id,channel,c.target,purpose,code,ttl,req->raw->server->Engine};
     if(!ok||!XA_ChallengeMac(&c,code,mac)){xrtSecureZero(code,sizeof(code));XA_Reply(req,500,"verification unavailable",NULL,NULL);return;}
     if(!XA_DeliveryPrepare(&message,&job)){xrtSecureZero(code,sizeof(code));xrtSecureZero(&job,sizeof(job));XA_Reply(req,503,"verification delivery is not configured",NULL,NULL);return;}
     s=XA_SQL("DELETE FROM identity_challenge WHERE expires_at<?");if(s)sqlite3_bind_int64(s,1,XA_Now()-86400);ok=XA_Done(s,false);
@@ -73,7 +75,7 @@ static void XA_ChallengeStart(XAdminRequest* req,xvalue* body,xvalue* session,bo
     xrtMutexUnlock(G_RequestLock);XAIdentityDeliveryResult delivered=XA_Deliver(&job);xrtMutexLock(G_RequestLock);
     xrtSecureZero(code,sizeof(code));xrtSecureZero(&job,sizeof(job));
     s=XA_SQL("UPDATE identity_challenge SET delivery=? WHERE id=?");if(s)sqlite3_bind_int(s,1,delivered==XA_DELIVERY_SENT?1:delivered==XA_DELIVERY_UNKNOWN?2:3);XA_BindText(s,2,c.id);ok=XA_Done(s,true);
-    xvalue* data=ValueObject();ValueSetText(data,"challenge_id",c.id);ValueSetInt(data,"expires_in",300);
+    xvalue* data=ValueObject();ValueSetText(data,"challenge_id",c.id);ValueSetInt(data,"expires_in",ttl);
     ValueSetText(data,"delivery",delivered==XA_DELIVERY_SENT?"sent":delivered==XA_DELIVERY_UNKNOWN?"unknown":"failed");
     XA_Reply(req,!ok?500:delivered==XA_DELIVERY_FAILED?502:202,delivered==XA_DELIVERY_UNKNOWN?"delivery uncertain; no automatic resend":"verification requested",data,NULL);xrtValueRelease(data);
 }

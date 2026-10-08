@@ -17,6 +17,7 @@ static xstrview XA_CORSOrigin(XS_HttpReq* raw);
 #include "modules/http_io.h"
 #include "modules/http.h"
 #include "modules/define.h"
+#include "modules/global_config.h"
 #include "modules/router.h"
 #include "modules/state.h"
 #include "modules/resource.h"
@@ -50,6 +51,7 @@ static bool XA_SecurityClose(int64 owner,const char* resolution,const char* admi
 #include "src/identity/session.c"
 #include "modules/notify.h"
 #include "modules/attachment.h"
+static bool Logs_RunScheduledCleanup(sqlite3* db, str* message);
 #include "modules/sched.h"
 #include "modules/standalone_page.h"
 #if XADMIN_WITH_SMTP
@@ -182,6 +184,7 @@ static bool XAdmin_BusinessStart(XS_HostInfo* host)
 	Auth_SyncURIS(); MemberAuth_ReloadCache();
 	G_BusinessStarted = true;
 	G_Ready = true;
+	Sched_Start(); /* 全局配置与内建任务完成同步后再启动调度线程。 */
 	Session_StartTimer(host);
 	printf("[xadmin] ready; database=%s/main.db\n", DBPath);
 	return true;

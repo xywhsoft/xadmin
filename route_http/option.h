@@ -95,6 +95,7 @@ void Request_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 		int64 iAuthLevelRequired;
 		int64 iAuthLevelUser = 0;
 		bool bRet;
+		str sError = NULL;
 
 		if ( tblBody == NULL ) {
 			Form_ReplyError(objResp, "请求数据格式错误");
@@ -131,10 +132,11 @@ void Request_Option(XS_ServerObject objServer, XS_HostObject objHost, XS_Request
 			return;
 		}
 
-		bRet = Option_SaveFile(sFileName, tblData);
+		bRet = Option_SaveFile(sFileName, tblData, &sError);
 		xrtValueRelease(tblBody);
 		if ( !bRet ) {
-			Form_ReplyError(objResp, "配置保存失败");
+			Form_ReplyError(objResp, sError ? sError : "配置保存失败");
+			xrtFree(sError);
 			return;
 		}
 

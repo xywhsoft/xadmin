@@ -97,6 +97,7 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 		}
 		
 		ValueSetInt(tblRet, "count", iCount);
+		ValueSetInt(tblRet, "retentionDays", Global_Int("admin_log_retention_days"));
 		ValueSetText(tblRet, "message", "日志数据获取成功！");
 		ValueSetOwn(tblRet, "data", data);
 		
@@ -117,18 +118,18 @@ void Request_Logs(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestOb
 
 
 
-// 清理 7 天前的日志
+// 手动清理与计划任务共用保留期限
 void Request_Logs_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_RequestObject objReq, XS_ResponseObject objResp, xvalue* objSession)
 {
 	if ( (xsReqMethodID(objReq) == XHTTP_METHOD_POST) ) {
 		
 		// 清理数据库
-		xtime tDay7 = XAdmin_UnixNowUs() - (7LL * 24 * 60 * 60 * 1000000);
-		sqlite3_bind_int64(stmt_logs_clear, 1, tDay7);
+		int days = Global_Int("admin_log_retention_days");
+		sqlite3_bind_int64(stmt_logs_clear, 1, Logs_ExpiryCutoff(days));
 		if (ReplyIfWriteFailed(objResp, DB_Write(stmt_logs_clear, false))) return;
 		
 		// 返回结果
-		xsHttpReplyAuto(objResp, 200, HTTP_CT_JSON, "{\"result\": true, \"message\": \"7天前的日志已清理！\"}", 0);
+		xsHttpReplyFormat(objResp, 200, HTTP_CT_JSON, "{\"result\":true,\"message\":\"%d天前的日志已清理！\",\"retentionDays\":%d}", days, days);
 		
 	} else {
 		
@@ -137,5 +138,4 @@ void Request_Logs_Clear(XS_ServerObject objServer, XS_HostObject objHost, XS_Req
 		
 	}
 }
-
 

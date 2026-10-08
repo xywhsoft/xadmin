@@ -1,14 +1,23 @@
-/* v1 前后台会话语义不变：独立 Cookie、空闲续期、2h/24h 过期。
+/* 前后台使用独立 Cookie、空闲续期；后台期限由全局配置控制，默认 2h。
  * Map 拥有一份引用，请求再持有一份，注销后当前请求仍能安全收尾。
  * 本模块只在 G_RequestLock 内使用；本阶段会话随脚本代销毁，重载后重新登录。
  * 不导出可能落后于注销操作的会话快照，也不跨代保留 TCC 回调地址。
  */
-#define SESSION_EXPIRE_ADMIN 7200
+#define ADMIN_SESSION_TIMEOUT_OPTION "admin_session_timeout_minutes"
+#define ADMIN_REMEMBER_OPTION "admin_remember_days"
 #define SESSION_EXPIRE_MEMBER 86400
 static xvalue* G_AdminSessions;
 static xvalue* G_MemberSessions;
 static XS_HostInfo* G_SessionOwner;
 static uint64 G_SessionTimer;
+static int Session_AdminTimeoutSeconds(void)
+{
+	return Global_Int(ADMIN_SESSION_TIMEOUT_OPTION) * 60;
+}
+static int Session_AdminRememberSeconds(void)
+{
+	return Global_Int(ADMIN_REMEMBER_OPTION) * 86400;
+}
 static bool Session_IsExpired(xvalue* session)
 {
 	return !session || xrtValueType(session) != XVALUE_OBJECT || XAdmin_UnixNowUs() > ValueInt(session, "_expireTime");
@@ -25,14 +34,20 @@ static xvalue* Session_Create(int seconds)
 	ValueSetInt(value, "_expireTime", now + (int64)seconds * 1000000);
 	return value;
 }
-static xvalue* Session_CreateAdmin(const char* id) { (void)id; return Session_Create(SESSION_EXPIRE_ADMIN); }
+static xvalue* Session_CreateAdmin(const char* id, bool remember)
+{
+	(void)id;
+	xvalue* value = Session_Create(remember ? Session_AdminRememberSeconds() : Session_AdminTimeoutSeconds());
+	ValueSetBool(value, "_remember", remember);
+	return value;
+}
 static xvalue* Session_CreateMember(const char* id) { (void)id; return Session_Create(SESSION_EXPIRE_MEMBER); }
 static bool Session_StoreAdmin(const char* id, xvalue* session) { bool ok = id && *id && session && xrtValueObjectSet(G_AdminSessions, xrtStrView(id), session); if (ok) Session_EnforceAccountCap(G_AdminSessions, session); return ok; }
 static bool Session_StoreMember(const char* id, xvalue* session) { bool ok = id && *id && session && xrtValueObjectSet(G_MemberSessions, xrtStrView(id), session); if (ok) Session_EnforceAccountCap(G_MemberSessions, session); return ok; }
 static void Session_RemoveAdminByID(const char* id) { if (id) xrtValueObjectRemove(G_AdminSessions, xrtStrView(id)); }
 static void Session_RemoveMemberByID(const char* id) { if (id) xrtValueObjectRemove(G_MemberSessions, xrtStrView(id)); }
 /* R4：同账号会话数上限；超出按 _activeTime 踢最旧（登录即续期，
- * 最旧即最久未活跃）。固定上限 5，兼容多端登录与既有测试的双会话。 */
+ * 最旧即最久未活跃）。后台上限读取全局配置，旧会员会话保持原上限。 */
 #define SESSION_PER_ACCOUNT 5
 static size_t Session_CountAccount(xvalue* sessions, int64 account)
 {
@@ -71,8 +86,23 @@ static void Session_EnforceAccountCap(xvalue* sessions, xvalue* session)
 {
 	int64 account = ValueInt(session, "id");
 	if (account <= 0) return;
-	while (Session_CountAccount(sessions, account) > SESSION_PER_ACCOUNT)
+	int limit = sessions == G_AdminSessions ? Global_Int("admin_session_limit") : SESSION_PER_ACCOUNT;
+	while (Session_CountAccount(sessions, account) > (size_t)limit)
 		Session_DropOldestAccount(sessions, account);
+}
+static void Session_RefreshAdminLimit(void)
+{
+	xvalue* accounts = ValueArray(); xvalueiter it = {0}; xvaluekey key; xvalue* session;
+	if (xrtValueIterBegin(G_AdminSessions, &it)) {
+		while ((session = xrtValueIterNext(&it, &key))) ValueArrayOwn(accounts, xrtValueInt(ValueInt(session, "id")));
+		xrtValueIterEnd(&it);
+	}
+	for (size_t i = 0; i < ValueCount(accounts); i++) {
+		int64 account = ValueIntOf(xrtValueArrayGet(accounts, i));
+		while (Session_CountAccount(G_AdminSessions, account) > (size_t)Global_Int("admin_session_limit"))
+			Session_DropOldestAccount(G_AdminSessions, account);
+	}
+	xrtValueRelease(accounts);
 }
 
 static void Session_Extend(xvalue* session, int seconds)
@@ -81,8 +111,25 @@ static void Session_Extend(xvalue* session, int seconds)
 	ValueSetInt(session, "_activeTime", now);
 	ValueSetInt(session, "_expireTime", now + (int64)seconds * 1000000);
 }
-static void Session_ExtendAdmin(xvalue* value) { Session_Extend(value, SESSION_EXPIRE_ADMIN); }
+static void Session_ExtendAdmin(xvalue* value)
+{
+	if (ValueBool(value, "_remember")) ValueSetInt(value, "_activeTime", XAdmin_UnixNowUs());
+	else Session_Extend(value, Session_AdminTimeoutSeconds());
+}
 static void Session_ExtendMember(xvalue* value) { Session_Extend(value, SESSION_EXPIRE_MEMBER); }
+/* 配置变更按最后活跃时间重算尚未过期的会话；不会复活过期或撤销的会话。 */
+static void Session_RefreshAdminTimeout(void)
+{
+	xvalueiter it = {0}; xvaluekey key; xvalue* session;
+	int seconds = Session_AdminTimeoutSeconds();
+	if (xrtValueIterBegin(G_AdminSessions, &it)) {
+		while ((session = xrtValueIterNext(&it, &key))) {
+			if (!Session_IsExpired(session) && !ValueBool(session, "_remember"))
+				ValueSetInt(session, "_expireTime", ValueInt(session, "_activeTime") + (int64)seconds * 1000000);
+		}
+		xrtValueIterEnd(&it);
+	}
+}
 static xvalue* Session_Acquire(bool admin, const char* id)
 {
 	xvalue* map = admin ? G_AdminSessions : G_MemberSessions;
@@ -182,7 +229,7 @@ static void Session_Unit(void)
 	xrtValueRelease(G_AdminSessions); xrtValueRelease(G_MemberSessions);
 	G_AdminSessions = G_MemberSessions = NULL;
 }
-/* 后台同源页面使用 Lax；HTTPS 才设置 Secure。保留 v1 的记住登录期限。
+/* 后台同源页面使用 Lax；HTTPS 才设置 Secure。记住登录的期限由调用方读取全局配置。
  * 会员 API 的跨站 Cookie 策略本阶段不改；完整 CSRF 防护另行单独回归。 */
 static char* Session_AdminHeaders(XAdminRequest* req, const char* id, int max_age, const char* location)
 {

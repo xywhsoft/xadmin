@@ -42,6 +42,7 @@ function fixture(admin) {
   let serial = 0;
   const context = vm.createContext({
     console, crypto: webcrypto, TextEncoder, Uint8Array, Blob, AbortController, Event,
+    location: {hash: '',},
     confirm: () => true,
     FormData: class {constructor(form) {this.form = form;}get(key) {return this.form.elements[key].value;}},
     setTimeout(fn) {const id = ++serial;timers.set(id, fn);return id;}, clearTimeout(id) {timers.delete(id);},

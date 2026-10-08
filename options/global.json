@@ -39,6 +39,139 @@
 			],
 			"title":	"全局配置"
 		}, {
+		  "title": "后台登录",
+		  "options": [
+		    {
+		      "name": "admin_session_timeout_minutes",
+		      "title": "后台登录保持时间（分钟）",
+		      "desc": "未勾选记住登录时的空闲期限；有效操作续期，保存后立即调整现有普通会话。",
+		      "type": "int",
+		      "value": 120,
+		      "required": true,
+		      "min": 1,
+		      "max": 43200,
+		      "step": 1
+		    },
+		    {
+		      "name": "admin_remember_days",
+		      "title": "记住登录保留时间（天）",
+		      "desc": "勾选记住登录后，Cookie 和服务器会话均从登录时起保留指定天数，操作不会延长到期日；仅用于后续登录。服务重启或重载仍需重新登录。",
+		      "type": "int",
+		      "value": 7,
+		      "required": true,
+		      "min": 1,
+		      "max": 30,
+		      "step": 1
+		    },
+		    {
+		      "name": "admin_session_limit",
+		      "title": "同账号最多登录数量",
+		      "desc": "超出上限时退出最久未活跃的后台会话；降低上限后立即执行。",
+		      "type": "int",
+		      "value": 5,
+		      "required": true,
+		      "min": 1,
+		      "max": 100,
+		      "step": 1
+		    }
+		  ]
+		}, {
+		  "title": "后台登录保护",
+		  "options": [
+		    {
+		      "name": "admin_login_failure_limit",
+		      "title": "登录失败锁定次数",
+		      "desc": "同一 IP 的后台登录失败达到此次数后进入冷却；登录成功清零。",
+		      "type": "int",
+		      "value": 5,
+		      "required": true,
+		      "min": 1,
+		      "max": 100,
+		      "step": 1
+		    },
+		    {
+		      "name": "admin_login_cooldown_seconds",
+		      "title": "登录失败初始冷却（秒）",
+		      "desc": "首次锁定的冷却时间；连续再次触发时按触发次数递增。新锁定使用当前配置。",
+		      "type": "int",
+		      "value": 300,
+		      "required": true,
+		      "min": 1,
+		      "max": 86400,
+		      "step": 1
+		    }
+		  ]
+		}, {
+		  "title": "短信与邮箱验证码",
+		  "options": [
+		    {
+		      "name": "verification_code_ttl_seconds",
+		      "title": "验证码有效期（秒）",
+		      "desc": "新短信、邮箱验证码的有效期，同时用于发送内容和接口返回。",
+		      "type": "int",
+		      "value": 300,
+		      "required": true,
+		      "min": 30,
+		      "max": 3600,
+		      "step": 1
+		    },
+		    {
+		      "name": "verification_send_interval_seconds",
+		      "title": "同一目标发送间隔（秒）",
+		      "desc": "同一手机号或邮箱在此间隔内最多发送一次；已有频率窗口到期后使用新间隔。",
+		      "type": "int",
+		      "value": 60,
+		      "required": true,
+		      "min": 1,
+		      "max": 3600,
+		      "step": 1
+		    },
+		    {
+		      "name": "verification_ip_limit_per_hour",
+		      "title": "每 IP 每小时发送次数",
+		      "desc": "限制同一 IP 每小时申请短信、邮箱验证码的次数。",
+		      "type": "int",
+		      "value": 20,
+		      "required": true,
+		      "min": 1,
+		      "max": 10000,
+		      "step": 1
+		    }
+		  ]
+		}, {
+		  "title": "后台日志",
+		  "options": [
+		    {
+		      "name": "admin_log_retention_days",
+		      "title": "操作日志保留天数",
+		      "desc": "手动清理和每日自动清理共用，按日志时间删除超过保留期限的后台操作日志。",
+		      "type": "int",
+		      "value": 7,
+		      "required": true,
+		      "min": 1,
+		      "max": 3650,
+		      "step": 1
+		    },
+		    {
+		      "name": "admin_log_auto_cleanup",
+		      "title": "每天自动清理操作日志",
+		      "desc": "开启后自动维护系统计划任务；关闭后停止自动清理，仍可手动清理。",
+		      "type": "switch",
+		      "value": false
+		    },
+		    {
+		      "name": "admin_log_cleanup_hour",
+		      "title": "每日清理时间（小时）",
+		      "desc": "按服务器本地时区每天此小时整点执行；范围 0–23。停机错过后启动补跑一次，执行记录可在计划任务中查看。",
+		      "type": "int",
+		      "value": 3,
+		      "required": true,
+		      "min": 0,
+		      "max": 23,
+		      "step": 1
+		    }
+		  ]
+		}, {
 			"style":	"",
 			"options":	[
 				{
